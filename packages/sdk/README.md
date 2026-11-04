@@ -1,6 +1,6 @@
-# threecat M0 public SDK
+# threecat public SDK
 
-This is an implemented compiler prototype, not the complete production engine. The public source entry is src/index.ts. Game code imports only @threecat/sdk; the engine compiler resolves that alias even for an external game directory with no package.json or Git metadata.
+M1 provides a compiled SDK and an authoritative CPU runtime foundation, not the complete first-release engine. The public source entry is src/index.ts. Game code imports only @threecat/sdk; the compiler resolves that alias for external directories without Git. Current use: docs/M1-USAGE.md. Generated signatures: docs/api/REFERENCE.md.
 
 ## Authoring model
 
@@ -21,6 +21,6 @@ Graphs do not expose Three.js, TSL, GPUDevice or source shader strings. The rend
 
 ## Current boundaries
 
-Geometry: box, sphere and plane. Lights: directional and point. Components: number, boolean, string and vec3 fields. Systems: synchronous update phase only. Prefabs support inheritance and per-field component overrides. Assets are declared local texture/binary files; this prototype copies and hashes them but does not implement the final asset optimization pipeline.
+Geometry: box, sphere and plane. Lights: directional and point. Components: number, boolean, string and vec3 fields. Systems use input/prePhysics/physics/postPhysics/update/presentation with dependencies and explicit read/write access. SystemContext includes fixed time, random source, events and queued entity commands. Prefabs support inheritance and per-field component overrides. Asset conversion and optimized rendering are extended in M2.
 
-Full physics, animation, UI, world streaming, graphical programming and production ECS APIs from the product plan are not implemented in this SDK prototype.
+The SoA world, generation-checked entities, schedule, atomic structural commits, resource lifecycle, snapshots and controlled replay are implemented. Full physics, animation, UI, world streaming and production graphical programming from the complete product plan remain later milestones.

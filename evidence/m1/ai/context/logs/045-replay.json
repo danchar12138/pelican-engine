@@ -1,0 +1,12 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "control-17a7d1c8-a46c-4d29-8c20-c8bd6e40514f",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [],
+  "data": {
+    "status": "passed",
+    "actionsExecuted": 25,
+    "fault": null
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "format": "threecat.version",
+  "version": 1,
+  "engineVersion": "0.1.0-m1.0",
+  "sdkVersion": "0.1.0-m1.0",
+  "compilerVersion": "6.0.3",
+  "irVersion": 1,
+  "systemMetadataVersion": 1,
+  "schemaHash": "21ac97d3a4e740e05e5eba1aac67691644298beb9c403413e188693f132e4023"
+}

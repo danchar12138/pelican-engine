@@ -5,3 +5,5 @@
 *.wgsl text eol=lf
 *.png binary
 *.zip binary
+# Keep this historical generated fixture byte-stable across Git and ZIP validation.
+examples/m0/threecat.project.json -text whitespace=cr-at-eol

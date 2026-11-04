@@ -1,4 +1,4 @@
-/** M0 release gate and portable ZIP packaging. Never invokes Git, gh, or a shell. */
+/** Manifest-driven milestone gates and portable ZIP packaging. Never invokes Git, gh, or a shell. */
 import { createHash, randomUUID } from "node:crypto";
 import {
   lstat,
@@ -18,6 +18,7 @@ import { deflateRawSync } from "node:zlib";
 import { sourceFingerprint } from "./source-fingerprint.ts";
 
 export const PROTOCOL_VERSION = "0.1.0" as const;
+/** Legacy fixture version; live releases use engine.manifest.json. */
 export const M0_VERSION = "0.0.1-m0.0";
 export const REQUIRED_CHECKS = [
   "environment",
@@ -29,10 +30,55 @@ export const REQUIRED_CHECKS = [
   "unit-tests",
   "deploy",
 ] as const;
+export type Milestone =
+  | "M0"
+  | "M1"
+  | "M2"
+  | "M3"
+  | "M4"
+  | "M5"
+  | "M6"
+  | "M7"
+  | "M8";
+export const M1_REQUIRED_CHECKS = [
+  "environment",
+  "typecheck",
+  "unit-tests",
+  "compiler",
+  "runtime",
+  "resources",
+  "scheduler",
+  "protocol",
+  "unattended",
+  "render",
+  "deploy",
+  "ai-workflow",
+] as const;
+interface ReleaseProfile {
+  scope: string;
+  requiredChecks: readonly string[];
+  requireSourceIdentity: boolean;
+}
+/** Add later profiles only alongside their implemented verifier and release-rule tests. */
+export const RELEASE_PROFILES: Readonly<
+  Partial<Record<Milestone, Readonly<ReleaseProfile>>>
+> = Object.freeze({
+  M0: Object.freeze({
+    scope: "risk-prototypes",
+    requiredChecks: REQUIRED_CHECKS,
+    requireSourceIdentity: false,
+  }),
+  M1: Object.freeze({
+    scope: "runtime-foundation",
+    requiredChecks: M1_REQUIRED_CHECKS,
+    requireSourceIdentity: true,
+  }),
+});
+const VERSION_PATTERN =
+  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const MAX_FILE = 128 * 1024 * 1024;
 const MAX_TOTAL = 512 * 1024 * 1024;
 const MAX_FILES = 60_000;
-const ACCEPTANCE = "evidence/m0/acceptance.json";
 const NOTICE_PATHS = [
   "THIRD_PARTY_NOTICES.md",
   "THIRD_PARTY_NOTICES.txt",
@@ -77,7 +123,7 @@ export interface ReleaseDiagnostic {
 }
 export interface ReleaseEnvelope<T> {
   protocolVersion: typeof PROTOCOL_VERSION;
-  taskId: "M0-release";
+  taskId: `${Milestone}-release` | "release";
   status: "succeeded" | "failed";
   diagnostics: ReleaseDiagnostic[];
   artifacts: { type: string; path: string }[];
@@ -95,14 +141,15 @@ export interface CheckRecord {
 }
 export interface ReleaseInfo {
   engineVersion: string;
-  milestone: "M0";
-  scope: "risk-prototypes";
-  prerelease: true;
+  milestone: Milestone;
+  scope: string;
+  prerelease: boolean;
   checks: CheckRecord[];
   limitations: string[];
   sourceFileCount: number;
   distFileCount: number;
   thirdPartyNotice: string;
+  sourceIdentity?: { sha256: string };
 }
 interface Entry {
   path: string;
@@ -121,9 +168,9 @@ export interface ArchiveManifest extends FileDigest {
 export interface ReleaseManifest {
   protocolVersion: typeof PROTOCOL_VERSION;
   engineVersion: string;
-  milestone: "M0";
-  scope: "risk-prototypes";
-  prerelease: true;
+  milestone: Milestone;
+  scope: string;
+  prerelease: boolean;
   archives: ArchiveManifest[];
   artifacts: FileDigest[];
 }
@@ -164,10 +211,11 @@ function digest(entry: Entry): FileDigest {
 function ok<T>(
   data: T,
   artifacts: ReleaseEnvelope<T>["artifacts"] = [],
+  milestone?: Milestone,
 ): ReleaseEnvelope<T> {
   return {
     protocolVersion: PROTOCOL_VERSION,
-    taskId: "M0-release",
+    taskId: milestone ? `${milestone}-release` : "release",
     status: "succeeded",
     diagnostics: [],
     artifacts,
@@ -185,7 +233,7 @@ function failed<T>(error: unknown): ReleaseEnvelope<T> {
         );
   return {
     protocolVersion: PROTOCOL_VERSION,
-    taskId: "M0-release",
+    taskId: "release",
     status: "failed",
     diagnostics: [
       {
@@ -390,7 +438,7 @@ function validateGpuEvidence(entries: Entry[]): void {
     ensure(
       !software,
       "TCREL_GPU_SOFTWARE",
-      "Render evidence reports a software/fallback GPU and cannot establish M0 hardware acceptance.",
+      "Render evidence reports a software/fallback GPU and cannot establish hardware acceptance.",
     );
     if (backend && nonFallback && identity) found = true;
   }
@@ -412,14 +460,54 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
     "TCREL_ROOT",
     "Project root must be a directory.",
   );
-  // Read acceptance first: a missing gate fails before enumerating any workspace.
-  const acceptancePath = path.join(root, ACCEPTANCE);
-  for (const segment of ["evidence", "evidence/m0", ACCEPTANCE]) {
+  // Manifest selects the phase before reading acceptance; never fall back to an older report.
+  const manifestContent = await readFile(
+    path.join(root, "engine.manifest.json"),
+  );
+  const initialEngine = parseJson(
+    { path: "engine.manifest.json", content: manifestContent },
+    "engine.manifest.json",
+  );
+  ensure(
+    typeof initialEngine.milestone === "string" &&
+      /^M[0-8]$/.test(initialEngine.milestone),
+    "TCREL_MILESTONE",
+    "engine.manifest.json must declare a milestone from M0 through M8.",
+  );
+  const milestone = initialEngine.milestone as Milestone;
+  const acceptanceName = `evidence/${milestone.toLowerCase()}/acceptance.json`;
+  const evidenceDirectory = `evidence/${milestone.toLowerCase()}/`;
+  ensure(
+    milestone === "M0" ||
+      (typeof initialEngine.releaseScope === "string" &&
+        /^[a-z][a-z0-9-]*$/.test(initialEngine.releaseScope)),
+    "TCREL_RELEASE_SCOPE",
+    "M1 and later milestones require an explicit releaseScope in engine.manifest.json.",
+  );
+  const profile = RELEASE_PROFILES[milestone];
+  ensure(
+    profile,
+    "TCREL_PROFILE",
+    `Release gates for ${milestone} are not implemented; no earlier profile may substitute.`,
+  );
+  ensure(
+    (milestone === "M0" && initialEngine.releaseScope === undefined) ||
+      initialEngine.releaseScope === profile.scope,
+    "TCREL_RELEASE_SCOPE",
+    `Manifest releaseScope for ${milestone} must be ${profile.scope}.`,
+  );
+  // A missing gate fails before enumerating the workspace.
+  const acceptancePath = path.join(root, acceptanceName);
+  for (const segment of [
+    "evidence",
+    evidenceDirectory.slice(0, -1),
+    acceptanceName,
+  ]) {
     const stat = await lstat(path.join(root, segment)).catch(() => null);
     ensure(
       stat && !stat.isSymbolicLink(),
       "TCREL_ACCEPTANCE_MISSING",
-      `${ACCEPTANCE} must exist inside the project without links.`,
+      `${acceptanceName} must exist inside the project without links.`,
     );
   }
   const acceptanceStat = await lstat(acceptancePath);
@@ -433,9 +521,14 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
   const source = await collect(root, false, budget);
   const map = new Map(source.map((e) => [e.path, e]));
   ensure(
-    map.get(ACCEPTANCE)?.content.equals(initialAcceptance),
+    map.get(acceptanceName)?.content.equals(initialAcceptance),
     "TCREL_INPUT_CHANGED",
     "Acceptance changed while collecting release inputs.",
+  );
+  ensure(
+    map.get("engine.manifest.json")?.content.equals(manifestContent),
+    "TCREL_INPUT_CHANGED",
+    "Engine manifest changed while collecting release inputs.",
   );
   const pkg = parseJson(map.get("package.json"), "package.json");
   const engine = parseJson(
@@ -445,12 +538,13 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
   const lock = parseJson(map.get("package-lock.json"), "package-lock.json");
   ensure(
     pkg.name === "threecat" &&
-      pkg.version === M0_VERSION &&
+      typeof pkg.version === "string" &&
+      VERSION_PATTERN.test(pkg.version) &&
       engine.name === "threecat" &&
       engine.version === pkg.version &&
-      engine.milestone === "M0",
+      engine.milestone === milestone,
     "TCREL_VERSION",
-    `M0 requires matching package and engine versions: ${M0_VERSION}.`,
+    `Package and engine must declare matching valid versions for ${milestone}.`,
   );
   ensure(
     lock.version === pkg.version &&
@@ -485,26 +579,40 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
       "TCREL_REQUIRED_FILE",
       `Source distribution requires ${key}.`,
     );
-  const acceptance = parseJson(map.get(ACCEPTANCE), ACCEPTANCE);
+  const acceptance = parseJson(map.get(acceptanceName), acceptanceName);
   ensure(
-    acceptance.milestone === "M0" && acceptance.scope === "risk-prototypes",
+    acceptance.milestone === milestone && acceptance.scope === profile.scope,
     "TCREL_ACCEPTANCE_SCOPE",
-    "Acceptance must identify M0 and scope: risk-prototypes.",
+    `Acceptance must identify ${milestone} and scope: ${profile.scope}.`,
   );
   ensure(
     acceptance.status === "passed",
     "TCREL_ACCEPTANCE_STATUS",
-    "M0 acceptance has not passed.",
+    `${milestone} acceptance has not passed.`,
   );
   if (
-    object(acceptance.sourceIdentity) &&
-    typeof acceptance.sourceIdentity.sha256 === "string"
-  )
+    profile.requireSourceIdentity ||
+    acceptance.sourceIdentity !== undefined
+  ) {
+    ensure(
+      object(acceptance.sourceIdentity) &&
+        typeof acceptance.sourceIdentity.sha256 === "string" &&
+        /^[a-f0-9]{64}$/.test(acceptance.sourceIdentity.sha256),
+      "TCREL_SOURCE_IDENTITY",
+      "Acceptance must record a valid sourceIdentity.sha256 for the accepted executable sources and lockfiles.",
+    );
     ensure(
       acceptance.sourceIdentity.sha256 ===
         (await sourceFingerprint(root)).sha256,
       "TCREL_EVIDENCE_STALE",
-      "Executable sources changed after M0 acceptance; rerun the hardware and external AI validations.",
+      `Executable sources changed after ${milestone} acceptance; rerun hardware and external AI validation.`,
+    );
+  }
+  if (milestone !== "M0")
+    ensure(
+      acceptance.engineVersion === pkg.version,
+      "TCREL_VERSION",
+      "Current-phase acceptance must explicitly record the matching engineVersion.",
     );
   for (const record of [engine, acceptance]) {
     if (record.protocolVersion !== undefined)
@@ -526,7 +634,7 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
       acceptance.limitations.length > 0 &&
       acceptance.limitations.every((v) => typeof v === "string" && v.trim()),
     "TCREL_LIMITATIONS",
-    "M0 must explicitly document nonempty prototype limitations.",
+    `${milestone} must explicitly document nonempty release limitations.`,
   );
   ensure(
     Array.isArray(acceptance.checks),
@@ -584,16 +692,16 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
         `Missing, empty or excluded evidence file: ${file}.`,
       );
     ensure(
-      !files.includes(ACCEPTANCE),
+      !files.includes(acceptanceName),
       "TCREL_EVIDENCE_FILES",
       "Acceptance cannot serve as its own evidence.",
     );
     checks.push({ id: record.id, status: "passed", evidence: files });
   }
   ensure(
-    REQUIRED_CHECKS.every((id) => used.has(id)),
+    profile.requiredChecks.every((id) => used.has(id)),
     "TCREL_CHECKS",
-    `Required checks: ${REQUIRED_CHECKS.join(", ")}.`,
+    `Required ${milestone} checks: ${profile.requiredChecks.join(", ")}.`,
   );
   validateGpuEvidence(
     checks
@@ -605,11 +713,18 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
     source,
     dist,
     info: {
-      engineVersion: M0_VERSION,
-      milestone: "M0",
-      scope: "risk-prototypes",
+      engineVersion: pkg.version,
+      milestone,
+      scope: profile.scope,
       prerelease: true,
       checks,
+      ...(object(acceptance.sourceIdentity)
+        ? {
+            sourceIdentity: {
+              sha256: acceptance.sourceIdentity.sha256 as string,
+            },
+          }
+        : {}),
       limitations: (acceptance.limitations as string[]).map((v) =>
         redactedText(v, root),
       ),
@@ -624,7 +739,8 @@ export async function checkRelease(
   options: ReleaseOptions = {},
 ): Promise<ReleaseEnvelope<ReleaseInfo>> {
   try {
-    return ok((await inspect(options)).info);
+    const { info } = await inspect(options);
+    return ok(info, [], info.milestone);
   } catch (error) {
     return failed(error);
   }
@@ -755,7 +871,9 @@ export async function packRelease(
       content: zip(distEntries),
     };
     const evidenceFiles = source
-      .filter((e) => e.path.startsWith("evidence/m0/"))
+      .filter((e) =>
+        e.path.startsWith(`evidence/${info.milestone.toLowerCase()}/`),
+      )
       .map(digest);
     const evidence: Entry = {
       path: `${prefix}-evidence.json`,
@@ -765,10 +883,14 @@ export async function packRelease(
         evidenceFiles,
       }),
     };
+    const releaseDescription =
+      info.milestone === "M0"
+        ? "Prerelease: this is a risk-prototype milestone, not a complete game engine.\n\nIncludes compiler, dynamic WebGPU rendering, interactive simulation and external AI workflow evidence."
+        : `Prerelease: ${info.milestone} ${info.scope} delivers only the accepted phase gates below, not a complete game engine.`;
     const notes: Entry = {
       path: "RELEASE_NOTES.md",
       content: Buffer.from(
-        `# threecat ${info.engineVersion} — M0 risk prototypes\n\nPrerelease: this is a risk-prototype milestone, not a complete game engine.\n\nIncludes compiler, dynamic WebGPU rendering, interactive simulation and external AI workflow evidence. Software BVH tracing on a real GPU does not imply hardware ray-tracing unit support. No 1080p/60 or complete M1–M8 capability claim is made.\n\n## Accepted checks\n\n${info.checks.map((c) => `- ${c.id}: ${c.status}`).join("\n")}\n\n## Known limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\n## Assets\n\n- Source ZIP: includes evidence/m0, lockfile, MIT license and third-party notices; excludes dependencies, local secrets and caches.\n- Dist ZIP: deploy its extracted contents to a Web server.\n- Evidence summary, file-level manifest and SHA256SUMS: verify before use.\n\nSee docs/RELEASING.md in the source archive for reproduction and publishing rules.\n`,
+        `# threecat ${info.engineVersion} — ${info.milestone} ${info.scope}\n\n${releaseDescription} Software BVH tracing on a real GPU does not imply hardware ray-tracing unit support. No 1080p/60 or complete M1–M8 capability claim is made.\n\n## Accepted checks\n\n${info.checks.map((c) => `- ${c.id}: ${c.status}`).join("\n")}\n\n## Known limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\n## Assets\n\n- Source ZIP: includes evidence/${info.milestone.toLowerCase()}, lockfile, MIT license and third-party notices; excludes dependencies, local secrets and caches.\n- Dist ZIP: deploy its extracted contents to a Web server.\n- Evidence summary, file-level manifest and SHA256SUMS: verify before use.\n\nSee docs/RELEASING.md in the source archive for reproduction and publishing rules.\n`,
         "utf8",
       ),
     };
@@ -780,7 +902,7 @@ export async function packRelease(
         engineVersion: info.engineVersion,
         milestone: info.milestone,
         scope: info.scope,
-        prerelease: true,
+        prerelease: info.prerelease,
         archives: [
           {
             ...digest(sourceZip),
@@ -829,6 +951,7 @@ export async function packRelease(
         type: e.path.endsWith(".zip") ? "archive" : "release-metadata",
         path: `${relative}/${e.path}`,
       })),
+      info.milestone,
     );
   } catch (error) {
     return failed(error);

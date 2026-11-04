@@ -1,8 +1,8 @@
 {
   "name": "threecat",
-  "version": "0.0.1-m0.0",
-  "milestone": "M0",
-  "stage": "risk-prototype",
+  "version": "0.1.0-m1.0",
+  "milestone": "M1",
+  "stage": "runtime-foundation",
   "license": "MIT",
   "protocolVersion": "0.1.0",
   "agentEntry": "AGENTS.md",
@@ -10,5 +10,6 @@
   "renderer": "webgpu-only",
   "publicApi": "packages/sdk/src/index.ts",
   "workflow": "docs/AI-WORKFLOW.md",
-  "releasePolicy": "docs/RELEASING.md"
+  "releasePolicy": "docs/RELEASING.md",
+  "releaseScope": "runtime-foundation"
 }

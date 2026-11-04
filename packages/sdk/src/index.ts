@@ -1,5 +1,5 @@
-/** threecat M0 public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.0.1-m0.0";
+/** threecat public API. No renderer or GPU implementation types escape this module. */
+export const SDK_VERSION = "0.1.0-m1.0";
 export type Vec3 = readonly [number, number, number];
 export interface Transform {
   position: Vec3;
@@ -49,7 +49,69 @@ export interface EngineFacade {
   ): void;
   setComponent(id: string, component: string, value: ComponentData): void;
   query(component: ComponentDefinition | string): readonly string[];
+  /** Compiler/host integration. Game systems are scheduled by the engine, not by game code. */
+  runGameSystems?(systems: readonly SystemDefinition[], dt: number): void;
+  configureGameSystems?(systems: readonly SystemDefinition[]): void;
 }
+export interface EntityHandle {
+  readonly world: number;
+  readonly index: number;
+  readonly generation: number;
+}
+export type EntityRef = string | EntityHandle;
+export interface SpawnInput {
+  id: string;
+  parent?: string;
+  transform?: TransformPatch;
+  components?: Record<string, ComponentData>;
+}
+export interface EntityCommands {
+  resolve(id: string): EntityHandle;
+  isAlive(entity: EntityRef): boolean;
+  getTransform(entity: EntityRef): Transform;
+  setTransform(entity: EntityRef, patch: TransformPatch): void;
+  getComponent(entity: EntityRef, component: string): ComponentData;
+  setComponent(
+    entity: EntityRef,
+    component: string,
+    patch: ComponentData,
+  ): void;
+  /** Structural changes become visible at the engine's next command-commit boundary. */
+  spawn(input: SpawnInput): void;
+  destroy(entity: EntityRef): void;
+  addComponent(
+    entity: EntityRef,
+    component: string,
+    data?: ComponentData,
+  ): void;
+  removeComponent(entity: EntityRef, component: string): void;
+}
+export interface GameEvent {
+  readonly type: string;
+  readonly tick: number;
+  readonly sequence: number;
+  readonly payload: unknown;
+}
+export interface SystemContext extends EngineFacade {
+  readonly time: {
+    readonly tick: number;
+    readonly elapsed: number;
+    readonly fixedDt: number;
+  };
+  readonly entities: EntityCommands;
+  random(): number;
+  emit(type: string, payload: unknown): void;
+  events(type?: string): readonly GameEvent[];
+}
+export const SYSTEM_PHASES = [
+  "input",
+  "prePhysics",
+  "physics",
+  "postPhysics",
+  "update",
+  "presentation",
+] as const;
+export type SystemPhase = (typeof SYSTEM_PHASES)[number];
 export type Geometry =
   | { kind: "box"; size?: Vec3 }
   | { kind: "sphere"; radius?: number; segments?: number }
@@ -138,8 +200,13 @@ export interface SceneDefinition extends SceneInput {
 }
 export interface SystemInput {
   id: string;
-  phase?: "update";
-  run: (engine: EngineFacade, dt: number) => void;
+  phase?: SystemPhase;
+  before?: readonly string[];
+  after?: readonly string[];
+  reads?: readonly string[];
+  writes?: readonly string[];
+  structural?: boolean;
+  run: (engine: SystemContext, dt: number) => void;
 }
 export interface SystemDefinition extends SystemInput {
   readonly kind: "system";
@@ -195,6 +262,7 @@ export function instantiateGame(
 ): GameInstance {
   let disposed = false;
   const systems = [...(game.systems ?? [])];
+  engine.configureGameSystems?.(systems);
   return {
     update(dt) {
       if (disposed)
@@ -203,7 +271,24 @@ export function instantiateGame(
         throw new Error(
           "TC_RUNTIME_DT: Expected a finite, non-negative timestep.",
         );
-      for (const system of systems) system.run(engine, dt);
+      if (engine.runGameSystems) engine.runGameSystems(systems, dt);
+      else {
+        // Compatibility for the M0 facade harness; the M1 browser host always owns scheduling.
+        const context = new Proxy(engine, {
+          get(target, key, receiver) {
+            if (
+              ["time", "entities", "random", "emit", "events"].includes(
+                String(key),
+              )
+            )
+              throw new Error(
+                `TC_RUNTIME_SERVICE_UNAVAILABLE: ${String(key)} requires a threecat runtime host.`,
+              );
+            return Reflect.get(target, key, receiver);
+          },
+        }) as SystemContext;
+        for (const system of systems) system.run(context, dt);
+      }
     },
     dispose() {
       disposed = true;

@@ -1,0 +1,15 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "capture-1793800171954",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    {
+      "type": "file",
+      "path": "C:/Users/60459/AppData/Local/Temp/threecat M1 ZIP 中文 4Cw70u/acceptance-20261104-214329/evidence/zip-no-git/cold-raster.png"
+    }
+  ],
+  "data": {
+    "mode": "raster"
+  }
+}

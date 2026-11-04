@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { mapSourcePath } from "../experiments/compiler/source-map.ts";
+import { mapSourcePath } from "../packages/compiler/src/source-map.ts";
+import { resolveEnginePath } from "../packages/compiler/src/version.ts";
 test("source maps normalize Windows slash/case differences across engine and project drives", () => {
   const win = path.win32,
     project = "C:\\Users\\runner\\Temp\\game",
@@ -26,5 +27,71 @@ test("source maps normalize Windows slash/case differences across engine and pro
   assert.throws(
     () => mapSourcePath("E:/unexpected/private.ts", project, sdk, win),
     /TC_SOURCE_MAP_EXTERNAL/,
+  );
+});
+
+test("source maps resolve sourceRoot before clearing it and retain SDK identity across drives", () => {
+  const win = path.win32,
+    project = "C:\\games\\demo",
+    sdk = "D:\\engine\\packages\\sdk\\src\\index.ts";
+  assert.equal(
+    mapSourcePath("logic.ts", project, sdk, win, "../src"),
+    "src/logic.ts",
+  );
+  assert.equal(
+    mapSourcePath("index.ts", project, sdk, win, "D:/engine/packages/sdk/src"),
+    "threecat-sdk/index.ts",
+  );
+  assert.equal(
+    mapSourcePath(
+      "systems/types.ts",
+      project,
+      sdk,
+      win,
+      "D:/engine/packages/sdk/src",
+    ),
+    "threecat-sdk/systems/types.ts",
+  );
+  assert.equal(
+    mapSourcePath("C:/games/demo/game.ts", project, sdk, win, "D:/ignored"),
+    "game.ts",
+  );
+});
+
+test("source maps preserve POSIX case and map generated entries without leaking machine paths", () => {
+  const posix = path.posix,
+    project = "/game",
+    sdk = "/engine/sdk/index.ts";
+  assert.equal(
+    mapSourcePath("../src/game.ts", project, sdk, posix),
+    "src/game.ts",
+  );
+  assert.equal(
+    mapSourcePath("/engine/sdk/Index.ts", project, sdk, posix),
+    "threecat-sdk/Index.ts",
+  );
+  assert.equal(
+    mapSourcePath("\0threecat:game-entry", project, sdk, posix),
+    "threecat-generated-entry",
+  );
+  assert.equal(
+    mapSourcePath("/engine/sdk-other/private.ts", project, sdk, posix),
+    "../engine/sdk-other/private.ts",
+  );
+});
+
+test("engine lock paths support relative, absolute cross-drive and UNC Windows directories", () => {
+  const win = path.win32;
+  assert.equal(
+    resolveEnginePath("C:\\games\\demo", "../../engine", win),
+    "C:\\engine",
+  );
+  assert.equal(
+    resolveEnginePath("C:\\games\\demo", "D:/engines/threecat", win),
+    "D:\\engines\\threecat",
+  );
+  assert.equal(
+    resolveEnginePath("C:\\games\\demo", "//server/share/threecat", win),
+    "\\\\server\\share\\threecat",
   );
 });

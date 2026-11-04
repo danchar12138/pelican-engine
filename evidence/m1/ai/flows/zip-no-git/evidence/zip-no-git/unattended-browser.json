@@ -1,0 +1,3782 @@
+{
+  "kind": "zip-no-git",
+  "status": "passed",
+  "headless": false,
+  "interactionPolicy": {
+    "browserClicks": 0,
+    "browserKeyPresses": 0,
+    "humanTechnicalSteps": 0,
+    "bringToFrontCalls": 0
+  },
+  "readiness": {
+    "helper": "tools/browser-session.ts",
+    "polling": 100,
+    "nodeDeadlineMs": 30000,
+    "functionCallback": true
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "launchOptions": {
+    "headless": false,
+    "timeout": 30000,
+    "args": [
+      "--use-angle=d3d11",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-features=CalculateNativeWinOcclusion"
+    ]
+  },
+  "normalDevFirstSample": {
+    "inspection": {
+      "ready": true,
+      "playback": {
+        "playing": true,
+        "automation": false,
+        "state": "running"
+      },
+      "backend": "WebGPUBackend",
+      "adapter": {
+        "vendor": "nvidia",
+        "architecture": "blackwell",
+        "isFallbackAdapter": false,
+        "features": [
+          "depth32float-stencil8",
+          "rg11b10ufloat-renderable",
+          "texture-formats-tier1",
+          "bgra8unorm-storage",
+          "texture-compression-bc",
+          "dual-source-blending",
+          "core-features-and-limits",
+          "float32-filterable",
+          "indirect-first-instance",
+          "float32-blendable",
+          "subgroup-size-control",
+          "depth-clip-control",
+          "texture-compression-bc-sliced-3d",
+          "shader-f16",
+          "timestamp-query",
+          "texture-formats-tier2",
+          "clip-distances",
+          "primitive-index",
+          "texture-component-swizzle",
+          "subgroups"
+        ]
+      },
+      "mode": "raster",
+      "tick": 0,
+      "width": 960,
+      "height": 540,
+      "inputLog": [],
+      "triangleCount": 192,
+      "nodeCount": 127,
+      "generation": 1,
+      "geometryHash": 1003293342,
+      "objects": {
+        "box": [
+          -1.6,
+          0.5,
+          0
+        ],
+        "morph": 0.5,
+        "bone": 0,
+        "camera": [
+          4,
+          3,
+          6
+        ]
+      },
+      "errors": [],
+      "compiledIR": {
+        "format": "threecat.scene",
+        "version": 1,
+        "engineVersion": "0.1.0-m1.0",
+        "gameId": "m1-foundation",
+        "scene": {
+          "id": "foundation",
+          "camera": {
+            "position": [
+              4,
+              3,
+              6
+            ],
+            "target": [
+              0,
+              0.7,
+              0
+            ],
+            "fov": 45,
+            "near": 0.1,
+            "far": 1000
+          },
+          "environment": {
+            "background": "#111d2a",
+            "ambientIntensity": 1.1
+          },
+          "entities": [
+            {
+              "id": "spinner",
+              "transform": {
+                "position": [
+                  -0.9,
+                  0.8,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {
+                "Motion": {
+                  "speed": 1.2,
+                  "enabled": true
+                },
+                "Progress": {
+                  "ticks": 0,
+                  "lastRandom": 0,
+                  "events": 0
+                }
+              },
+              "mesh": {
+                "geometry": {
+                  "kind": "box",
+                  "size": [
+                    1.3,
+                    1.3,
+                    1.3
+                  ]
+                },
+                "material": "copper",
+                "castShadow": true,
+                "receiveShadow": true
+              }
+            },
+            {
+              "id": "orb",
+              "transform": {
+                "position": [
+                  1.1,
+                  0.7,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {},
+              "mesh": {
+                "geometry": {
+                  "kind": "sphere",
+                  "radius": 0.65
+                },
+                "material": "green",
+                "castShadow": true,
+                "receiveShadow": true
+              }
+            },
+            {
+              "id": "ground",
+              "transform": {
+                "position": [
+                  0,
+                  -0.1,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {},
+              "mesh": {
+                "geometry": {
+                  "kind": "box",
+                  "size": [
+                    12,
+                    0.2,
+                    12
+                  ]
+                },
+                "material": "floor",
+                "castShadow": true,
+                "receiveShadow": true
+              }
+            },
+            {
+              "id": "sun",
+              "transform": {
+                "position": [
+                  -3,
+                  7,
+                  4
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {},
+              "light": {
+                "kind": "directional",
+                "color": "#fff1d4",
+                "intensity": 4,
+                "castShadow": true
+              }
+            }
+          ]
+        },
+        "components": [
+          {
+            "id": "Motion",
+            "schema": {
+              "speed": {
+                "type": "number",
+                "default": 1.2
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "source": {
+              "file": "game.ts",
+              "line": 10,
+              "column": 23,
+              "length": 153
+            }
+          },
+          {
+            "id": "Progress",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              },
+              "lastRandom": {
+                "type": "number",
+                "default": 0
+              },
+              "events": {
+                "type": "number",
+                "default": 0
+              }
+            },
+            "source": {
+              "file": "game.ts",
+              "line": 17,
+              "column": 25,
+              "length": 197
+            }
+          }
+        ],
+        "prefabs": [],
+        "materials": [
+          {
+            "id": "copper",
+            "color": "#db7836",
+            "roughness": 0.26,
+            "metalness": 0.65,
+            "source": {
+              "file": "game.ts",
+              "line": 25,
+              "column": 16,
+              "length": 98
+            }
+          },
+          {
+            "id": "floor",
+            "color": "#71839a",
+            "roughness": 0.8,
+            "metalness": 0,
+            "source": {
+              "file": "game.ts",
+              "line": 31,
+              "column": 15,
+              "length": 65
+            }
+          },
+          {
+            "id": "green",
+            "color": "#27bd75",
+            "roughness": 0.45,
+            "metalness": 0,
+            "source": {
+              "file": "game.ts",
+              "line": 32,
+              "column": 15,
+              "length": 77
+            }
+          }
+        ],
+        "computes": [
+          {
+            "id": "pulse",
+            "count": 16,
+            "workgroupSize": 16,
+            "outputType": "float",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "clock",
+                  "op": "time"
+                },
+                {
+                  "id": "wave",
+                  "op": "sin",
+                  "inputs": [
+                    "clock"
+                  ]
+                }
+              ],
+              "output": "wave",
+              "nodeTypes": {
+                "clock": "float",
+                "wave": "float"
+              },
+              "outputType": "float"
+            },
+            "source": {
+              "file": "game.ts",
+              "line": 37,
+              "column": 15,
+              "length": 245
+            }
+          }
+        ],
+        "systems": [
+          {
+            "id": "spin",
+            "phase": "update",
+            "source": {
+              "file": "game.ts",
+              "line": 73,
+              "column": 14,
+              "length": 710
+            },
+            "reads": [
+              "Motion"
+            ],
+            "writes": [
+              "Transform",
+              "Progress"
+            ]
+          },
+          {
+            "id": "observe",
+            "phase": "postPhysics",
+            "source": {
+              "file": "game.ts",
+              "line": 95,
+              "column": 17,
+              "length": 381
+            },
+            "reads": [],
+            "writes": [
+              "Progress"
+            ]
+          },
+          {
+            "id": "input",
+            "phase": "input",
+            "source": {
+              "file": "game.ts",
+              "line": 50,
+              "column": 15,
+              "length": 705
+            },
+            "reads": [
+              "Motion"
+            ],
+            "writes": [
+              "Transform"
+            ]
+          }
+        ],
+        "assets": []
+      },
+      "runtime": {
+        "engineVersion": "0.1.0-m1.0",
+        "world": {
+          "entities": 4,
+          "capacity": 64,
+          "components": 2,
+          "pendingCommands": 0,
+          "revision": 0,
+          "disposed": false
+        },
+        "records": [
+          {
+            "id": "spinner",
+            "transform": {
+              "position": [
+                -0.9,
+                0.8,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Motion": {
+                "speed": 1.2,
+                "enabled": true
+              },
+              "Progress": {
+                "ticks": 0,
+                "lastRandom": 0,
+                "events": 0
+              }
+            }
+          },
+          {
+            "id": "orb",
+            "transform": {
+              "position": [
+                1.1,
+                0.7,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "ground",
+            "transform": {
+              "position": [
+                0,
+                -0.1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "sun",
+            "transform": {
+              "position": [
+                -3,
+                7,
+                4
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          }
+        ],
+        "scheduler": {
+          "tick": 0,
+          "activeTick": null,
+          "time": 0,
+          "fixedDt": 0.016666666666666666,
+          "maxSubsteps": 8,
+          "paused": false,
+          "running": false,
+          "disposed": false,
+          "backlogTicks": 0,
+          "backlogSeconds": 0,
+          "recording": false,
+          "replaying": false,
+          "fault": null,
+          "systems": [
+            {
+              "id": "input",
+              "phase": "input",
+              "before": [],
+              "after": [],
+              "reads": [
+                "Motion"
+              ],
+              "writes": [
+                "Transform"
+              ]
+            },
+            {
+              "id": "observe",
+              "phase": "postPhysics",
+              "before": [],
+              "after": [],
+              "reads": [],
+              "writes": [
+                "Progress"
+              ]
+            },
+            {
+              "id": "spin",
+              "phase": "update",
+              "before": [],
+              "after": [],
+              "reads": [
+                "Motion"
+              ],
+              "writes": [
+                "Transform",
+                "Progress"
+              ]
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "TC_SCHEDULER_CONFLICT",
+              "first": "input",
+              "second": "observe",
+              "resources": [
+                "$structure"
+              ],
+              "message": "Sequential execution: input before observe; shared access is not automatic parallelism."
+            },
+            {
+              "code": "TC_SCHEDULER_CONFLICT",
+              "first": "input",
+              "second": "spin",
+              "resources": [
+                "$structure",
+                "Transform"
+              ],
+              "message": "Sequential execution: input before spin; shared access is not automatic parallelism."
+            },
+            {
+              "code": "TC_SCHEDULER_CONFLICT",
+              "first": "observe",
+              "second": "spin",
+              "resources": [
+                "$structure",
+                "Progress"
+              ],
+              "message": "Sequential execution: observe before spin; shared access is not automatic parallelism."
+            }
+          ],
+          "events": {
+            "queued": 0,
+            "nextSequence": 0,
+            "listeners": []
+          },
+          "random": {
+            "format": "threecat.random",
+            "version": 1,
+            "algorithm": "mulberry32",
+            "state": 12345,
+            "draws": 0
+          }
+        },
+        "diagnostics": [],
+        "disposed": false
+      },
+      "frameClock": {
+        "fixedDt": 0.016666666666666666,
+        "accumulator": 0.006299999999999955,
+        "backlogTicks": 0,
+        "maxStepsPerFrame": 8
+      },
+      "resources": {
+        "disposed": false,
+        "owned": {
+          "entries": 2,
+          "pending": 0,
+          "loaded": 2,
+          "references": 2,
+          "scopes": 1,
+          "inFlightLoads": 0,
+          "inFlightDisposals": 0
+        },
+        "bytes": {
+          "status": "unknown",
+          "knownBytes": 0,
+          "unknownEntries": 2
+        },
+        "entries": [
+          {
+            "handle": {
+              "manager": 1,
+              "index": 0,
+              "generation": 1,
+              "type": "json"
+            },
+            "key": "compiled-scene-1",
+            "type": "json",
+            "state": "loaded",
+            "refCount": 1,
+            "bytes": {
+              "status": "unknown"
+            }
+          },
+          {
+            "handle": {
+              "manager": 1,
+              "index": 1,
+              "generation": 1,
+              "type": "module"
+            },
+            "key": "compiled-game-1",
+            "type": "module",
+            "state": "loaded",
+            "refCount": 1,
+            "bytes": {
+              "status": "unknown"
+            }
+          }
+        ],
+        "counters": {
+          "loadsStarted": 2,
+          "loadsCompleted": 2,
+          "loadsFailed": 0,
+          "loadsAborted": 0,
+          "disposalsStarted": 0,
+          "disposalsCompleted": 0,
+          "disposalsFailed": 0,
+          "staleResultsDisposed": 0,
+          "consumerCancellations": 0,
+          "peakEntries": 2
+        }
+      },
+      "game": {
+        "transforms": {
+          "spinner": {
+            "position": [
+              -0.9,
+              0.8,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "orb": {
+            "position": [
+              1.1,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "ground": {
+            "position": [
+              0,
+              -0.1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "sun": {
+            "position": [
+              -3,
+              7,
+              4
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "components": {
+          "spinner": {
+            "Motion": {
+              "speed": 1.2,
+              "enabled": true
+            },
+            "Progress": {
+              "ticks": 0,
+              "lastRandom": 0,
+              "events": 0
+            }
+          },
+          "orb": {},
+          "ground": {},
+          "sun": {}
+        }
+      },
+      "metrics": [
+        {
+          "frame": 0,
+          "bvhMs": 3.300000011920929,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 37.19999998807907
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 2.5
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        }
+      ],
+      "capabilities": {
+        "tracer": "software-triangle-BVH",
+        "hardwareRT": false,
+        "denoiser": false,
+        "hybrid": "raster + traced image compositing prototype",
+        "pathBounces": 5,
+        "tracedLights": "first authored light only; raster also contains private probe lights",
+        "textures": "unsupported in M0 render adapter",
+        "experimentalProbes": "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules"
+      }
+    },
+    "status": "threecat · raster\nWebGPU · 192 triangles · tick 0\nrunning",
+    "focused": true,
+    "visibility": "visible"
+  },
+  "normalDevSecondSample": {
+    "inspection": {
+      "ready": true,
+      "playback": {
+        "playing": true,
+        "automation": false,
+        "state": "running"
+      },
+      "backend": "WebGPUBackend",
+      "adapter": {
+        "vendor": "nvidia",
+        "architecture": "blackwell",
+        "isFallbackAdapter": false,
+        "features": [
+          "depth32float-stencil8",
+          "rg11b10ufloat-renderable",
+          "texture-formats-tier1",
+          "bgra8unorm-storage",
+          "texture-compression-bc",
+          "dual-source-blending",
+          "core-features-and-limits",
+          "float32-filterable",
+          "indirect-first-instance",
+          "float32-blendable",
+          "subgroup-size-control",
+          "depth-clip-control",
+          "texture-compression-bc-sliced-3d",
+          "shader-f16",
+          "timestamp-query",
+          "texture-formats-tier2",
+          "clip-distances",
+          "primitive-index",
+          "texture-component-swizzle",
+          "subgroups"
+        ]
+      },
+      "mode": "raster",
+      "tick": 59,
+      "width": 960,
+      "height": 540,
+      "inputLog": [],
+      "triangleCount": 192,
+      "nodeCount": 127,
+      "generation": 60,
+      "geometryHash": 2041332388,
+      "objects": {
+        "box": [
+          -1.0589728282460302,
+          0.5,
+          0
+        ],
+        "morph": 0.9787683356252301,
+        "bone": 0.49011223639402274,
+        "camera": [
+          4,
+          3,
+          6
+        ]
+      },
+      "errors": [],
+      "compiledIR": {
+        "format": "threecat.scene",
+        "version": 1,
+        "engineVersion": "0.1.0-m1.0",
+        "gameId": "m1-foundation",
+        "scene": {
+          "id": "foundation",
+          "camera": {
+            "position": [
+              4,
+              3,
+              6
+            ],
+            "target": [
+              0,
+              0.7,
+              0
+            ],
+            "fov": 45,
+            "near": 0.1,
+            "far": 1000
+          },
+          "environment": {
+            "background": "#111d2a",
+            "ambientIntensity": 1.1
+          },
+          "entities": [
+            {
+              "id": "spinner",
+              "transform": {
+                "position": [
+                  -0.9,
+                  0.8,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {
+                "Motion": {
+                  "speed": 1.2,
+                  "enabled": true
+                },
+                "Progress": {
+                  "ticks": 0,
+                  "lastRandom": 0,
+                  "events": 0
+                }
+              },
+              "mesh": {
+                "geometry": {
+                  "kind": "box",
+                  "size": [
+                    1.3,
+                    1.3,
+                    1.3
+                  ]
+                },
+                "material": "copper",
+                "castShadow": true,
+                "receiveShadow": true
+              }
+            },
+            {
+              "id": "orb",
+              "transform": {
+                "position": [
+                  1.1,
+                  0.7,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {},
+              "mesh": {
+                "geometry": {
+                  "kind": "sphere",
+                  "radius": 0.65
+                },
+                "material": "green",
+                "castShadow": true,
+                "receiveShadow": true
+              }
+            },
+            {
+              "id": "ground",
+              "transform": {
+                "position": [
+                  0,
+                  -0.1,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {},
+              "mesh": {
+                "geometry": {
+                  "kind": "box",
+                  "size": [
+                    12,
+                    0.2,
+                    12
+                  ]
+                },
+                "material": "floor",
+                "castShadow": true,
+                "receiveShadow": true
+              }
+            },
+            {
+              "id": "sun",
+              "transform": {
+                "position": [
+                  -3,
+                  7,
+                  4
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {},
+              "light": {
+                "kind": "directional",
+                "color": "#fff1d4",
+                "intensity": 4,
+                "castShadow": true
+              }
+            }
+          ]
+        },
+        "components": [
+          {
+            "id": "Motion",
+            "schema": {
+              "speed": {
+                "type": "number",
+                "default": 1.2
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "source": {
+              "file": "game.ts",
+              "line": 10,
+              "column": 23,
+              "length": 153
+            }
+          },
+          {
+            "id": "Progress",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              },
+              "lastRandom": {
+                "type": "number",
+                "default": 0
+              },
+              "events": {
+                "type": "number",
+                "default": 0
+              }
+            },
+            "source": {
+              "file": "game.ts",
+              "line": 17,
+              "column": 25,
+              "length": 197
+            }
+          }
+        ],
+        "prefabs": [],
+        "materials": [
+          {
+            "id": "copper",
+            "color": "#db7836",
+            "roughness": 0.26,
+            "metalness": 0.65,
+            "source": {
+              "file": "game.ts",
+              "line": 25,
+              "column": 16,
+              "length": 98
+            }
+          },
+          {
+            "id": "floor",
+            "color": "#71839a",
+            "roughness": 0.8,
+            "metalness": 0,
+            "source": {
+              "file": "game.ts",
+              "line": 31,
+              "column": 15,
+              "length": 65
+            }
+          },
+          {
+            "id": "green",
+            "color": "#27bd75",
+            "roughness": 0.45,
+            "metalness": 0,
+            "source": {
+              "file": "game.ts",
+              "line": 32,
+              "column": 15,
+              "length": 77
+            }
+          }
+        ],
+        "computes": [
+          {
+            "id": "pulse",
+            "count": 16,
+            "workgroupSize": 16,
+            "outputType": "float",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "clock",
+                  "op": "time"
+                },
+                {
+                  "id": "wave",
+                  "op": "sin",
+                  "inputs": [
+                    "clock"
+                  ]
+                }
+              ],
+              "output": "wave",
+              "nodeTypes": {
+                "clock": "float",
+                "wave": "float"
+              },
+              "outputType": "float"
+            },
+            "source": {
+              "file": "game.ts",
+              "line": 37,
+              "column": 15,
+              "length": 245
+            }
+          }
+        ],
+        "systems": [
+          {
+            "id": "spin",
+            "phase": "update",
+            "source": {
+              "file": "game.ts",
+              "line": 73,
+              "column": 14,
+              "length": 710
+            },
+            "reads": [
+              "Motion"
+            ],
+            "writes": [
+              "Transform",
+              "Progress"
+            ]
+          },
+          {
+            "id": "observe",
+            "phase": "postPhysics",
+            "source": {
+              "file": "game.ts",
+              "line": 95,
+              "column": 17,
+              "length": 381
+            },
+            "reads": [],
+            "writes": [
+              "Progress"
+            ]
+          },
+          {
+            "id": "input",
+            "phase": "input",
+            "source": {
+              "file": "game.ts",
+              "line": 50,
+              "column": 15,
+              "length": 705
+            },
+            "reads": [
+              "Motion"
+            ],
+            "writes": [
+              "Transform"
+            ]
+          }
+        ],
+        "assets": []
+      },
+      "runtime": {
+        "engineVersion": "0.1.0-m1.0",
+        "world": {
+          "entities": 4,
+          "capacity": 64,
+          "components": 2,
+          "pendingCommands": 0,
+          "revision": 119,
+          "disposed": false
+        },
+        "records": [
+          {
+            "id": "spinner",
+            "transform": {
+              "position": [
+                -0.9,
+                0.8,
+                0
+              ],
+              "rotation": [
+                0,
+                1.1800000000000006,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Motion": {
+                "speed": 1.2,
+                "enabled": true
+              },
+              "Progress": {
+                "ticks": 59,
+                "lastRandom": 0.14591346471570432,
+                "events": 1
+              }
+            }
+          },
+          {
+            "id": "orb",
+            "transform": {
+              "position": [
+                1.1,
+                0.7,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "ground",
+            "transform": {
+              "position": [
+                0,
+                -0.1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "sun",
+            "transform": {
+              "position": [
+                -3,
+                7,
+                4
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          }
+        ],
+        "scheduler": {
+          "tick": 59,
+          "activeTick": null,
+          "time": 0.9833333333333333,
+          "fixedDt": 0.016666666666666666,
+          "maxSubsteps": 8,
+          "paused": false,
+          "running": false,
+          "disposed": false,
+          "backlogTicks": 0,
+          "backlogSeconds": 0,
+          "recording": false,
+          "replaying": false,
+          "fault": null,
+          "systems": [
+            {
+              "id": "input",
+              "phase": "input",
+              "before": [],
+              "after": [],
+              "reads": [
+                "Motion"
+              ],
+              "writes": [
+                "Transform"
+              ]
+            },
+            {
+              "id": "observe",
+              "phase": "postPhysics",
+              "before": [],
+              "after": [],
+              "reads": [],
+              "writes": [
+                "Progress"
+              ]
+            },
+            {
+              "id": "spin",
+              "phase": "update",
+              "before": [],
+              "after": [],
+              "reads": [
+                "Motion"
+              ],
+              "writes": [
+                "Transform",
+                "Progress"
+              ]
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "TC_SCHEDULER_CONFLICT",
+              "first": "input",
+              "second": "observe",
+              "resources": [
+                "$structure"
+              ],
+              "message": "Sequential execution: input before observe; shared access is not automatic parallelism."
+            },
+            {
+              "code": "TC_SCHEDULER_CONFLICT",
+              "first": "input",
+              "second": "spin",
+              "resources": [
+                "$structure",
+                "Transform"
+              ],
+              "message": "Sequential execution: input before spin; shared access is not automatic parallelism."
+            },
+            {
+              "code": "TC_SCHEDULER_CONFLICT",
+              "first": "observe",
+              "second": "spin",
+              "resources": [
+                "$structure",
+                "Progress"
+              ],
+              "message": "Sequential execution: observe before spin; shared access is not automatic parallelism."
+            }
+          ],
+          "events": {
+            "queued": 0,
+            "nextSequence": 1,
+            "listeners": []
+          },
+          "random": {
+            "format": "threecat.random",
+            "version": 1,
+            "algorithm": "mulberry32",
+            "state": 688212912,
+            "draws": 59
+          }
+        },
+        "diagnostics": [],
+        "disposed": false
+      },
+      "frameClock": {
+        "fixedDt": 0.016666666666666666,
+        "accumulator": 0.013166666666666552,
+        "backlogTicks": 0,
+        "maxStepsPerFrame": 8
+      },
+      "resources": {
+        "disposed": false,
+        "owned": {
+          "entries": 2,
+          "pending": 0,
+          "loaded": 2,
+          "references": 2,
+          "scopes": 1,
+          "inFlightLoads": 0,
+          "inFlightDisposals": 0
+        },
+        "bytes": {
+          "status": "unknown",
+          "knownBytes": 0,
+          "unknownEntries": 2
+        },
+        "entries": [
+          {
+            "handle": {
+              "manager": 1,
+              "index": 0,
+              "generation": 1,
+              "type": "json"
+            },
+            "key": "compiled-scene-1",
+            "type": "json",
+            "state": "loaded",
+            "refCount": 1,
+            "bytes": {
+              "status": "unknown"
+            }
+          },
+          {
+            "handle": {
+              "manager": 1,
+              "index": 1,
+              "generation": 1,
+              "type": "module"
+            },
+            "key": "compiled-game-1",
+            "type": "module",
+            "state": "loaded",
+            "refCount": 1,
+            "bytes": {
+              "status": "unknown"
+            }
+          }
+        ],
+        "counters": {
+          "loadsStarted": 2,
+          "loadsCompleted": 2,
+          "loadsFailed": 0,
+          "loadsAborted": 0,
+          "disposalsStarted": 0,
+          "disposalsCompleted": 0,
+          "disposalsFailed": 0,
+          "staleResultsDisposed": 0,
+          "consumerCancellations": 0,
+          "peakEntries": 2
+        }
+      },
+      "game": {
+        "transforms": {
+          "spinner": {
+            "position": [
+              -0.9,
+              0.8,
+              0
+            ],
+            "rotation": [
+              0,
+              1.1800000000000006,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "orb": {
+            "position": [
+              1.1,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "ground": {
+            "position": [
+              0,
+              -0.1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "sun": {
+            "position": [
+              -3,
+              7,
+              4
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "components": {
+          "spinner": {
+            "Motion": {
+              "speed": 1.2,
+              "enabled": true
+            },
+            "Progress": {
+              "ticks": 59,
+              "lastRandom": 0.14591346471570432,
+              "events": 1
+            }
+          },
+          "orb": {},
+          "ground": {},
+          "sun": {}
+        }
+      },
+      "metrics": [
+        {
+          "frame": 0,
+          "bvhMs": 3.300000011920929,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 37.19999998807907
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 2.5
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 0,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 1,
+          "bvhMs": 0.9000000357627869,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1.5
+        },
+        {
+          "frame": 1,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 1,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 1,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 1,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 2,
+          "bvhMs": 0.3999999761581421,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1.199999988079071
+        },
+        {
+          "frame": 2,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 2,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 2,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.9000000357627869
+        },
+        {
+          "frame": 2,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 3,
+          "bvhMs": 0.5,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1.199999988079071
+        },
+        {
+          "frame": 3,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 3,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 3,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 3,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 4,
+          "bvhMs": 1.199999988079071,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1.899999976158142
+        },
+        {
+          "frame": 4,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 4,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 4,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 5,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1.5
+        },
+        {
+          "frame": 5,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 5,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 5,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 5,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 6,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1.100000023841858
+        },
+        {
+          "frame": 6,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 6,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 6,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 6,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 7,
+          "bvhMs": 1.199999988079071,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 2
+        },
+        {
+          "frame": 7,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.9000000357627869
+        },
+        {
+          "frame": 7,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 7,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 8,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 8,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 8,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7999999523162842
+        },
+        {
+          "frame": 8,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 8,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 9,
+          "bvhMs": 1,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1.5
+        },
+        {
+          "frame": 9,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 9,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 9,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 9,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 10,
+          "bvhMs": 0.5999999642372131,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 10,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 10,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 10,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 10,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 11,
+          "bvhMs": 0.2999999523162842,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 11,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1.199999988079071
+        },
+        {
+          "frame": 11,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7999999523162842
+        },
+        {
+          "frame": 11,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 11,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 12,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1.100000023841858
+        },
+        {
+          "frame": 12,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 12,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 12,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 12,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 13,
+          "bvhMs": 0.5,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 13,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 13,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.9000000357627869
+        },
+        {
+          "frame": 13,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 13,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 14,
+          "bvhMs": 0.30000001192092896,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 14,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 14,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.2999999523162842
+        },
+        {
+          "frame": 14,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 14,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 15,
+          "bvhMs": 0.20000004768371582,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 15,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 15,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 15,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 15,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 16,
+          "bvhMs": 0.19999998807907104,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 16,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 16,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 16,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 16,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 17,
+          "bvhMs": 0.699999988079071,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 17,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 17,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 17,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 17,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 18,
+          "bvhMs": 0.20000004768371582,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 18,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7000000476837158
+        },
+        {
+          "frame": 18,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 18,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 18,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 19,
+          "bvhMs": 0.699999988079071,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 19,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 19,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 19,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 19,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 20,
+          "bvhMs": 0.5999999642372131,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1.0999999642372131
+        },
+        {
+          "frame": 20,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 20,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 20,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 20,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 21,
+          "bvhMs": 0.3999999761581421,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 21,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7000000476837158
+        },
+        {
+          "frame": 21,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 21,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 21,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 22,
+          "bvhMs": 0.5,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 22,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.2999999523162842
+        },
+        {
+          "frame": 22,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 22,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 22,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 23,
+          "bvhMs": 0.2999999523162842,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 23,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 23,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 23,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 23,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 24,
+          "bvhMs": 0.30000001192092896,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 24,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 24,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 24,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 24,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 25,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 25,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 25,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1.199999988079071
+        },
+        {
+          "frame": 25,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 25,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 26,
+          "bvhMs": 0.800000011920929,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1.199999988079071
+        },
+        {
+          "frame": 26,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 26,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 26,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 26,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 27,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7999999523162842
+        },
+        {
+          "frame": 27,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 27,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 27,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 27,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 28,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 28,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 28,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 28,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 28,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 29,
+          "bvhMs": 0.19999998807907104,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 29,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 29,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 29,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.20000004768371582
+        },
+        {
+          "frame": 29,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 30,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 30,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 30,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 30,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 30,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 31,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1.0999999642372131
+        },
+        {
+          "frame": 31,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 31,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 31,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 31,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 32,
+          "bvhMs": 0.40000003576278687,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 32,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 32,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 32,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.20000004768371582
+        },
+        {
+          "frame": 32,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 33,
+          "bvhMs": 0.699999988079071,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 33,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 33,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 33,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 33,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 34,
+          "bvhMs": 0.19999998807907104,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 34,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 34,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 34,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 34,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 35,
+          "bvhMs": 0.5,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 35,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 35,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 35,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 35,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 36,
+          "bvhMs": 0.5999999642372131,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 36,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 36,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 36,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 36,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 37,
+          "bvhMs": 0.19999998807907104,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 37,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 37,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 37,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 37,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 38,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 38,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 38,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 38,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 38,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 39,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1.100000023841858
+        },
+        {
+          "frame": 39,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 39,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 39,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 39,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 40,
+          "bvhMs": 0.3999999761581421,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 40,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 40,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 40,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 40,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 41,
+          "bvhMs": 0.3999999761581421,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 41,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 41,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 41,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.20000004768371582
+        },
+        {
+          "frame": 41,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7000000476837158
+        },
+        {
+          "frame": 42,
+          "bvhMs": 0.3999999761581421,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.9000000357627869
+        },
+        {
+          "frame": 42,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 42,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 42,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 42,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.20000004768371582
+        },
+        {
+          "frame": 43,
+          "bvhMs": 0.40000003576278687,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 43,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 43,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 43,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 43,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.2999999523162842
+        },
+        {
+          "frame": 44,
+          "bvhMs": 0.7000000476837158,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 1
+        },
+        {
+          "frame": 44,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 44,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 44,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 44,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 45,
+          "bvhMs": 0.6000000238418579,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.9000000357627869
+        },
+        {
+          "frame": 45,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 45,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 45,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 45,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 46,
+          "bvhMs": 0.5,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.7999999523162842
+        },
+        {
+          "frame": 46,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 46,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 46,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 46,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 47,
+          "bvhMs": 0.800000011920929,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 1.0999999642372131
+        },
+        {
+          "frame": 47,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 47,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 47,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 47,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.09999996423721313
+        },
+        {
+          "frame": 48,
+          "bvhMs": 0.3999999761581421,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 48,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.20000004768371582
+        },
+        {
+          "frame": 48,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 48,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 48,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.7999999523162842
+        },
+        {
+          "frame": 49,
+          "bvhMs": 0.40000003576278687,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.800000011920929
+        },
+        {
+          "frame": 49,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.2999999523162842
+        },
+        {
+          "frame": 49,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 49,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 49,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.2999999523162842
+        },
+        {
+          "frame": 50,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.8999999761581421
+        },
+        {
+          "frame": 50,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 50,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 50,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 50,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 51,
+          "bvhMs": 0.2999999523162842,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 51,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 51,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 51,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 51,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 52,
+          "bvhMs": 0.2999999523162842,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 52,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.6000000238418579
+        },
+        {
+          "frame": 52,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 52,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 52,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 53,
+          "bvhMs": 0.2999999523162842,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 53,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 53,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 53,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 53,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 54,
+          "bvhMs": 0.19999998807907104,
+          "uploadMs": 0.10000002384185791,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 54,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.10000002384185791
+        },
+        {
+          "frame": 54,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 54,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 54,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.30000001192092896
+        },
+        {
+          "frame": 55,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 55,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 55,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 55,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 55,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 56,
+          "bvhMs": 0.5,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5999999642372131
+        },
+        {
+          "frame": 56,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 56,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 56,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 56,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.19999998807907104
+        },
+        {
+          "frame": 57,
+          "bvhMs": 0.5,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.9000000357627869
+        },
+        {
+          "frame": 57,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 57,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 57,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 57,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.10000002384185791
+        },
+        {
+          "frame": 58,
+          "bvhMs": 1,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 1.2999999523162842
+        },
+        {
+          "frame": 58,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.09999996423721313
+        },
+        {
+          "frame": 58,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.3999999761581421
+        },
+        {
+          "frame": 58,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 58,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 59,
+          "bvhMs": 0.30000001192092896,
+          "uploadMs": 0.09999996423721313,
+          "submitMs": 0,
+          "wallMs": 0.699999988079071
+        },
+        {
+          "frame": 59,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.5
+        },
+        {
+          "frame": 59,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.40000003576278687
+        },
+        {
+          "frame": 59,
+          "bvhMs": 0,
+          "uploadMs": 0,
+          "submitMs": 0,
+          "wallMs": 0.20000004768371582
+        }
+      ],
+      "capabilities": {
+        "tracer": "software-triangle-BVH",
+        "hardwareRT": false,
+        "denoiser": false,
+        "hybrid": "raster + traced image compositing prototype",
+        "pathBounces": 5,
+        "tracedLights": "first authored light only; raster also contains private probe lights",
+        "textures": "unsupported in M0 render adapter",
+        "experimentalProbes": "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules"
+      }
+    },
+    "status": "threecat · raster\nWebGPU · 192 triangles · tick 59\nrunning",
+    "focused": true,
+    "visibility": "visible"
+  },
+  "normalDev": {
+    "url": "http://127.0.0.1:4383/",
+    "firstTick": 0,
+    "secondTick": 59,
+    "firstStatus": "threecat · raster\nWebGPU · 192 triangles · tick 0\nrunning",
+    "secondStatus": "threecat · raster\nWebGPU · 192 triangles · tick 59\nrunning",
+    "playback": {
+      "playing": true,
+      "automation": false,
+      "state": "running"
+    },
+    "coveredByOwnedBlankPage": true,
+    "focusSamples": [
+      true,
+      true
+    ],
+    "visibilitySamples": [
+      "visible",
+      "visible"
+    ],
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "subgroup-size-control",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "clip-distances",
+        "primitive-index",
+        "texture-component-swizzle",
+        "subgroups"
+      ]
+    },
+    "noWaitingGPUStatus": true
+  },
+  "automationNoRAF": {
+    "url": "http://127.0.0.1:4383/?automation=1",
+    "initialTick": 0,
+    "afterStepTick": 3,
+    "initialStatus": "threecat · raster\nWebGPU · 192 triangles · tick 0\npaused · automation",
+    "finalStatus": "threecat · raster\nWebGPU · 192 triangles · tick 3\npaused · automation",
+    "playback": {
+      "playing": false,
+      "automation": true,
+      "state": "paused"
+    },
+    "rafRequests": 2,
+    "noWaitingGPUStatus": true,
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "subgroup-size-control",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "clip-distances",
+        "primitive-index",
+        "texture-component-swizzle",
+        "subgroups"
+      ]
+    }
+  },
+  "browserClosed": true
+}

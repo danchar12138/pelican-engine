@@ -10,6 +10,7 @@ const excluded = new Set([
   "evidence",
   "public",
   "docs",
+  "games",
 ]);
 /** Fingerprint executable source + locked build configuration; reports/docs are versioned separately. */
 export async function sourceFingerprint(root: string) {

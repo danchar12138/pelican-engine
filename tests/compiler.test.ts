@@ -6,8 +6,12 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import ts from "typescript";
-import { compileProject } from "../experiments/compiler/index.ts";
-import type { CompileResult, SceneIR } from "../experiments/compiler/types.ts";
+import {
+  compileProject,
+  SYSTEM_PHASES,
+} from "../packages/compiler/src/index.ts";
+import type { CompileResult, SceneIR } from "../packages/compiler/src/types.ts";
+import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import type {
   ComponentDefinition,
   ComponentSchema,
@@ -280,6 +284,10 @@ async function project(
     await fs.rm(verified, { recursive: true, force: true });
   });
   await fs.writeFile(path.join(root, "game.ts"), text);
+  await fs.writeFile(
+    path.join(root, "threecat.project.json"),
+    JSON.stringify({ engineVersion: SDK_VERSION }),
+  );
   return {
     root,
     out: path.join(root, "dist"),
@@ -351,7 +359,9 @@ test("compiler: real TS to IR and standalone JS executes component-driven gamepl
   const p = await project(t);
   const result = await p.compile();
   success(result);
-  assert.equal(result.report.compilerVersion, "6.0.3");
+  assert.equal(result.report.compilerVersion, ts.version);
+  assert.equal(result.ir.engineVersion, SDK_VERSION);
+  assert.equal(result.report.engineVersion, SDK_VERSION);
   assert.equal(result.ir.format, "threecat.scene");
   assert.equal(result.ir.scene.entities.length, 6);
   assert.equal(
@@ -1042,4 +1052,399 @@ test("compiler: concurrent production builds serialize their NODE_ENV transactio
   const results = await Promise.all([a.compile(), b.compile()]);
   for (const result of results) success(result);
   assert.equal(process.env.NODE_ENV, "test");
+});
+
+function metadataGame(...systems: string[]): string {
+  return `import { defineGame, defineScene, defineComponent, defineSystem } from "@threecat/sdk";
+const Motion = defineComponent({ id: "Motion", schema: { speed: { type: "number", default: 1 } } });
+${systems.map((s, i) => `const s${i} = defineSystem(${s});`).join("\n")}
+export default defineGame({ id: "metadata-game", scene: defineScene({ id: "scene", entities: [] }),
+ components: [Motion], systems: [${systems.map((_, i) => "s" + i).join(",")}] });`;
+}
+function expectCode(result: CompileResult, code: string) {
+  assert.equal(result.success, false, JSON.stringify(result.report));
+  const diagnostic = result.diagnostics.find((d) => d.code === code);
+  assert.ok(diagnostic, JSON.stringify(result.diagnostics, null, 2));
+  return diagnostic;
+}
+
+test("compiler M1: formal package owns implementation and M0 entries reexport the same API", async () => {
+  const legacy = await import("../experiments/compiler/index.ts");
+  assert.equal(legacy.compileProject, compileProject);
+  for (const file of [
+    "index.ts",
+    "types.ts",
+    "extract.ts",
+    "normalize.ts",
+    "source-map.ts",
+    "version.ts",
+  ]) {
+    const text = await fs.readFile(
+      path.join(engineRoot, "packages/compiler/src", file),
+      "utf8",
+    );
+    assert.doesNotMatch(text, /(?:from|import\()\s*["'][^"']*experiments\//);
+  }
+});
+
+test("compiler M1: six phases and all metadata survive IR and host scheduler dispatch", async (t) => {
+  const text = metadataGame(
+    ...SYSTEM_PHASES.map(
+      (phase, i) => `{
+    id: "sys${i}", phase: "${phase}", ${i ? `after: ["sys${i - 1}"],` : 'before: ["sys1"],'}
+    reads: ["Motion"], writes: ["Transform"], structural: false, run() {}
+  }`,
+    ),
+  );
+  const p = await project(t, text);
+  const result = await p.compile();
+  success(result);
+  assert.deepEqual(
+    result.ir.systems.map((s) => s.phase),
+    [...SYSTEM_PHASES],
+  );
+  for (const [i, system] of result.ir.systems.entries()) {
+    assert.equal(system.id, "sys" + i);
+    assert.deepEqual(system.reads, ["Motion"]);
+    assert.deepEqual(system.writes, ["Transform"]);
+    assert.equal(system.structural, false);
+    assert.equal(system.source.file, "game.ts");
+    assert.ok(
+      system.source.line > 1 &&
+        system.source.column > 0 &&
+        system.source.length > 0,
+    );
+  }
+  const host = facade(result.ir);
+  const calls: { ids: string[]; dt: number }[] = [];
+  host.runGameSystems = (systems, dt) => {
+    calls.push({ ids: systems.map((s) => s.id), dt });
+  };
+  (await importGame(p.out)).createGame(host).update(0.25);
+  assert.deepEqual(calls, [
+    { ids: SYSTEM_PHASES.map((_, i) => "sys" + i), dt: 0.25 },
+  ]);
+  const version = JSON.parse(
+    await fs.readFile(path.join(p.out, "version.json"), "utf8"),
+  );
+  assert.equal(version.sdkVersion, SDK_VERSION);
+  assert.equal(version.engineVersion, SDK_VERSION);
+  assert.equal(version.systemMetadataVersion, 1);
+});
+
+test("compiler M1: absent metadata remains legacy and explicit empty access lists remain empty", async (t) => {
+  const p = await project(
+    t,
+    metadataGame(
+      '{ id: "legacy", run() {} }',
+      '{ id: "restricted", reads: [], writes: [], structural: false, run() {} }',
+    ),
+  );
+  const result = await p.compile();
+  success(result);
+  assert.equal(result.ir.systems[0]!.phase, "update");
+  for (const key of ["reads", "writes", "structural", "before", "after"])
+    assert.equal(Object.hasOwn(result.ir.systems[0]!, key), false);
+  assert.deepEqual(result.ir.systems[1]!.reads, []);
+  assert.deepEqual(result.ir.systems[1]!.writes, []);
+});
+
+test("compiler M1: invalid system dependencies retain exact original metadata positions", async (t) => {
+  for (const field of ["before", "after"]) {
+    const text = metadataGame(`{ id: "a", ${field}: ["missing"], run() {} }`);
+    const p = await project(t, text);
+    const diagnostic = expectCode(await p.compile(), "TC_SYSTEM_DEPENDENCY");
+    const source = parseFixture(text),
+      start = text.indexOf('["missing"]');
+    const position = source.getLineAndCharacterOfPosition(start);
+    assert.deepEqual(diagnostic.source, {
+      file: "game.ts",
+      line: position.line + 1,
+      column: position.character + 1,
+      length: '["missing"]'.length,
+    });
+  }
+});
+
+test("compiler M1: duplicate IDs, cycles and self dependencies fail before game bundling", async (t) => {
+  const cases = [
+    ["TC_DUPLICATE_ID", '{ id: "a", run() {} }', '{ id: "a", run() {} }'],
+    [
+      "TC_SYSTEM_CYCLE",
+      '{ id: "a", before: ["b"], run() {} }',
+      '{ id: "b", before: ["a"], run() {} }',
+    ],
+    ["TC_SYSTEM_CYCLE", '{ id: "a", after: ["a"], run() {} }'],
+  ];
+  for (const [code, ...systems] of cases) {
+    const p = await project(t, metadataGame(...systems));
+    const diagnostic = expectCode(await p.compile(), code!);
+    assert.equal(diagnostic.source?.file, "game.ts");
+    await assert.rejects(fs.access(path.join(p.out, "game.js")));
+  }
+});
+
+test("compiler M1: dependencies cannot reverse phases, valid forward phase edges are accepted", async (t) => {
+  for (const [a, b] of [
+    [
+      '{ id: "a", phase: "input", after: ["b"], run() {} }',
+      '{ id: "b", phase: "presentation", run() {} }',
+    ],
+    [
+      '{ id: "a", phase: "presentation", before: ["b"], run() {} }',
+      '{ id: "b", phase: "input", run() {} }',
+    ],
+  ]) {
+    const p = await project(t, metadataGame(a!, b!));
+    expectCode(await p.compile(), "TC_SYSTEM_PHASE_ORDER");
+  }
+  const p = await project(
+    t,
+    metadataGame(
+      '{ id: "a", phase: "input", before: ["b"], run() {} }',
+      '{ id: "b", phase: "presentation", after: ["a"], run() {} }',
+    ),
+  );
+  success(await p.compile());
+});
+
+test("compiler M1: malformed phase, metadata, component access and unknown schema keys are rejected", async (t) => {
+  for (const [field, code] of [
+    ['phase: "invalid" as never', "TC_SYSTEM_PHASE"],
+    ['reads: ["missing"]', "TC_SYSTEM_ACCESS"],
+    ['writes: ["Motion", "Motion"]', "TC_SYSTEM_METADATA"],
+    ["before: [1] as never", "TC_SYSTEM_METADATA"],
+    ['after: "a" as never', "TC_SCHEMA_TYPE"],
+    ['structural: "true" as never', "TC_SYSTEM_METADATA"],
+    ["unexpectedCallback: () => 1", "TC_SYSTEM_METADATA"],
+  ]) {
+    const p = await project(
+      t,
+      metadataGame(
+        `({ id: "a", ${field}, run() {} } as Parameters<typeof defineSystem>[0])`,
+      ),
+    );
+    const diagnostic = expectCode(await p.compile(), code!);
+    assert.equal(diagnostic.source?.file, "game.ts");
+  }
+});
+
+test("compiler M1: async functions, Promise returns, generators and fake runtime markers cannot pass", async (t) => {
+  for (const [run, code] of [
+    ["async run() {}", "TC_SYSTEM_ASYNC"],
+    ["run() { return Promise.resolve(1); }", "TC_SYSTEM_ASYNC"],
+    ["*run() { yield 1; }", "TC_SYSTEM_GENERATOR"],
+    ["run: ({ __runtime: true } as unknown as () => void)", "TC_SYSTEM_RUN"],
+  ]) {
+    const p = await project(
+      t,
+      metadataGame(`{ id: "a", phase: "physics", ${run} }`),
+    );
+    expectCode(await p.compile(), code!);
+  }
+});
+
+test("compiler M1: private type imports, import types, type exports and dynamic imports obey public boundary", async (t) => {
+  const sources = [
+    'import type { Scene } from "three";',
+    'type Internal = import("three").Scene;',
+    'export type { Scene } from "three";',
+    'const hidden = () => import("three");',
+  ];
+  for (const source of sources) {
+    const p = await project(
+      t,
+      source + "\n" + metadataGame('{ id: "a", run() {} }'),
+    );
+    const diagnostic = expectCode(await p.compile(), "TC_PUBLIC_API");
+    assert.equal(diagnostic.source?.file, "game.ts");
+    assert.equal(diagnostic.source?.line, 1);
+  }
+});
+
+test("compiler M1: exact project locks reject M0, ranges and conflicting engine declarations", async (t) => {
+  const p = await project(t);
+  for (const manifest of [
+    { engineVersion: "0.0.1-m0.0" },
+    { engine: { version: "0.0.1-m0.0" } },
+    { engineVersion: "^" + SDK_VERSION },
+    { engineVersion: SDK_VERSION, engine: { version: "0.0.1-m0.0" } },
+  ]) {
+    await fs.writeFile(
+      path.join(p.root, "threecat.project.json"),
+      JSON.stringify(manifest),
+    );
+    const diagnostic = expectCode(
+      await p.compile(),
+      "TC_ENGINE_VERSION_MISMATCH",
+    );
+    assert.match(diagnostic.suggestion, /Migrate/);
+    assert.ok(diagnostic.suggestion.includes(SDK_VERSION));
+  }
+  await fs.writeFile(
+    path.join(p.root, "threecat.project.json"),
+    JSON.stringify({
+      engineVersion: SDK_VERSION,
+      engine: { version: SDK_VERSION },
+    }),
+  );
+  success(await p.compile());
+});
+
+test("compiler M1: malformed lock schemas fail clearly; no-manifest M0 source API remains usable", async (t) => {
+  const p = await project(t);
+  for (const manifest of [
+    [],
+    { engineVersion: 1 },
+    { engine: [] },
+    { engine: { path: 7 } },
+    { engine: null },
+  ]) {
+    await fs.writeFile(
+      path.join(p.root, "threecat.project.json"),
+      JSON.stringify(manifest),
+    );
+    expectCode(await p.compile(), "TC_PROJECT_CONFIG");
+  }
+  await fs.unlink(path.join(p.root, "threecat.project.json"));
+  const result = await p.compile();
+  success(result);
+  assert.ok(
+    result.diagnostics.some(
+      (d) =>
+        d.code === "TC_ENGINE_VERSION_UNLOCKED" && d.severity === "warning",
+    ),
+  );
+});
+
+test("compiler M1: relative and absolute engine paths resolve without Git and wrong roots fail", async (t) => {
+  const p = await project(t);
+  for (const enginePath of [path.relative(p.root, engineRoot), engineRoot]) {
+    await fs.writeFile(
+      path.join(p.root, "threecat.project.json"),
+      JSON.stringify({ engine: { version: SDK_VERSION, path: enginePath } }),
+    );
+    success(await p.compile());
+  }
+  await fs.writeFile(
+    path.join(p.root, "threecat.project.json"),
+    JSON.stringify({ engine: { version: SDK_VERSION, path: "." } }),
+  );
+  expectCode(await p.compile(), "TC_ENGINE_PATH_MISMATCH");
+});
+
+test("compiler M1: selected engine SDK version is inspected without executing that SDK", async (t) => {
+  const p = await project(t);
+  const engine = path.join(p.root, "selected engine");
+  await fs.mkdir(path.join(engine, "packages/sdk/src"), { recursive: true });
+  const marker = path.join(p.root, "sdk-executed.txt");
+  await fs.writeFile(
+    path.join(engine, "packages/sdk/src/index.ts"),
+    `import fs from "node:fs"; fs.writeFileSync(${JSON.stringify(marker)}, "bad"); export const SDK_VERSION = "99.0.0";`,
+  );
+  const result = await compileProject({
+    projectRoot: p.root,
+    outDir: "dist",
+    engineRoot: engine,
+  });
+  expectCode(result, "TC_ENGINE_SDK_VERSION");
+  await assert.rejects(fs.access(marker));
+});
+
+test("compiler M1: runtime/schema additions, edits and removals invalidate project cache", async (t) => {
+  const p = await project(t);
+  const engine = path.join(p.root, "cache engine");
+  await fs.mkdir(path.join(engine, "packages/sdk/src"), { recursive: true });
+  await fs.copyFile(
+    path.join(engineRoot, "packages/sdk/src/index.ts"),
+    path.join(engine, "packages/sdk/src/index.ts"),
+  );
+  const compile = () =>
+    compileProject({ projectRoot: p.root, outDir: "dist", engineRoot: engine });
+  const initial = await compile();
+  success(initial);
+  assert.equal(
+    initial.diagnostics.filter((d) => d.code === "TC_ENGINE_INPUT_MISSING")
+      .length,
+    2,
+  );
+  const hit = await compile();
+  success(hit);
+  assert.equal(hit.report.incremental.cacheHit, true);
+  for (const name of ["runtime", "schema"]) {
+    const relative = `packages/${name}/src/contract.ts`,
+      file = path.join(engine, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, "export const contract = 1;\n");
+    const added = await compile();
+    success(added);
+    assert.equal(added.report.incremental.cacheHit, false);
+    assert.ok(added.report.incremental.changedInputs.includes(relative));
+    assert.ok(
+      added.report.inputs.some(
+        (i) => i.root === "engine" && i.path === relative,
+      ),
+    );
+    await fs.writeFile(file, "export const contract = 2;\n");
+    const edited = await compile();
+    success(edited);
+    assert.equal(edited.report.incremental.cacheHit, false);
+    assert.ok(edited.report.incremental.changedInputs.includes(relative));
+    await fs.unlink(file);
+    const removed = await compile();
+    success(removed);
+    assert.equal(removed.report.incremental.cacheHit, false);
+    assert.ok(removed.report.incremental.changedInputs.includes(relative));
+    assert.ok(!removed.report.inputs.some((i) => i.path === relative));
+  }
+});
+
+test("compiler M1: default engine root resolves from the formal package", async (t) => {
+  const p = await project(t);
+  const result = await compileProject({ projectRoot: p.root, outDir: "dist" });
+  success(result);
+  assert.equal(result.ir.engineVersion, SDK_VERSION);
+});
+
+test("compiler M1: metadata from imported local definitions maps errors to the definition source", async (t) => {
+  const p = await project(
+    t,
+    `import { defineGame, defineScene } from "@threecat/sdk";
+import { failing } from "./systems.ts";
+export default defineGame({ id: "local", scene: defineScene({ id: "scene", entities: [] }), systems: [failing] });`,
+  );
+  const declaration = `import { defineSystem } from "@threecat/sdk";
+const metadata = { before: ["absent"] };
+export const failing = defineSystem({ id: "failing", ...metadata, run() {} });`;
+  await fs.writeFile(path.join(p.root, "systems.ts"), declaration);
+  const diagnostic = expectCode(await p.compile(), "TC_SYSTEM_DEPENDENCY");
+  const position = parseFixture(declaration).getLineAndCharacterOfPosition(
+    declaration.indexOf('["absent"]'),
+  );
+  assert.deepEqual(diagnostic.source, {
+    file: "systems.ts",
+    line: position.line + 1,
+    column: position.character + 1,
+    length: '["absent"]'.length,
+  });
+});
+
+test("compiler M1: changing a version lock cannot reuse a previous successful cache", async (t) => {
+  const p = await project(t);
+  success(await p.compile());
+  const cached = await p.compile();
+  success(cached);
+  assert.equal(cached.report.incremental.cacheHit, true);
+  await fs.writeFile(
+    path.join(p.root, "threecat.project.json"),
+    JSON.stringify({ engineVersion: "0.0.1-m0.0" }),
+  );
+  const failed = await p.compile();
+  expectCode(failed, "TC_ENGINE_VERSION_MISMATCH");
+  assert.equal(failed.report.incremental.cacheHit, false);
+  assert.equal(
+    JSON.parse(await fs.readFile(path.join(p.out, "build-report.json"), "utf8"))
+      .artifactState,
+    "previous-success-not-current",
+  );
 });

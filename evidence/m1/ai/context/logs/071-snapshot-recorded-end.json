@@ -1,0 +1,576 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "control-82f4b83c-d14a-4e9a-927a-ce7cf7009783",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    {
+      "type": "file",
+      "path": "<validation-work>\\acceptance-20261104-214329\\evidence\\external-directory\\recorded-end.json"
+    }
+  ],
+  "data": {
+    "format": "threecat.browser",
+    "version": 1,
+    "engineVersion": "0.1.0-m1.0",
+    "tick": 70,
+    "cameraPhase": 0,
+    "transforms": {
+      "ai-created-crate": {
+        "position": [
+          2.6,
+          0.5,
+          1.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "spinner": {
+        "position": [
+          -0.9,
+          0.8,
+          0
+        ],
+        "rotation": [
+          0,
+          1.7499999999999978,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "orb": {
+        "position": [
+          1.1,
+          0.7,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "ground": {
+        "position": [
+          0,
+          -0.1,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "sun": {
+        "position": [
+          -3,
+          7,
+          4
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "components": {
+      "ai-created-crate": {
+        "AICounter": {
+          "ticks": 70
+        }
+      },
+      "spinner": {
+        "Motion": {
+          "speed": 1.5,
+          "enabled": true
+        },
+        "Progress": {
+          "ticks": 70,
+          "lastRandom": 0.7677445597946644,
+          "events": 1
+        },
+        "AICounter": {
+          "ticks": 70
+        }
+      },
+      "orb": {},
+      "ground": {},
+      "sun": {}
+    },
+    "inputLog": [],
+    "runtime": {
+      "format": "threecat.host",
+      "version": 1,
+      "engineVersion": "0.1.0-m1.0",
+      "world": {
+        "format": "threecat.world",
+        "version": 1,
+        "components": [
+          {
+            "id": "Motion",
+            "schema": {
+              "speed": {
+                "type": "number",
+                "default": 1.5
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          {
+            "id": "Progress",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              },
+              "lastRandom": {
+                "type": "number",
+                "default": 0
+              },
+              "events": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          },
+          {
+            "id": "AICounter",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          }
+        ],
+        "entities": [
+          {
+            "id": "ai-created-crate",
+            "transform": {
+              "position": [
+                2.6,
+                0.5,
+                1.6
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "AICounter": {
+                "ticks": 70
+              }
+            }
+          },
+          {
+            "id": "spinner",
+            "transform": {
+              "position": [
+                -0.9,
+                0.8,
+                0
+              ],
+              "rotation": [
+                0,
+                1.7499999999999978,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Motion": {
+                "speed": 1.5,
+                "enabled": true
+              },
+              "Progress": {
+                "ticks": 70,
+                "lastRandom": 0.7677445597946644,
+                "events": 1
+              },
+              "AICounter": {
+                "ticks": 70
+              }
+            }
+          },
+          {
+            "id": "orb",
+            "transform": {
+              "position": [
+                1.1,
+                0.7,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "ground",
+            "transform": {
+              "position": [
+                0,
+                -0.1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "sun",
+            "transform": {
+              "position": [
+                -3,
+                7,
+                4
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          }
+        ]
+      },
+      "scheduler": {
+        "format": "threecat.scheduler",
+        "version": 1,
+        "fixedDt": 0.016666666666666666,
+        "maxSubsteps": 8,
+        "tick": 70,
+        "time": 1.1666666666666667,
+        "accumulator": 0,
+        "compensation": 0,
+        "paused": false,
+        "systems": [
+          {
+            "id": "input",
+            "phase": "input",
+            "before": [],
+            "after": [],
+            "reads": [
+              "Motion"
+            ],
+            "writes": [
+              "Transform"
+            ]
+          },
+          {
+            "id": "observe",
+            "phase": "postPhysics",
+            "before": [],
+            "after": [],
+            "reads": [],
+            "writes": [
+              "Progress"
+            ]
+          },
+          {
+            "id": "spin",
+            "phase": "update",
+            "before": [],
+            "after": [],
+            "reads": [
+              "Motion"
+            ],
+            "writes": [
+              "Transform",
+              "Progress"
+            ]
+          },
+          {
+            "id": "ai-counter",
+            "phase": "presentation",
+            "before": [],
+            "after": [
+              "spin"
+            ],
+            "reads": [
+              "AICounter"
+            ],
+            "writes": [
+              "AICounter"
+            ],
+            "structural": false
+          }
+        ],
+        "listeners": [],
+        "world": {
+          "format": "threecat.world",
+          "version": 1,
+          "components": [
+            {
+              "id": "Motion",
+              "schema": {
+                "speed": {
+                  "type": "number",
+                  "default": 1.5
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                }
+              }
+            },
+            {
+              "id": "Progress",
+              "schema": {
+                "ticks": {
+                  "type": "number",
+                  "default": 0
+                },
+                "lastRandom": {
+                  "type": "number",
+                  "default": 0
+                },
+                "events": {
+                  "type": "number",
+                  "default": 0
+                }
+              }
+            },
+            {
+              "id": "AICounter",
+              "schema": {
+                "ticks": {
+                  "type": "number",
+                  "default": 0
+                }
+              }
+            }
+          ],
+          "entities": [
+            {
+              "id": "ai-created-crate",
+              "transform": {
+                "position": [
+                  2.6,
+                  0.5,
+                  1.6
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {
+                "AICounter": {
+                  "ticks": 70
+                }
+              }
+            },
+            {
+              "id": "spinner",
+              "transform": {
+                "position": [
+                  -0.9,
+                  0.8,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  1.7499999999999978,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {
+                "Motion": {
+                  "speed": 1.5,
+                  "enabled": true
+                },
+                "Progress": {
+                  "ticks": 70,
+                  "lastRandom": 0.7677445597946644,
+                  "events": 1
+                },
+                "AICounter": {
+                  "ticks": 70
+                }
+              }
+            },
+            {
+              "id": "orb",
+              "transform": {
+                "position": [
+                  1.1,
+                  0.7,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {}
+            },
+            {
+              "id": "ground",
+              "transform": {
+                "position": [
+                  0,
+                  -0.1,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {}
+            },
+            {
+              "id": "sun",
+              "transform": {
+                "position": [
+                  -3,
+                  7,
+                  4
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "components": {}
+            }
+          ]
+        },
+        "random": {
+          "format": "threecat.random",
+          "version": 1,
+          "algorithm": "mulberry32",
+          "state": 3655567671,
+          "draws": 70
+        },
+        "events": {
+          "format": "threecat.events",
+          "version": 1,
+          "nextSequence": 4,
+          "queue": []
+        },
+        "delivered": []
+      }
+    },
+    "frameAccumulator": 0,
+    "resources": {
+      "format": "threecat.resources",
+      "version": 1,
+      "resources": [
+        {
+          "type": "json",
+          "key": "compiled-scene-1",
+          "descriptor": {
+            "url": "http://127.0.0.1:4384/generated/scene.ir.json?v=1"
+          },
+          "state": "loaded"
+        },
+        {
+          "type": "module",
+          "key": "compiled-game-1",
+          "descriptor": {
+            "url": "http://127.0.0.1:4384/generated/game.js?v=1"
+          },
+          "state": "loaded"
+        }
+      ]
+    },
+    "topology": []
+  }
+}

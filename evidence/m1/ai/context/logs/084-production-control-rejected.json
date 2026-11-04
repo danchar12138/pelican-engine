@@ -1,0 +1,17 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "control-26ee6a58-1d0b-41b8-932e-9368b744ae01",
+  "status": "failed",
+  "diagnostics": [
+    {
+      "code": "TC_CONTROL_RESPONSE_INVALID",
+      "severity": "error",
+      "message": "Control request did not yield a confirmed result. Runtime state must not be assumed preserved.",
+      "remediation": "Inspect server task status using the same taskId; explicitly reset the session when its state is discarded or uncertain."
+    }
+  ],
+  "artifacts": [],
+  "data": {
+    "stateUnknown": true
+  }
+}

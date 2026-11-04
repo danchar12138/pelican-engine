@@ -1,0 +1,6 @@
+{
+  "id": "protocol",
+  "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'failed'\n- 'succeeded'\n",
+  "stdout": "",
+  "stderr": ""
+}

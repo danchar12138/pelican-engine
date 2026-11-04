@@ -9,9 +9,20 @@ import {
   lstat,
 } from "node:fs/promises";
 import { build as viteBuild, createServer } from "vite";
-import { compileProject } from "../experiments/compiler/index.ts";
+import { compileProject } from "../packages/compiler/src/index.ts";
+import { SDK_VERSION } from "../packages/sdk/src/index.ts";
+import { generateApiIndex } from "./api-index.ts";
 import { doctor } from "./doctor.ts";
 import { setup } from "./setup.ts";
+import { attachControl } from "./control-server.ts";
+import { createControlClient } from "./control-client.ts";
+import type { ControlCommand } from "../packages/protocol/src/index.ts";
+import {
+  automationLaunchOptions,
+  automationURL,
+  waitForEngine,
+  withAutomationDeadline,
+} from "./browser-session.ts";
 
 const engineRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -24,7 +35,7 @@ const option = (name: string, fallback?: string) => {
   return index >= 0 ? args[index + 1] : fallback;
 };
 const projectRoot = path.resolve(
-  option("project", path.join(engineRoot, "examples/m0"))!,
+  option("project", path.join(engineRoot, "examples/m1"))!,
 );
 const taskId = `${command}-${Date.now()}`;
 const envelope = (
@@ -37,7 +48,10 @@ const envelope = (
   taskId,
   status,
   diagnostics,
-  artifacts,
+  artifacts: artifacts.map((path) => ({
+    type: "file",
+    path: path.replaceAll("\\", "/"),
+  })),
   data,
 });
 const emit = (result: unknown) =>
@@ -60,14 +74,154 @@ async function main() {
           "dev --project <directory> [--port 4173]",
           "build --project <directory>",
           "capture [--mode raster|hybrid|path] [--output file.png]",
+          "inspect | step --count <n> | pause | resume [--port <dev-port>]",
+          "input --key ArrowRight [--pressed true] [--port <dev-port>]",
+          "snapshot --output <file> | restore --file <file>",
+          "record --action start|stop|cancel | replay --file <trace.json>",
+          "status | cancel --task <id> | reset-session | api",
         ],
-        stage: "M0 prototypes; no complete engine claim",
+        stage: "M1 runtime foundation; incomplete first-release feature set",
       }),
     );
     return;
   }
   if (command === "doctor") {
-    emit(await doctor({ projectRoot: engineRoot, taskId }));
+    const report = await doctor({ projectRoot: engineRoot, taskId });
+    emit(report);
+    if (report.status !== "succeeded") process.exitCode = 1;
+    return;
+  }
+  if (command === "api") {
+    const index = await generateApiIndex(engineRoot);
+    emit(
+      envelope(
+        "succeeded",
+        { engineVersion: SDK_VERSION, symbols: index.symbols.length },
+        [],
+        ["docs/api/index.json", "docs/api/REFERENCE.md"],
+      ),
+    );
+    return;
+  }
+  if (
+    [
+      "inspect",
+      "step",
+      "pause",
+      "resume",
+      "input",
+      "snapshot",
+      "restore",
+      "record",
+      "replay",
+      "status",
+      "cancel",
+      "reset-session",
+    ].includes(command) ||
+    (command === "capture" && args.includes("--live"))
+  ) {
+    const client = createControlClient({
+      url: `http://127.0.0.1:${Number(option("port", "4173"))}/`,
+    });
+    let response;
+    if (command === "status") response = await client.status();
+    else if (command === "cancel") {
+      const task = option("task");
+      if (!task) throw new Error("TC_CLI_TASK: --task is required.");
+      response = await client.cancel(task);
+    } else if (command === "reset-session") response = await client.reset();
+    else {
+      let operation: ControlCommand;
+      if (command === "capture") operation = { type: "capture" };
+      else if (command === "inspect")
+        operation = {
+          type: "inspect",
+          ...(option("entity") ? { entity: option("entity") } : {}),
+          ...(option("offset") ? { offset: Number(option("offset")) } : {}),
+          ...(option("limit") ? { limit: Number(option("limit")) } : {}),
+        };
+      else if (command === "step")
+        operation = { type: "step", count: Number(option("count", "1")) };
+      else if (command === "input") {
+        const pressed = option("pressed", "true");
+        if (!["true", "false"].includes(pressed!))
+          throw new Error("TC_CLI_INPUT: --pressed must be true or false.");
+        operation = {
+          type: "input",
+          key: option("key", "")!,
+          pressed: pressed === "true",
+        };
+      } else if (command === "restore" || command === "replay") {
+        const file = option("file");
+        if (!file) throw new Error("TC_CLI_FILE: --file is required.");
+        const data = JSON.parse(await readFile(path.resolve(file), "utf8"));
+        operation =
+          command === "restore"
+            ? { type: "restore", snapshot: data.data ?? data }
+            : { type: "replay", trace: data.data ?? data };
+      } else if (command === "record") {
+        const action = option("action", "start");
+        if (!["start", "stop", "cancel"].includes(action!))
+          throw new Error(
+            "TC_CLI_RECORD: action must be start, stop or cancel.",
+          );
+        operation = {
+          type:
+            action === "start"
+              ? "recordStart"
+              : action === "stop"
+                ? "recordStop"
+                : "recordCancel",
+        };
+      } else
+        operation = {
+          type: command as "inspect" | "pause" | "resume" | "snapshot",
+        };
+      response = await client.send(
+        operation,
+        option("task") ? { taskId: option("task") } : {},
+      );
+    }
+    if (command === "capture" && response.status === "succeeded") {
+      const data = response.data as {
+        format: string;
+        base64: string;
+        width: number;
+        height: number;
+        bytes: number;
+      };
+      const buffer = Buffer.from(data.base64, "base64");
+      if (
+        data.format !== "png" ||
+        buffer.length !== data.bytes ||
+        buffer.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a"
+      )
+        throw new Error("TC_CAPTURE_FORMAT: Invalid captured image.");
+      const output = path.resolve(
+        option("output", path.join(projectRoot, ".threecat/live-capture.png"))!,
+      );
+      if (path.extname(output).toLowerCase() !== ".png")
+        throw new Error(
+          "TC_CAPTURE_EXTENSION: Live capture output must be a PNG file.",
+        );
+      await mkdir(path.dirname(output), { recursive: true });
+      await writeFile(output, buffer);
+      response.data = {
+        format: data.format,
+        width: data.width,
+        height: data.height,
+        bytes: data.bytes,
+      };
+      response.artifacts.push({ type: "image", path: output });
+    } else if (option("output") && response.status === "succeeded") {
+      const output = path.resolve(option("output")!);
+      await mkdir(path.dirname(output), { recursive: true });
+      await writeFile(output, JSON.stringify(response.data, null, 2) + "\n");
+      response.artifacts.push({ type: "file", path: output });
+    }
+    emit(response);
+    if (!["succeeded", "running", "queued"].includes(response.status))
+      process.exitCode = 1;
     return;
   }
   if (command === "setup") {
@@ -92,7 +246,7 @@ async function main() {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    await cp(path.join(engineRoot, "examples/m0"), projectRoot, {
+    await cp(path.join(engineRoot, "examples/m1"), projectRoot, {
       recursive: true,
       filter: (source) =>
         !source.split(path.sep).includes(".threecat") &&
@@ -104,7 +258,7 @@ async function main() {
     );
     manifest.engine = {
       path: path.relative(projectRoot, engineRoot).split(path.sep).join("/"),
-      version: "0.0.1-m0.0",
+      version: SDK_VERSION,
     };
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
     emit(
@@ -144,7 +298,7 @@ async function main() {
     }
     if (command === "build") {
       const output =
-        projectRoot === path.join(engineRoot, "examples/m0")
+        projectRoot === path.join(engineRoot, "examples/m1")
           ? path.join(engineRoot, "dist")
           : path.join(projectRoot, "dist");
       try {
@@ -183,13 +337,13 @@ async function main() {
         path.join(output, "threecat-build.json"),
         JSON.stringify(
           {
-            engineVersion: "0.0.1-m0.0",
-            stage: "risk-prototype",
+            engineVersion: SDK_VERSION,
+            stage: "runtime-foundation",
             game: result.ir?.gameId,
             entry: "index.html",
             renderer: "webgpu-only",
             limitations: [
-              "M0 test scene and SDK subset, not the complete engine",
+              "M1 runtime foundation, not the complete engine",
               "Compute BVH path tracer, no hardware ray tracing",
               "No production denoiser; hybrid is image-compositing prototype",
             ],
@@ -220,40 +374,40 @@ async function main() {
       server: { port, host: "127.0.0.1", strictPort: true },
       logLevel: "silent",
     });
+    const controls = command === "dev" ? attachControl(server) : undefined;
     await server.listen();
     if (command === "capture") {
-      const { chromium } = await import("playwright");
-      const browser = await chromium.launch({
-        headless: false,
-        args: ["--use-angle=d3d11"],
-      });
+      let browser: import("playwright").Browser | undefined;
       try {
+        const { chromium } = await import("playwright");
+        browser = await chromium.launch(automationLaunchOptions());
         const page = await browser.newPage({
           viewport: { width: 960, height: 540 },
         });
-        await page.goto(`http://127.0.0.1:${port}/`);
-        await page.waitForFunction(() =>
-          Boolean(
-            (window as any).__threecat || (window as any).__threecatFailure,
+        await withAutomationDeadline(() =>
+          page.goto(automationURL(`http://127.0.0.1:${port}/`), {
+            waitUntil: "domcontentloaded",
+            timeout: 30_000,
+          }),
+        );
+        await waitForEngine(page);
+        await withAutomationDeadline(() =>
+          page.evaluate(
+            async (mode) => {
+              await (window as any).__threecat.mode(mode);
+              if (mode !== "raster")
+                await (window as any).__threecat.accumulate(8);
+            },
+            option("mode", "raster"),
           ),
-        );
-        const failure = await page.evaluate(
-          () => (window as any).__threecatFailure,
-        );
-        if (failure) throw new Error(failure);
-        await page.evaluate(
-          async (mode) => {
-            await (window as any).__threecat.mode(mode);
-            if (mode !== "raster")
-              await (window as any).__threecat.accumulate(8);
-          },
-          option("mode", "raster"),
         );
         const output = path.resolve(
           option("output", path.join(projectRoot, ".threecat/capture.png"))!,
         );
         await mkdir(path.dirname(output), { recursive: true });
-        await page.screenshot({ path: output });
+        await withAutomationDeadline(() =>
+          page.screenshot({ path: output, timeout: 30_000 }),
+        );
         emit(
           envelope(
             "succeeded",
@@ -263,27 +417,37 @@ async function main() {
           ),
         );
       } finally {
-        await browser.close();
-        await server.close();
+        try {
+          await browser?.close();
+        } finally {
+          await server.close();
+        }
       }
       return;
     }
     server.watcher.add(projectRoot);
-    let pending = false;
+    let pending = false,
+      dirty = false;
     server.watcher.on("all", async (event, filename) => {
+      const relative = path.relative(projectRoot, filename);
       if (
-        !filename.startsWith(projectRoot) ||
+        relative.startsWith("..") ||
+        path.isAbsolute(relative) ||
         filename.includes(`${path.sep}.threecat${path.sep}`) ||
-        filename.includes(`${path.sep}dist${path.sep}`) ||
-        pending
+        filename.includes(`${path.sep}dist${path.sep}`)
       )
         return;
-      if (!/\.(ts|json)$/.test(filename)) return;
+      dirty = true;
+      if (pending) return;
       pending = true;
       try {
-        const next = await compile();
-        if (next.success) server.ws.send({ type: "full-reload" });
-        else emit(envelope("failed", next.report, next.diagnostics));
+        while (dirty) {
+          dirty = false;
+          const next = await compile();
+          if (next.success && !dirty) server.ws.send({ type: "full-reload" });
+          else if (!next.success)
+            emit(envelope("failed", next.report, next.diagnostics));
+        }
       } catch (error) {
         emit(
           envelope("failed", null, [
@@ -304,7 +468,9 @@ async function main() {
     );
     for (const signal of ["SIGINT", "SIGTERM"] as const)
       process.on(signal, () => {
-        void server.close().then(() => process.exit(0));
+        void (controls?.close() ?? Promise.resolve())
+          .then(() => server.close())
+          .then(() => process.exit(0));
       });
     return;
   }

@@ -1,0 +1,128 @@
+{
+  "passed": true,
+  "initialTick": 0,
+  "finalTick": 30,
+  "records": [
+    {
+      "id": "spinner",
+      "transform": {
+        "position": [
+          -0.65,
+          0.8,
+          0
+        ],
+        "rotation": [
+          0,
+          0.799999999999999,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "Motion": {
+          "speed": 0.8,
+          "enabled": true
+        },
+        "Progress": {
+          "ticks": 60,
+          "lastRandom": 0.012702406151220202,
+          "events": 1
+        }
+      }
+    },
+    {
+      "id": "orb",
+      "transform": {
+        "position": [
+          1.1,
+          0.7,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {}
+    },
+    {
+      "id": "ground",
+      "transform": {
+        "position": [
+          0,
+          -0.1,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {}
+    },
+    {
+      "id": "sun",
+      "transform": {
+        "position": [
+          -3,
+          7,
+          4
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {}
+    }
+  ],
+  "replay": {
+    "status": "passed",
+    "actionsExecuted": 31,
+    "fault": null
+  },
+  "inputAndEvents": true,
+  "invalidRestoreRejectedAtomically": true,
+  "world": {
+    "passed": true,
+    "load": {
+      "entities": 10000,
+      "components": 1,
+      "matching": 5000
+    },
+    "storage": "typed SoA columns",
+    "spawnWallMs": 20.776099999999133,
+    "queryWallMeanMs": 0.22806699999999183,
+    "capacity": 16384,
+    "staleHandleRejected": true,
+    "permissionRejected": true,
+    "atomicCommandFailure": true,
+    "snapshotBytes": 1163468,
+    "limitations": [
+      "Measures this CPU process only, not a universal throughput guarantee",
+      "Atomic structural commits currently copy candidate column state"
+    ]
+  }
+}

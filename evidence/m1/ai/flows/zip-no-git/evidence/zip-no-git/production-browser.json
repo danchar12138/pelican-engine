@@ -1,0 +1,449 @@
+{
+  "kind": "zip-no-git",
+  "status": "passed",
+  "headless": false,
+  "url": "http://localhost:4385/zip-game/",
+  "pageErrors": [],
+  "consoleErrors": [],
+  "requests": [
+    "http://localhost:4385/zip-game/",
+    "http://localhost:4385/zip-game/assets/index-DnOkWvrH.js",
+    "http://localhost:4385/zip-game/generated/scene.ir.json?v=1",
+    "http://localhost:4385/zip-game/generated/game.js?v=1"
+  ],
+  "responses": [
+    {
+      "url": "http://localhost:4385/zip-game/",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4385/zip-game/assets/index-DnOkWvrH.js",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4385/zip-game/generated/scene.ir.json?v=1",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4385/zip-game/generated/game.js?v=1",
+      "status": 200
+    }
+  ],
+  "launchOptions": {
+    "headless": false,
+    "timeout": 30000,
+    "args": [
+      "--use-angle=d3d11",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-features=CalculateNativeWinOcclusion"
+    ]
+  },
+  "interactionPolicy": {
+    "browserClicks": 0,
+    "browserKeyPresses": 0,
+    "humanTechnicalSteps": 0,
+    "focusRequired": false
+  },
+  "browserVersion": "156.0.8078.4",
+  "readiness": {
+    "helper": "tools/browser-session.ts",
+    "polling": 100,
+    "nodeDeadlineMs": 30000,
+    "functionCallback": true
+  },
+  "firstStatus": "threecat · raster\nWebGPU · 192 triangles · tick 1\nrunning",
+  "secondStatus": "threecat · raster\nWebGPU · 192 triangles · tick 49\nrunning",
+  "noWaitingGPUStatus": true,
+  "runtime": {
+    "gpu": {
+      "contexts": [
+        {
+          "type": "webgpu",
+          "created": true
+        },
+        {
+          "type": "webgpu",
+          "created": true
+        }
+      ],
+      "adapters": [
+        {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        }
+      ],
+      "devices": 1
+    },
+    "developmentHookPresent": false,
+    "hookOwnProperty": false,
+    "ready": "true",
+    "canvases": [
+      {
+        "width": 960,
+        "height": 540,
+        "display": "block"
+      },
+      {
+        "width": 960,
+        "height": 540,
+        "display": "none"
+      }
+    ]
+  },
+  "backend": "WebGPUBackend",
+  "backendEvidence": "Actual successfully created webgpu canvas context and GPUDevice; no WebGL context requests.",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": false
+  },
+  "autoRuns": {
+    "firstTick": 1,
+    "secondTick": 49,
+    "passed": true
+  },
+  "consoleErrorStacks": [],
+  "assetResponsesPassed": true,
+  "independentSubpathRequests": true,
+  "deployedIR": {
+    "format": "threecat.scene",
+    "version": 1,
+    "engineVersion": "0.1.0-m1.0",
+    "gameId": "m1-foundation",
+    "scene": {
+      "id": "foundation",
+      "camera": {
+        "position": [
+          4,
+          3,
+          6
+        ],
+        "target": [
+          0,
+          0.7,
+          0
+        ],
+        "fov": 45,
+        "near": 0.1,
+        "far": 1000
+      },
+      "environment": {
+        "background": "#111d2a",
+        "ambientIntensity": 1.1
+      },
+      "entities": [
+        {
+          "id": "spinner",
+          "transform": {
+            "position": [
+              -0.9,
+              0.8,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {
+            "Motion": {
+              "speed": 1.2,
+              "enabled": true
+            },
+            "Progress": {
+              "ticks": 0,
+              "lastRandom": 0,
+              "events": 0
+            }
+          },
+          "mesh": {
+            "geometry": {
+              "kind": "box",
+              "size": [
+                1.3,
+                1.3,
+                1.3
+              ]
+            },
+            "material": "copper",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        {
+          "id": "orb",
+          "transform": {
+            "position": [
+              1.1,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "mesh": {
+            "geometry": {
+              "kind": "sphere",
+              "radius": 0.65
+            },
+            "material": "green",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        {
+          "id": "ground",
+          "transform": {
+            "position": [
+              0,
+              -0.1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "mesh": {
+            "geometry": {
+              "kind": "box",
+              "size": [
+                12,
+                0.2,
+                12
+              ]
+            },
+            "material": "floor",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        {
+          "id": "sun",
+          "transform": {
+            "position": [
+              -3,
+              7,
+              4
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "light": {
+            "kind": "directional",
+            "color": "#fff1d4",
+            "intensity": 4,
+            "castShadow": true
+          }
+        }
+      ]
+    },
+    "components": [
+      {
+        "id": "Motion",
+        "schema": {
+          "speed": {
+            "type": "number",
+            "default": 1.2
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "source": {
+          "file": "game.ts",
+          "line": 10,
+          "column": 23,
+          "length": 153
+        }
+      },
+      {
+        "id": "Progress",
+        "schema": {
+          "ticks": {
+            "type": "number",
+            "default": 0
+          },
+          "lastRandom": {
+            "type": "number",
+            "default": 0
+          },
+          "events": {
+            "type": "number",
+            "default": 0
+          }
+        },
+        "source": {
+          "file": "game.ts",
+          "line": 17,
+          "column": 25,
+          "length": 197
+        }
+      }
+    ],
+    "prefabs": [],
+    "materials": [
+      {
+        "id": "copper",
+        "color": "#db7836",
+        "roughness": 0.26,
+        "metalness": 0.65,
+        "source": {
+          "file": "game.ts",
+          "line": 25,
+          "column": 16,
+          "length": 98
+        }
+      },
+      {
+        "id": "floor",
+        "color": "#71839a",
+        "roughness": 0.8,
+        "metalness": 0,
+        "source": {
+          "file": "game.ts",
+          "line": 31,
+          "column": 15,
+          "length": 65
+        }
+      },
+      {
+        "id": "green",
+        "color": "#27bd75",
+        "roughness": 0.45,
+        "metalness": 0,
+        "source": {
+          "file": "game.ts",
+          "line": 32,
+          "column": 15,
+          "length": 77
+        }
+      }
+    ],
+    "computes": [
+      {
+        "id": "pulse",
+        "count": 16,
+        "workgroupSize": 16,
+        "outputType": "float",
+        "graph": {
+          "nodes": [
+            {
+              "id": "clock",
+              "op": "time"
+            },
+            {
+              "id": "wave",
+              "op": "sin",
+              "inputs": [
+                "clock"
+              ]
+            }
+          ],
+          "output": "wave",
+          "nodeTypes": {
+            "clock": "float",
+            "wave": "float"
+          },
+          "outputType": "float"
+        },
+        "source": {
+          "file": "game.ts",
+          "line": 37,
+          "column": 15,
+          "length": 245
+        }
+      }
+    ],
+    "systems": [
+      {
+        "id": "spin",
+        "phase": "update",
+        "source": {
+          "file": "game.ts",
+          "line": 73,
+          "column": 14,
+          "length": 710
+        },
+        "reads": [
+          "Motion"
+        ],
+        "writes": [
+          "Transform",
+          "Progress"
+        ]
+      },
+      {
+        "id": "observe",
+        "phase": "postPhysics",
+        "source": {
+          "file": "game.ts",
+          "line": 95,
+          "column": 17,
+          "length": 381
+        },
+        "reads": [],
+        "writes": [
+          "Progress"
+        ]
+      },
+      {
+        "id": "input",
+        "phase": "input",
+        "source": {
+          "file": "game.ts",
+          "line": 50,
+          "column": 15,
+          "length": 705
+        },
+        "reads": [
+          "Motion"
+        ],
+        "writes": [
+          "Transform"
+        ]
+      }
+    ],
+    "assets": []
+  },
+  "browserClosed": true
+}

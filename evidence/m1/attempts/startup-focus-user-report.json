@@ -1,0 +1,21 @@
+{
+  "stage": "M1 integration before publication",
+  "userReport": "The visible browser appeared stuck at Waiting GPU / ready and seemed to need a manual click or Enter to proceed.",
+  "confirmedCauses": [
+    "Boot overwrote the completed frame status with Waiting GPU followed by ready, while development pages were intentionally paused without an explicit paused label.",
+    "Default browser readiness polling used requestAnimationFrame and did not have a separate Node deadline, leaving background/occluded test windows vulnerable to suspended RAF polling."
+  ],
+  "fix": [
+    "Normal development pages automatically run; only explicit automation=1 development sessions pause, with an unambiguous state label.",
+    "Readiness uses numeric polling, a Node deadline and owned-browser cleanup; development launch options reduce background timer/occlusion throttling without bypassing GPU capabilities.",
+    "GPU adapter/device/renderer/content initialization and submission waits have explicit bounded errors."
+  ],
+  "realHardwareRegression": {
+    "inputActions": 0,
+    "gamePageActivated": false,
+    "normalCoveredPage": "simulation ticks continue without activating the game page",
+    "automationWithRAFDisabled": "readiness, three fixed steps and PNG capture pass on a non-fallback NVIDIA adapter"
+  },
+  "authoritativeEvidence": "evidence/m1/unattended.json",
+  "releaseCreatedBeforeFix": false
+}

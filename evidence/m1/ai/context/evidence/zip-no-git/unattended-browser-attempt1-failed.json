@@ -1,0 +1,32 @@
+{
+  "kind": "zip-no-git",
+  "status": "failed",
+  "headless": false,
+  "interactionPolicy": {
+    "browserClicks": 0,
+    "browserKeyPresses": 0,
+    "humanTechnicalSteps": 0,
+    "bringToFrontCalls": 0
+  },
+  "readiness": {
+    "helper": "tools/browser-session.ts",
+    "polling": 100,
+    "nodeDeadlineMs": 30000,
+    "functionCallback": true
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "launchOptions": {
+    "headless": false,
+    "timeout": 30000,
+    "args": [
+      "--use-angle=d3d11",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-features=CalculateNativeWinOcclusion"
+    ]
+  },
+  "error": "AssertionError [ERR_ASSERTION]: false == true",
+  "browserClosed": true
+}

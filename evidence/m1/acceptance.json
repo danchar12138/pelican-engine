@@ -1,0 +1,781 @@
+{
+  "protocolVersion": "0.1.0",
+  "milestone": "M1",
+  "scope": "runtime-foundation",
+  "engineVersion": "0.1.0-m1.0",
+  "status": "passed",
+  "recordedAt": "2026-11-04T13:52:33.616Z",
+  "sourceIdentity": {
+    "algorithm": "sha256",
+    "scope": "executable-source-and-lockfiles",
+    "sha256": "6f3704a35b363f1edddee265766603cd9b6cbe8c0a82156f65f4f0967a111179",
+    "files": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "sha256": "6257caebc38a3534f7dc339cd94ee272dbf8236a70a1a643722d757e379dd151",
+        "bytes": 1496
+      },
+      {
+        "path": "engine.manifest.json",
+        "sha256": "b490a3006c433d28696d11f7930eab5cab815318b50da7a0a51fac350ef405fe",
+        "bytes": 411
+      },
+      {
+        "path": "examples/m0/game.ts",
+        "sha256": "ae7c01fb7117d81fbc21bba2ddc7511a94ada5fe4e41a1b624a920dedf78054c",
+        "bytes": 3054
+      },
+      {
+        "path": "examples/m0/threecat.project.json",
+        "sha256": "ef09fc2e13f1300d8a15a4f5f6800d21df21f3e725a2eb5e81950bd1442bc0a3",
+        "bytes": 67
+      },
+      {
+        "path": "examples/m1/game.ts",
+        "sha256": "a30da538116027ba13a4777b14433d619b5686f0799539f1cf8682c252384963",
+        "bytes": 4013
+      },
+      {
+        "path": "examples/m1/threecat.project.json",
+        "sha256": "b4c30870156ca34f39f36ad5681f47b8219ec0610932123dcea7422ec820739a",
+        "bytes": 58
+      },
+      {
+        "path": "experiments/compiler/extract.ts",
+        "sha256": "6394d529edee6d4ff7f684c26b43240f16992c092a74cf687a6a045c311dede6",
+        "bytes": 133
+      },
+      {
+        "path": "experiments/compiler/index.ts",
+        "sha256": "85b3f6177685a800307240d5fadf51536b53d4b922a6885f63068bfc5eec15be",
+        "bytes": 131
+      },
+      {
+        "path": "experiments/compiler/normalize.ts",
+        "sha256": "4d2d4479d5443accbfcde06c5ebe2cb3d247d7c116d09b1ec78b1aae8dc8cfc9",
+        "bytes": 135
+      },
+      {
+        "path": "experiments/compiler/source-map.ts",
+        "sha256": "5a240f4c63ffe0d37e4189ebf554763cb20c7203ca0c63516bab21265a41af10",
+        "bytes": 136
+      },
+      {
+        "path": "experiments/compiler/types.ts",
+        "sha256": "d3a4064f199eb0f9d1b690e4c3ef64a4beb260e5a82dad1ed5a32e5fde0aac5e",
+        "bytes": 131
+      },
+      {
+        "path": "experiments/render/geometry.ts",
+        "sha256": "629fb5aad5032d3ab8054be2c170b3d4c8c4885d87f7d61dcfe4c683c2fe4b3b",
+        "bytes": 100
+      },
+      {
+        "path": "experiments/render/graph.ts",
+        "sha256": "6cdc9f005c5d2be3369e5f9cfe511994a88e8f2ef6a98f06899cde680140f068",
+        "bytes": 97
+      },
+      {
+        "path": "experiments/render/main.ts",
+        "sha256": "735070c14aaccc65d7aac846c9e92aa055254ad200e1a9efe2772f3313bdfafc",
+        "bytes": 127
+      },
+      {
+        "path": "experiments/render/pathtrace.ts",
+        "sha256": "aff93e8a85f7daafeb79a0c2d31d8ae0b3c1f5a35864d3d118108e2e56e24525",
+        "bytes": 101
+      },
+      {
+        "path": "experiments/rigidbody/adapters.ts",
+        "sha256": "7c3bd8350c09573a767ad8910e0fa3be2848b316f6c492f3758271110ee4373e",
+        "bytes": 7821
+      },
+      {
+        "path": "experiments/rigidbody/checkpoint.ts",
+        "sha256": "f10d6fb255011d43626ae2b4568915173fc0838ce84ea14ef32f26a782dad23b",
+        "bytes": 1018
+      },
+      {
+        "path": "experiments/rigidbody/index.ts",
+        "sha256": "09394ce013be340cd97eb2279a6070b7abe6cfab3dd69033be1c6c5ca42325e5",
+        "bytes": 155
+      },
+      {
+        "path": "experiments/rigidbody/probe.ts",
+        "sha256": "9bed41a5ba48171dde6e5f662a4176c016ac2fd46943c033ae33c407123cf70a",
+        "bytes": 17128
+      },
+      {
+        "path": "experiments/rigidbody/run-probe.ts",
+        "sha256": "0d031bd088f1a8071feb921312f9459db5188d96c1950d5023bc960976f52d78",
+        "bytes": 264
+      },
+      {
+        "path": "experiments/rigidbody/types.ts",
+        "sha256": "7195f92e2ffd7b225c434c1995305fdb374723ba50b5f3f5b5fa91772ae119b7",
+        "bytes": 2485
+      },
+      {
+        "path": "experiments/simulation/index.ts",
+        "sha256": "e29bcc61bd8bdea2cefc7855640d8f45a8fa7f70150fdbab065e2c9e000cf5a7",
+        "bytes": 243
+      },
+      {
+        "path": "experiments/simulation/math.ts",
+        "sha256": "03ce0fdfdf1187e2e2809aae52eadab76f762ed7c31602124ad008b1ad3f25ab",
+        "bytes": 1504
+      },
+      {
+        "path": "experiments/simulation/probe.ts",
+        "sha256": "5e76e577cd26d400de2e0059ea81082d5e978bb7a2d17e5509895aa2b75d5412",
+        "bytes": 14271
+      },
+      {
+        "path": "experiments/simulation/run-probe.ts",
+        "sha256": "228e6246901fe60e571fc5b54036a215f3ace8b41556cf813d23a6de36fff097",
+        "bytes": 1313
+      },
+      {
+        "path": "experiments/simulation/scenes.ts",
+        "sha256": "a566f83f834c19007f40107f00ddf43220585164e26a0c9f63200e25dcc9efc3",
+        "bytes": 7694
+      },
+      {
+        "path": "experiments/simulation/solver.ts",
+        "sha256": "3836f6aee8cbfc64be7bdee3ffaee0f4f0f2e74550d98363e821b76d9cc3fe0c",
+        "bytes": 15448
+      },
+      {
+        "path": "experiments/simulation/types.ts",
+        "sha256": "823cc6dc1eb402fb4e0c0fb877f5ec81bf26447244f645ebb9d2f4f0a5db28b8",
+        "bytes": 3234
+      },
+      {
+        "path": "experiments/world/adapters.ts",
+        "sha256": "1add237703ec923f5fc22df79e8b84740089e50287db9941f4c6738e755243c2",
+        "bytes": 974
+      },
+      {
+        "path": "experiments/world/geometry.ts",
+        "sha256": "ed90d436afd62aa033d8203620d555ba03bdb35c0dce96021a76991dccfa642c",
+        "bytes": 7710
+      },
+      {
+        "path": "experiments/world/index.ts",
+        "sha256": "88398643bfee988ae601b6fc140878074d10cf036c874564c3419042d8a9ba85",
+        "bytes": 179
+      },
+      {
+        "path": "experiments/world/probe.ts",
+        "sha256": "64bfb1b32934ee480d0cec766879d25ac386b2ad76ffddd4e74146c99db53fec",
+        "bytes": 13425
+      },
+      {
+        "path": "experiments/world/run-probe.ts",
+        "sha256": "89521fece97e52b3cb0614c7e577c9d59b15af031ac0f68cb6e99a1ef17b15c9",
+        "bytes": 1723
+      },
+      {
+        "path": "experiments/world/types.ts",
+        "sha256": "eeb33bc0277b0828657ee7ac16bafc210aa965d4aa1afd514ec7d712d329959d",
+        "bytes": 5198
+      },
+      {
+        "path": "experiments/world/world.ts",
+        "sha256": "53d02af52fe6b3790282f11f3a6d07497138de708a46cbf94bfaf4b547e2da36",
+        "bytes": 22809
+      },
+      {
+        "path": "index.html",
+        "sha256": "2a3f13cd23dd94c0e4889825f245545ed9b4da52fa1180b2f6e4b22eb2940372",
+        "bytes": 786
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "75c0e01f58029bd246e250f05aa9ff0996874211054290dc5585ff089e86b962",
+        "bytes": 46978
+      },
+      {
+        "path": "package.json",
+        "sha256": "a98e8c0137a70ff4bf19696e504a1f1255c78cbf6023aeed7b476744c109a83b",
+        "bytes": 1080
+      },
+      {
+        "path": "packages/compiler/package.json",
+        "sha256": "b97df3e04ef27eba942983f1eb9be4699e52ce824bf2fe6edf074674d0ddd218",
+        "bytes": 243
+      },
+      {
+        "path": "packages/compiler/src/extract.ts",
+        "sha256": "3148cfe9df4775358b51872ca7799d25ed26a3461178cfed71f56fff4272ace2",
+        "bytes": 21009
+      },
+      {
+        "path": "packages/compiler/src/index.ts",
+        "sha256": "54da5b883d4881f8ec690fcd729796a8d951eb2b3083d450d3bf104b281baaa4",
+        "bytes": 22775
+      },
+      {
+        "path": "packages/compiler/src/normalize.ts",
+        "sha256": "c4f30e626ea25e0fd860b1abddb51ce080354af0ae0f00280d371b525c0e8141",
+        "bytes": 25751
+      },
+      {
+        "path": "packages/compiler/src/source-map.ts",
+        "sha256": "00f0fdb54578d22abeb969f2b342732c9ad685caa7d791353d63eb5c42cfcc81",
+        "bytes": 1291
+      },
+      {
+        "path": "packages/compiler/src/types.ts",
+        "sha256": "088f69c1cf507146e9f22e3a3fe6cfb0bc38924e7a9474ef4aba6ea67f6cd169",
+        "bytes": 3193
+      },
+      {
+        "path": "packages/compiler/src/version.ts",
+        "sha256": "aded268c0b737e35c808aa04dfffa7752fc62ca2c543800701757717937c78fa",
+        "bytes": 4063
+      },
+      {
+        "path": "packages/protocol/src/index.ts",
+        "sha256": "cfeac89ce6e0604321c24eb1138fb693b165684c6b03349e8c4b8836c8fa271e",
+        "bytes": 4796
+      },
+      {
+        "path": "packages/renderer/src/browser.ts",
+        "sha256": "be050178b0cb4283f1f41907396ceba563dd84f659eb7e6cd071cd79fb5df7a1",
+        "bytes": 45975
+      },
+      {
+        "path": "packages/renderer/src/checkpoint.ts",
+        "sha256": "f972c187d4f845ba6485f075164318a4dd587ad1af08c5ff0b1fff701673d6ad",
+        "bytes": 4722
+      },
+      {
+        "path": "packages/renderer/src/geometry.ts",
+        "sha256": "33920acb7c3b7dfa6f87ceacab3df1fcaf711205faf1823a3f3c4f73339e05ce",
+        "bytes": 3907
+      },
+      {
+        "path": "packages/renderer/src/graph.ts",
+        "sha256": "9908b42de5856baa1846f9ccbc846543f28a7f3ade1c5d4b9989ac3e1c9a9712",
+        "bytes": 5557
+      },
+      {
+        "path": "packages/renderer/src/pathtrace.ts",
+        "sha256": "343343bbd445a3c7253741313c22098cc7a1a865b94c19e5998237cabfaf34cd",
+        "bytes": 14759
+      },
+      {
+        "path": "packages/renderer/src/startup.ts",
+        "sha256": "1345c3967e5d3c191a8c83b7af38ccb17bd9e07a897ea9a28fcab5ee07a7e653",
+        "bytes": 1516
+      },
+      {
+        "path": "packages/runtime/src/contracts.ts",
+        "sha256": "67e208b4bab812c5dd9b888737b5dade238690d66848149bacaa40cd41c11e63",
+        "bytes": 2799
+      },
+      {
+        "path": "packages/runtime/src/error.ts",
+        "sha256": "1c066273f4e0d27325ae4fbaa9f673b6fbcc74f5d12d02d01c720c84354cdd00",
+        "bytes": 1778
+      },
+      {
+        "path": "packages/runtime/src/events.ts",
+        "sha256": "1d26c13e41e57b707bb2cdd10f3a8d9b0af10cefc2dbddc7db8363ff98c31d51",
+        "bytes": 8508
+      },
+      {
+        "path": "packages/runtime/src/host.ts",
+        "sha256": "7c1fc32940284704b4118b630893acd0753b6b4918722ed30b28c87a0be196d1",
+        "bytes": 14814
+      },
+      {
+        "path": "packages/runtime/src/index.ts",
+        "sha256": "2c2c4cc901dc139a85b768cdef85158751309b08672c984051037cf4a8b9e0d0",
+        "bytes": 288
+      },
+      {
+        "path": "packages/runtime/src/random.ts",
+        "sha256": "e3d2564aad7c8711fb30fcbb2bdffd9891254e85b1bb6a3ca1e990b8684ec103",
+        "bytes": 3820
+      },
+      {
+        "path": "packages/runtime/src/resources.ts",
+        "sha256": "1724904cff1c45e080ae6c75e6e46f3a9a18fe80c000f75b20230991447390f0",
+        "bytes": 29255
+      },
+      {
+        "path": "packages/runtime/src/scheduler.ts",
+        "sha256": "79081103cbe9bff039771d69ccda42af4fb0fb91d4496f193de0a23c1bc5b1b9",
+        "bytes": 29258
+      },
+      {
+        "path": "packages/runtime/src/storage.ts",
+        "sha256": "96f62db08ffccb33799e301eeb5610f45453a5ae00dd7d52d359c88bd9ef9d30",
+        "bytes": 6799
+      },
+      {
+        "path": "packages/runtime/src/world.ts",
+        "sha256": "dbd40ba5df85e338f00a91a1098060ea5e7c3128e8bf13906b9c241da1232d79",
+        "bytes": 22889
+      },
+      {
+        "path": "packages/schema/src/index.ts",
+        "sha256": "9777b6f8ec1f6a512ef95badf498749b32bd9c450a942b11d30ea5a7c0fdcd42",
+        "bytes": 972
+      },
+      {
+        "path": "packages/sdk/src/index.ts",
+        "sha256": "53939047b4c39c2830fdda1e97e3845c345e1b56351a9c7c77265afefa614084",
+        "bytes": 9124
+      },
+      {
+        "path": "tests/api-index.test.ts",
+        "sha256": "24d591ff88f87a3ffb38377c4bcf8b9ef4138bb92b3cf0005884d5198acc857e",
+        "bytes": 2631
+      },
+      {
+        "path": "tests/browser-contract.test.ts",
+        "sha256": "eada14c7c4f99a8ea0587d903fd96458c17ea6477c46d9e8a1e0e53e5cce0681",
+        "bytes": 22758
+      },
+      {
+        "path": "tests/browser-session.test.ts",
+        "sha256": "e3dd3e4f300ddb5241722eb58db9602c8b8663ac83446fb5371e53103b0ef72e",
+        "bytes": 8873
+      },
+      {
+        "path": "tests/compiler.test.ts",
+        "sha256": "10e9bb510d9ac71ea5ce1b6c7e7e7da93bc5008d948d0286e4b94645df3d26ce",
+        "bytes": 49651
+      },
+      {
+        "path": "tests/control.test.ts",
+        "sha256": "d7d5f4f5f279775ef5e014316c0dc666e29706791d3f5524f4a702fed4596ccf",
+        "bytes": 38330
+      },
+      {
+        "path": "tests/deployment.test.ts",
+        "sha256": "c56bf8509052468170c4cd0862345ff95b5a1e71e4be81a97633e33b378a961a",
+        "bytes": 3394
+      },
+      {
+        "path": "tests/environment.test.ts",
+        "sha256": "bd55cc5982608d6022e10d1a8e58efb5113077788611eb56090abd815b1037e7",
+        "bytes": 15980
+      },
+      {
+        "path": "tests/protocol.test.ts",
+        "sha256": "8e451949be5d0fd9bbcdbdf5503d9708f6cc612d213eef610c8c9d42b7bd1cc2",
+        "bytes": 2055
+      },
+      {
+        "path": "tests/release.test.ts",
+        "sha256": "01b278174a8245bdb99de422ec2a730873c678ce1b2fbae57c046b7347d270cd",
+        "bytes": 37172
+      },
+      {
+        "path": "tests/render.test.ts",
+        "sha256": "aa02f54a696e88ace19b799a3e92ea5abefa0778e9d89c1a838e9642b89838c7",
+        "bytes": 7439
+      },
+      {
+        "path": "tests/rigidbody.test.ts",
+        "sha256": "0b39ecdd577f98d4de1785bde654891dd01192c8854aea456c1cd1ffa2605e4b",
+        "bytes": 14852
+      },
+      {
+        "path": "tests/runtime-host.test.ts",
+        "sha256": "ad1f13d126903ece25fef0e3571663148a9f94644893e64d2d53fa7083bfe5ef",
+        "bytes": 28343
+      },
+      {
+        "path": "tests/runtime-resources.test.ts",
+        "sha256": "97c82cb39eeccb15f0ef3e7ed42adfc2e3a9785510b1b1c1c74616c904365529",
+        "bytes": 47566
+      },
+      {
+        "path": "tests/runtime-scheduler.test.ts",
+        "sha256": "ca2af2d41c1e8b4158ef0b790f9aecd8b5289ba6c35445d576fdd6e61fe15a8a",
+        "bytes": 39432
+      },
+      {
+        "path": "tests/runtime-world.test.ts",
+        "sha256": "8be578c17b90202bf80342537b6ba15e727e9d8b3ca1b60feb5dbea25156f017",
+        "bytes": 39917
+      },
+      {
+        "path": "tests/simulation.test.ts",
+        "sha256": "6ce24e58f9d85bc36f4fa9058f0d0e54c7897a2f46db5739e40f9f0ed121e9e3",
+        "bytes": 13138
+      },
+      {
+        "path": "tests/source-map.test.ts",
+        "sha256": "504fb75fc1171ccd3c863e505480e9592e5fb58af3132b9a60c818717f180702",
+        "bytes": 3075
+      },
+      {
+        "path": "tests/startup.test.ts",
+        "sha256": "74c44d395161313a39e335655b69a1e42a06863970e773d9a4d3329f6aba35c9",
+        "bytes": 1772
+      },
+      {
+        "path": "tests/world.test.ts",
+        "sha256": "f9c87097a5dd1de5deec4781759babb6acda0467d87f1ac97332d297612c7244",
+        "bytes": 24145
+      },
+      {
+        "path": "threecat.ps1",
+        "sha256": "adc214d28cabf68cd46f409a24443c7d38c30e3c289672b86638ebbe46726237",
+        "bytes": 2485
+      },
+      {
+        "path": "tools/api-index.ts",
+        "sha256": "815ba6b35c4a57cff2a7c1476b2d3fb0d8947b511ddb11becc1252156cf2b94f",
+        "bytes": 3722
+      },
+      {
+        "path": "tools/browser-session.ts",
+        "sha256": "afeb56b0101bd93c21fa3d63d32d4e9af631741f002b21c9c7757ef5970d75b0",
+        "bytes": 4436
+      },
+      {
+        "path": "tools/cli.ts",
+        "sha256": "407dae417256c60e7ca6fc66d3ba0759b16f730a6774737f08284e064e45947c",
+        "bytes": 16172
+      },
+      {
+        "path": "tools/control-client.ts",
+        "sha256": "8cdf91dfdcb86f3c083517125c93d33afbca899eb00d23cca821a0287e50e84f",
+        "bytes": 6342
+      },
+      {
+        "path": "tools/control-server.ts",
+        "sha256": "2066c920d20349367e273df718b2b5228db4b6ae767260cb8660b3b4bd819cc1",
+        "bytes": 27937
+      },
+      {
+        "path": "tools/doctor.ts",
+        "sha256": "8cc201dedae27080af1af4cb781d34d08357b4a1fead7cd659680aab90967070",
+        "bytes": 25539
+      },
+      {
+        "path": "tools/foundation-probe.ts",
+        "sha256": "e73b33128dce6b4a2330cbc952226e471849294b196d90ede13a54daa3f226f8",
+        "bytes": 7431
+      },
+      {
+        "path": "tools/gpu-probe.ts",
+        "sha256": "05f440ac5060ebbe1aee37f4589417e07541a27a69e955fa304e7a7729dbd69b",
+        "bytes": 1146
+      },
+      {
+        "path": "tools/license-inventory.ts",
+        "sha256": "af04d6b141148ee96841baa5a714846086cc4ef8507ab40625d8bcb0683d5d73",
+        "bytes": 2325
+      },
+      {
+        "path": "tools/prepare-zip-validation.ts",
+        "sha256": "9bcca27772dedd1c9e852f5d0e0a72897ed907e8e1c882200a4baa16a2146058",
+        "bytes": 2624
+      },
+      {
+        "path": "tools/release.ts",
+        "sha256": "f73f624b4761b6032a719bae47064297107f38dd0cecc1ebbdfb96e9a16b4ebc",
+        "bytes": 31718
+      },
+      {
+        "path": "tools/setup.ts",
+        "sha256": "f4e2dcc909e214fb6a26090318e5a5c64f81d93d7f5ec0ca763723a6530178c7",
+        "bytes": 7507
+      },
+      {
+        "path": "tools/source-fingerprint.ts",
+        "sha256": "e6650ddd0253d1fdfa980323aa8486fdda7198ddcf73db793391bfdcf2226644",
+        "bytes": 1480
+      },
+      {
+        "path": "tools/static-server.ts",
+        "sha256": "43fafbc271107421d7bb252989f5cbd49f72bd9304107d551b6cee75dabe39fa",
+        "bytes": 2422
+      },
+      {
+        "path": "tools/verify-m0.ts",
+        "sha256": "e730d52b24baae53e170588e48a655f51464d103926a8b39a9b38d784b5d1317",
+        "bytes": 24875
+      },
+      {
+        "path": "tools/verify-m1.ts",
+        "sha256": "9bc707d12636c27828f62783b501c902550eb37e12a8f2926fb9ef8153e410f9",
+        "bytes": 19623
+      },
+      {
+        "path": "tools/verify-unattended.ts",
+        "sha256": "01e9df7a6c2601bcb95cde6e2e570580e71dc6803a208509b9b18ab2733bc27f",
+        "bytes": 4164
+      },
+      {
+        "path": "tsconfig.json",
+        "sha256": "42535a8efc6d95d120188dea9cb204511a72765e2237c39e439ac69f4183e6a6",
+        "bytes": 576
+      },
+      {
+        "path": "vite.config.ts",
+        "sha256": "47b9e8febfbf93abf08bcee4a99159ed81f8f7753e47cf76dd871a5885c00b60",
+        "bytes": 335
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "environment",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/environment.json"
+      ]
+    },
+    {
+      "id": "typecheck",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/typecheck.txt"
+      ]
+    },
+    {
+      "id": "unit-tests",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/unit-tests.txt"
+      ]
+    },
+    {
+      "id": "compiler",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/compiler.json",
+        "docs/api/index.json"
+      ]
+    },
+    {
+      "id": "runtime",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/runtime.json"
+      ]
+    },
+    {
+      "id": "scheduler",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/scheduler.json"
+      ]
+    },
+    {
+      "id": "resources",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/resources.json"
+      ]
+    },
+    {
+      "id": "protocol",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/protocol.json",
+        "evidence/m1/live-control.png"
+      ]
+    },
+    {
+      "id": "unattended",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/unattended.json"
+      ]
+    },
+    {
+      "id": "render",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/render.json",
+        "evidence/m1/raster-runtime.png",
+        "evidence/m1/path-runtime.png"
+      ]
+    },
+    {
+      "id": "deploy",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/deploy.json",
+        "evidence/m1/dist.png"
+      ]
+    },
+    {
+      "id": "ai-workflow",
+      "status": "passed",
+      "evidence": [
+        "evidence/m1/ai-workflow.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/01-created.ts",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/02-expected-failure.ts",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/03-repaired.ts",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/04-final-game.ts",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/automation-noRAF-step3.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/branch-first.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/branch-second.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/checkpoint.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/cold-raster.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/dist-desktop-first.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/dist-desktop-moving.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/inspect-after30.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/inspect-initial.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/live-assertions.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/live-final.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/live-initial.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/live-stepped.png",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/production-browser.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/raw-.threecat-cache.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/raw-build-report.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/raw-game.js",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/raw-game.js.map",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/raw-scene.ir.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/raw-version.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/recorded-end.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/replayed-end.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/trace.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/unattended-browser-attempt1-failed.json",
+        "evidence/m1/ai/flows/zip-no-git/evidence/zip-no-git/unattended-browser.json",
+        "evidence/m1/ai/flows/zip-no-git/logs/004-create.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/009-check-negative.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/010-check-repaired.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/011-check-sdk-changes.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/024-inspect-initial-final.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/025-inspect-spinner.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/026-inspect-limit.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/027-capture-live-initial.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/028-input-right.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/029-step-30.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/030-inspect-after30.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/031-capture-live-stepped.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/032-snapshot-checkpoint.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/033-step-random-branch-first.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/034-snapshot-branch-first.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/035-restore-checkpoint.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/036-step-random-branch-second.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/037-snapshot-branch-second.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/038-record-start.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/039-input-left-recorded.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/040-step-recorded.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/041-input-release-recorded.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/042-step-recorded-release.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/043-record-stop.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/044-snapshot-recorded-end.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/045-replay.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/046-snapshot-replayed-end.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/047-inspect-final.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/048-capture-live-final.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/078-capture-cold.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/079-build.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/084-production-control-rejected.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/dev-4383.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/production-zip-no-git.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/logs/unattended-zip-no-git-corrected-setup.stdout.txt",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/LICENSE",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/THIRDPARTY-NOTICES.txt",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/THREE-LICENSE.txt",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/assets/index-DnOkWvrH.js",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/assets/index-DnOkWvrH.js.map",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/generated/.threecat-cache.json",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/generated/build-report.json",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/generated/game.js",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/generated/game.js.map",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/generated/scene.ir.json",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/generated/version.json",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/index.html",
+        "evidence/m1/ai/flows/zip-no-git/threecat/games/newproject/build-output/threecat-build.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/01-created.ts",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/02-expected-failure.ts",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/03-repaired.ts",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/04-final-game.ts",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/automation-noRAF-step3.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/branch-first.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/branch-second.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/checkpoint.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/cold-raster.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/dist-desktop-first.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/dist-desktop-moving.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/inspect-after30.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/inspect-initial.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/live-assertions.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/live-final.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/live-initial.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/live-stepped.png",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/production-browser.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/raw-.threecat-cache.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/raw-build-report.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/raw-game.js",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/raw-game.js.map",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/raw-scene.ir.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/raw-version.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/recorded-end.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/replayed-end.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/trace.json",
+        "evidence/m1/ai/flows/external-directory/evidence/external-directory/unattended-browser.json",
+        "evidence/m1/ai/flows/external-directory/logs/005-create.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/012-check-negative.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/013-check-repaired.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/014-check-sdk-changes.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/050-inspect-initial-final.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/051-inspect-spinner.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/052-inspect-limit.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/053-capture-live-initial.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/054-input-right.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/055-step-30.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/056-inspect-after30.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/057-inspect-crate.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/058-capture-live-stepped.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/059-snapshot-checkpoint.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/060-step-random-branch-first.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/061-snapshot-branch-first.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/062-restore-checkpoint.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/063-step-random-branch-second.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/064-snapshot-branch-second.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/065-record-start.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/066-input-left-recorded.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/067-step-recorded.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/068-input-release-recorded.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/069-step-recorded-release.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/070-record-stop.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/071-snapshot-recorded-end.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/072-replay.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/073-snapshot-replayed-end.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/074-inspect-final.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/075-capture-live-final.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/080-capture-cold.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/081-build.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/086-production-control-rejected.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/dev-4384.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/production-external-directory.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/logs/unattended-external-directory-corrected-setup.stdout.txt",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/LICENSE",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/THIRDPARTY-NOTICES.txt",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/THREE-LICENSE.txt",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/assets/index-DnOkWvrH.js",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/assets/index-DnOkWvrH.js.map",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/generated/.threecat-cache.json",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/generated/build-report.json",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/generated/game.js",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/generated/game.js.map",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/generated/scene.ir.json",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/generated/version.json",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/index.html",
+        "evidence/m1/ai/flows/external-directory/独立 游戏 目录/build-output/threecat-build.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "M1 establishes the runtime foundation, not the complete first-release capability matrix",
+    "Incremental builds reuse whole-project artifacts and dev changes perform explicit cold reloads",
+    "Native module imports retain the browser module cache; resource counts track ownership rather than OS/GPU leak freedom",
+    "Production graphics, complete gameplay/physics/UI/audio/world systems remain subsequent milestones"
+  ]
+}

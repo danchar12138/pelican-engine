@@ -1,0 +1,20 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "create-1793799982811",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    {
+      "type": "file",
+      "path": "game.ts"
+    },
+    {
+      "type": "file",
+      "path": "threecat.project.json"
+    }
+  ],
+  "data": {
+    "project": "独立 游戏 目录",
+    "engineVersion": "0.1.0-m1.0"
+  }
+}

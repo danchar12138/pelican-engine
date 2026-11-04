@@ -1,0 +1,333 @@
+{
+  "format": "threecat.scene",
+  "version": 1,
+  "engineVersion": "0.1.0-m1.0",
+  "gameId": "m1-foundation",
+  "scene": {
+    "id": "foundation",
+    "camera": {
+      "position": [
+        4,
+        3,
+        6
+      ],
+      "target": [
+        0,
+        0.7,
+        0
+      ],
+      "fov": 45,
+      "near": 0.1,
+      "far": 1000
+    },
+    "environment": {
+      "background": "#111d2a",
+      "ambientIntensity": 1.1
+    },
+    "entities": [
+      {
+        "id": "spinner",
+        "transform": {
+          "position": [
+            -0.9,
+            0.8,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {
+          "Motion": {
+            "speed": 1.2,
+            "enabled": true
+          },
+          "Progress": {
+            "ticks": 0,
+            "lastRandom": 0,
+            "events": 0
+          }
+        },
+        "mesh": {
+          "geometry": {
+            "kind": "box",
+            "size": [
+              1.3,
+              1.3,
+              1.3
+            ]
+          },
+          "material": "copper",
+          "castShadow": true,
+          "receiveShadow": true
+        }
+      },
+      {
+        "id": "orb",
+        "transform": {
+          "position": [
+            1.1,
+            0.7,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {},
+        "mesh": {
+          "geometry": {
+            "kind": "sphere",
+            "radius": 0.65
+          },
+          "material": "green",
+          "castShadow": true,
+          "receiveShadow": true
+        }
+      },
+      {
+        "id": "ground",
+        "transform": {
+          "position": [
+            0,
+            -0.1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {},
+        "mesh": {
+          "geometry": {
+            "kind": "box",
+            "size": [
+              12,
+              0.2,
+              12
+            ]
+          },
+          "material": "floor",
+          "castShadow": true,
+          "receiveShadow": true
+        }
+      },
+      {
+        "id": "sun",
+        "transform": {
+          "position": [
+            -3,
+            7,
+            4
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {},
+        "light": {
+          "kind": "directional",
+          "color": "#fff1d4",
+          "intensity": 4,
+          "castShadow": true
+        }
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "Motion",
+      "schema": {
+        "speed": {
+          "type": "number",
+          "default": 1.2
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "source": {
+        "file": "game.ts",
+        "line": 10,
+        "column": 23,
+        "length": 153
+      }
+    },
+    {
+      "id": "Progress",
+      "schema": {
+        "ticks": {
+          "type": "number",
+          "default": 0
+        },
+        "lastRandom": {
+          "type": "number",
+          "default": 0
+        },
+        "events": {
+          "type": "number",
+          "default": 0
+        }
+      },
+      "source": {
+        "file": "game.ts",
+        "line": 17,
+        "column": 25,
+        "length": 197
+      }
+    }
+  ],
+  "prefabs": [],
+  "materials": [
+    {
+      "id": "copper",
+      "color": "#db7836",
+      "roughness": 0.26,
+      "metalness": 0.65,
+      "source": {
+        "file": "game.ts",
+        "line": 25,
+        "column": 16,
+        "length": 98
+      }
+    },
+    {
+      "id": "floor",
+      "color": "#71839a",
+      "roughness": 0.8,
+      "metalness": 0,
+      "source": {
+        "file": "game.ts",
+        "line": 31,
+        "column": 15,
+        "length": 65
+      }
+    },
+    {
+      "id": "green",
+      "color": "#27bd75",
+      "roughness": 0.45,
+      "metalness": 0,
+      "source": {
+        "file": "game.ts",
+        "line": 32,
+        "column": 15,
+        "length": 77
+      }
+    }
+  ],
+  "computes": [
+    {
+      "id": "pulse",
+      "count": 16,
+      "workgroupSize": 16,
+      "outputType": "float",
+      "graph": {
+        "nodes": [
+          {
+            "id": "clock",
+            "op": "time"
+          },
+          {
+            "id": "wave",
+            "op": "sin",
+            "inputs": [
+              "clock"
+            ]
+          }
+        ],
+        "output": "wave",
+        "nodeTypes": {
+          "clock": "float",
+          "wave": "float"
+        },
+        "outputType": "float"
+      },
+      "source": {
+        "file": "game.ts",
+        "line": 37,
+        "column": 15,
+        "length": 245
+      }
+    }
+  ],
+  "systems": [
+    {
+      "id": "spin",
+      "phase": "update",
+      "source": {
+        "file": "game.ts",
+        "line": 73,
+        "column": 14,
+        "length": 710
+      },
+      "reads": [
+        "Motion"
+      ],
+      "writes": [
+        "Transform",
+        "Progress"
+      ]
+    },
+    {
+      "id": "observe",
+      "phase": "postPhysics",
+      "source": {
+        "file": "game.ts",
+        "line": 95,
+        "column": 17,
+        "length": 381
+      },
+      "reads": [],
+      "writes": [
+        "Progress"
+      ]
+    },
+    {
+      "id": "input",
+      "phase": "input",
+      "source": {
+        "file": "game.ts",
+        "line": 50,
+        "column": 15,
+        "length": 705
+      },
+      "reads": [
+        "Motion"
+      ],
+      "writes": [
+        "Transform"
+      ]
+    }
+  ],
+  "assets": []
+}

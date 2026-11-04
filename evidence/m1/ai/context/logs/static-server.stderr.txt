@@ -1,0 +1,13 @@
+127.0.0.1 - - [04/Nov/2026 21:49:41] "GET /zip-game/ HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:42] "GET /zip-game/ HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:42] "GET /zip-game/assets/index-DnOkWvrH.js HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:42] "GET /zip-game/generated/scene.ir.json?v=1 HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:42] "GET /zip-game/generated/game.js?v=1 HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:45] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [04/Nov/2026 21:49:45] "POST /__threecat/control HTTP/1.1" 501 -
+127.0.0.1 - - [04/Nov/2026 21:49:46] "GET /external-game/ HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:46] "GET /external-game/assets/index-DnOkWvrH.js HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:46] "GET /external-game/generated/scene.ir.json?v=1 HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:46] "GET /external-game/generated/game.js?v=1 HTTP/1.1" 200 -
+127.0.0.1 - - [04/Nov/2026 21:49:48] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [04/Nov/2026 21:49:48] "POST /__threecat/control HTTP/1.1" 501 -

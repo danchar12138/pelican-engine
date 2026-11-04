@@ -1,0 +1,18 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "control-0aefdcb9-13be-40df-86a8-b0a259648e59",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    {
+      "type": "image",
+      "path": "<validation-work>\\acceptance-20261104-214329\\evidence\\zip-no-git\\live-stepped.png"
+    }
+  ],
+  "data": {
+    "format": "png",
+    "width": 960,
+    "height": 540,
+    "bytes": 24667
+  }
+}

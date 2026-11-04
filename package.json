@@ -1,6 +1,6 @@
 {
   "name": "threecat",
-  "version": "0.0.1-m0.0",
+  "version": "0.1.0-m1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -18,7 +18,9 @@
     "build": "tsx tools/cli.ts build",
     "verify:m0": "tsx tools/verify-m0.ts",
     "release:check": "tsx tools/release.ts check",
-    "release:pack": "tsx tools/release.ts pack"
+    "release:pack": "tsx tools/release.ts pack",
+    "verify:m1": "tsx tools/verify-m1.ts",
+    "api:index": "tsx tools/api-index.ts"
   },
   "dependencies": {
     "three": "0.187.0"

@@ -1,4 +1,4 @@
-/** Synthetic release fixtures test packaging rules only; they are not M0/GPU evidence. */
+/** Synthetic release fixtures test packaging rules only; they are not milestone/GPU evidence. */
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -22,9 +22,12 @@ import {
   packRelease,
   releaseCli,
   REQUIRED_CHECKS,
+  M1_REQUIRED_CHECKS,
   M0_VERSION,
   type ReleaseManifest,
 } from "../tools/release.ts";
+
+import { sourceFingerprint } from "../tools/source-fingerprint.ts";
 
 const directories: string[] = [];
 after(async () => {
@@ -651,4 +654,381 @@ test("a recorded source fingerprint cannot claim acceptance for changed executab
   const result = await checkRelease({ projectRoot: root });
   assert.equal(result.status, "failed");
   assert.ok(result.diagnostics.some((d) => d.code === "TCREL_EVIDENCE_STALE"));
+});
+
+// These records deliberately use synthetic adapters. They exercise rejection and
+// packaging behavior only; no fixture represents actual GPU/milestone acceptance.
+const M1_FIXTURE_VERSION = "0.1.0-m1.0";
+async function readJson(root: string, name: string) {
+  return JSON.parse(await readFile(path.join(root, name), "utf8"));
+}
+async function refreshIdentity(root: string) {
+  const file = "evidence/m1/acceptance.json";
+  const report = await readJson(root, file);
+  report.sourceIdentity = await sourceFingerprint(root);
+  await putJson(root, file, report);
+}
+async function m1Fixture() {
+  const root = await fixture();
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    "engine.manifest.json",
+  ]) {
+    const data = await readJson(root, file);
+    data.version = M1_FIXTURE_VERSION;
+    if (file === "package-lock.json")
+      data.packages[""].version = M1_FIXTURE_VERSION;
+    if (file === "engine.manifest.json") {
+      data.milestone = "M1";
+      data.releaseScope = "runtime-foundation";
+    }
+    await putJson(root, file, data);
+  }
+  // Keep an old M0 acceptance in place to prove selection never falls back to it.
+  for (const id of M1_REQUIRED_CHECKS) {
+    const report =
+      id === "render"
+        ? await readJson(root, "evidence/m0/render.json")
+        : { fixture: true, status: "passed", id };
+    await putJson(root, `evidence/m1/${id}.json`, report);
+  }
+  await put(
+    root,
+    "packages/shared/src/index.ts",
+    "export const protocol = 'fixture';\n",
+  );
+  await putJson(root, "evidence/m1/acceptance.json", {
+    protocolVersion: "0.1.0",
+    engineVersion: M1_FIXTURE_VERSION,
+    milestone: "M1",
+    scope: "runtime-foundation",
+    status: "passed",
+    checks: M1_REQUIRED_CHECKS.map((id) => ({
+      id,
+      status: "passed",
+      evidence: [`evidence/m1/${id}.json`],
+    })),
+    limitations: [
+      "SYNTHETIC RULE TEST ONLY; not measured GPU or completed M1 evidence.",
+    ],
+  });
+  await refreshIdentity(root);
+  return root;
+}
+
+test("M1 selects its own acceptance and never falls back to a passing M0 report", async () => {
+  const root = await m1Fixture();
+  await rm(path.join(root, "evidence/m1/acceptance.json"));
+  hasCode(
+    await checkRelease({ projectRoot: root }),
+    "TCREL_ACCEPTANCE_MISSING",
+  );
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_ACCEPTANCE_MISSING");
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("M1 requires the exact manifest scope and matching acceptance scope/milestone", async () => {
+  const root = await m1Fixture();
+  const manifest = await readJson(root, "engine.manifest.json");
+  for (const scope of [undefined, "risk-prototypes", "typo-foundation"]) {
+    await putJson(root, "engine.manifest.json", {
+      ...manifest,
+      releaseScope: scope,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_RELEASE_SCOPE");
+  }
+  await putJson(root, "engine.manifest.json", manifest);
+  const report = await readJson(root, "evidence/m1/acceptance.json");
+  for (const change of [{ scope: "risk-prototypes" }, { milestone: "M0" }]) {
+    await putJson(root, "evidence/m1/acceptance.json", {
+      ...report,
+      ...change,
+    });
+    hasCode(
+      await checkRelease({ projectRoot: root }),
+      "TCREL_ACCEPTANCE_SCOPE",
+    );
+  }
+});
+
+test("M1 package, lockfile roots, manifest and explicit acceptance version must agree", async () => {
+  const root = await m1Fixture();
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    "engine.manifest.json",
+  ]) {
+    const original = await readJson(root, file);
+    await putJson(root, file, { ...original, version: "0.1.1-m1.0" });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_VERSION");
+    await putJson(root, file, original);
+  }
+  const lock = await readJson(root, "package-lock.json");
+  await putJson(root, "package-lock.json", {
+    ...lock,
+    packages: { "": { version: M0_VERSION } },
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_VERSION");
+  await putJson(root, "package-lock.json", lock);
+  const report = await readJson(root, "evidence/m1/acceptance.json");
+  for (const engineVersion of [undefined, M0_VERSION]) {
+    await putJson(root, "evidence/m1/acceptance.json", {
+      ...report,
+      engineVersion,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_VERSION");
+  }
+});
+
+test("M1 requires current sourceIdentity and detects changes in shared packages", async () => {
+  const root = await m1Fixture();
+  const report = await readJson(root, "evidence/m1/acceptance.json");
+  for (const sourceIdentity of [undefined, {}, { sha256: "invalid" }]) {
+    await putJson(root, "evidence/m1/acceptance.json", {
+      ...report,
+      sourceIdentity,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_SOURCE_IDENTITY");
+  }
+  await putJson(root, "evidence/m1/acceptance.json", report);
+  assert.equal((await checkRelease({ projectRoot: root })).status, "succeeded");
+  await put(
+    root,
+    "packages/shared/src/index.ts",
+    "export const protocol = 'changed';\n",
+  );
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_EVIDENCE_STALE");
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_EVIDENCE_STALE");
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+  await refreshIdentity(root);
+  assert.equal((await checkRelease({ projectRoot: root })).status, "succeeded");
+});
+
+test("all M1 gate IDs include unattended startup and reject missing, duplicate or failed checks", async () => {
+  const root = await m1Fixture();
+  const report = await readJson(root, "evidence/m1/acceptance.json");
+  for (const id of M1_REQUIRED_CHECKS) {
+    await putJson(root, "evidence/m1/acceptance.json", {
+      ...report,
+      checks: report.checks.filter((c: { id: string }) => c.id !== id),
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_CHECKS");
+  }
+  await putJson(root, "evidence/m1/acceptance.json", {
+    ...report,
+    checks: [...report.checks, report.checks[0]],
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_CHECKS");
+  for (const status of ["failed", "skipped", "pending"]) {
+    await putJson(root, "evidence/m1/acceptance.json", {
+      ...report,
+      checks: report.checks.map((c: { id: string }) =>
+        c.id === "runtime" ? { ...c, status } : c,
+      ),
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_CHECK_STATUS");
+  }
+});
+
+test("M1 rejects missing evidence, self-citation and false GPU claims", async () => {
+  const root = await m1Fixture();
+  const report = await readJson(root, "evidence/m1/acceptance.json");
+  for (const [evidence, code] of [
+    [[], "TCREL_EVIDENCE_FILES"],
+    [["evidence/m1/absent.json"], "TCREL_EVIDENCE_MISSING"],
+    [["evidence/m1/acceptance.json"], "TCREL_EVIDENCE_FILES"],
+    [["../outside.json"], "TCREL_PATH"],
+  ] as const) {
+    await putJson(root, "evidence/m1/acceptance.json", {
+      ...report,
+      checks: report.checks.map((c: { id: string }) =>
+        c.id === "runtime" ? { ...c, evidence } : c,
+      ),
+    });
+    hasCode(await checkRelease({ projectRoot: root }), code);
+  }
+  await putJson(root, "evidence/m1/acceptance.json", report);
+  for (const [render, code] of [
+    [{ status: "passed" }, "TCREL_GPU_EVIDENCE"],
+    [
+      {
+        backend: "WebGLBackend",
+        adapter: { vendor: "test", isFallbackAdapter: false },
+      },
+      "TCREL_GPU_EVIDENCE",
+    ],
+    [
+      {
+        backend: "WebGPUBackend",
+        adapter: { vendor: "test", isFallbackAdapter: true },
+      },
+      "TCREL_GPU_SOFTWARE",
+    ],
+    [
+      {
+        backend: "WebGPUBackend",
+        adapter: { description: "SwiftShader", isFallbackAdapter: false },
+      },
+      "TCREL_GPU_SOFTWARE",
+    ],
+  ] as const) {
+    await putJson(root, "evidence/m1/render.json", render);
+    hasCode(await checkRelease({ projectRoot: root }), code);
+  }
+});
+
+test("M1 packages the current version, source root, evidence and independent root dist", async () => {
+  const root = await m1Fixture();
+  // Any nested build must not substitute for root/dist.
+  await put(root, "examples/game/dist/index.html", "wrong nested build");
+  await refreshIdentity(root);
+  const checked = await checkRelease({ projectRoot: root });
+  assert.equal(checked.status, "succeeded", JSON.stringify(checked));
+  assert.equal(checked.taskId, "M1-release");
+  assert.equal(checked.data?.milestone, "M1");
+  assert.equal(checked.data?.scope, "runtime-foundation");
+  assert.equal(checked.data?.prerelease, true);
+  assert.deepEqual(
+    checked.data?.checks.map((c) => c.id),
+    [...M1_REQUIRED_CHECKS],
+  );
+  assert.equal(
+    checked.data?.sourceIdentity?.sha256,
+    (await sourceFingerprint(root)).sha256,
+  );
+  await assert.rejects(lstat(path.join(root, ".git")), { code: "ENOENT" });
+  const packed = await packRelease({ projectRoot: root });
+  assert.equal(packed.status, "succeeded", JSON.stringify(packed));
+  assert.equal(packed.data?.directory, `release/v${M1_FIXTURE_VERSION}`);
+  const directory = path.join(root, packed.data!.directory);
+  const prefix = `threecat-${M1_FIXTURE_VERSION}`;
+  const source = unzip(
+    await readFile(path.join(directory, `${prefix}-source.zip`)),
+  );
+  assert.ok([...source.keys()].every((name) => name.startsWith(`${prefix}/`)));
+  assert.ok(source.has(`${prefix}/evidence/m1/acceptance.json`));
+  assert.ok(source.has(`${prefix}/packages/shared/src/index.ts`));
+  const dist = unzip(
+    await readFile(path.join(directory, `${prefix}-dist.zip`)),
+  );
+  assert.match(dist.get("index.html")!.toString(), /assets\/main.js/);
+  assert.ok(!dist.get("index.html")!.toString().includes("wrong nested build"));
+  const manifest: ReleaseManifest = await readJson(
+    directory,
+    `${prefix}-manifest.json`,
+  );
+  assert.equal(manifest.engineVersion, M1_FIXTURE_VERSION);
+  assert.equal(manifest.milestone, "M1");
+  assert.equal(manifest.scope, "runtime-foundation");
+  assert.equal(manifest.prerelease, true);
+  for (const archive of manifest.archives) {
+    const bytes = await readFile(path.join(directory, archive.path));
+    assert.equal(sha(bytes), archive.sha256);
+    const entries = unzip(bytes);
+    for (const entry of archive.entries) {
+      const content = entries.get(entry.path)!;
+      assert.ok(content);
+      assert.equal(content.length, entry.bytes);
+      assert.equal(sha(content), entry.sha256);
+    }
+  }
+  const evidence = await readJson(directory, `${prefix}-evidence.json`);
+  assert.equal(evidence.engineVersion, M1_FIXTURE_VERSION);
+  assert.equal(
+    evidence.sourceIdentity.sha256,
+    checked.data!.sourceIdentity!.sha256,
+  );
+  assert.ok(evidence.evidenceFiles.length > 0);
+  assert.ok(
+    evidence.evidenceFiles.every((f: { path: string }) =>
+      f.path.startsWith("evidence/m1/"),
+    ),
+  );
+  const notes = await readFile(
+    path.join(directory, "RELEASE_NOTES.md"),
+    "utf8",
+  );
+  assert.match(notes, /M1 runtime-foundation/);
+  assert.match(notes, /not a complete game engine/);
+  assert.ok(!notes.includes("M0 risk prototypes"));
+  const sums = await readFile(path.join(directory, "SHA256SUMS"), "utf8");
+  for (const line of sums.trim().split("\n")) {
+    const [expected, name] = line.split("  ");
+    assert.equal(sha(await readFile(path.join(directory, name!))), expected);
+  }
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_OUTPUT_EXISTS");
+});
+
+test("M1 refuses to replace missing or empty root dist with nested builds", async () => {
+  const root = await m1Fixture();
+  await put(root, "examples/game/dist/index.html", "nested build");
+  await rm(path.join(root, "dist/index.html"));
+  await refreshIdentity(root);
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_DIST");
+  await put(root, "dist/index.html", "");
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST");
+});
+
+test("future milestones need explicit scopes and implemented profiles; M8 cannot self-declare a full release", async () => {
+  const root = await m1Fixture();
+  const manifest = await readJson(root, "engine.manifest.json");
+  for (let stage = 2; stage <= 8; stage++) {
+    const milestone = `M${stage}`;
+    await putJson(root, "engine.manifest.json", {
+      ...manifest,
+      milestone,
+      releaseScope: undefined,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_RELEASE_SCOPE");
+    await putJson(root, "engine.manifest.json", {
+      ...manifest,
+      milestone,
+      releaseScope: `phase-${stage}`,
+      prerelease: false,
+      capabilityGate: { status: "passed", allCapabilitiesPassed: true },
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_PROFILE");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_PROFILE");
+  }
+  await putJson(root, "engine.manifest.json", { ...manifest, milestone: "M9" });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_MILESTONE");
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("manifest version drives patch release names; a flag cannot promote M1 to a final release", async () => {
+  const root = await m1Fixture();
+  const version = "0.1.1-m1.2";
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    "engine.manifest.json",
+  ]) {
+    const data = await readJson(root, file);
+    data.version = version;
+    if (file === "package-lock.json") data.packages[""].version = version;
+    if (file === "engine.manifest.json") data.prerelease = false;
+    await putJson(root, file, data);
+  }
+  const report = await readJson(root, "evidence/m1/acceptance.json");
+  await putJson(root, "evidence/m1/acceptance.json", {
+    ...report,
+    engineVersion: version,
+  });
+  await refreshIdentity(root);
+  const result = await packRelease({ projectRoot: root });
+  assert.equal(result.status, "succeeded", JSON.stringify(result));
+  assert.equal(result.data?.engineVersion, version);
+  assert.equal(result.data?.prerelease, true);
+  assert.equal(result.data?.directory, `release/v${version}`);
+  const directory = path.join(root, result.data!.directory);
+  const source = unzip(
+    await readFile(path.join(directory, `threecat-${version}-source.zip`)),
+  );
+  assert.ok(source.has(`threecat-${version}/engine.manifest.json`));
+  const manifest = await readJson(
+    directory,
+    `threecat-${version}-manifest.json`,
+  );
+  assert.equal(manifest.prerelease, true);
 });

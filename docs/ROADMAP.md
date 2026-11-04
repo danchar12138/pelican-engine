@@ -1,6 +1,6 @@
 # 研发计划、质量门禁与接续任务
 
-状态：M0 风险原型已完成，类型、166 项测试、真实 GPU、独立 AI 和部署验收通过。M1–M8 未开始。实际结果以 `evidence/m0/acceptance.json` 为准，不把原型通过视为完整首发能力交付。
+状态：M0 已发布；M1 正式编译与运行时基础通过 472 项测试、12 项门禁及冻结 ZIP 独立 AI 验收。M2 为下一阶段，M2–M8 尚未完成。各阶段结果分别保存在 `evidence/m0/`、`evidence/m1/`，不覆盖历史验收，不把基础完成视为完整首发交付。
 
 产品范围依据 [DECISIONS.md](DECISIONS.md)，模块验收依据 [CAPABILITIES.md](CAPABILITIES.md)，执行规范依据 [AI-WORKFLOW.md](AI-WORKFLOW.md)。
 

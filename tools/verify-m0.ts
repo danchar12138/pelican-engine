@@ -23,6 +23,8 @@ import { sourceFingerprint } from "./source-fingerprint.ts";
 import { doctor } from "./doctor.ts";
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const historicalManifest = JSON.parse(await readFile(path.join(root, "engine.manifest.json"), "utf8"));
+if (historicalManifest.milestone !== "M0") throw new Error("TC_HISTORICAL_MILESTONE: Run M0 verification from tag v0.0.1-m0.0. Historical evidence is immutable; use the active milestone verifier for current sources.");
 const evidence = path.join(root, "evidence/m0");
 await mkdir(evidence, { recursive: true });
 const checks: {

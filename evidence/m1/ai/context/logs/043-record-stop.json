@@ -1,0 +1,551 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "control-1662602c-7efb-4794-b6fc-30ea102358d1",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    {
+      "type": "file",
+      "path": "<validation-work>\\acceptance-20261104-214329\\evidence\\zip-no-git\\trace.json"
+    }
+  ],
+  "data": {
+    "format": "threecat.trace",
+    "version": 1,
+    "initial": {
+      "format": "threecat.scheduler",
+      "version": 1,
+      "fixedDt": 0.016666666666666666,
+      "maxSubsteps": 8,
+      "tick": 47,
+      "time": 0.7833333333333333,
+      "accumulator": 0,
+      "compensation": 0,
+      "paused": false,
+      "systems": [
+        {
+          "id": "input",
+          "phase": "input",
+          "before": [],
+          "after": [],
+          "reads": [
+            "Motion"
+          ],
+          "writes": [
+            "Transform"
+          ]
+        },
+        {
+          "id": "observe",
+          "phase": "postPhysics",
+          "before": [],
+          "after": [],
+          "reads": [],
+          "writes": [
+            "Progress"
+          ]
+        },
+        {
+          "id": "spin",
+          "phase": "update",
+          "before": [],
+          "after": [],
+          "reads": [
+            "Motion"
+          ],
+          "writes": [
+            "Transform",
+            "Progress"
+          ]
+        }
+      ],
+      "listeners": [],
+      "world": {
+        "format": "threecat.world",
+        "version": 1,
+        "components": [
+          {
+            "id": "Motion",
+            "schema": {
+              "speed": {
+                "type": "number",
+                "default": 1.2
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          {
+            "id": "Progress",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              },
+              "lastRandom": {
+                "type": "number",
+                "default": 0
+              },
+              "events": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          }
+        ],
+        "entities": [
+          {
+            "id": "spinner",
+            "transform": {
+              "position": [
+                -0.65,
+                0.8,
+                0
+              ],
+              "rotation": [
+                0,
+                0.9400000000000005,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Motion": {
+                "speed": 1.2,
+                "enabled": true
+              },
+              "Progress": {
+                "ticks": 47,
+                "lastRandom": 0.587434689514339,
+                "events": 1
+              }
+            }
+          },
+          {
+            "id": "orb",
+            "transform": {
+              "position": [
+                1.1,
+                0.7,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "ground",
+            "transform": {
+              "position": [
+                0,
+                -0.1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "sun",
+            "transform": {
+              "position": [
+                -3,
+                7,
+                4
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          }
+        ]
+      },
+      "random": {
+        "format": "threecat.random",
+        "version": 1,
+        "algorithm": "mulberry32",
+        "state": 184259636,
+        "draws": 47
+      },
+      "events": {
+        "format": "threecat.events",
+        "version": 1,
+        "nextSequence": 2,
+        "queue": []
+      },
+      "delivered": []
+    },
+    "actions": [
+      {
+        "kind": "emit",
+        "event": {
+          "type": "input.key",
+          "payload": {
+            "key": "ArrowLeft",
+            "pressed": true
+          },
+          "tick": 48,
+          "sequence": 2,
+          "source": "external"
+        },
+        "atTick": 47
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 47
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 48
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 49
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 50
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 51
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 52
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 53
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 54
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 55
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 56
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 57
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 58
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 59
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 60
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 61
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 62
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 63
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 64
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 65
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 66
+      },
+      {
+        "kind": "emit",
+        "event": {
+          "type": "input.key",
+          "payload": {
+            "key": "ArrowLeft",
+            "pressed": false
+          },
+          "tick": 68,
+          "sequence": 3,
+          "source": "external"
+        },
+        "atTick": 67
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 67
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 68
+      },
+      {
+        "kind": "step",
+        "count": 1,
+        "atTick": 69
+      }
+    ],
+    "final": {
+      "format": "threecat.scheduler",
+      "version": 1,
+      "fixedDt": 0.016666666666666666,
+      "maxSubsteps": 8,
+      "tick": 70,
+      "time": 1.1666666666666667,
+      "accumulator": 0,
+      "compensation": 0,
+      "paused": false,
+      "systems": [
+        {
+          "id": "input",
+          "phase": "input",
+          "before": [],
+          "after": [],
+          "reads": [
+            "Motion"
+          ],
+          "writes": [
+            "Transform"
+          ]
+        },
+        {
+          "id": "observe",
+          "phase": "postPhysics",
+          "before": [],
+          "after": [],
+          "reads": [],
+          "writes": [
+            "Progress"
+          ]
+        },
+        {
+          "id": "spin",
+          "phase": "update",
+          "before": [],
+          "after": [],
+          "reads": [
+            "Motion"
+          ],
+          "writes": [
+            "Transform",
+            "Progress"
+          ]
+        }
+      ],
+      "listeners": [],
+      "world": {
+        "format": "threecat.world",
+        "version": 1,
+        "components": [
+          {
+            "id": "Motion",
+            "schema": {
+              "speed": {
+                "type": "number",
+                "default": 1.2
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          {
+            "id": "Progress",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              },
+              "lastRandom": {
+                "type": "number",
+                "default": 0
+              },
+              "events": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          }
+        ],
+        "entities": [
+          {
+            "id": "spinner",
+            "transform": {
+              "position": [
+                -0.9,
+                0.8,
+                0
+              ],
+              "rotation": [
+                0,
+                1.4000000000000008,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Motion": {
+                "speed": 1.2,
+                "enabled": true
+              },
+              "Progress": {
+                "ticks": 70,
+                "lastRandom": 0.7677445597946644,
+                "events": 1
+              }
+            }
+          },
+          {
+            "id": "orb",
+            "transform": {
+              "position": [
+                1.1,
+                0.7,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "ground",
+            "transform": {
+              "position": [
+                0,
+                -0.1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "sun",
+            "transform": {
+              "position": [
+                -3,
+                7,
+                4
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          }
+        ]
+      },
+      "random": {
+        "format": "threecat.random",
+        "version": 1,
+        "algorithm": "mulberry32",
+        "state": 3655567671,
+        "draws": 70
+      },
+      "events": {
+        "format": "threecat.events",
+        "version": 1,
+        "nextSequence": 4,
+        "queue": []
+      },
+      "delivered": []
+    }
+  }
+}

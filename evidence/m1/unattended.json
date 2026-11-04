@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "inputActions": 0,
+  "gamePageActivated": false,
+  "normalPage": {
+    "initialTick": 5,
+    "backgroundTick": 55,
+    "status": "threecat · raster\nWebGPU · 192 triangles · tick 57\nrunning"
+  },
+  "automationWithoutRAF": {
+    "initialTick": 0,
+    "finalTick": 3,
+    "status": "threecat · raster\nWebGPU · 192 triangles · tick 0\npaused · automation",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "subgroup-size-control",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "clip-distances",
+        "primitive-index",
+        "texture-component-swizzle",
+        "subgroups"
+      ]
+    },
+    "screenshotBytes": 24309
+  },
+  "failures": []
+}

@@ -1,0 +1,6 @@
+{
+  "id": "render",
+  "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   'console: Failed to load resource: the server responded with a status of 503 (Service Unavailable)'\n+ ]\n- []\n",
+  "stdout": "",
+  "stderr": ""
+}

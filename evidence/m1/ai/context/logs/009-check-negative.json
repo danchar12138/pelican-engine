@@ -1,0 +1,195 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "check-1793799983983",
+  "status": "failed",
+  "diagnostics": [
+    {
+      "code": "TC_TS_2322",
+      "severity": "error",
+      "message": "Type 'string' is not assignable to type 'number'.",
+      "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+      "source": {
+        "file": "game.ts",
+        "line": 153,
+        "column": 7,
+        "length": 19
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "file",
+      "path": ".threecat/public/generated/build-report.json"
+    }
+  ],
+  "data": {
+    "format": "threecat.build-report",
+    "version": 1,
+    "success": false,
+    "engineVersion": "0.1.0-m1.0",
+    "compilerVersion": "6.0.3",
+    "project": {
+      "id": "",
+      "entry": "game.ts"
+    },
+    "diagnostics": [
+      {
+        "code": "TC_TS_2322",
+        "severity": "error",
+        "message": "Type 'string' is not assignable to type 'number'.",
+        "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+        "source": {
+          "file": "game.ts",
+          "line": 153,
+          "column": 7,
+          "length": 19
+        }
+      }
+    ],
+    "inputs": [
+      {
+        "root": "engine",
+        "path": "packages/compiler/src/extract.ts",
+        "hash": "3148cfe9df4775358b51872ca7799d25ed26a3461178cfed71f56fff4272ace2"
+      },
+      {
+        "root": "engine",
+        "path": "packages/compiler/src/index.ts",
+        "hash": "54da5b883d4881f8ec690fcd729796a8d951eb2b3083d450d3bf104b281baaa4"
+      },
+      {
+        "root": "engine",
+        "path": "packages/compiler/src/normalize.ts",
+        "hash": "c4f30e626ea25e0fd860b1abddb51ce080354af0ae0f00280d371b525c0e8141"
+      },
+      {
+        "root": "engine",
+        "path": "packages/compiler/src/source-map.ts",
+        "hash": "00f0fdb54578d22abeb969f2b342732c9ad685caa7d791353d63eb5c42cfcc81"
+      },
+      {
+        "root": "engine",
+        "path": "packages/compiler/src/types.ts",
+        "hash": "088f69c1cf507146e9f22e3a3fe6cfb0bc38924e7a9474ef4aba6ea67f6cd169"
+      },
+      {
+        "root": "engine",
+        "path": "packages/compiler/src/version.ts",
+        "hash": "aded268c0b737e35c808aa04dfffa7752fc62ca2c543800701757717937c78fa"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/contracts.ts",
+        "hash": "67e208b4bab812c5dd9b888737b5dade238690d66848149bacaa40cd41c11e63"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/error.ts",
+        "hash": "1c066273f4e0d27325ae4fbaa9f673b6fbcc74f5d12d02d01c720c84354cdd00"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/events.ts",
+        "hash": "1d26c13e41e57b707bb2cdd10f3a8d9b0af10cefc2dbddc7db8363ff98c31d51"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/host.ts",
+        "hash": "7c1fc32940284704b4118b630893acd0753b6b4918722ed30b28c87a0be196d1"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/index.ts",
+        "hash": "2c2c4cc901dc139a85b768cdef85158751309b08672c984051037cf4a8b9e0d0"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/random.ts",
+        "hash": "e3d2564aad7c8711fb30fcbb2bdffd9891254e85b1bb6a3ca1e990b8684ec103"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/resources.ts",
+        "hash": "1724904cff1c45e080ae6c75e6e46f3a9a18fe80c000f75b20230991447390f0"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/scheduler.ts",
+        "hash": "79081103cbe9bff039771d69ccda42af4fb0fb91d4496f193de0a23c1bc5b1b9"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/storage.ts",
+        "hash": "96f62db08ffccb33799e301eeb5610f45453a5ae00dd7d52d359c88bd9ef9d30"
+      },
+      {
+        "root": "engine",
+        "path": "packages/runtime/src/world.ts",
+        "hash": "dbd40ba5df85e338f00a91a1098060ea5e7c3128e8bf13906b9c241da1232d79"
+      },
+      {
+        "root": "engine",
+        "path": "packages/schema/src/index.ts",
+        "hash": "9777b6f8ec1f6a512ef95badf498749b32bd9c450a942b11d30ea5a7c0fdcd42"
+      },
+      {
+        "root": "engine",
+        "path": "packages/sdk/src/index.ts",
+        "hash": "53939047b4c39c2830fdda1e97e3845c345e1b56351a9c7c77265afefa614084"
+      },
+      {
+        "root": "project",
+        "path": "game.ts",
+        "hash": "779d9e41443380d54f2a35ddf86fa2311f7bf6d72d8e648f5d03565d7efd9aa0"
+      },
+      {
+        "root": "project",
+        "path": "threecat.project.json",
+        "hash": "a0952586ecf6f1769fa747db154b15a5f30dbd8b302a93032da3829b1beda502"
+      }
+    ],
+    "outputs": [],
+    "incremental": {
+      "cacheHit": false,
+      "changedInputs": [
+        "packages/compiler/src/extract.ts",
+        "packages/compiler/src/index.ts",
+        "packages/compiler/src/normalize.ts",
+        "packages/compiler/src/source-map.ts",
+        "packages/compiler/src/types.ts",
+        "packages/compiler/src/version.ts",
+        "packages/sdk/src/index.ts",
+        "packages/runtime/src/contracts.ts",
+        "packages/runtime/src/error.ts",
+        "packages/runtime/src/events.ts",
+        "packages/runtime/src/host.ts",
+        "packages/runtime/src/index.ts",
+        "packages/runtime/src/random.ts",
+        "packages/runtime/src/resources.ts",
+        "packages/runtime/src/scheduler.ts",
+        "packages/runtime/src/storage.ts",
+        "packages/runtime/src/world.ts",
+        "packages/schema/src/index.ts",
+        "game.ts",
+        "threecat.project.json"
+      ],
+      "reused": [],
+      "schemaHash": "",
+      "defaultsHash": ""
+    },
+    "hotReload": {
+      "strategy": "cold-start",
+      "preserveState": false,
+      "defaults": "new-entities-only",
+      "reason": "No previous successful build."
+    },
+    "modules": [],
+    "limitations": [
+      "M0 static declaration subset; not arbitrary TypeScript compile-time execution.",
+      "Graph IR validation is implemented; GPU lowering and dispatch belong to the renderer.",
+      "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
+      "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim."
+    ],
+    "durationMs": 172.78319999999997
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "passed": true,
+  "at30": {
+    "tick": 60,
+    "value": 60,
+    "snapshot": {
+      "format": "threecat.scheduler",
+      "version": 1,
+      "fixedDt": 0.016666666666666666,
+      "maxSubsteps": 120,
+      "tick": 60,
+      "time": 1,
+      "accumulator": 0,
+      "compensation": 0,
+      "paused": false,
+      "systems": [
+        {
+          "id": "count",
+          "phase": "update",
+          "before": [],
+          "after": [],
+          "writes": [
+            "Health"
+          ]
+        }
+      ],
+      "listeners": [],
+      "world": {
+        "format": "threecat.world",
+        "version": 1,
+        "components": [
+          {
+            "id": "Health",
+            "schema": {
+              "value": {
+                "type": "number",
+                "default": 10
+              }
+            }
+          }
+        ],
+        "entities": [
+          {
+            "id": "clock",
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Health": {
+                "value": 60
+              }
+            }
+          }
+        ]
+      },
+      "random": {
+        "format": "threecat.random",
+        "version": 1,
+        "algorithm": "mulberry32",
+        "state": 9,
+        "draws": 0
+      },
+      "events": {
+        "format": "threecat.events",
+        "version": 1,
+        "nextSequence": 0,
+        "queue": []
+      },
+      "delivered": []
+    }
+  },
+  "at144": {
+    "tick": 60,
+    "value": 60,
+    "snapshot": {
+      "format": "threecat.scheduler",
+      "version": 1,
+      "fixedDt": 0.016666666666666666,
+      "maxSubsteps": 120,
+      "tick": 60,
+      "time": 1,
+      "accumulator": 0,
+      "compensation": 0,
+      "paused": false,
+      "systems": [
+        {
+          "id": "count",
+          "phase": "update",
+          "before": [],
+          "after": [],
+          "writes": [
+            "Health"
+          ]
+        }
+      ],
+      "listeners": [],
+      "world": {
+        "format": "threecat.world",
+        "version": 1,
+        "components": [
+          {
+            "id": "Health",
+            "schema": {
+              "value": {
+                "type": "number",
+                "default": 10
+              }
+            }
+          }
+        ],
+        "entities": [
+          {
+            "id": "clock",
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Health": {
+                "value": 60
+              }
+            }
+          }
+        ]
+      },
+      "random": {
+        "format": "threecat.random",
+        "version": 1,
+        "algorithm": "mulberry32",
+        "state": 9,
+        "draws": 0
+      },
+      "events": {
+        "format": "threecat.events",
+        "version": 1,
+        "nextSequence": 0,
+        "queue": []
+      },
+      "delivered": []
+    }
+  },
+  "fixedStepIndependentOfDisplayRate": true
+}

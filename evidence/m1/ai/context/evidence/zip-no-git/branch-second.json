@@ -1,0 +1,450 @@
+{
+  "format": "threecat.browser",
+  "version": 1,
+  "engineVersion": "0.1.0-m1.0",
+  "tick": 47,
+  "cameraPhase": 0,
+  "transforms": {
+    "spinner": {
+      "position": [
+        -0.65,
+        0.8,
+        0
+      ],
+      "rotation": [
+        0,
+        0.9400000000000005,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "orb": {
+      "position": [
+        1.1,
+        0.7,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "position": [
+        0,
+        -0.1,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "sun": {
+      "position": [
+        -3,
+        7,
+        4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "components": {
+    "spinner": {
+      "Motion": {
+        "speed": 1.2,
+        "enabled": true
+      },
+      "Progress": {
+        "ticks": 47,
+        "lastRandom": 0.587434689514339,
+        "events": 1
+      }
+    },
+    "orb": {},
+    "ground": {},
+    "sun": {}
+  },
+  "inputLog": [],
+  "runtime": {
+    "format": "threecat.host",
+    "version": 1,
+    "engineVersion": "0.1.0-m1.0",
+    "world": {
+      "format": "threecat.world",
+      "version": 1,
+      "components": [
+        {
+          "id": "Motion",
+          "schema": {
+            "speed": {
+              "type": "number",
+              "default": 1.2
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        {
+          "id": "Progress",
+          "schema": {
+            "ticks": {
+              "type": "number",
+              "default": 0
+            },
+            "lastRandom": {
+              "type": "number",
+              "default": 0
+            },
+            "events": {
+              "type": "number",
+              "default": 0
+            }
+          }
+        }
+      ],
+      "entities": [
+        {
+          "id": "spinner",
+          "transform": {
+            "position": [
+              -0.65,
+              0.8,
+              0
+            ],
+            "rotation": [
+              0,
+              0.9400000000000005,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {
+            "Motion": {
+              "speed": 1.2,
+              "enabled": true
+            },
+            "Progress": {
+              "ticks": 47,
+              "lastRandom": 0.587434689514339,
+              "events": 1
+            }
+          }
+        },
+        {
+          "id": "orb",
+          "transform": {
+            "position": [
+              1.1,
+              0.7,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {}
+        },
+        {
+          "id": "ground",
+          "transform": {
+            "position": [
+              0,
+              -0.1,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {}
+        },
+        {
+          "id": "sun",
+          "transform": {
+            "position": [
+              -3,
+              7,
+              4
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {}
+        }
+      ]
+    },
+    "scheduler": {
+      "format": "threecat.scheduler",
+      "version": 1,
+      "fixedDt": 0.016666666666666666,
+      "maxSubsteps": 8,
+      "tick": 47,
+      "time": 0.7833333333333333,
+      "accumulator": 0,
+      "compensation": 0,
+      "paused": false,
+      "systems": [
+        {
+          "id": "input",
+          "phase": "input",
+          "before": [],
+          "after": [],
+          "reads": [
+            "Motion"
+          ],
+          "writes": [
+            "Transform"
+          ]
+        },
+        {
+          "id": "observe",
+          "phase": "postPhysics",
+          "before": [],
+          "after": [],
+          "reads": [],
+          "writes": [
+            "Progress"
+          ]
+        },
+        {
+          "id": "spin",
+          "phase": "update",
+          "before": [],
+          "after": [],
+          "reads": [
+            "Motion"
+          ],
+          "writes": [
+            "Transform",
+            "Progress"
+          ]
+        }
+      ],
+      "listeners": [],
+      "world": {
+        "format": "threecat.world",
+        "version": 1,
+        "components": [
+          {
+            "id": "Motion",
+            "schema": {
+              "speed": {
+                "type": "number",
+                "default": 1.2
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          {
+            "id": "Progress",
+            "schema": {
+              "ticks": {
+                "type": "number",
+                "default": 0
+              },
+              "lastRandom": {
+                "type": "number",
+                "default": 0
+              },
+              "events": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          }
+        ],
+        "entities": [
+          {
+            "id": "spinner",
+            "transform": {
+              "position": [
+                -0.65,
+                0.8,
+                0
+              ],
+              "rotation": [
+                0,
+                0.9400000000000005,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {
+              "Motion": {
+                "speed": 1.2,
+                "enabled": true
+              },
+              "Progress": {
+                "ticks": 47,
+                "lastRandom": 0.587434689514339,
+                "events": 1
+              }
+            }
+          },
+          {
+            "id": "orb",
+            "transform": {
+              "position": [
+                1.1,
+                0.7,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "ground",
+            "transform": {
+              "position": [
+                0,
+                -0.1,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          },
+          {
+            "id": "sun",
+            "transform": {
+              "position": [
+                -3,
+                7,
+                4
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "components": {}
+          }
+        ]
+      },
+      "random": {
+        "format": "threecat.random",
+        "version": 1,
+        "algorithm": "mulberry32",
+        "state": 184259636,
+        "draws": 47
+      },
+      "events": {
+        "format": "threecat.events",
+        "version": 1,
+        "nextSequence": 2,
+        "queue": []
+      },
+      "delivered": []
+    }
+  },
+  "frameAccumulator": 0,
+  "resources": {
+    "format": "threecat.resources",
+    "version": 1,
+    "resources": [
+      {
+        "type": "json",
+        "key": "compiled-scene-1",
+        "descriptor": {
+          "url": "http://127.0.0.1:4383/generated/scene.ir.json?v=1"
+        },
+        "state": "loaded"
+      },
+      {
+        "type": "module",
+        "key": "compiled-game-1",
+        "descriptor": {
+          "url": "http://127.0.0.1:4383/generated/game.js?v=1"
+        },
+        "state": "loaded"
+      }
+    ]
+  },
+  "topology": []
+}

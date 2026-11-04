@@ -1,0 +1,469 @@
+{
+  "format": "threecat.api-index",
+  "version": 1,
+  "engineVersion": "0.1.0-m1.0",
+  "entry": "@threecat/sdk",
+  "source": "packages/sdk/src/index.ts",
+  "symbols": [
+    {
+      "name": "SDK_VERSION",
+      "kind": "constant",
+      "signature": "SDK_VERSION = \"0.1.0-m1.0\"",
+      "line": 2
+    },
+    {
+      "name": "Vec3",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type Vec3 = readonly [number, number, number];",
+      "line": 3
+    },
+    {
+      "name": "Transform",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface Transform {\n  position: Vec3;\n  rotation: Vec3;\n  scale: Vec3;\n}",
+      "line": 4,
+      "fields": [
+        "position",
+        "rotation",
+        "scale"
+      ]
+    },
+    {
+      "name": "TransformPatch",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type TransformPatch = Partial<Transform>;",
+      "line": 9
+    },
+    {
+      "name": "Field",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type Field =\n  | { type: \"number\"; default: number }\n  | { type: \"boolean\"; default: boolean }\n  | { type: \"string\"; default: string }\n  | { type: \"vec3\"; default: Vec3 };",
+      "line": 10
+    },
+    {
+      "name": "ComponentSchema",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type ComponentSchema = Readonly<Record<string, Field>>;",
+      "line": 15
+    },
+    {
+      "name": "ComponentDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface ComponentDefinition<\n  S extends ComponentSchema = ComponentSchema,\n> {\n  readonly kind: \"component\";\n  readonly id: string;\n  readonly schema: S;\n}",
+      "line": 16,
+      "fields": [
+        "kind",
+        "id",
+        "schema"
+      ]
+    },
+    {
+      "name": "ComponentValue",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type ComponentValue<S extends ComponentSchema> = {\n  -readonly [K in keyof S]: S[K][\"type\"] extends \"number\"\n    ? number\n    : S[K][\"type\"] extends \"boolean\"\n      ? boolean\n      : S[K][\"type\"] extends \"vec3\"\n        ? Vec3\n        : string;\n};",
+      "line": 23
+    },
+    {
+      "name": "ComponentData",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type ComponentData = Record<string, number | boolean | string | Vec3>;",
+      "line": 32
+    },
+    {
+      "name": "ComponentInstance",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface ComponentInstance {\n  component: ComponentDefinition | string;\n  value?: ComponentData;\n}",
+      "line": 33,
+      "fields": [
+        "component",
+        "value"
+      ]
+    },
+    {
+      "name": "EngineFacade",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface EngineFacade {\n  getTransform(id: string): Transform;\n  setTransform(id: string, patch: TransformPatch): void;\n  getComponent<S extends ComponentSchema>(\n    id: string,\n    component: ComponentDefinition<S>,\n  ): ComponentValue<S>;\n  getComponent(id: string, component: string): ComponentData;\n  setComponent<S extends ComponentSchema>(\n    id: string,\n    component: ComponentDefinition<S>,\n    value: Partial<ComponentValue<S>>,\n  ): void;\n  setComponent(id: string, component: string, value: ComponentData): void;\n  query(component: ComponentDefinition | string): readonly string[];\n  /** Compiler/host integration. Game systems are scheduled by the engine, not by game code. */\n  runGameSystems?(systems: readonly SystemDefinition[], dt: number): void;\n  configureGameSystems?(systems: readonly SystemDefinition[]): void;\n}",
+      "line": 37,
+      "fields": [
+        "getTransform",
+        "setTransform",
+        "getComponent",
+        "getComponent",
+        "setComponent",
+        "setComponent",
+        "query",
+        "runGameSystems",
+        "configureGameSystems"
+      ]
+    },
+    {
+      "name": "EntityHandle",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface EntityHandle {\n  readonly world: number;\n  readonly index: number;\n  readonly generation: number;\n}",
+      "line": 56,
+      "fields": [
+        "world",
+        "index",
+        "generation"
+      ]
+    },
+    {
+      "name": "EntityRef",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type EntityRef = string | EntityHandle;",
+      "line": 61
+    },
+    {
+      "name": "SpawnInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SpawnInput {\n  id: string;\n  parent?: string;\n  transform?: TransformPatch;\n  components?: Record<string, ComponentData>;\n}",
+      "line": 62,
+      "fields": [
+        "id",
+        "parent",
+        "transform",
+        "components"
+      ]
+    },
+    {
+      "name": "EntityCommands",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface EntityCommands {\n  resolve(id: string): EntityHandle;\n  isAlive(entity: EntityRef): boolean;\n  getTransform(entity: EntityRef): Transform;\n  setTransform(entity: EntityRef, patch: TransformPatch): void;\n  getComponent(entity: EntityRef, component: string): ComponentData;\n  setComponent(\n    entity: EntityRef,\n    component: string,\n    patch: ComponentData,\n  ): void;\n  /** Structural changes become visible at the engine's next command-commit boundary. */\n  spawn(input: SpawnInput): void;\n  destroy(entity: EntityRef): void;\n  addComponent(\n    entity: EntityRef,\n    component: string,\n    data?: ComponentData,\n  ): void;\n  removeComponent(entity: EntityRef, component: string): void;\n}",
+      "line": 68,
+      "fields": [
+        "resolve",
+        "isAlive",
+        "getTransform",
+        "setTransform",
+        "getComponent",
+        "setComponent",
+        "spawn",
+        "destroy",
+        "addComponent",
+        "removeComponent"
+      ]
+    },
+    {
+      "name": "GameEvent",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface GameEvent {\n  readonly type: string;\n  readonly tick: number;\n  readonly sequence: number;\n  readonly payload: unknown;\n}",
+      "line": 89,
+      "fields": [
+        "type",
+        "tick",
+        "sequence",
+        "payload"
+      ]
+    },
+    {
+      "name": "SystemContext",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SystemContext extends EngineFacade {\n  readonly time: {\n    readonly tick: number;\n    readonly elapsed: number;\n    readonly fixedDt: number;\n  };\n  readonly entities: EntityCommands;\n  random(): number;\n  emit(type: string, payload: unknown): void;\n  events(type?: string): readonly GameEvent[];\n}",
+      "line": 95,
+      "fields": [
+        "time",
+        "entities",
+        "random",
+        "emit",
+        "events"
+      ]
+    },
+    {
+      "name": "SYSTEM_PHASES",
+      "kind": "constant",
+      "signature": "SYSTEM_PHASES = [\n  \"input\",\n  \"prePhysics\",\n  \"physics\",\n  \"postPhysics\",\n  \"update\",\n  \"presentation\",\n] as const",
+      "line": 106
+    },
+    {
+      "name": "SystemPhase",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type SystemPhase = (typeof SYSTEM_PHASES)[number];",
+      "line": 114
+    },
+    {
+      "name": "Geometry",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type Geometry =\n  | { kind: \"box\"; size?: Vec3 }\n  | { kind: \"sphere\"; radius?: number; segments?: number }\n  | { kind: \"plane\"; size?: readonly [number, number] };",
+      "line": 115
+    },
+    {
+      "name": "GraphType",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type GraphType = \"float\" | \"vec3\";",
+      "line": 119
+    },
+    {
+      "name": "GraphNode",
+      "kind": "TypeAliasDeclaration",
+      "signature": "export type GraphNode =\n  | { id: string; op: \"float\"; value: number }\n  | { id: string; op: \"vec3\"; value: Vec3 }\n  | { id: string; op: \"time\" }\n  | { id: string; op: \"add\" | \"multiply\"; inputs: readonly [string, string] }\n  | { id: string; op: \"sin\"; inputs: readonly [string] };",
+      "line": 120
+    },
+    {
+      "name": "Graph",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface Graph {\n  nodes: readonly GraphNode[];\n  output: string;\n}",
+      "line": 126,
+      "fields": [
+        "nodes",
+        "output"
+      ]
+    },
+    {
+      "name": "MaterialInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface MaterialInput {\n  id: string;\n  color?: string;\n  roughness?: number;\n  metalness?: number;\n  texture?: AssetDefinition | string;\n  graph?: Graph;\n}",
+      "line": 130,
+      "fields": [
+        "id",
+        "color",
+        "roughness",
+        "metalness",
+        "texture",
+        "graph"
+      ]
+    },
+    {
+      "name": "MaterialDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface MaterialDefinition extends MaterialInput {\n  readonly kind: \"material\";\n}",
+      "line": 138,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "ComputeInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface ComputeInput {\n  id: string;\n  graph: Graph;\n  outputType: GraphType;\n  count: number;\n  workgroupSize?: number;\n}",
+      "line": 141,
+      "fields": [
+        "id",
+        "graph",
+        "outputType",
+        "count",
+        "workgroupSize"
+      ]
+    },
+    {
+      "name": "ComputeDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface ComputeDefinition extends ComputeInput {\n  readonly kind: \"compute\";\n}",
+      "line": 148,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "AssetInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\";\n}",
+      "line": 151,
+      "fields": [
+        "id",
+        "path",
+        "type"
+      ]
+    },
+    {
+      "name": "AssetDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface AssetDefinition extends AssetInput {\n  readonly kind: \"asset\";\n}",
+      "line": 156,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "MeshDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface MeshDefinition {\n  geometry: Geometry;\n  material: MaterialDefinition | string;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
+      "line": 159,
+      "fields": [
+        "geometry",
+        "material",
+        "castShadow",
+        "receiveShadow"
+      ]
+    },
+    {
+      "name": "LightDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n}",
+      "line": 165,
+      "fields": [
+        "kind",
+        "color",
+        "intensity",
+        "castShadow"
+      ]
+    },
+    {
+      "name": "EntityInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  components?: readonly ComponentInstance[];\n}",
+      "line": 171,
+      "fields": [
+        "id",
+        "prefab",
+        "parent",
+        "transform",
+        "mesh",
+        "light",
+        "components"
+      ]
+    },
+    {
+      "name": "PrefabInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface PrefabInput extends Omit<EntityInput, \"prefab\" | \"parent\"> {\n  extends?: PrefabDefinition | string;\n}",
+      "line": 180,
+      "fields": [
+        "extends"
+      ]
+    },
+    {
+      "name": "PrefabDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface PrefabDefinition extends PrefabInput {\n  readonly kind: \"prefab\";\n}",
+      "line": 183,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "SceneInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: { background?: string; ambientIntensity?: number };\n  entities: readonly EntityInput[];\n}",
+      "line": 186,
+      "fields": [
+        "id",
+        "camera",
+        "environment",
+        "entities"
+      ]
+    },
+    {
+      "name": "SceneDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SceneDefinition extends SceneInput {\n  readonly kind: \"scene\";\n}",
+      "line": 198,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "SystemInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SystemInput {\n  id: string;\n  phase?: SystemPhase;\n  before?: readonly string[];\n  after?: readonly string[];\n  reads?: readonly string[];\n  writes?: readonly string[];\n  structural?: boolean;\n  run: (engine: SystemContext, dt: number) => void;\n}",
+      "line": 201,
+      "fields": [
+        "id",
+        "phase",
+        "before",
+        "after",
+        "reads",
+        "writes",
+        "structural",
+        "run"
+      ]
+    },
+    {
+      "name": "SystemDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SystemDefinition extends SystemInput {\n  readonly kind: \"system\";\n}",
+      "line": 211,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "GameInput",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  assets?: readonly AssetDefinition[];\n}",
+      "line": 214,
+      "fields": [
+        "id",
+        "scene",
+        "systems",
+        "components",
+        "prefabs",
+        "materials",
+        "computes",
+        "assets"
+      ]
+    },
+    {
+      "name": "GameDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface GameDefinition extends GameInput {\n  readonly kind: \"game\";\n}",
+      "line": 224,
+      "fields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "GameInstance",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface GameInstance {\n  update(dt: number): void;\n  dispose(): void;\n}",
+      "line": 227,
+      "fields": [
+        "update",
+        "dispose"
+      ]
+    },
+    {
+      "name": "defineComponent",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineComponent<const S extends ComponentSchema>(input: {\n  id: string;\n  schema: S;\n}): ComponentDefinition<S>;",
+      "line": 231
+    },
+    {
+      "name": "defineMaterial",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineMaterial(input: MaterialInput): MaterialDefinition;",
+      "line": 237
+    },
+    {
+      "name": "defineCompute",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineCompute(input: ComputeInput): ComputeDefinition;",
+      "line": 240
+    },
+    {
+      "name": "defineAsset",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineAsset(input: AssetInput): AssetDefinition;",
+      "line": 243
+    },
+    {
+      "name": "definePrefab",
+      "kind": "FunctionDeclaration",
+      "signature": "export function definePrefab(input: PrefabInput): PrefabDefinition;",
+      "line": 246
+    },
+    {
+      "name": "defineScene",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineScene(input: SceneInput): SceneDefinition;",
+      "line": 249
+    },
+    {
+      "name": "defineSystem",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineSystem(input: SystemInput): SystemDefinition;",
+      "line": 252
+    },
+    {
+      "name": "defineGame",
+      "kind": "FunctionDeclaration",
+      "signature": "export function defineGame(input: GameInput): GameDefinition;",
+      "line": 255
+    },
+    {
+      "name": "instantiateGame",
+      "kind": "FunctionDeclaration",
+      "signature": "export function instantiateGame(\n  game: GameDefinition,\n  engine: EngineFacade,\n): GameInstance;",
+      "line": 259
+    }
+  ]
+}
