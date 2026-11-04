@@ -53,8 +53,8 @@
   },
   "snapshot": {
     "bytes": 2040,
-    "captureWallMs": 0.08560000000034051,
-    "restoreWallMs": 0.40060000000084983,
+    "captureWallMs": 0.09170000000085565,
+    "restoreWallMs": 0.346400000000358,
     "logicalStateRestoredExactly": true,
     "geometryRestoredExactly": true
   },
@@ -68,9 +68,9 @@
     "roundTripError": 0
   },
   "timing": {
-    "totalWallMs": 6.675699999999779,
-    "prepareWallMs": 1.209100000005492,
-    "commitWallMs": 0.023199999999633292
+    "totalWallMs": 6.791400000000067,
+    "prepareWallMs": 1.1597000000001572,
+    "commitWallMs": 0.02019999999902211
   },
   "lifecycle": {
     "cycles": 8,
@@ -122,8 +122,8 @@
       "committedTransactions": 10,
       "failedTransactions": 0,
       "discardedPreparations": 0,
-      "prepareWallMs": 1.209100000005492,
-      "commitWallMs": 0.023199999999633292
+      "prepareWallMs": 1.1597000000001572,
+      "commitWallMs": 0.02019999999902211
     },
     "resources": {
       "residentHeightValues": 75,

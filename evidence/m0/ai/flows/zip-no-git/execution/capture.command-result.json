@@ -1,0 +1,12 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "capture-1793790297862",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\capture-path.png"
+  ],
+  "data": {
+    "mode": "path"
+  }
+}

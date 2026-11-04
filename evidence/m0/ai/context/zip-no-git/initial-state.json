@@ -561,10 +561,10 @@
   "metrics": [
     {
       "frame": 0,
-      "bvhMs": 6.300000011920929,
-      "uploadMs": 0.10000002384185791,
+      "bvhMs": 6.100000023841858,
+      "uploadMs": 0.19999998807907104,
       "submitMs": 0,
-      "wallMs": 67
+      "wallMs": 66.39999997615814
     }
   ],
   "capabilities": {

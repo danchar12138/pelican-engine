@@ -5,9 +5,9 @@
     960,
     540
   ],
-  "nonBlack": 509260,
-  "uniqueColors": 8611,
-  "sum": 164687952,
+  "nonBlack": 511248,
+  "uniqueColors": 8619,
+  "sum": 164657383,
   "green": 0,
   "greenBounds": {
     "minX": 1280,

@@ -1,10 +1,10 @@
 COMMAND: node browser-acceptance.mjs external-directory
-CWD: <validation-work>\ZIPwork-20261104-182629
-START: 2026-11-04T10:33:07.838Z
+CWD: <validation-work>\ZIPwork-20261104-190214
+START: 2026-11-04T11:05:11.836Z
 STDOUT:
 {
   "flow": "external-directory",
-  "status": "failed",
+  "status": "passed",
   "checks": [
     {
       "name": "compiled Motion default",
@@ -257,6 +257,50 @@ STDOUT:
       }
     },
     {
+      "name": "dev-initial-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dev-initial-raster authored green pixels visible",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
       "name": "actual authored gameplay rotates after 60 fixed steps",
       "passed": true,
       "details": {
@@ -272,17 +316,18 @@ STDOUT:
     },
     {
       "name": "real keyboard moves authored entity and records input",
-      "passed": false,
+      "passed": true,
       "details": {
+        "controlledId": "ai-created-crate",
         "before": {
           "position": [
-            -2,
-            1,
-            1.5
+            2.6,
+            0.5,
+            1.6
           ],
           "rotation": [
             0,
-            1.4999999999999987,
+            0,
             0
           ],
           "scale": [
@@ -293,13 +338,13 @@ STDOUT:
         },
         "after": {
           "position": [
-            -2,
-            1,
-            1.5
+            2.85,
+            0.5,
+            1.6
           ],
           "rotation": [
             0,
-            1.5249999999999986,
+            0,
             0
           ],
           "scale": [
@@ -340,6 +385,50 @@ STDOUT:
       }
     },
     {
+      "name": "dev-path screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 517113,
+        "uniqueColors": 12700,
+        "sum": 173044130,
+        "green": 6982,
+        "greenBounds": {
+          "minX": 285,
+          "minY": 201,
+          "maxX": 668,
+          "maxY": 457
+        }
+      }
+    },
+    {
+      "name": "dev-after-input-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 509630,
+        "uniqueColors": 9202,
+        "sum": 163656496,
+        "green": 6253,
+        "greenBounds": {
+          "minX": 578,
+          "minY": 344,
+          "maxX": 663,
+          "maxY": 441
+        }
+      }
+    },
+    {
       "name": "cold hardware WebGPU",
       "passed": true,
       "details": {
@@ -370,6 +459,50 @@ STDOUT:
       }
     },
     {
+      "name": "cold-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "cold-raster authored green pixels visible",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
       "name": "dist hardware WebGPU",
       "passed": true,
       "details": {
@@ -386,6 +519,90 @@ STDOUT:
         "viewport": {
           "width": 1280,
           "height": 720
+        }
+      }
+    },
+    {
+      "name": "dist-initial screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 517404,
+        "uniqueColors": 9363,
+        "sum": 164300862,
+        "green": 6005,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dist-initial authored green pixels visible",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 517404,
+        "uniqueColors": 9363,
+        "sum": 164300862,
+        "green": 6005,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dist-after-input screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510077,
+        "uniqueColors": 8827,
+        "sum": 163001848,
+        "green": 6253,
+        "greenBounds": {
+          "minX": 578,
+          "minY": 344,
+          "maxX": 663,
+          "maxY": 441
+        }
+      }
+    },
+    {
+      "name": "dist keyboard moves nonanimated green crate visually",
+      "passed": true,
+      "details": {
+        "before": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        },
+        "after": {
+          "minX": 578,
+          "minY": 344,
+          "maxX": 663,
+          "maxY": 441
         }
       }
     },
@@ -409,7 +626,7 @@ STDOUT:
           "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
           "http://127.0.0.1:4186/favicon.ico",
           "http://127.0.0.1:4186/generated/scene.ir.json",
-          "http://127.0.0.1:4186/generated/game.js?v=1793788394967"
+          "http://127.0.0.1:4186/generated/game.js?v=1793790319221"
         ]
       }
     },
@@ -421,13 +638,13 @@ STDOUT:
           {
             "url": "/",
             "status": 200,
-            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
+            "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
             "bytes": 574
           },
           {
             "url": "/assets/index-D6ZevpMx.js",
             "status": 200,
-            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
+            "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
             "bytes": 743873
           },
           {
@@ -437,13 +654,13 @@ STDOUT:
           {
             "url": "/generated/scene.ir.json",
             "status": 200,
-            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
+            "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
             "bytes": 8322
           },
           {
-            "url": "/generated/game.js?v=1793788394967",
+            "url": "/generated/game.js?v=1793790319221",
             "status": 200,
-            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
+            "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
             "bytes": 4771
           }
         ],
@@ -461,7 +678,7 @@ STDOUT:
             "resourceType": "fetch"
           },
           {
-            "url": "http://127.0.0.1:4186/generated/game.js?v=1793788394967",
+            "url": "http://127.0.0.1:4186/generated/game.js?v=1793790319221",
             "resourceType": "script"
           }
         ]
@@ -488,11 +705,11 @@ STDOUT:
             "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
             "http://127.0.0.1:4186/favicon.ico",
             "http://127.0.0.1:4186/generated/scene.ir.json",
-            "http://127.0.0.1:4186/generated/game.js?v=1793788394967"
+            "http://127.0.0.1:4186/generated/game.js?v=1793790319221"
           ]
         },
         "distScreenshotHash": "54ac756c926f4e27711b2ed262d7eb509ef208c2f8c67d961fb2436d4fa1302d",
-        "distAfterHash": "ad5c2571da7c6725f045fabfc0e02af4d347b88ffb80e660162b2166a217491b"
+        "distAfterHash": "f52bd3145d9c1fd0801283dbad0c316434f73fa58f5251986c0cdc6c7817416f"
       }
     },
     {
@@ -504,7 +721,6 @@ STDOUT:
 }
 
 STDERR:
-CHECK FAILED: real keyboard moves authored entity and records input
 
-EXIT: 1
+EXIT: 0
 ERROR: 

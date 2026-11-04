@@ -1,0 +1,113 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "check-1793790262810",
+  "status": "failed",
+  "diagnostics": [
+    {
+      "code": "TC_TS_2362",
+      "severity": "error",
+      "message": "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.",
+      "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+      "source": {
+        "file": "game.ts",
+        "line": 119,
+        "column": 27,
+        "length": 15
+      }
+    }
+  ],
+  "artifacts": [
+    ".threecat\\public\\generated\\build-report.json"
+  ],
+  "data": {
+    "format": "threecat.build-report",
+    "version": 1,
+    "success": false,
+    "engineVersion": "0.0.1-m0.0",
+    "compilerVersion": "6.0.3",
+    "project": {
+      "id": "",
+      "entry": "game.ts"
+    },
+    "diagnostics": [
+      {
+        "code": "TC_TS_2362",
+        "severity": "error",
+        "message": "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.",
+        "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+        "source": {
+          "file": "game.ts",
+          "line": 119,
+          "column": 27,
+          "length": 15
+        }
+      }
+    ],
+    "inputs": [
+      {
+        "root": "engine",
+        "path": "experiments/compiler/extract.ts",
+        "hash": "a3efa2df5831fab02ff9093881de001590ea6c4608d2daff473b11380a486b32"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/index.ts",
+        "hash": "e998cc63d0ddc8cbd79172738a967b148c9e0f2e47a5b98a456698ed5edefd4d"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/normalize.ts",
+        "hash": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/source-map.ts",
+        "hash": "1685766cf1d75beb826d1e75bf8abbdfc6673f4f809763ad20913b1f9a17679c"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/types.ts",
+        "hash": "f4d3bd243ef71621bbe40c6665c76daf18b7b0e91355d298787fe86ccb43a1da"
+      },
+      {
+        "root": "engine",
+        "path": "packages/sdk/src/index.ts",
+        "hash": "f1f9684f7b8fd9d2e44d8fdad86b2338f4612fb896782f7c67a993b56862223d"
+      },
+      {
+        "root": "project",
+        "path": "game.ts",
+        "hash": "30a2464f4ef04239eb34915d93d9de4c20eb0f208e834ae687a7280ffeaee2d2"
+      },
+      {
+        "root": "project",
+        "path": "threecat.project.json",
+        "hash": "fa7bccc07752a1bbf8deb77725da467cc228532947141e4635d424410eaaf5fe"
+      }
+    ],
+    "outputs": [],
+    "incremental": {
+      "cacheHit": false,
+      "changedInputs": [
+        "game.ts"
+      ],
+      "reused": [],
+      "schemaHash": "",
+      "defaultsHash": ""
+    },
+    "hotReload": {
+      "strategy": "cold-start",
+      "preserveState": false,
+      "defaults": "new-entities-only",
+      "reason": "No previous successful build."
+    },
+    "modules": [],
+    "limitations": [
+      "M0 static declaration subset; not arbitrary TypeScript compile-time execution.",
+      "Graph IR validation is implemented; GPU lowering and dispatch belong to the renderer.",
+      "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
+      "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim."
+    ],
+    "durationMs": 159.0901
+  }
+}

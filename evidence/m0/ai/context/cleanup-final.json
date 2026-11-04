@@ -1,19 +1,12 @@
 {
-  "capturedAt": "2026-11-04T10:39:09.779Z",
+  "capturedAt": "2026-11-04T11:06:24.918Z",
   "knownBrowserProfiles": [
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-O6M4HJ",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-H5F6Ja",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-6sbgP3",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-n4Ka74",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-MXsM5A",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-FSTcHP",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-BtTraB",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-5Q5uQD",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-UVzi99",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-HFjMIe",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-RamroA",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-Qp3r6E",
-    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-lmejiL"
+    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-HHId4s",
+    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-7jBgmt",
+    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-fpQIZT",
+    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-4yLzht",
+    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-PoKmYA",
+    "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-kJhmqO"
   ],
   "lingeringOwnedProcesses": [],
   "reservedPortsStillListening": [],

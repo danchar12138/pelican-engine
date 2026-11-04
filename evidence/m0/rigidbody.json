@@ -10,12 +10,12 @@
     "license": "Apache-2.0",
     "initialization": {
       "2d": {
-        "wallMs": 14.653599999999642,
+        "wallMs": 14.547899999999572,
         "cached": false,
         "api": "init()"
       },
       "3d": {
-        "wallMs": 27.652099999999336,
+        "wallMs": 27.150700000000143,
         "cached": false,
         "api": "init()"
       }
@@ -86,8 +86,8 @@
       },
       "snapshot": {
         "bytes": 4595,
-        "captureWallMs": 3.4962999999988824,
-        "restoreWallMs": 10.84230000000025,
+        "captureWallMs": 2.6765999999988708,
+        "restoreWallMs": 11.457500000000437,
         "capturedTick": 30,
         "replayedSteps": 210,
         "tolerance": 0.00001,
@@ -103,11 +103,11 @@
         ]
       },
       "timing": {
-        "stepWallMs": 39.049199999997654,
-        "meanStepWallMs": 0.16270499999999022,
-        "maxStepWallMs": 31.455200000000332,
-        "replayStepWallMs": 2.136400000008507,
-        "caseWallMs": 72.04420000000027
+        "stepWallMs": 35.36559999999736,
+        "meanStepWallMs": 0.14735666666665564,
+        "maxStepWallMs": 27.775799999999435,
+        "replayStepWallMs": 2.4448000000193133,
+        "caseWallMs": 66.64609999999993
       },
       "lifecycle": {
         "cycles": 8,
@@ -222,8 +222,8 @@
       },
       "snapshot": {
         "bytes": 5716,
-        "captureWallMs": 3.1568000000006577,
-        "restoreWallMs": 15.050199999999677,
+        "captureWallMs": 3.0398000000004686,
+        "restoreWallMs": 9.89179999999942,
         "capturedTick": 30,
         "replayedSteps": 210,
         "tolerance": 0.00001,
@@ -239,11 +239,11 @@
         ]
       },
       "timing": {
-        "stepWallMs": 66.23179999999775,
-        "meanStepWallMs": 0.275965833333324,
-        "maxStepWallMs": 57.60369999999966,
-        "replayStepWallMs": 2.499099999999089,
-        "caseWallMs": 103.08820000000014
+        "stepWallMs": 69.41789999998582,
+        "meanStepWallMs": 0.28924124999994094,
+        "maxStepWallMs": 61.78429999999935,
+        "replayStepWallMs": 3.2551000000075874,
+        "caseWallMs": 100.63920000000144
       },
       "lifecycle": {
         "cycles": 8,

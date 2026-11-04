@@ -1,10 +1,10 @@
 COMMAND: powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 setup --install-browser
-CWD: <validation-work>\ZIPwork-20261104-182629
-START: 2026-11-04T10:28:14.719Z
+CWD: <validation-work>\ZIPwork-20261104-190214
+START: 2026-11-04T11:03:40.689Z
 STDOUT:
 {
   "protocolVersion": "0.1.0",
-  "taskId": "setup-1793788095780",
+  "taskId": "setup-1793790221749",
   "status": "succeeded",
   "diagnostics": [
     {
@@ -42,7 +42,7 @@ STDOUT:
       ],
       "artifacts": [],
       "data": {
-        "capturedAt": "2026-11-04T10:28:18.264Z",
+        "capturedAt": "2026-11-04T11:03:44.176Z",
         "platform": "win32",
         "architecture": "x64",
         "machine": {

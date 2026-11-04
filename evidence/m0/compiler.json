@@ -18,12 +18,17 @@
     {
       "root": "engine",
       "path": "experiments/compiler/index.ts",
-      "hash": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a"
+      "hash": "e998cc63d0ddc8cbd79172738a967b148c9e0f2e47a5b98a456698ed5edefd4d"
     },
     {
       "root": "engine",
       "path": "experiments/compiler/normalize.ts",
       "hash": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153"
+    },
+    {
+      "root": "engine",
+      "path": "experiments/compiler/source-map.ts",
+      "hash": "1685766cf1d75beb826d1e75bf8abbdfc6673f4f809763ad20913b1f9a17679c"
     },
     {
       "root": "engine",
@@ -85,5 +90,5 @@
     "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
     "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim."
   ],
-  "durationMs": 7.784700000000157
+  "durationMs": 7.49619999999959
 }

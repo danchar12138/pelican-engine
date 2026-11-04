@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "status": "passed",
   "scope": "M0 external-AI game-authoring subset only; NOT complete engine, complete M0 milestone, or M8 acceptance",
-  "workRoot": "<validation-work>\\ZIPwork-20261104-182629",
+  "workRoot": "<validation-work>\\ZIPwork-20261104-190214",
   "allowedTemporaryRoot": "<validation-work>",
   "engineFilesModified": false,
   "engineDocumentsModified": false,
@@ -12,7 +12,7 @@
   "sourceIdentity": {
     "algorithm": "sha256",
     "scope": "executable-source-and-lockfiles",
-    "sha256": "4107b19342a5cf339fc2cbf0071b03b3232bc04b04ed058e548bb30130b2ac26",
+    "sha256": "8b0632d40dc7f1f993fbecb8fee6484d0aed11462730640ea7acd8ac9652c347",
     "files": [
       {
         "path": ".github/workflows/ci.yml",
@@ -41,13 +41,18 @@
       },
       {
         "path": "experiments/compiler/index.ts",
-        "sha256": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a",
-        "bytes": 20403
+        "sha256": "e998cc63d0ddc8cbd79172738a967b148c9e0f2e47a5b98a456698ed5edefd4d",
+        "bytes": 20208
       },
       {
         "path": "experiments/compiler/normalize.ts",
         "sha256": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153",
         "bytes": 22020
+      },
+      {
+        "path": "experiments/compiler/source-map.ts",
+        "sha256": "1685766cf1d75beb826d1e75bf8abbdfc6673f4f809763ad20913b1f9a17679c",
+        "bytes": 952
       },
       {
         "path": "experiments/compiler/types.ts",
@@ -230,6 +235,11 @@
         "bytes": 13138
       },
       {
+        "path": "tests/source-map.test.ts",
+        "sha256": "271b4ab26b11613eacb4593daa4e28f8d90d7aac480de964b0408b567675be64",
+        "bytes": 1113
+      },
+      {
         "path": "tests/world.test.ts",
         "sha256": "f9c87097a5dd1de5deec4781759babb6acda0467d87f1ac97332d297612c7244",
         "bytes": 24145
@@ -305,32 +315,28 @@
     {
       "step": "npm-ci-offline",
       "command": "\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" \"C:\\\\Program Files\\\\nodejs\\\\node_modules\\\\npm\\\\bin\\\\npm-cli.js\" --prefix source/threecat ci --offline --no-audit --no-fund",
-      "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-      "startedAt": "2026-11-04T10:28:11.570Z",
-      "finishedAt": "2026-11-04T10:28:14.673Z",
+      "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+      "startedAt": "2026-11-04T11:03:37.477Z",
+      "finishedAt": "2026-11-04T11:03:40.640Z",
       "exitCode": 0,
       "expectedFailure": false,
-      "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\preparation\\npm-ci-offline.log"
+      "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\preparation\\npm-ci-offline.log"
     },
     {
       "step": "setup",
       "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 setup --install-browser",
-      "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-      "startedAt": "2026-11-04T10:28:14.719Z",
-      "finishedAt": "2026-11-04T10:28:18.357Z",
+      "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+      "startedAt": "2026-11-04T11:03:40.689Z",
+      "finishedAt": "2026-11-04T11:03:44.270Z",
       "exitCode": 0,
       "expectedFailure": false,
-      "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\preparation\\setup.log"
+      "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\preparation\\setup.log"
     }
   ],
   "documentationRead": [
     "<frozen-engine>\\AGENTS.md",
-    "<frozen-engine>\\README.md",
     "<frozen-engine>\\docs\\M0-USAGE.md",
-    "<frozen-engine>\\docs\\DECISIONS.md",
-    "<frozen-engine>\\docs\\ROADMAP.md",
     "<frozen-engine>\\packages\\sdk\\README.md",
-    "<frozen-engine>\\packages\\sdk\\src\\index.ts",
     "<frozen-engine>\\examples\\m0\\game.ts",
     "<frozen-engine>\\experiments\\compiler\\CONTRACT.md",
     "<frozen-engine>\\tools\\source-fingerprint.ts"
@@ -342,7 +348,7 @@
       "project": "<frozen-engine>\\evidence\\ai-game-a",
       "engine": "<frozen-engine>",
       "executionWorkdirs": [
-        "<validation-work>\\ZIPwork-20261104-182629",
+        "<validation-work>\\ZIPwork-20261104-190214",
         "<frozen-engine>"
       ],
       "ports": [
@@ -353,95 +359,85 @@
         {
           "step": "doctor",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 doctor",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:28:32.428Z",
-          "finishedAt": "2026-11-04T10:28:36.151Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:44.413Z",
+          "finishedAt": "2026-11-04T11:03:47.942Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\doctor.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\doctor.log"
         },
         {
           "step": "create",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:28:36.196Z",
-          "finishedAt": "2026-11-04T10:28:37.267Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:47.995Z",
+          "finishedAt": "2026-11-04T11:03:49.083Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\create.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\create.log"
         },
         {
           "step": "baseline-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:00.146Z",
-          "finishedAt": "2026-11-04T10:29:01.395Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:19.183Z",
+          "finishedAt": "2026-11-04T11:04:20.466Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\baseline-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\baseline-check.log"
         },
         {
           "step": "negative-type-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:02.992Z",
-          "finishedAt": "2026-11-04T10:29:04.207Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:21.840Z",
+          "finishedAt": "2026-11-04T11:04:23.059Z",
           "exitCode": 1,
           "expectedFailure": true,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\negative-type-check.log"
         },
         {
           "step": "repaired-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:25.165Z",
-          "finishedAt": "2026-11-04T10:29:26.445Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:51.611Z",
+          "finishedAt": "2026-11-04T11:04:52.889Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\repaired-check.log"
         },
         {
           "step": "build",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:27.779Z",
-          "finishedAt": "2026-11-04T10:29:29.072Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:54.226Z",
+          "finishedAt": "2026-11-04T11:04:55.512Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\build.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\build.log"
         },
         {
           "step": "capture",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project source/threecat/evidence/ai-game-a --mode path --output evidence/zip-no-git/capture-path.png --port 4185",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:40.487Z",
-          "finishedAt": "2026-11-04T10:29:43.489Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:56.911Z",
+          "finishedAt": "2026-11-04T11:04:59.915Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\capture.log"
         },
         {
           "step": "browser-acceptance",
           "command": "node browser-acceptance.mjs zip-no-git",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:32:59.424Z",
-          "finishedAt": "2026-11-04T10:33:07.798Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:05:03.005Z",
+          "finishedAt": "2026-11-04T11:05:11.793Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.log"
-        },
-        {
-          "step": "browser-evidence-complete",
-          "command": "node browser-acceptance.mjs zip-no-git",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:35:56.069Z",
-          "finishedAt": "2026-11-04T10:36:04.618Z",
-          "exitCode": 0,
-          "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-evidence-complete.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\browser-acceptance.log"
         }
       ],
-      "successfulOperationCount": 8,
+      "successfulOperationCount": 7,
       "expectedFailures": [
         {
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
@@ -461,20 +457,20 @@
               }
             }
           ],
-          "rawDiagnostic": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log",
-          "sourceAtFailure": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-negative.ts",
+          "rawDiagnostic": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\negative-type-check.log",
+          "sourceAtFailure": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\game-negative.ts",
           "repair": "Replace invalid arithmetic operand with numeric motion.speed and set gameplay multiplier to 2.",
           "repairedCommand": {
             "step": "repaired-check",
             "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-            "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-            "startedAt": "2026-11-04T10:29:25.165Z",
-            "finishedAt": "2026-11-04T10:29:26.445Z",
+            "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+            "startedAt": "2026-11-04T11:04:51.611Z",
+            "finishedAt": "2026-11-04T11:04:52.889Z",
             "exitCode": 0,
             "expectedFailure": false,
-            "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log"
+            "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\repaired-check.log"
           },
-          "sourceAfterRepair": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-fixed.ts"
+          "sourceAfterRepair": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\game-fixed.ts"
         }
       ],
       "authoredChanges": [
@@ -884,9 +880,9 @@
                 960,
                 540
               ],
-              "nonBlack": 515858,
-              "uniqueColors": 8906,
-              "sum": 165631519,
+              "nonBlack": 517984,
+              "uniqueColors": 9039,
+              "sum": 166172444,
               "green": 0,
               "greenBounds": {
                 "minX": 1280,
@@ -906,9 +902,9 @@
                 960,
                 540
               ],
-              "nonBlack": 509260,
-              "uniqueColors": 8611,
-              "sum": 164687952,
+              "nonBlack": 511248,
+              "uniqueColors": 8619,
+              "sum": 164657383,
               "green": 0,
               "greenBounds": {
                 "minX": 1280,
@@ -923,7 +919,7 @@
             "passed": true,
             "details": {
               "control": "undefined",
-              "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+              "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 25\n",
               "canvases": [
                 {
                   "width": 960,
@@ -938,7 +934,7 @@
                 "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
                 "http://127.0.0.1:4185/favicon.ico",
                 "http://127.0.0.1:4185/generated/scene.ir.json",
-                "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+                "http://127.0.0.1:4185/generated/game.js?v=1793790310538"
               ]
             }
           },
@@ -970,7 +966,7 @@
                   "bytes": 7461
                 },
                 {
-                  "url": "/generated/game.js?v=1793788563358",
+                  "url": "/generated/game.js?v=1793790310538",
                   "status": 200,
                   "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
                   "bytes": 4485
@@ -990,7 +986,7 @@
                   "resourceType": "fetch"
                 },
                 {
-                  "url": "http://127.0.0.1:4185/generated/game.js?v=1793788563358",
+                  "url": "http://127.0.0.1:4185/generated/game.js?v=1793790310538",
                   "resourceType": "script"
                 }
               ]
@@ -1002,7 +998,7 @@
             "details": {
               "distState": {
                 "control": "undefined",
-                "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+                "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 25\n",
                 "canvases": [
                   {
                     "width": 960,
@@ -1017,11 +1013,11 @@
                   "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
                   "http://127.0.0.1:4185/favicon.ico",
                   "http://127.0.0.1:4185/generated/scene.ir.json",
-                  "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+                  "http://127.0.0.1:4185/generated/game.js?v=1793790310538"
                 ]
               },
-              "distScreenshotHash": "1129abb5539bc12176333c7cd6dc236dc3985ce39c4f1c67a3857e1ee9f63c69",
-              "distAfterHash": "524fc9afdf1f0f007f2ce5aff4bbdcc9ef4261380b532c574edbff2fea774d13"
+              "distScreenshotHash": "9e746fd36756e9faa5bfa982f287c25154eb25dbb6eb50fd3164ee78271d9aa4",
+              "distAfterHash": "615f6404405240e88d149abc4a6bf950f0fdfb22ebb7c8cfac246e2438d72f61"
             }
           },
           {
@@ -1047,7 +1043,7 @@
               "4183"
             ],
             "cwd": "<frozen-engine>",
-            "pid": 38584
+            "pid": 44888
           },
           {
             "kind": "cold",
@@ -1065,40 +1061,39 @@
               "4183"
             ],
             "cwd": "<frozen-engine>",
-            "pid": 45208
+            "pid": 39072
           }
         ],
         "cleanup": [
           {
             "kind": "dev-process-tree",
-            "pid": 38584,
+            "pid": 44888,
             "exitCode": 0,
-            "stdout": "�ɹ�: ����ֹ PID 26036 (���� PID 28808 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 37424 (���� PID 38584 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28808 (���� PID 38584 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 38584 (���� PID 13252 �ӽ���)�Ľ��̡�\r\n",
+            "stdout": "�ɹ�: ����ֹ PID 37576 (���� PID 38888 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 38888 (���� PID 44020 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 6436 (���� PID 44888 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 44020 (���� PID 44888 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 44888 (���� PID 11640 �ӽ���)�Ľ��̡�\r\n",
             "stderr": ""
           },
           {
             "kind": "dev-process-tree",
-            "pid": 45208,
+            "pid": 39072,
             "exitCode": 0,
-            "stdout": "�ɹ�: ����ֹ PID 48356 (���� PID 50688 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 45004 (���� PID 45208 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 50688 (���� PID 45208 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 45208 (���� PID 13252 �ӽ���)�Ľ��̡�\r\n",
+            "stdout": "�ɹ�: ����ֹ PID 32900 (���� PID 40916 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 41224 (���� PID 39072 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 40916 (���� PID 39072 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 39072 (���� PID 11640 �ӽ���)�Ľ��̡�\r\n",
             "stderr": ""
           }
         ],
-        "report": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.json",
-        "hardwareEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-hardware.json",
-        "cdpEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-browser-system.json"
+        "report": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\browser-acceptance.json",
+        "hardwareEvidence": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-hardware.json",
+        "cdpEvidence": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-browser-system.json"
       },
       "artifacts": [
-        "evidence/m0/ai/flows/zip-no-git/execution/baseline-check.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/baseline-check.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/baseline-check.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/browser-acceptance.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/browser-acceptance.json",
         "evidence/m0/ai/flows/zip-no-git/execution/browser-acceptance.log.txt",
-        "evidence/m0/ai/flows/zip-no-git/execution/browser-evidence-complete.command-result.json",
-        "evidence/m0/ai/flows/zip-no-git/execution/browser-evidence-complete.log.txt",
-        "evidence/m0/ai/flows/zip-no-git/execution/build.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/build.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/build.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/capture-path.png",
-        "evidence/m0/ai/flows/zip-no-git/execution/capture.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/capture.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/capture.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/cold-browser-system.json",
         "evidence/m0/ai/flows/zip-no-git/execution/cold-hardware.json",
@@ -1107,7 +1102,7 @@
         "evidence/m0/ai/flows/zip-no-git/execution/cold-server.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/cold-state.json",
         "evidence/m0/ai/flows/zip-no-git/execution/commands.jsonl",
-        "evidence/m0/ai/flows/zip-no-git/execution/create.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/create.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/create.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/dev-after-input-raster-image-stats.json",
         "evidence/m0/ai/flows/zip-no-git/execution/dev-after-input-raster.png",
@@ -1125,18 +1120,18 @@
         "evidence/m0/ai/flows/zip-no-git/execution/dist-initial-image-stats.json",
         "evidence/m0/ai/flows/zip-no-git/execution/dist-initial.png",
         "evidence/m0/ai/flows/zip-no-git/execution/dist-runtime.json",
-        "evidence/m0/ai/flows/zip-no-git/execution/doctor.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/doctor.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/doctor.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/game-fixed.ts",
         "evidence/m0/ai/flows/zip-no-git/execution/game-negative.ts",
         "evidence/m0/ai/flows/zip-no-git/execution/game-original.ts",
         "evidence/m0/ai/flows/zip-no-git/execution/initial-state.json",
         "evidence/m0/ai/flows/zip-no-git/execution/keyboard-state.json",
-        "evidence/m0/ai/flows/zip-no-git/execution/negative-type-check.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/negative-type-check.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/negative-type-check.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/path-pixels.json",
         "evidence/m0/ai/flows/zip-no-git/execution/path-state.json",
-        "evidence/m0/ai/flows/zip-no-git/execution/repaired-check.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/repaired-check.command-result.json",
         "evidence/m0/ai/flows/zip-no-git/execution/repaired-check.log.txt",
         "evidence/m0/ai/flows/zip-no-git/execution/snapshot-mutated.json",
         "evidence/m0/ai/flows/zip-no-git/execution/snapshot-restored.json",
@@ -1159,104 +1154,169 @@
         "evidence/m0/ai/flows/zip-no-git/game-output/game.ts",
         "evidence/m0/ai/flows/zip-no-git/game-output/threecat.project.json"
       ],
-      "incidents": [
-        {
-          "classification": "evidence-wrapper-filename-collision",
-          "unresolvedEngineFailure": false,
-          "description": "Initial browser checks passed; command wrapper overwrote detailed report with summary. Preserved attempt evidence, changed wrapper output suffix, reran browser verification successfully.",
-          "preservedEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git-attempt-1"
-        }
-      ],
-      "commandAttempts": [
+      "finalSteps": [
         {
           "step": "doctor",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 doctor",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:28:32.428Z",
-          "finishedAt": "2026-11-04T10:28:36.151Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:44.413Z",
+          "finishedAt": "2026-11-04T11:03:47.942Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\doctor.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\doctor.log"
         },
         {
           "step": "create",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:28:36.196Z",
-          "finishedAt": "2026-11-04T10:28:37.267Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:47.995Z",
+          "finishedAt": "2026-11-04T11:03:49.083Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\create.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\create.log"
         },
         {
           "step": "baseline-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:00.146Z",
-          "finishedAt": "2026-11-04T10:29:01.395Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:19.183Z",
+          "finishedAt": "2026-11-04T11:04:20.466Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\baseline-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\baseline-check.log"
         },
         {
           "step": "negative-type-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:02.992Z",
-          "finishedAt": "2026-11-04T10:29:04.207Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:21.840Z",
+          "finishedAt": "2026-11-04T11:04:23.059Z",
           "exitCode": 1,
           "expectedFailure": true,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\negative-type-check.log"
         },
         {
           "step": "repaired-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:25.165Z",
-          "finishedAt": "2026-11-04T10:29:26.445Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:51.611Z",
+          "finishedAt": "2026-11-04T11:04:52.889Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\repaired-check.log"
         },
         {
           "step": "build",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project source/threecat/evidence/ai-game-a",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:27.779Z",
-          "finishedAt": "2026-11-04T10:29:29.072Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:54.226Z",
+          "finishedAt": "2026-11-04T11:04:55.512Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\build.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\build.log"
         },
         {
           "step": "capture",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project source/threecat/evidence/ai-game-a --mode path --output evidence/zip-no-git/capture-path.png --port 4185",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:40.487Z",
-          "finishedAt": "2026-11-04T10:29:43.489Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:56.911Z",
+          "finishedAt": "2026-11-04T11:04:59.915Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\capture.log"
         },
         {
           "step": "browser-acceptance",
           "command": "node browser-acceptance.mjs zip-no-git",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:32:59.424Z",
-          "finishedAt": "2026-11-04T10:33:07.798Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:05:03.005Z",
+          "finishedAt": "2026-11-04T11:05:11.793Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\browser-acceptance.log"
+        }
+      ],
+      "incidents": [],
+      "commandAttempts": [
+        {
+          "step": "doctor",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 doctor",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:44.413Z",
+          "finishedAt": "2026-11-04T11:03:47.942Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\doctor.log"
         },
         {
-          "step": "browser-evidence-complete",
-          "command": "node browser-acceptance.mjs zip-no-git",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:35:56.069Z",
-          "finishedAt": "2026-11-04T10:36:04.618Z",
+          "step": "create",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:47.995Z",
+          "finishedAt": "2026-11-04T11:03:49.083Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-evidence-complete.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\create.log"
+        },
+        {
+          "step": "baseline-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:19.183Z",
+          "finishedAt": "2026-11-04T11:04:20.466Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\baseline-check.log"
+        },
+        {
+          "step": "negative-type-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:21.840Z",
+          "finishedAt": "2026-11-04T11:04:23.059Z",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\negative-type-check.log"
+        },
+        {
+          "step": "repaired-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:51.611Z",
+          "finishedAt": "2026-11-04T11:04:52.889Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\repaired-check.log"
+        },
+        {
+          "step": "build",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:54.226Z",
+          "finishedAt": "2026-11-04T11:04:55.512Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\build.log"
+        },
+        {
+          "step": "capture",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project source/threecat/evidence/ai-game-a --mode path --output evidence/zip-no-git/capture-path.png --port 4185",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:56.911Z",
+          "finishedAt": "2026-11-04T11:04:59.915Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\capture.log"
+        },
+        {
+          "step": "browser-acceptance",
+          "command": "node browser-acceptance.mjs zip-no-git",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:05:03.005Z",
+          "finishedAt": "2026-11-04T11:05:11.793Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\browser-acceptance.log"
         }
       ],
       "normalization": "commands lists successful final steps and deliberate negatives; prior unexpected test-harness failures remain in commandAttempts, incidents and originalIndependentReport"
@@ -1264,10 +1324,10 @@
     {
       "kind": "external-directory",
       "status": "passed",
-      "project": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b",
+      "project": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b",
       "engine": "<frozen-engine>",
       "executionWorkdirs": [
-        "<validation-work>\\ZIPwork-20261104-182629",
+        "<validation-work>\\ZIPwork-20261104-190214",
         "<frozen-engine>"
       ],
       "ports": [
@@ -1278,95 +1338,75 @@
         {
           "step": "create",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:28:37.304Z",
-          "finishedAt": "2026-11-04T10:28:38.350Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:49.132Z",
+          "finishedAt": "2026-11-04T11:03:50.192Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\create.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\create.log"
         },
         {
           "step": "baseline-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:01.432Z",
-          "finishedAt": "2026-11-04T10:29:02.920Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:20.509Z",
+          "finishedAt": "2026-11-04T11:04:21.771Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\baseline-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\baseline-check.log"
         },
         {
           "step": "negative-missing-material",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:04.253Z",
-          "finishedAt": "2026-11-04T10:29:05.463Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:23.102Z",
+          "finishedAt": "2026-11-04T11:04:24.318Z",
           "exitCode": 1,
           "expectedFailure": true,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\negative-missing-material.log"
         },
         {
           "step": "repaired-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:26.489Z",
-          "finishedAt": "2026-11-04T10:29:27.748Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:52.930Z",
+          "finishedAt": "2026-11-04T11:04:54.181Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\repaired-check.log"
         },
         {
           "step": "build",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:29.125Z",
-          "finishedAt": "2026-11-04T10:29:30.435Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:55.553Z",
+          "finishedAt": "2026-11-04T11:04:56.870Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\build.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\build.log"
         },
         {
           "step": "capture",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project \"外部 游戏 中文/ai-game-b\" --mode path --output evidence/external-directory/capture-path.png --port 4186",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:53.596Z",
-          "finishedAt": "2026-11-04T10:29:56.631Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:59.969Z",
+          "finishedAt": "2026-11-04T11:05:02.961Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\capture.log"
         },
         {
-          "step": "browser-explore",
-          "command": "node browser-explore.mjs",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:30:32.434Z",
-          "finishedAt": "2026-11-04T10:30:36.389Z",
-          "exitCode": 0,
-          "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-explore.log"
-        },
-        {
-          "step": "browser-acceptance-retest",
+          "step": "browser-acceptance",
           "command": "node browser-acceptance.mjs external-directory",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:34:45.484Z",
-          "finishedAt": "2026-11-04T10:34:54.126Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:05:11.836Z",
+          "finishedAt": "2026-11-04T11:05:20.483Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance-retest.log"
-        },
-        {
-          "step": "browser-dist-keyboard-evidence",
-          "command": "node browser-acceptance.mjs external-directory",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:36:04.661Z",
-          "finishedAt": "2026-11-04T10:36:13.323Z",
-          "exitCode": 0,
-          "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-dist-keyboard-evidence.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\browser-acceptance.log"
         }
       ],
-      "successfulOperationCount": 8,
+      "successfulOperationCount": 6,
       "expectedFailures": [
         {
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
@@ -1398,25 +1438,25 @@
               }
             }
           ],
-          "rawDiagnostic": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log",
-          "sourceAtFailure": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-negative.ts",
+          "rawDiagnostic": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\negative-missing-material.log",
+          "sourceAtFailure": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\game-negative.ts",
           "repair": "Declare ai-green material and reference green; set Motion default speed to 1.5; retain authored crate.",
           "repairedCommand": {
             "step": "repaired-check",
             "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-            "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-            "startedAt": "2026-11-04T10:29:26.489Z",
-            "finishedAt": "2026-11-04T10:29:27.748Z",
+            "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+            "startedAt": "2026-11-04T11:04:52.930Z",
+            "finishedAt": "2026-11-04T11:04:54.181Z",
             "exitCode": 0,
             "expectedFailure": false,
-            "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log"
+            "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\repaired-check.log"
           },
-          "sourceAfterRepair": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-fixed.ts"
+          "sourceAfterRepair": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\game-fixed.ts"
         }
       ],
       "authoredChanges": [
         {
-          "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\game.ts",
+          "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\game.ts",
           "description": "Motion.speed default 0.8 -> 1.5; define ai-green #22cc44; add box ai-created-crate, position [2.6,0.5,1.6], size [0.6,0.6,0.6]."
         }
       ],
@@ -1956,9 +1996,9 @@
                 960,
                 540
               ],
-              "nonBlack": 516646,
-              "uniqueColors": 9222,
-              "sum": 164096862,
+              "nonBlack": 517404,
+              "uniqueColors": 9363,
+              "sum": 164300862,
               "green": 6005,
               "greenBounds": {
                 "minX": 556,
@@ -1978,9 +2018,9 @@
                 960,
                 540
               ],
-              "nonBlack": 516646,
-              "uniqueColors": 9222,
-              "sum": 164096862,
+              "nonBlack": 517404,
+              "uniqueColors": 9363,
+              "sum": 164300862,
               "green": 6005,
               "greenBounds": {
                 "minX": 556,
@@ -2000,9 +2040,9 @@
                 960,
                 540
               ],
-              "nonBlack": 508843,
-              "uniqueColors": 8905,
-              "sum": 163050239,
+              "nonBlack": 510077,
+              "uniqueColors": 8827,
+              "sum": 163001848,
               "green": 6253,
               "greenBounds": {
                 "minX": 578,
@@ -2035,7 +2075,7 @@
             "passed": true,
             "details": {
               "control": "undefined",
-              "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 22\n",
+              "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 25\n",
               "canvases": [
                 {
                   "width": 960,
@@ -2050,7 +2090,7 @@
                 "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
                 "http://127.0.0.1:4186/favicon.ico",
                 "http://127.0.0.1:4186/generated/scene.ir.json",
-                "http://127.0.0.1:4186/generated/game.js?v=1793788572035"
+                "http://127.0.0.1:4186/generated/game.js?v=1793790319221"
               ]
             }
           },
@@ -2062,13 +2102,13 @@
                 {
                   "url": "/",
                   "status": 200,
-                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
+                  "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
                   "bytes": 574
                 },
                 {
                   "url": "/assets/index-D6ZevpMx.js",
                   "status": 200,
-                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
+                  "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
                   "bytes": 743873
                 },
                 {
@@ -2078,13 +2118,13 @@
                 {
                   "url": "/generated/scene.ir.json",
                   "status": 200,
-                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
+                  "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
                   "bytes": 8322
                 },
                 {
-                  "url": "/generated/game.js?v=1793788572035",
+                  "url": "/generated/game.js?v=1793790319221",
                   "status": 200,
-                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
+                  "file": "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
                   "bytes": 4771
                 }
               ],
@@ -2102,7 +2142,7 @@
                   "resourceType": "fetch"
                 },
                 {
-                  "url": "http://127.0.0.1:4186/generated/game.js?v=1793788572035",
+                  "url": "http://127.0.0.1:4186/generated/game.js?v=1793790319221",
                   "resourceType": "script"
                 }
               ]
@@ -2114,7 +2154,7 @@
             "details": {
               "distState": {
                 "control": "undefined",
-                "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 22\n",
+                "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 25\n",
                 "canvases": [
                   {
                     "width": 960,
@@ -2129,11 +2169,11 @@
                   "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
                   "http://127.0.0.1:4186/favicon.ico",
                   "http://127.0.0.1:4186/generated/scene.ir.json",
-                  "http://127.0.0.1:4186/generated/game.js?v=1793788572035"
+                  "http://127.0.0.1:4186/generated/game.js?v=1793790319221"
                 ]
               },
-              "distScreenshotHash": "5f0929f52386107168851b33b2ff38b1aa3b5f0df2c5eb8c0e937236591ec563",
-              "distAfterHash": "b080b914a8c2643b2b83245711cbfcc9a93e75514e42678b8988d6639ab5baff"
+              "distScreenshotHash": "54ac756c926f4e27711b2ed262d7eb509ef208c2f8c67d961fb2436d4fa1302d",
+              "distAfterHash": "f52bd3145d9c1fd0801283dbad0c316434f73fa58f5251986c0cdc6c7817416f"
             }
           },
           {
@@ -2154,12 +2194,12 @@
               "<frozen-engine>\\threecat.ps1",
               "dev",
               "--project",
-              "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b",
+              "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b",
               "--port",
               "4184"
             ],
             "cwd": "<frozen-engine>",
-            "pid": 48676
+            "pid": 36220
           },
           {
             "kind": "cold",
@@ -2172,49 +2212,44 @@
               "<frozen-engine>\\threecat.ps1",
               "dev",
               "--project",
-              "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b",
+              "<validation-work>\\ZIPwork-20261104-190214\\外部 游戏 中文\\ai-game-b",
               "--port",
               "4184"
             ],
             "cwd": "<frozen-engine>",
-            "pid": 44212
+            "pid": 40360
           }
         ],
         "cleanup": [
           {
             "kind": "dev-process-tree",
-            "pid": 48676,
+            "pid": 36220,
             "exitCode": 0,
-            "stdout": "�ɹ�: ����ֹ PID 22576 (���� PID 40664 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 1388 (���� PID 48676 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 40664 (���� PID 48676 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 48676 (���� PID 50200 �ӽ���)�Ľ��̡�\r\n",
+            "stdout": "�ɹ�: ����ֹ PID 44620 (���� PID 10264 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 29460 (���� PID 36220 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 10264 (���� PID 36220 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 36220 (���� PID 45040 �ӽ���)�Ľ��̡�\r\n",
             "stderr": ""
           },
           {
             "kind": "dev-process-tree",
-            "pid": 44212,
+            "pid": 40360,
             "exitCode": 0,
-            "stdout": "�ɹ�: ����ֹ PID 32500 (���� PID 28168 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28328 (���� PID 44212 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28168 (���� PID 44212 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 44212 (���� PID 50200 �ӽ���)�Ľ��̡�\r\n",
+            "stdout": "�ɹ�: ����ֹ PID 37572 (���� PID 18908 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 8420 (���� PID 40360 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 18908 (���� PID 40360 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 40360 (���� PID 45040 �ӽ���)�Ľ��̡�\r\n",
             "stderr": ""
           }
         ],
-        "report": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance.json",
-        "hardwareEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-hardware.json",
-        "cdpEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-browser-system.json"
+        "report": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\browser-acceptance.json",
+        "hardwareEvidence": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\dev-hardware.json",
+        "cdpEvidence": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\dev-browser-system.json"
       },
       "artifacts": [
-        "evidence/m0/ai/flows/external-directory/execution/baseline-check.json",
+        "evidence/m0/ai/flows/external-directory/execution/baseline-check.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/baseline-check.log.txt",
-        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance-retest.json",
-        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance-retest.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/browser-acceptance.json",
         "evidence/m0/ai/flows/external-directory/execution/browser-acceptance.log.txt",
-        "evidence/m0/ai/flows/external-directory/execution/browser-dist-keyboard-evidence.command-result.json",
-        "evidence/m0/ai/flows/external-directory/execution/browser-dist-keyboard-evidence.log.txt",
-        "evidence/m0/ai/flows/external-directory/execution/browser-explore.json",
-        "evidence/m0/ai/flows/external-directory/execution/browser-explore.log.txt",
-        "evidence/m0/ai/flows/external-directory/execution/build.json",
+        "evidence/m0/ai/flows/external-directory/execution/build.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/build.log.txt",
         "evidence/m0/ai/flows/external-directory/execution/capture-path.png",
-        "evidence/m0/ai/flows/external-directory/execution/capture.json",
+        "evidence/m0/ai/flows/external-directory/execution/capture.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/capture.log.txt",
         "evidence/m0/ai/flows/external-directory/execution/cold-browser-system.json",
         "evidence/m0/ai/flows/external-directory/execution/cold-hardware.json",
@@ -2223,7 +2258,7 @@
         "evidence/m0/ai/flows/external-directory/execution/cold-server.log.txt",
         "evidence/m0/ai/flows/external-directory/execution/cold-state.json",
         "evidence/m0/ai/flows/external-directory/execution/commands.jsonl",
-        "evidence/m0/ai/flows/external-directory/execution/create.json",
+        "evidence/m0/ai/flows/external-directory/execution/create.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/create.log.txt",
         "evidence/m0/ai/flows/external-directory/execution/dev-after-input-raster-image-stats.json",
         "evidence/m0/ai/flows/external-directory/execution/dev-after-input-raster.png",
@@ -2241,18 +2276,16 @@
         "evidence/m0/ai/flows/external-directory/execution/dist-initial-image-stats.json",
         "evidence/m0/ai/flows/external-directory/execution/dist-initial.png",
         "evidence/m0/ai/flows/external-directory/execution/dist-runtime.json",
-        "evidence/m0/ai/flows/external-directory/execution/explore-dev-server.log.txt",
-        "evidence/m0/ai/flows/external-directory/execution/explore-dev.png",
         "evidence/m0/ai/flows/external-directory/execution/game-fixed.ts",
         "evidence/m0/ai/flows/external-directory/execution/game-negative.ts",
         "evidence/m0/ai/flows/external-directory/execution/game-original.ts",
         "evidence/m0/ai/flows/external-directory/execution/initial-state.json",
         "evidence/m0/ai/flows/external-directory/execution/keyboard-state.json",
-        "evidence/m0/ai/flows/external-directory/execution/negative-missing-material.json",
+        "evidence/m0/ai/flows/external-directory/execution/negative-missing-material.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/negative-missing-material.log.txt",
         "evidence/m0/ai/flows/external-directory/execution/path-pixels.json",
         "evidence/m0/ai/flows/external-directory/execution/path-state.json",
-        "evidence/m0/ai/flows/external-directory/execution/repaired-check.json",
+        "evidence/m0/ai/flows/external-directory/execution/repaired-check.command-result.json",
         "evidence/m0/ai/flows/external-directory/execution/repaired-check.log.txt",
         "evidence/m0/ai/flows/external-directory/execution/snapshot-mutated.json",
         "evidence/m0/ai/flows/external-directory/execution/snapshot-restored.json",
@@ -2275,188 +2308,224 @@
         "evidence/m0/ai/flows/external-directory/game-output/game.ts",
         "evidence/m0/ai/flows/external-directory/game-output/threecat.project.json"
       ],
-      "incidents": [
-        {
-          "classification": "acceptance-harness-assumption",
-          "unresolvedEngineFailure": false,
-          "initialCommandExitCode": 1,
-          "initialCommandStep": "browser-acceptance",
-          "description": "First assertion assumed ArrowRight moved spinner. Raw state proved it moved the newly added first entity ai-created-crate by +0.25. Corrected assertion to observe crate and retained initial failure; final dev and dist visual checks passed without engine/game changes.",
-          "preservedEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory-attempt-1",
-          "finalChecks": [
-            "real keyboard moves authored entity and records input",
-            "dist keyboard moves nonanimated green crate visually"
-          ]
-        }
-      ],
-      "commandAttempts": [
+      "finalSteps": [
         {
           "step": "create",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:28:37.304Z",
-          "finishedAt": "2026-11-04T10:28:38.350Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:49.132Z",
+          "finishedAt": "2026-11-04T11:03:50.192Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\create.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\create.log"
         },
         {
           "step": "baseline-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:01.432Z",
-          "finishedAt": "2026-11-04T10:29:02.920Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:20.509Z",
+          "finishedAt": "2026-11-04T11:04:21.771Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\baseline-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\baseline-check.log"
         },
         {
           "step": "negative-missing-material",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:04.253Z",
-          "finishedAt": "2026-11-04T10:29:05.463Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:23.102Z",
+          "finishedAt": "2026-11-04T11:04:24.318Z",
           "exitCode": 1,
           "expectedFailure": true,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\negative-missing-material.log"
         },
         {
           "step": "repaired-check",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:26.489Z",
-          "finishedAt": "2026-11-04T10:29:27.748Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:52.930Z",
+          "finishedAt": "2026-11-04T11:04:54.181Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\repaired-check.log"
         },
         {
           "step": "build",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project \"外部 游戏 中文/ai-game-b\"",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:29.125Z",
-          "finishedAt": "2026-11-04T10:29:30.435Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:55.553Z",
+          "finishedAt": "2026-11-04T11:04:56.870Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\build.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\build.log"
         },
         {
           "step": "capture",
           "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project \"外部 游戏 中文/ai-game-b\" --mode path --output evidence/external-directory/capture-path.png --port 4186",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:29:53.596Z",
-          "finishedAt": "2026-11-04T10:29:56.631Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:59.969Z",
+          "finishedAt": "2026-11-04T11:05:02.961Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture.log"
-        },
-        {
-          "step": "browser-explore",
-          "command": "node browser-explore.mjs",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:30:32.434Z",
-          "finishedAt": "2026-11-04T10:30:36.389Z",
-          "exitCode": 0,
-          "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-explore.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\capture.log"
         },
         {
           "step": "browser-acceptance",
           "command": "node browser-acceptance.mjs external-directory",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:33:07.838Z",
-          "finishedAt": "2026-11-04T10:33:16.132Z",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:05:11.836Z",
+          "finishedAt": "2026-11-04T11:05:20.483Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\browser-acceptance.log"
+        }
+      ],
+      "incidents": [],
+      "commandAttempts": [
+        {
+          "step": "create",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:03:49.132Z",
+          "finishedAt": "2026-11-04T11:03:50.192Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\create.log"
+        },
+        {
+          "step": "baseline-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:20.509Z",
+          "finishedAt": "2026-11-04T11:04:21.771Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\baseline-check.log"
+        },
+        {
+          "step": "negative-missing-material",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:23.102Z",
+          "finishedAt": "2026-11-04T11:04:24.318Z",
           "exitCode": 1,
-          "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance.log"
+          "expectedFailure": true,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\negative-missing-material.log"
         },
         {
-          "step": "browser-acceptance-retest",
-          "command": "node browser-acceptance.mjs external-directory",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:34:45.484Z",
-          "finishedAt": "2026-11-04T10:34:54.126Z",
+          "step": "repaired-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:52.930Z",
+          "finishedAt": "2026-11-04T11:04:54.181Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance-retest.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\repaired-check.log"
         },
         {
-          "step": "browser-dist-keyboard-evidence",
-          "command": "node browser-acceptance.mjs external-directory",
-          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
-          "startedAt": "2026-11-04T10:36:04.661Z",
-          "finishedAt": "2026-11-04T10:36:13.323Z",
+          "step": "build",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:55.553Z",
+          "finishedAt": "2026-11-04T11:04:56.870Z",
           "exitCode": 0,
           "expectedFailure": false,
-          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-dist-keyboard-evidence.log"
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\build.log"
+        },
+        {
+          "step": "capture",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project \"外部 游戏 中文/ai-game-b\" --mode path --output evidence/external-directory/capture-path.png --port 4186",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:04:59.969Z",
+          "finishedAt": "2026-11-04T11:05:02.961Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\capture.log"
+        },
+        {
+          "step": "browser-acceptance",
+          "command": "node browser-acceptance.mjs external-directory",
+          "cwd": "<validation-work>\\ZIPwork-20261104-190214",
+          "startedAt": "2026-11-04T11:05:11.836Z",
+          "finishedAt": "2026-11-04T11:05:20.483Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\browser-acceptance.log"
         }
       ],
       "normalization": "commands lists successful final steps and deliberate negatives; prior unexpected test-harness failures remain in commandAttempts, incidents and originalIndependentReport"
     }
   ],
   "cleanup": {
-    "capturedAt": "2026-11-04T10:39:09.779Z",
+    "capturedAt": "2026-11-04T11:06:24.918Z",
     "knownBrowserProfiles": [
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-O6M4HJ",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-H5F6Ja",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-6sbgP3",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-n4Ka74",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-MXsM5A",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-FSTcHP",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-BtTraB",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-5Q5uQD",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-UVzi99",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-HFjMIe",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-RamroA",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-Qp3r6E",
-      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-lmejiL"
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-HHId4s",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-7jBgmt",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-fpQIZT",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-4yLzht",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-PoKmYA",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-kJhmqO"
     ],
     "lingeringOwnedProcesses": [],
     "reservedPortsStillListening": [],
     "passed": true,
     "evidencePreserved": true
   },
-  "cleanupEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\cleanup-final.json",
+  "cleanupEvidence": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\cleanup-final.json",
   "missingArtifacts": [],
   "unresolvedEngineFailures": [],
+  "reusedScripts": {
+    "sourceWork": "C:/Users/60459/AppData/Local/Temp/threecat M0 ZIP 中文 xNmt55/ZIPwork-20261104-182629",
+    "files": [
+      "fingerprint.mjs",
+      "run.mjs",
+      "browser-acceptance.mjs",
+      "finalize.mjs"
+    ],
+    "oldEngineCopied": false,
+    "oldGameCopied": false,
+    "oldReportCopied": false
+  },
+  "historicalIncidents": {
+    "scope": "Previous candidate only; excluded from current commands/checks/results. All original attempts retained in place, not copied into current work.",
+    "preservedEvidence": [
+      "C:/Users/60459/AppData/Local/Temp/threecat M0 ZIP 中文 xNmt55/ZIPwork-20261104-182629/evidence/external-directory-attempt-1",
+      "C:/Users/60459/AppData/Local/Temp/threecat M0 ZIP 中文 xNmt55/ZIPwork-20261104-182629/evidence/zip-no-git-attempt-1"
+    ]
+  },
   "limitations": [
-    "Only the requested two M0 workflows were accepted. No full engine feature matrix, all 165 upstream tests, or upstream release/typecheck claim is inferred from this task.",
+    "Only the requested two M0 workflows were accepted. No full engine feature matrix, all 166 upstream tests, or upstream release/typecheck claim is inferred from this task. The specific cross-drive source-map regression is not independently retested because this authorized work root is on one volume.",
     "GPU: headed Chromium 156.0.8078.4 on NVIDIA Blackwell / RTX 5070 Ti Laptop GPU, WebGPUBackend, isFallbackAdapter=false. Viewport 1280x720, DPR 1, engine canvases 960x540; this is NOT a 1080p performance benchmark or broad hardware certification.",
     "M0 path mode is software-triangle-BVH compute on physical GPU, not hardware RT. Screenshots show prototype sampling noise. No production renderer or denoiser acceptance is claimed.",
     "Cold verification restarts dev server and launches a fresh browser/context; retained compiler caches are permitted. It does not claim full dependency reinstallation on every cold launch.",
     "Snapshot verification covers the documented probe snapshot (tick/transforms/components/input/topology) and exact restore in this test, not general long-term saves or version migration.",
     "Both production dist runs served files exclusively from their own dist directory with engine dev servers stopped and no development control exposed. Harmless favicon.ico 404 is retained in runtime reports.",
     "The missing material negative emitted both a coarse TC_STATIC_REFERENCE position at game.ts:1:1 and a precise TC_TS_2304 at game.ts:72:19. The precise diagnostic satisfies source location verification; coarse duplicate retained, engine not modified.",
-    "Initial browser test-harness failures and evidence-wrapper correction are retained and explicitly classified in flows.incidents. No failed engine source was patched or hidden."
+    "Prior-candidate harness failures are retained separately under historicalIncidents and are not reused as current results. Current-candidate unexpected failures, if any, remain in flows.incidents and cause failed status. No failed engine source was patched or hidden."
   ],
   "visualReview": {
     "reviewed": true,
     "method": "Opened actual headed-browser raster/path/dist screenshots and checked authored green crate visibility, scene geometry, nonblank rendering, and image readback statistics; no generated or substitute images.",
     "screenshots": [
-      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-initial.png",
-      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-path.png",
-      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-path.png",
-      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-initial.png"
+      "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\dist-initial.png",
+      "<validation-work>\\ZIPwork-20261104-190214\\evidence\\external-directory\\dev-path.png",
+      "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-path.png",
+      "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-initial.png"
     ]
   },
-  "completedAt": "2026-11-04T10:39:09.825Z",
+  "completedAt": "2026-11-04T11:06:24.963Z",
   "provenanceFiles": [
     "evidence/m0/ai/context/artifact-manifest.json",
     "evidence/m0/ai/context/cleanup-final.json",
-    "evidence/m0/ai/context/external-directory/baseline-check.json",
+    "evidence/m0/ai/context/external-directory/baseline-check.command-result.json",
     "evidence/m0/ai/context/external-directory/baseline-check.log.txt",
-    "evidence/m0/ai/context/external-directory/browser-acceptance-retest.json",
-    "evidence/m0/ai/context/external-directory/browser-acceptance-retest.log.txt",
+    "evidence/m0/ai/context/external-directory/browser-acceptance.command-result.json",
     "evidence/m0/ai/context/external-directory/browser-acceptance.json",
     "evidence/m0/ai/context/external-directory/browser-acceptance.log.txt",
-    "evidence/m0/ai/context/external-directory/browser-dist-keyboard-evidence.command-result.json",
-    "evidence/m0/ai/context/external-directory/browser-dist-keyboard-evidence.log.txt",
-    "evidence/m0/ai/context/external-directory/browser-explore.json",
-    "evidence/m0/ai/context/external-directory/browser-explore.log.txt",
-    "evidence/m0/ai/context/external-directory/build.json",
+    "evidence/m0/ai/context/external-directory/build.command-result.json",
     "evidence/m0/ai/context/external-directory/build.log.txt",
     "evidence/m0/ai/context/external-directory/capture-path.png",
-    "evidence/m0/ai/context/external-directory/capture.json",
+    "evidence/m0/ai/context/external-directory/capture.command-result.json",
     "evidence/m0/ai/context/external-directory/capture.log.txt",
     "evidence/m0/ai/context/external-directory/cold-browser-system.json",
     "evidence/m0/ai/context/external-directory/cold-hardware.json",
@@ -2465,7 +2534,7 @@
     "evidence/m0/ai/context/external-directory/cold-server.log.txt",
     "evidence/m0/ai/context/external-directory/cold-state.json",
     "evidence/m0/ai/context/external-directory/commands.jsonl",
-    "evidence/m0/ai/context/external-directory/create.json",
+    "evidence/m0/ai/context/external-directory/create.command-result.json",
     "evidence/m0/ai/context/external-directory/create.log.txt",
     "evidence/m0/ai/context/external-directory/dev-after-input-raster-image-stats.json",
     "evidence/m0/ai/context/external-directory/dev-after-input-raster.png",
@@ -2483,72 +2552,22 @@
     "evidence/m0/ai/context/external-directory/dist-initial-image-stats.json",
     "evidence/m0/ai/context/external-directory/dist-initial.png",
     "evidence/m0/ai/context/external-directory/dist-runtime.json",
-    "evidence/m0/ai/context/external-directory/explore-dev-server.log.txt",
-    "evidence/m0/ai/context/external-directory/explore-dev.png",
     "evidence/m0/ai/context/external-directory/game-fixed.ts",
     "evidence/m0/ai/context/external-directory/game-negative.ts",
     "evidence/m0/ai/context/external-directory/game-original.ts",
     "evidence/m0/ai/context/external-directory/initial-state.json",
     "evidence/m0/ai/context/external-directory/keyboard-state.json",
-    "evidence/m0/ai/context/external-directory/negative-missing-material.json",
+    "evidence/m0/ai/context/external-directory/negative-missing-material.command-result.json",
     "evidence/m0/ai/context/external-directory/negative-missing-material.log.txt",
     "evidence/m0/ai/context/external-directory/path-pixels.json",
     "evidence/m0/ai/context/external-directory/path-state.json",
-    "evidence/m0/ai/context/external-directory/repaired-check.json",
+    "evidence/m0/ai/context/external-directory/repaired-check.command-result.json",
     "evidence/m0/ai/context/external-directory/repaired-check.log.txt",
     "evidence/m0/ai/context/external-directory/snapshot-mutated.json",
     "evidence/m0/ai/context/external-directory/snapshot-restored.json",
     "evidence/m0/ai/context/external-directory/snapshot-saved.json",
     "evidence/m0/ai/context/external-directory/stepped-60-state.json",
     "evidence/m0/ai/context/external-directory/verified-scene.ir.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/baseline-check.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/baseline-check.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/browser-acceptance.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/browser-acceptance.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/browser-explore.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/browser-explore.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/build.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/build.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/capture-path.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/capture.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/capture.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/cold-browser-system.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/cold-hardware.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/cold-raster.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/cold-server.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/cold-state.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/commands.jsonl",
-    "evidence/m0/ai/context/external-directory-attempt-1/create.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/create.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/dev-after-input-raster.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/dev-browser-system.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/dev-hardware.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/dev-initial-raster.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/dev-path.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/dev-server.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/dist-after-input.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/dist-browser-system.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/dist-hardware.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/dist-initial.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/dist-runtime.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/explore-dev-server.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/explore-dev.png",
-    "evidence/m0/ai/context/external-directory-attempt-1/game-fixed.ts",
-    "evidence/m0/ai/context/external-directory-attempt-1/game-negative.ts",
-    "evidence/m0/ai/context/external-directory-attempt-1/game-original.ts",
-    "evidence/m0/ai/context/external-directory-attempt-1/initial-state.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/keyboard-state.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/negative-missing-material.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/negative-missing-material.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/path-pixels.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/path-state.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/repaired-check.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/repaired-check.log.txt",
-    "evidence/m0/ai/context/external-directory-attempt-1/snapshot-mutated.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/snapshot-restored.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/snapshot-saved.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/stepped-60-state.json",
-    "evidence/m0/ai/context/external-directory-attempt-1/verified-scene.ir.json",
     "evidence/m0/ai/context/fingerprint-after-setup.json",
     "evidence/m0/ai/context/fingerprint-before.json",
     "evidence/m0/ai/context/fingerprint-final.json",
@@ -2559,18 +2578,17 @@
     "evidence/m0/ai/context/original-files.json",
     "evidence/m0/ai/context/preparation/commands.jsonl",
     "evidence/m0/ai/context/preparation/npm-ci-offline.log.txt",
-    "evidence/m0/ai/context/preparation/setup.json",
+    "evidence/m0/ai/context/preparation/setup.command-result.json",
     "evidence/m0/ai/context/preparation/setup.log.txt",
-    "evidence/m0/ai/context/zip-no-git/baseline-check.json",
+    "evidence/m0/ai/context/zip-no-git/baseline-check.command-result.json",
     "evidence/m0/ai/context/zip-no-git/baseline-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git/browser-acceptance.command-result.json",
     "evidence/m0/ai/context/zip-no-git/browser-acceptance.json",
     "evidence/m0/ai/context/zip-no-git/browser-acceptance.log.txt",
-    "evidence/m0/ai/context/zip-no-git/browser-evidence-complete.command-result.json",
-    "evidence/m0/ai/context/zip-no-git/browser-evidence-complete.log.txt",
-    "evidence/m0/ai/context/zip-no-git/build.json",
+    "evidence/m0/ai/context/zip-no-git/build.command-result.json",
     "evidence/m0/ai/context/zip-no-git/build.log.txt",
     "evidence/m0/ai/context/zip-no-git/capture-path.png",
-    "evidence/m0/ai/context/zip-no-git/capture.json",
+    "evidence/m0/ai/context/zip-no-git/capture.command-result.json",
     "evidence/m0/ai/context/zip-no-git/capture.log.txt",
     "evidence/m0/ai/context/zip-no-git/cold-browser-system.json",
     "evidence/m0/ai/context/zip-no-git/cold-hardware.json",
@@ -2579,7 +2597,7 @@
     "evidence/m0/ai/context/zip-no-git/cold-server.log.txt",
     "evidence/m0/ai/context/zip-no-git/cold-state.json",
     "evidence/m0/ai/context/zip-no-git/commands.jsonl",
-    "evidence/m0/ai/context/zip-no-git/create.json",
+    "evidence/m0/ai/context/zip-no-git/create.command-result.json",
     "evidence/m0/ai/context/zip-no-git/create.log.txt",
     "evidence/m0/ai/context/zip-no-git/dev-after-input-raster-image-stats.json",
     "evidence/m0/ai/context/zip-no-git/dev-after-input-raster.png",
@@ -2597,74 +2615,28 @@
     "evidence/m0/ai/context/zip-no-git/dist-initial-image-stats.json",
     "evidence/m0/ai/context/zip-no-git/dist-initial.png",
     "evidence/m0/ai/context/zip-no-git/dist-runtime.json",
-    "evidence/m0/ai/context/zip-no-git/doctor.json",
+    "evidence/m0/ai/context/zip-no-git/doctor.command-result.json",
     "evidence/m0/ai/context/zip-no-git/doctor.log.txt",
     "evidence/m0/ai/context/zip-no-git/game-fixed.ts",
     "evidence/m0/ai/context/zip-no-git/game-negative.ts",
     "evidence/m0/ai/context/zip-no-git/game-original.ts",
     "evidence/m0/ai/context/zip-no-git/initial-state.json",
     "evidence/m0/ai/context/zip-no-git/keyboard-state.json",
-    "evidence/m0/ai/context/zip-no-git/negative-type-check.json",
+    "evidence/m0/ai/context/zip-no-git/negative-type-check.command-result.json",
     "evidence/m0/ai/context/zip-no-git/negative-type-check.log.txt",
     "evidence/m0/ai/context/zip-no-git/path-pixels.json",
     "evidence/m0/ai/context/zip-no-git/path-state.json",
-    "evidence/m0/ai/context/zip-no-git/repaired-check.json",
+    "evidence/m0/ai/context/zip-no-git/repaired-check.command-result.json",
     "evidence/m0/ai/context/zip-no-git/repaired-check.log.txt",
     "evidence/m0/ai/context/zip-no-git/snapshot-mutated.json",
     "evidence/m0/ai/context/zip-no-git/snapshot-restored.json",
     "evidence/m0/ai/context/zip-no-git/snapshot-saved.json",
     "evidence/m0/ai/context/zip-no-git/stepped-60-state.json",
-    "evidence/m0/ai/context/zip-no-git/verified-scene.ir.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/baseline-check.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/baseline-check.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/browser-acceptance.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/browser-acceptance.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/build.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/build.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/capture-path.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/capture.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/capture.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-browser-system.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-hardware.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-raster.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-server.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-state.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/commands.jsonl",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/create.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/create.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-after-input-raster.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-browser-system.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-hardware.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-initial-raster.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-path.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-server.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-after-input.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-browser-system.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-hardware.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-initial.png",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-runtime.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/doctor.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/doctor.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/game-fixed.ts",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/game-negative.ts",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/game-original.ts",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/initial-state.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/keyboard-state.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/negative-type-check.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/negative-type-check.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/path-pixels.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/path-state.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/repaired-check.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/repaired-check.log.txt",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/snapshot-mutated.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/snapshot-restored.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/snapshot-saved.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/stepped-60-state.json",
-    "evidence/m0/ai/context/zip-no-git-attempt-1/verified-scene.ir.json"
+    "evidence/m0/ai/context/zip-no-git/verified-scene.ir.json"
   ],
   "archive": {
     "name": "threecat-m0-input.zip",
-    "sha256": "a00874e403dca60f9984a5c4a8241b1b75975c22dfd4bc4ef3c1c553615dafcf"
+    "sha256": "314b287d94fa555a9288f4948f079227f1f70ab512952b98445a2d098f602000"
   },
   "originalIndependentReport": "evidence/m0/ai/independent-report.json"
 }

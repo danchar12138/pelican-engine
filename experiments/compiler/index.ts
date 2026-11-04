@@ -1,3 +1,4 @@
+import { mapSourcePath } from "./source-map.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -176,14 +177,9 @@ async function bundle(
   map.file = "game.js";
   map.sourceRoot = "";
   // Rollup/Vite map paths are relative to its virtual output at projectRoot/dist.
-  map.sources = map.sources.map((p) => {
-    if (p.includes("threecat:m0-game-entry")) return "threecat-generated-entry";
-    const absolute = path.isAbsolute(p)
-      ? p
-      : path.resolve(projectRoot, "dist", p);
-    if (absolute === sdkPath) return "threecat-sdk/index.ts";
-    return slash(path.relative(projectRoot, absolute));
-  });
+  map.sources = map.sources.map((source) =>
+    mapSourcePath(source, projectRoot, sdkPath),
+  );
   return { code: chunk.code, map: JSON.stringify(map) };
 }
 /** Parse, typecheck and statically extract declarations; NEVER import a game source module. */

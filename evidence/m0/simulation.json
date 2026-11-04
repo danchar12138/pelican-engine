@@ -1,6 +1,6 @@
 {
-  "recordedAt": "2026-11-04T10:46:52.187Z",
-  "wallMs": 1684.6247999999996,
+  "recordedAt": "2026-11-04T11:08:33.980Z",
+  "wallMs": 1664.3970000000008,
   "prototype": "threecat-m0-cpu-interaction",
   "version": 1,
   "passed": true,
@@ -70,8 +70,8 @@
       },
       "snapshot": {
         "bytes": 5491,
-        "captureWallMs": 0.05940000000009604,
-        "restoreWallMs": 0.4908000000013999,
+        "captureWallMs": 0.12860000000000582,
+        "restoreWallMs": 0.40090000000054715,
         "capturedTick": 120,
         "replayedSteps": 120,
         "maxRestoreDifference": 0,
@@ -86,12 +86,12 @@
         "topologyUnchanged": true
       },
       "timing": {
-        "coupledSolverWallMs": 31.589600000004793,
-        "noContactSolverWallMs": 24.592399999995905,
-        "oneWaySolverWallMs": 29.839699999991353,
-        "meanCoupledStepMs": 0.1316233333333533,
-        "maxCoupledStepMs": 1.9611999999997352,
-        "probeWallMs": 114.74229999999989
+        "coupledSolverWallMs": 27.96330000001217,
+        "noContactSolverWallMs": 20.52070000000822,
+        "oneWaySolverWallMs": 30.95319999998719,
+        "meanCoupledStepMs": 0.1165137500000507,
+        "maxCoupledStepMs": 2.414200000001074,
+        "probeWallMs": 108.34319999999934
       },
       "lifecycle": {
         "cycles": 12,
@@ -167,10 +167,10 @@
         },
         "fluid": null,
         "timing": {
-          "solverWallMs": 31.589600000004793,
+          "solverWallMs": 27.96330000001217,
           "measuredSteps": 240,
-          "meanStepMs": 0.1316233333333533,
-          "maxStepMs": 1.9611999999997352
+          "meanStepMs": 0.1165137500000507,
+          "maxStepMs": 2.414200000001074
         }
       }
     },
@@ -236,8 +236,8 @@
       },
       "snapshot": {
         "bytes": 27121,
-        "captureWallMs": 0.15819999999985157,
-        "restoreWallMs": 0.44210000000020955,
+        "captureWallMs": 0.16890000000057626,
+        "restoreWallMs": 0.45859999999993306,
         "capturedTick": 120,
         "replayedSteps": 120,
         "maxRestoreDifference": 0,
@@ -252,12 +252,12 @@
         "topologyUnchanged": true
       },
       "timing": {
-        "coupledSolverWallMs": 157.67999999999665,
-        "noContactSolverWallMs": 148.70329999999376,
-        "oneWaySolverWallMs": 155.22880000002442,
-        "meanCoupledStepMs": 0.656999999999986,
-        "maxCoupledStepMs": 1.4827000000004773,
-        "probeWallMs": 576.4681
+        "coupledSolverWallMs": 155.8882000000158,
+        "noContactSolverWallMs": 148.2827000000034,
+        "oneWaySolverWallMs": 153.60979999998744,
+        "meanCoupledStepMs": 0.6495341666667325,
+        "maxCoupledStepMs": 1.8527000000012777,
+        "probeWallMs": 570.8820000000014
       },
       "lifecycle": {
         "cycles": 12,
@@ -333,10 +333,10 @@
         },
         "fluid": null,
         "timing": {
-          "solverWallMs": 157.67999999999665,
+          "solverWallMs": 155.8882000000158,
           "measuredSteps": 240,
-          "meanStepMs": 0.656999999999986,
-          "maxStepMs": 1.4827000000004773
+          "meanStepMs": 0.6495341666667325,
+          "maxStepMs": 1.8527000000012777
         }
       }
     },
@@ -402,8 +402,8 @@
       },
       "snapshot": {
         "bytes": 17214,
-        "captureWallMs": 0.10310000000026776,
-        "restoreWallMs": 0.3547999999991589,
+        "captureWallMs": 0.10429999999905704,
+        "restoreWallMs": 0.3546999999998661,
         "capturedTick": 120,
         "replayedSteps": 120,
         "maxRestoreDifference": 0,
@@ -418,12 +418,12 @@
         "topologyUnchanged": true
       },
       "timing": {
-        "coupledSolverWallMs": 134.66939999999886,
-        "noContactSolverWallMs": 131.9114000000136,
-        "oneWaySolverWallMs": 133.6855999999898,
-        "meanCoupledStepMs": 0.5611224999999952,
-        "maxCoupledStepMs": 1.584899999999834,
-        "probeWallMs": 495.03120000000126
+        "coupledSolverWallMs": 130.7155999999868,
+        "noContactSolverWallMs": 125.62860000000364,
+        "oneWaySolverWallMs": 128.4196999999931,
+        "meanCoupledStepMs": 0.5446483333332783,
+        "maxCoupledStepMs": 1.8286000000007334,
+        "probeWallMs": 477.9932000000008
       },
       "lifecycle": {
         "cycles": 12,
@@ -499,10 +499,10 @@
         },
         "fluid": null,
         "timing": {
-          "solverWallMs": 134.66939999999886,
+          "solverWallMs": 130.7155999999868,
           "measuredSteps": 240,
-          "meanStepMs": 0.5611224999999952,
-          "maxStepMs": 1.584899999999834
+          "meanStepMs": 0.5446483333332783,
+          "maxStepMs": 1.8286000000007334
         }
       }
     },
@@ -568,8 +568,8 @@
       },
       "snapshot": {
         "bytes": 12340,
-        "captureWallMs": 0.07859999999891443,
-        "restoreWallMs": 0.20280000000093423,
+        "captureWallMs": 0.07809999999881256,
+        "restoreWallMs": 0.16610000000036962,
         "capturedTick": 120,
         "replayedSteps": 120,
         "maxRestoreDifference": 0,
@@ -584,12 +584,12 @@
         "topologyUnchanged": true
       },
       "timing": {
-        "coupledSolverWallMs": 134.86779999999635,
-        "noContactSolverWallMs": 121.95149999999558,
-        "oneWaySolverWallMs": 133.83920000000217,
-        "meanCoupledStepMs": 0.5619491666666515,
-        "maxCoupledStepMs": 2.0879000000004453,
-        "probeWallMs": 497.85000000000036
+        "coupledSolverWallMs": 137.01929999997628,
+        "noContactSolverWallMs": 123.74140000000807,
+        "oneWaySolverWallMs": 134.5045999999893,
+        "meanCoupledStepMs": 0.5709137499999012,
+        "maxCoupledStepMs": 2.076600000000326,
+        "probeWallMs": 506.5
       },
       "lifecycle": {
         "cycles": 12,
@@ -671,10 +671,10 @@
           "maxPressure": 0
         },
         "timing": {
-          "solverWallMs": 134.86779999999635,
+          "solverWallMs": 137.01929999997628,
           "measuredSteps": 240,
-          "meanStepMs": 0.5619491666666515,
-          "maxStepMs": 2.0879000000004453
+          "meanStepMs": 0.5709137499999012,
+          "maxStepMs": 2.076600000000326
         }
       }
     }

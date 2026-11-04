@@ -1,14 +1,14 @@
 COMMAND: powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project source/threecat/evidence/ai-game-a --mode path --output evidence/zip-no-git/capture-path.png --port 4185
-CWD: <validation-work>\ZIPwork-20261104-182629
-START: 2026-11-04T10:29:40.487Z
+CWD: <validation-work>\ZIPwork-20261104-190214
+START: 2026-11-04T11:04:56.911Z
 STDOUT:
 {
   "protocolVersion": "0.1.0",
-  "taskId": "capture-1793788181447",
+  "taskId": "capture-1793790297862",
   "status": "succeeded",
   "diagnostics": [],
   "artifacts": [
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture-path.png"
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\capture-path.png"
   ],
   "data": {
     "mode": "path"

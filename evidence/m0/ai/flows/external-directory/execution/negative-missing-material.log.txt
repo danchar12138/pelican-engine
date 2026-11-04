@@ -1,10 +1,10 @@
 COMMAND: powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project "外部 游戏 中文/ai-game-b"
-CWD: <validation-work>\ZIPwork-20261104-182629
-START: 2026-11-04T10:29:04.253Z
+CWD: <validation-work>\ZIPwork-20261104-190214
+START: 2026-11-04T11:04:23.102Z
 STDOUT:
 {
   "protocolVersion": "0.1.0",
-  "taskId": "check-1793788145223",
+  "taskId": "check-1793790264074",
   "status": "failed",
   "diagnostics": [
     {
@@ -80,12 +80,17 @@ STDOUT:
       {
         "root": "engine",
         "path": "experiments/compiler/index.ts",
-        "hash": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a"
+        "hash": "e998cc63d0ddc8cbd79172738a967b148c9e0f2e47a5b98a456698ed5edefd4d"
       },
       {
         "root": "engine",
         "path": "experiments/compiler/normalize.ts",
         "hash": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/source-map.ts",
+        "hash": "1685766cf1d75beb826d1e75bf8abbdfc6673f4f809763ad20913b1f9a17679c"
       },
       {
         "root": "engine",
@@ -131,7 +136,7 @@ STDOUT:
       "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
       "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim."
     ],
-    "durationMs": 157.01530000000002
+    "durationMs": 157.03010000000006
   }
 }
 

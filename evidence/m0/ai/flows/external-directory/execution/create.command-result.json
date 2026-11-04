@@ -1,0 +1,14 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "create-1793790230096",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    "game.ts",
+    "threecat.project.json"
+  ],
+  "data": {
+    "project": "ai-game-b",
+    "engineVersion": "0.0.1-m0.0"
+  }
+}

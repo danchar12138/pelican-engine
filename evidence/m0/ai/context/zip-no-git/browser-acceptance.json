@@ -2,9 +2,9 @@
   "flow": "zip-no-git",
   "engine": "<frozen-engine>",
   "project": "<frozen-engine>\\evidence\\ai-game-a",
-  "out": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git",
+  "out": "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git",
   "headless": false,
-  "startedAt": "2026-11-04T10:35:56.268Z",
+  "startedAt": "2026-11-04T11:05:03.226Z",
   "checks": [
     {
       "name": "compiled Motion default",
@@ -397,9 +397,9 @@
           960,
           540
         ],
-        "nonBlack": 515858,
-        "uniqueColors": 8906,
-        "sum": 165631519,
+        "nonBlack": 517984,
+        "uniqueColors": 9039,
+        "sum": 166172444,
         "green": 0,
         "greenBounds": {
           "minX": 1280,
@@ -419,9 +419,9 @@
           960,
           540
         ],
-        "nonBlack": 509260,
-        "uniqueColors": 8611,
-        "sum": 164687952,
+        "nonBlack": 511248,
+        "uniqueColors": 8619,
+        "sum": 164657383,
         "green": 0,
         "greenBounds": {
           "minX": 1280,
@@ -436,7 +436,7 @@
       "passed": true,
       "details": {
         "control": "undefined",
-        "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+        "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 25\n",
         "canvases": [
           {
             "width": 960,
@@ -451,7 +451,7 @@
           "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
           "http://127.0.0.1:4185/favicon.ico",
           "http://127.0.0.1:4185/generated/scene.ir.json",
-          "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+          "http://127.0.0.1:4185/generated/game.js?v=1793790310538"
         ]
       }
     },
@@ -483,7 +483,7 @@
             "bytes": 7461
           },
           {
-            "url": "/generated/game.js?v=1793788563358",
+            "url": "/generated/game.js?v=1793790310538",
             "status": 200,
             "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
             "bytes": 4485
@@ -503,7 +503,7 @@
             "resourceType": "fetch"
           },
           {
-            "url": "http://127.0.0.1:4185/generated/game.js?v=1793788563358",
+            "url": "http://127.0.0.1:4185/generated/game.js?v=1793790310538",
             "resourceType": "script"
           }
         ]
@@ -515,7 +515,7 @@
       "details": {
         "distState": {
           "control": "undefined",
-          "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+          "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 25\n",
           "canvases": [
             {
               "width": 960,
@@ -530,11 +530,11 @@
             "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
             "http://127.0.0.1:4185/favicon.ico",
             "http://127.0.0.1:4185/generated/scene.ir.json",
-            "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+            "http://127.0.0.1:4185/generated/game.js?v=1793790310538"
           ]
         },
-        "distScreenshotHash": "1129abb5539bc12176333c7cd6dc236dc3985ce39c4f1c67a3857e1ee9f63c69",
-        "distAfterHash": "524fc9afdf1f0f007f2ce5aff4bbdcc9ef4261380b532c574edbff2fea774d13"
+        "distScreenshotHash": "9e746fd36756e9faa5bfa982f287c25154eb25dbb6eb50fd3164ee78271d9aa4",
+        "distAfterHash": "615f6404405240e88d149abc4a6bf950f0fdfb22ebb7c8cfac246e2438d72f61"
       }
     },
     {
@@ -560,7 +560,7 @@
         "4183"
       ],
       "cwd": "<frozen-engine>",
-      "pid": 38584
+      "pid": 44888
     },
     {
       "kind": "cold",
@@ -578,59 +578,59 @@
         "4183"
       ],
       "cwd": "<frozen-engine>",
-      "pid": 45208
+      "pid": 39072
     }
   ],
   "artifacts": [
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\verified-scene.ir.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-server.log",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-browser-system.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-hardware.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\initial-state.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-initial-raster.png",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-initial-raster-image-stats.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\stepped-60-state.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\keyboard-state.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\snapshot-saved.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\snapshot-mutated.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\snapshot-restored.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\path-state.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\path-pixels.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-path.png",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-path-image-stats.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-after-input-raster.png",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-after-input-raster-image-stats.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-server.log",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-browser-system.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-hardware.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-state.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-raster.png",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-raster-image-stats.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-browser-system.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-hardware.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-initial.png",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-initial-image-stats.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-after-input.png",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-after-input-image-stats.json",
-    "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-runtime.json"
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\verified-scene.ir.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-server.log",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-browser-system.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-hardware.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\initial-state.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-initial-raster.png",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-initial-raster-image-stats.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\stepped-60-state.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\keyboard-state.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\snapshot-saved.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\snapshot-mutated.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\snapshot-restored.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\path-state.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\path-pixels.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-path.png",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-path-image-stats.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-after-input-raster.png",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dev-after-input-raster-image-stats.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\cold-server.log",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\cold-browser-system.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\cold-hardware.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\cold-state.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\cold-raster.png",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\cold-raster-image-stats.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-browser-system.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-hardware.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-initial.png",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-initial-image-stats.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-after-input.png",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-after-input-image-stats.json",
+    "<validation-work>\\ZIPwork-20261104-190214\\evidence\\zip-no-git\\dist-runtime.json"
   ],
   "cleanup": [
     {
       "kind": "dev-process-tree",
-      "pid": 38584,
+      "pid": 44888,
       "exitCode": 0,
-      "stdout": "�ɹ�: ����ֹ PID 26036 (���� PID 28808 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 37424 (���� PID 38584 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28808 (���� PID 38584 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 38584 (���� PID 13252 �ӽ���)�Ľ��̡�\r\n",
+      "stdout": "�ɹ�: ����ֹ PID 37576 (���� PID 38888 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 38888 (���� PID 44020 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 6436 (���� PID 44888 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 44020 (���� PID 44888 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 44888 (���� PID 11640 �ӽ���)�Ľ��̡�\r\n",
       "stderr": ""
     },
     {
       "kind": "dev-process-tree",
-      "pid": 45208,
+      "pid": 39072,
       "exitCode": 0,
-      "stdout": "�ɹ�: ����ֹ PID 48356 (���� PID 50688 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 45004 (���� PID 45208 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 50688 (���� PID 45208 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 45208 (���� PID 13252 �ӽ���)�Ľ��̡�\r\n",
+      "stdout": "�ɹ�: ����ֹ PID 32900 (���� PID 40916 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 41224 (���� PID 39072 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 40916 (���� PID 39072 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 39072 (���� PID 11640 �ӽ���)�Ľ��̡�\r\n",
       "stderr": ""
     }
   ],
   "errors": [],
-  "finishedAt": "2026-11-04T10:36:04.598Z",
+  "finishedAt": "2026-11-04T11:05:11.770Z",
   "status": "passed"
 }

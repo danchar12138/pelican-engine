@@ -1,7 +1,7 @@
 [
   {
     "path": ".gitattributes",
-    "sha256": "5b2716a825e5e807c4058bf8c6fc430cb2e047d8fb3040e26965b98fbbd0578b"
+    "sha256": "93bef1182ec55f988abe5c6c56a7202f3b77d1d6d016d2d5c36f2bb905784ed7"
   },
   {
     "path": ".github\\workflows\\ci.yml",
@@ -13,15 +13,19 @@
   },
   {
     "path": "AGENTS.md",
-    "sha256": "0b60778446c31e7a51336f6b8b327bf2ded2edd4b128654f61dfef0c750ae895"
+    "sha256": "fc3daa28a3e6784cd2a8a5cedf4b5b564e11262e36330e3f306e551f36f60ac3"
+  },
+  {
+    "path": "CHANGELOG.md",
+    "sha256": "a4becd605276e46379444f4737012a1cba024f3051c9d32ca17efa93da3fbcb9"
   },
   {
     "path": "docs\\adr\\0001-m0-prototype-findings.md",
-    "sha256": "f38dba349859b139bfbf0b6f94e9217e932b9d13be62570ac4ef3fc74ca391db"
+    "sha256": "97bb86a61fc2890a110b018b70b5cf51f41ad82bb52c5bc85d80e63c039b4912"
   },
   {
     "path": "docs\\AI-WORKFLOW.md",
-    "sha256": "21c6cffe8588ff688153543ff6f324279db33fc9b93dadb4ab72ed6e8bb7ae14"
+    "sha256": "bfe5c6a91f82b8a3fb808e68fb90191338c043115433eda2675ac3981c2c7c16"
   },
   {
     "path": "docs\\ARCHITECTURE.md",
@@ -29,35 +33,39 @@
   },
   {
     "path": "docs\\CAPABILITIES.md",
-    "sha256": "9a0c7e985532913720ae51cb882d0abcec9d3a01212032278f88f32798275d21"
+    "sha256": "6bcbd397b963ae0184383587183addefdb2a12dd9e441675a2c5a0b36794d67b"
   },
   {
     "path": "docs\\DECISIONS.md",
-    "sha256": "240122f486507339a670c1891c365b28b61aec15137449620d7623f7e2cd1367"
+    "sha256": "63cdfccb75b2fd596d6e25052a6e04fec9bd45da6e51edaa26c2200da28b7f54"
   },
   {
     "path": "docs\\M0-REPORT.md",
-    "sha256": "d8984cc5025dd5bc5230582dea613a05b5b95c5b0985cc42791ffca58b4843f9"
+    "sha256": "bc7fd44732eed3a8c915df541e7c1809bc353fc7ba013e8b1c2dedc291ccbfef"
   },
   {
     "path": "docs\\M0-USAGE.md",
-    "sha256": "e7fa13101e493be3ac1f752c5815f709e6a141d12bc2b6d8177b2a90696d8b8d"
+    "sha256": "0cc1fe81c9a2a17d01c601e7ff6ba47dc43a896052d0bd8ffd7609f591e2483a"
+  },
+  {
+    "path": "docs\\releases\\M0.md",
+    "sha256": "cbf04de41269e3038744c92cdfc23a648d498fe70bbeb9672e9e906dcbc01c4a"
   },
   {
     "path": "docs\\RELEASING.md",
-    "sha256": "e305463eb6286f6452da2d3dc6bd31423161863d232f76a03e06a6729d900bf3"
+    "sha256": "c19e6cfc7a7b09e1e52355eb19c62103cf99a03465d397fde538e6365ccc10aa"
   },
   {
     "path": "docs\\RESEARCH.md",
-    "sha256": "07c96b33d852c5f9836bf445b0a617e90e9aecb36076537931c7b45ab6e29e7a"
+    "sha256": "cf3e02b018c54097cb4760048be337f559ceed8871f8128f8517a9290c56b248"
   },
   {
     "path": "docs\\ROADMAP.md",
-    "sha256": "d499532a2f544f72f8bb2c2ec5d707d7b7cf57d99e5bf120c5520c8c27d4294c"
+    "sha256": "f399a42639ae9a24e0bb47da662ffc285bf597843253e30b1945447c1f294226"
   },
   {
     "path": "docs\\tasks\\M0.md",
-    "sha256": "3471345979e7da2ee112e193e3838bd26d188f623e8c78a4497e63642380d86d"
+    "sha256": "a069f13305a95f664b11e32d01378d27d80603c33f8472943cdf41d8467cd8bf"
   },
   {
     "path": "docs\\THIRD-PARTY-NOTICES.md",
@@ -89,11 +97,15 @@
   },
   {
     "path": "experiments\\compiler\\index.ts",
-    "sha256": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a"
+    "sha256": "e998cc63d0ddc8cbd79172738a967b148c9e0f2e47a5b98a456698ed5edefd4d"
   },
   {
     "path": "experiments\\compiler\\normalize.ts",
     "sha256": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153"
+  },
+  {
+    "path": "experiments\\compiler\\source-map.ts",
+    "sha256": "1685766cf1d75beb826d1e75bf8abbdfc6673f4f809763ad20913b1f9a17679c"
   },
   {
     "path": "experiments\\compiler\\types.ts",
@@ -241,7 +253,7 @@
   },
   {
     "path": "README.md",
-    "sha256": "2fbefe7ed39794e1c4d0a77cc7cb59eae4f532cd31a6c2a65b24f008ffe39e90"
+    "sha256": "fbe6a8bcebecc68d01567800ad769ccb45c2774b435d691b01f398c38cded9d6"
   },
   {
     "path": "tests\\compiler.test.ts",
@@ -270,6 +282,10 @@
   {
     "path": "tests\\simulation.test.ts",
     "sha256": "6ce24e58f9d85bc36f4fa9058f0d0e54c7897a2f46db5739e40f9f0ed121e9e3"
+  },
+  {
+    "path": "tests\\source-map.test.ts",
+    "sha256": "271b4ab26b11613eacb4593daa4e28f8d90d7aac480de964b0408b567675be64"
   },
   {
     "path": "tests\\world.test.ts",

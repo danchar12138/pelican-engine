@@ -1,6 +1,6 @@
 COMMAND: node browser-acceptance.mjs zip-no-git
-CWD: <validation-work>\ZIPwork-20261104-182629
-START: 2026-11-04T10:32:59.424Z
+CWD: <validation-work>\ZIPwork-20261104-190214
+START: 2026-11-04T11:05:03.005Z
 STDOUT:
 {
   "flow": "zip-no-git",
@@ -166,6 +166,28 @@ STDOUT:
       }
     },
     {
+      "name": "dev-initial-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510041,
+        "uniqueColors": 8457,
+        "sum": 164466712,
+        "green": 0,
+        "greenBounds": {
+          "minX": 1280,
+          "minY": 720,
+          "maxX": -1,
+          "maxY": -1
+        }
+      }
+    },
+    {
       "name": "actual authored gameplay rotates after 60 fixed steps",
       "passed": true,
       "details": {
@@ -183,6 +205,7 @@ STDOUT:
       "name": "real keyboard moves authored entity and records input",
       "passed": true,
       "details": {
+        "controlledId": "m0-spinner",
         "before": {
           "position": [
             -2,
@@ -249,6 +272,50 @@ STDOUT:
       }
     },
     {
+      "name": "dev-path screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 516843,
+        "uniqueColors": 11907,
+        "sum": 174636647,
+        "green": 500,
+        "greenBounds": {
+          "minX": 307,
+          "minY": 206,
+          "maxX": 375,
+          "maxY": 272
+        }
+      }
+    },
+    {
+      "name": "dev-after-input-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510471,
+        "uniqueColors": 8972,
+        "sum": 165227533,
+        "green": 0,
+        "greenBounds": {
+          "minX": 1280,
+          "minY": 720,
+          "maxX": -1,
+          "maxY": -1
+        }
+      }
+    },
+    {
       "name": "cold hardware WebGPU",
       "passed": true,
       "details": {
@@ -279,6 +346,28 @@ STDOUT:
       }
     },
     {
+      "name": "cold-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510041,
+        "uniqueColors": 8457,
+        "sum": 164466712,
+        "green": 0,
+        "greenBounds": {
+          "minX": 1280,
+          "minY": 720,
+          "maxX": -1,
+          "maxY": -1
+        }
+      }
+    },
+    {
       "name": "dist hardware WebGPU",
       "passed": true,
       "details": {
@@ -299,11 +388,55 @@ STDOUT:
       }
     },
     {
+      "name": "dist-initial screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 517984,
+        "uniqueColors": 9039,
+        "sum": 166172444,
+        "green": 0,
+        "greenBounds": {
+          "minX": 1280,
+          "minY": 720,
+          "maxX": -1,
+          "maxY": -1
+        }
+      }
+    },
+    {
+      "name": "dist-after-input screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 511248,
+        "uniqueColors": 8619,
+        "sum": 164657383,
+        "green": 0,
+        "greenBounds": {
+          "minX": 1280,
+          "minY": 720,
+          "maxX": -1,
+          "maxY": -1
+        }
+      }
+    },
+    {
       "name": "dist production control stripped",
       "passed": true,
       "details": {
         "control": "undefined",
-        "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 22\n",
+        "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 25\n",
         "canvases": [
           {
             "width": 960,
@@ -318,7 +451,7 @@ STDOUT:
           "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
           "http://127.0.0.1:4185/favicon.ico",
           "http://127.0.0.1:4185/generated/scene.ir.json",
-          "http://127.0.0.1:4185/generated/game.js?v=1793788386655"
+          "http://127.0.0.1:4185/generated/game.js?v=1793790310538"
         ]
       }
     },
@@ -350,7 +483,7 @@ STDOUT:
             "bytes": 7461
           },
           {
-            "url": "/generated/game.js?v=1793788386655",
+            "url": "/generated/game.js?v=1793790310538",
             "status": 200,
             "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
             "bytes": 4485
@@ -370,7 +503,7 @@ STDOUT:
             "resourceType": "fetch"
           },
           {
-            "url": "http://127.0.0.1:4185/generated/game.js?v=1793788386655",
+            "url": "http://127.0.0.1:4185/generated/game.js?v=1793790310538",
             "resourceType": "script"
           }
         ]
@@ -382,7 +515,7 @@ STDOUT:
       "details": {
         "distState": {
           "control": "undefined",
-          "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 22\n",
+          "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 25\n",
           "canvases": [
             {
               "width": 960,
@@ -397,11 +530,11 @@ STDOUT:
             "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
             "http://127.0.0.1:4185/favicon.ico",
             "http://127.0.0.1:4185/generated/scene.ir.json",
-            "http://127.0.0.1:4185/generated/game.js?v=1793788386655"
+            "http://127.0.0.1:4185/generated/game.js?v=1793790310538"
           ]
         },
-        "distScreenshotHash": "a02f06f0a6769ee25738df8f97848e68955320cc54db5982fe9e29ae815bea4f",
-        "distAfterHash": "313fcbc4293b5b691d0e3fd46421acec346887c9555f2ab56c3fde56ff4df1a0"
+        "distScreenshotHash": "9e746fd36756e9faa5bfa982f287c25154eb25dbb6eb50fd3164ee78271d9aa4",
+        "distAfterHash": "615f6404405240e88d149abc4a6bf950f0fdfb22ebb7c8cfac246e2438d72f61"
       }
     },
     {
