@@ -1,0 +1,24 @@
+COMMAND: powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project source/threecat/evidence/ai-game-a
+CWD: <validation-work>\ZIPwork-20261104-182629
+START: 2026-11-04T10:29:27.779Z
+STDOUT:
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "build-1793788168747",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    "dist/index.html",
+    "dist/generated/scene.ir.json",
+    "dist/threecat-build.json"
+  ],
+  "data": {
+    "output": "dist",
+    "game": "m0-game"
+  }
+}
+
+STDERR:
+
+EXIT: 0
+ERROR: 

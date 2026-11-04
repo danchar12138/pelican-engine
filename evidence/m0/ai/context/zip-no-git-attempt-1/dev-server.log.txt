@@ -1,0 +1,12 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "dev-1793788380561",
+  "status": "running",
+  "diagnostics": [],
+  "artifacts": [],
+  "data": {
+    "url": "http://127.0.0.1:4183/",
+    "project": "ai-game-a",
+    "hotUpdate": "full-reload; compatibility policy is reported but live patch is not implemented"
+  }
+}

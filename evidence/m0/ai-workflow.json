@@ -1,0 +1,2670 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "scope": "M0 external-AI game-authoring subset only; NOT complete engine, complete M0 milestone, or M8 acceptance",
+  "workRoot": "<validation-work>\\ZIPwork-20261104-182629",
+  "allowedTemporaryRoot": "<validation-work>",
+  "engineFilesModified": false,
+  "engineDocumentsModified": false,
+  "humanTechnicalSteps": 0,
+  "independentContext": true,
+  "contextBoundary": "New final ZIP and its documented entrypoints only. No original development-engine imports or hidden runtime dependencies. Only permitted system Node/npm cache and user-level Playwright browser cache reused. Old freeze attempt excluded from final results.",
+  "sourceIdentity": {
+    "algorithm": "sha256",
+    "scope": "executable-source-and-lockfiles",
+    "sha256": "4107b19342a5cf339fc2cbf0071b03b3232bc04b04ed058e548bb30130b2ac26",
+    "files": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "sha256": "6257caebc38a3534f7dc339cd94ee272dbf8236a70a1a643722d757e379dd151",
+        "bytes": 1496
+      },
+      {
+        "path": "engine.manifest.json",
+        "sha256": "3b331fa02e9034a734d0d89e2b2068ab50ccc5b86bbb5f50756be929d91e201b",
+        "bytes": 367
+      },
+      {
+        "path": "examples/m0/game.ts",
+        "sha256": "ae7c01fb7117d81fbc21bba2ddc7511a94ada5fe4e41a1b624a920dedf78054c",
+        "bytes": 3054
+      },
+      {
+        "path": "examples/m0/threecat.project.json",
+        "sha256": "bb9547027787fe042324bd65984221cc9a0308744ad854d0babb7f180ff2d183",
+        "bytes": 58
+      },
+      {
+        "path": "experiments/compiler/extract.ts",
+        "sha256": "a3efa2df5831fab02ff9093881de001590ea6c4608d2daff473b11380a486b32",
+        "bytes": 18330
+      },
+      {
+        "path": "experiments/compiler/index.ts",
+        "sha256": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a",
+        "bytes": 20403
+      },
+      {
+        "path": "experiments/compiler/normalize.ts",
+        "sha256": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153",
+        "bytes": 22020
+      },
+      {
+        "path": "experiments/compiler/types.ts",
+        "sha256": "f4d3bd243ef71621bbe40c6665c76daf18b7b0e91355d298787fe86ccb43a1da",
+        "bytes": 2790
+      },
+      {
+        "path": "experiments/render/geometry.ts",
+        "sha256": "33920acb7c3b7dfa6f87ceacab3df1fcaf711205faf1823a3f3c4f73339e05ce",
+        "bytes": 3907
+      },
+      {
+        "path": "experiments/render/graph.ts",
+        "sha256": "c080bc9586f026059745476ce01840611af9ee586b5fc4d667ab5a16bc88513c",
+        "bytes": 5550
+      },
+      {
+        "path": "experiments/render/main.ts",
+        "sha256": "3394492dbf5ace5694c65c2587557bcdf67626db702ce8fcf79b8dff47716ab8",
+        "bytes": 26969
+      },
+      {
+        "path": "experiments/render/pathtrace.ts",
+        "sha256": "343343bbd445a3c7253741313c22098cc7a1a865b94c19e5998237cabfaf34cd",
+        "bytes": 14759
+      },
+      {
+        "path": "experiments/rigidbody/adapters.ts",
+        "sha256": "7c3bd8350c09573a767ad8910e0fa3be2848b316f6c492f3758271110ee4373e",
+        "bytes": 7821
+      },
+      {
+        "path": "experiments/rigidbody/checkpoint.ts",
+        "sha256": "f10d6fb255011d43626ae2b4568915173fc0838ce84ea14ef32f26a782dad23b",
+        "bytes": 1018
+      },
+      {
+        "path": "experiments/rigidbody/index.ts",
+        "sha256": "09394ce013be340cd97eb2279a6070b7abe6cfab3dd69033be1c6c5ca42325e5",
+        "bytes": 155
+      },
+      {
+        "path": "experiments/rigidbody/probe.ts",
+        "sha256": "9bed41a5ba48171dde6e5f662a4176c016ac2fd46943c033ae33c407123cf70a",
+        "bytes": 17128
+      },
+      {
+        "path": "experiments/rigidbody/run-probe.ts",
+        "sha256": "0d031bd088f1a8071feb921312f9459db5188d96c1950d5023bc960976f52d78",
+        "bytes": 264
+      },
+      {
+        "path": "experiments/rigidbody/types.ts",
+        "sha256": "7195f92e2ffd7b225c434c1995305fdb374723ba50b5f3f5b5fa91772ae119b7",
+        "bytes": 2485
+      },
+      {
+        "path": "experiments/simulation/index.ts",
+        "sha256": "e29bcc61bd8bdea2cefc7855640d8f45a8fa7f70150fdbab065e2c9e000cf5a7",
+        "bytes": 243
+      },
+      {
+        "path": "experiments/simulation/math.ts",
+        "sha256": "03ce0fdfdf1187e2e2809aae52eadab76f762ed7c31602124ad008b1ad3f25ab",
+        "bytes": 1504
+      },
+      {
+        "path": "experiments/simulation/probe.ts",
+        "sha256": "5e76e577cd26d400de2e0059ea81082d5e978bb7a2d17e5509895aa2b75d5412",
+        "bytes": 14271
+      },
+      {
+        "path": "experiments/simulation/run-probe.ts",
+        "sha256": "228e6246901fe60e571fc5b54036a215f3ace8b41556cf813d23a6de36fff097",
+        "bytes": 1313
+      },
+      {
+        "path": "experiments/simulation/scenes.ts",
+        "sha256": "a566f83f834c19007f40107f00ddf43220585164e26a0c9f63200e25dcc9efc3",
+        "bytes": 7694
+      },
+      {
+        "path": "experiments/simulation/solver.ts",
+        "sha256": "3836f6aee8cbfc64be7bdee3ffaee0f4f0f2e74550d98363e821b76d9cc3fe0c",
+        "bytes": 15448
+      },
+      {
+        "path": "experiments/simulation/types.ts",
+        "sha256": "823cc6dc1eb402fb4e0c0fb877f5ec81bf26447244f645ebb9d2f4f0a5db28b8",
+        "bytes": 3234
+      },
+      {
+        "path": "experiments/world/adapters.ts",
+        "sha256": "1add237703ec923f5fc22df79e8b84740089e50287db9941f4c6738e755243c2",
+        "bytes": 974
+      },
+      {
+        "path": "experiments/world/geometry.ts",
+        "sha256": "ed90d436afd62aa033d8203620d555ba03bdb35c0dce96021a76991dccfa642c",
+        "bytes": 7710
+      },
+      {
+        "path": "experiments/world/index.ts",
+        "sha256": "88398643bfee988ae601b6fc140878074d10cf036c874564c3419042d8a9ba85",
+        "bytes": 179
+      },
+      {
+        "path": "experiments/world/probe.ts",
+        "sha256": "64bfb1b32934ee480d0cec766879d25ac386b2ad76ffddd4e74146c99db53fec",
+        "bytes": 13425
+      },
+      {
+        "path": "experiments/world/run-probe.ts",
+        "sha256": "89521fece97e52b3cb0614c7e577c9d59b15af031ac0f68cb6e99a1ef17b15c9",
+        "bytes": 1723
+      },
+      {
+        "path": "experiments/world/types.ts",
+        "sha256": "eeb33bc0277b0828657ee7ac16bafc210aa965d4aa1afd514ec7d712d329959d",
+        "bytes": 5198
+      },
+      {
+        "path": "experiments/world/world.ts",
+        "sha256": "53d02af52fe6b3790282f11f3a6d07497138de708a46cbf94bfaf4b547e2da36",
+        "bytes": 22809
+      },
+      {
+        "path": "index.html",
+        "sha256": "8fac1bc345f8755531292397b28b0b2a6259784c052e5368457312553199dec2",
+        "bytes": 743
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "88770866d983f6289e86da6421ca25830c891584377dc888ea4960591624db8e",
+        "bytes": 46978
+      },
+      {
+        "path": "package.json",
+        "sha256": "0e8401fa9583881f116c48f2e7d54d78f6d12e9a1d735abaeacfa66e15e0fa2f",
+        "bytes": 994
+      },
+      {
+        "path": "packages/sdk/src/index.ts",
+        "sha256": "f1f9684f7b8fd9d2e44d8fdad86b2338f4612fb896782f7c67a993b56862223d",
+        "bytes": 6373
+      },
+      {
+        "path": "tests/compiler.test.ts",
+        "sha256": "54e680aef0750eac5cabbde820d32f89754e40cbadde44e744ea82e7336a20c1",
+        "bytes": 34688
+      },
+      {
+        "path": "tests/deployment.test.ts",
+        "sha256": "c56bf8509052468170c4cd0862345ff95b5a1e71e4be81a97633e33b378a961a",
+        "bytes": 3394
+      },
+      {
+        "path": "tests/environment.test.ts",
+        "sha256": "bd55cc5982608d6022e10d1a8e58efb5113077788611eb56090abd815b1037e7",
+        "bytes": 15980
+      },
+      {
+        "path": "tests/release.test.ts",
+        "sha256": "b7ce444efeddff652dafc36d7a4ad366191c53ff55bf5e40ed20a5e5a4ced0d8",
+        "bytes": 22634
+      },
+      {
+        "path": "tests/render.test.ts",
+        "sha256": "aa02f54a696e88ace19b799a3e92ea5abefa0778e9d89c1a838e9642b89838c7",
+        "bytes": 7439
+      },
+      {
+        "path": "tests/rigidbody.test.ts",
+        "sha256": "0b39ecdd577f98d4de1785bde654891dd01192c8854aea456c1cd1ffa2605e4b",
+        "bytes": 14852
+      },
+      {
+        "path": "tests/simulation.test.ts",
+        "sha256": "6ce24e58f9d85bc36f4fa9058f0d0e54c7897a2f46db5739e40f9f0ed121e9e3",
+        "bytes": 13138
+      },
+      {
+        "path": "tests/world.test.ts",
+        "sha256": "f9c87097a5dd1de5deec4781759babb6acda0467d87f1ac97332d297612c7244",
+        "bytes": 24145
+      },
+      {
+        "path": "threecat.ps1",
+        "sha256": "adc214d28cabf68cd46f409a24443c7d38c30e3c289672b86638ebbe46726237",
+        "bytes": 2485
+      },
+      {
+        "path": "tools/cli.ts",
+        "sha256": "01ac2be09f947e2fc02d2b3182dc6dc4819e7399fa7e648e4e21025cf60665d9",
+        "bytes": 10107
+      },
+      {
+        "path": "tools/doctor.ts",
+        "sha256": "8cc201dedae27080af1af4cb781d34d08357b4a1fead7cd659680aab90967070",
+        "bytes": 25539
+      },
+      {
+        "path": "tools/gpu-probe.ts",
+        "sha256": "05f440ac5060ebbe1aee37f4589417e07541a27a69e955fa304e7a7729dbd69b",
+        "bytes": 1146
+      },
+      {
+        "path": "tools/license-inventory.ts",
+        "sha256": "af04d6b141148ee96841baa5a714846086cc4ef8507ab40625d8bcb0683d5d73",
+        "bytes": 2325
+      },
+      {
+        "path": "tools/prepare-zip-validation.ts",
+        "sha256": "e365e3b4d1e314a7ecc7fdd79d38c740821fde8de79a5f2c6ae95cc538e5e761",
+        "bytes": 2340
+      },
+      {
+        "path": "tools/release.ts",
+        "sha256": "c0248ec5b9f038e359652e3fbab05308337d4deb02b4a60fb087c3b6c056d5cb",
+        "bytes": 27565
+      },
+      {
+        "path": "tools/setup.ts",
+        "sha256": "f4e2dcc909e214fb6a26090318e5a5c64f81d93d7f5ec0ca763723a6530178c7",
+        "bytes": 7507
+      },
+      {
+        "path": "tools/source-fingerprint.ts",
+        "sha256": "a1e2f3aa57f4509d90bd199e5e4c15a99db042d2565754d45e49041e381e0553",
+        "bytes": 1469
+      },
+      {
+        "path": "tools/static-server.ts",
+        "sha256": "43fafbc271107421d7bb252989f5cbd49f72bd9304107d551b6cee75dabe39fa",
+        "bytes": 2422
+      },
+      {
+        "path": "tools/verify-m0.ts",
+        "sha256": "8fb72e97c82139d37589ca84a74f7e94253323c1b3dba964ca69403edc534820",
+        "bytes": 24552
+      },
+      {
+        "path": "tsconfig.json",
+        "sha256": "42535a8efc6d95d120188dea9cb204511a72765e2237c39e439ac69f4183e6a6",
+        "bytes": 576
+      },
+      {
+        "path": "vite.config.ts",
+        "sha256": "47b9e8febfbf93abf08bcee4a99159ed81f8f7753e47cf76dd871a5885c00b60",
+        "bytes": 335
+      }
+    ]
+  },
+  "preparation": [
+    {
+      "step": "npm-ci-offline",
+      "command": "\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" \"C:\\\\Program Files\\\\nodejs\\\\node_modules\\\\npm\\\\bin\\\\npm-cli.js\" --prefix source/threecat ci --offline --no-audit --no-fund",
+      "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+      "startedAt": "2026-11-04T10:28:11.570Z",
+      "finishedAt": "2026-11-04T10:28:14.673Z",
+      "exitCode": 0,
+      "expectedFailure": false,
+      "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\preparation\\npm-ci-offline.log"
+    },
+    {
+      "step": "setup",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 setup --install-browser",
+      "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+      "startedAt": "2026-11-04T10:28:14.719Z",
+      "finishedAt": "2026-11-04T10:28:18.357Z",
+      "exitCode": 0,
+      "expectedFailure": false,
+      "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\preparation\\setup.log"
+    }
+  ],
+  "documentationRead": [
+    "<frozen-engine>\\AGENTS.md",
+    "<frozen-engine>\\README.md",
+    "<frozen-engine>\\docs\\M0-USAGE.md",
+    "<frozen-engine>\\docs\\DECISIONS.md",
+    "<frozen-engine>\\docs\\ROADMAP.md",
+    "<frozen-engine>\\packages\\sdk\\README.md",
+    "<frozen-engine>\\packages\\sdk\\src\\index.ts",
+    "<frozen-engine>\\examples\\m0\\game.ts",
+    "<frozen-engine>\\experiments\\compiler\\CONTRACT.md",
+    "<frozen-engine>\\tools\\source-fingerprint.ts"
+  ],
+  "flows": [
+    {
+      "kind": "zip-no-git",
+      "status": "passed",
+      "project": "<frozen-engine>\\evidence\\ai-game-a",
+      "engine": "<frozen-engine>",
+      "executionWorkdirs": [
+        "<validation-work>\\ZIPwork-20261104-182629",
+        "<frozen-engine>"
+      ],
+      "ports": [
+        4183,
+        4185
+      ],
+      "commands": [
+        {
+          "step": "doctor",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 doctor",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:28:32.428Z",
+          "finishedAt": "2026-11-04T10:28:36.151Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\doctor.log"
+        },
+        {
+          "step": "create",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:28:36.196Z",
+          "finishedAt": "2026-11-04T10:28:37.267Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\create.log"
+        },
+        {
+          "step": "baseline-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:00.146Z",
+          "finishedAt": "2026-11-04T10:29:01.395Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\baseline-check.log"
+        },
+        {
+          "step": "negative-type-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:02.992Z",
+          "finishedAt": "2026-11-04T10:29:04.207Z",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log"
+        },
+        {
+          "step": "repaired-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:25.165Z",
+          "finishedAt": "2026-11-04T10:29:26.445Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log"
+        },
+        {
+          "step": "build",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:27.779Z",
+          "finishedAt": "2026-11-04T10:29:29.072Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\build.log"
+        },
+        {
+          "step": "capture",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project source/threecat/evidence/ai-game-a --mode path --output evidence/zip-no-git/capture-path.png --port 4185",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:40.487Z",
+          "finishedAt": "2026-11-04T10:29:43.489Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture.log"
+        },
+        {
+          "step": "browser-acceptance",
+          "command": "node browser-acceptance.mjs zip-no-git",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:32:59.424Z",
+          "finishedAt": "2026-11-04T10:33:07.798Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.log"
+        },
+        {
+          "step": "browser-evidence-complete",
+          "command": "node browser-acceptance.mjs zip-no-git",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:35:56.069Z",
+          "finishedAt": "2026-11-04T10:36:04.618Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-evidence-complete.log"
+        }
+      ],
+      "successfulOperationCount": 8,
+      "expectedFailures": [
+        {
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "diagnostics": [
+            {
+              "code": "TC_TS_2362",
+              "severity": "error",
+              "message": "The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.",
+              "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+              "source": {
+                "file": "game.ts",
+                "line": 119,
+                "column": 27,
+                "length": 15
+              }
+            }
+          ],
+          "rawDiagnostic": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log",
+          "sourceAtFailure": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-negative.ts",
+          "repair": "Replace invalid arithmetic operand with numeric motion.speed and set gameplay multiplier to 2.",
+          "repairedCommand": {
+            "step": "repaired-check",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+            "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+            "startedAt": "2026-11-04T10:29:25.165Z",
+            "finishedAt": "2026-11-04T10:29:26.445Z",
+            "exitCode": 0,
+            "expectedFailure": false,
+            "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log"
+          },
+          "sourceAfterRepair": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-fixed.ts"
+        }
+      ],
+      "authoredChanges": [
+        {
+          "file": "<frozen-engine>\\evidence\\ai-game-a\\game.ts",
+          "description": "Through public defineSystem/EngineFacade, change rotation increment from motion.speed*dt to motion.speed*dt*2."
+        }
+      ],
+      "publicSdkOnly": true,
+      "imports": [
+        "@threecat/sdk"
+      ],
+      "noGit": true,
+      "browser": {
+        "status": "passed",
+        "headless": false,
+        "checkCount": 21,
+        "checks": [
+          {
+            "name": "compiled Motion default",
+            "passed": true,
+            "details": {
+              "speed": 0.8,
+              "enabled": true
+            }
+          },
+          {
+            "name": "dev hardware WebGPU",
+            "passed": true,
+            "details": {
+              "secureContext": true,
+              "webgpu": true,
+              "adapter": {
+                "vendor": "nvidia",
+                "architecture": "blackwell",
+                "device": "",
+                "description": "",
+                "isFallbackAdapter": false
+              },
+              "devicePixelRatio": 1.0000000298023224,
+              "viewport": {
+                "width": 1280,
+                "height": 720
+              }
+            }
+          },
+          {
+            "name": "runtime WebGPU ready",
+            "passed": true,
+            "details": {
+              "backend": "WebGPUBackend",
+              "errors": []
+            }
+          },
+          {
+            "name": "runtime initial game matches IR",
+            "passed": true,
+            "details": {
+              "transforms": {
+                "m0-spinner": {
+                  "position": [
+                    -2,
+                    1,
+                    1.5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-group": {
+                  "position": [
+                    6,
+                    0,
+                    -2
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-child": {
+                  "position": [
+                    1,
+                    0.5,
+                    0
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-orb": {
+                  "position": [
+                    -3.8,
+                    0.85,
+                    1.5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-ground": {
+                  "position": [
+                    -2,
+                    0.05,
+                    1.5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-sun": {
+                  "position": [
+                    -2,
+                    7,
+                    5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                }
+              },
+              "components": {
+                "m0-spinner": {
+                  "Motion": {
+                    "speed": 0.8,
+                    "enabled": true
+                  }
+                },
+                "m0-group": {},
+                "m0-child": {},
+                "m0-orb": {},
+                "m0-ground": {},
+                "m0-sun": {}
+              }
+            }
+          },
+          {
+            "name": "dev-initial-raster screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510041,
+              "uniqueColors": 8457,
+              "sum": 164466712,
+              "green": 0,
+              "greenBounds": {
+                "minX": 1280,
+                "minY": 720,
+                "maxX": -1,
+                "maxY": -1
+              }
+            }
+          },
+          {
+            "name": "actual authored gameplay rotates after 60 fixed steps",
+            "passed": true,
+            "details": {
+              "initialTick": 0,
+              "tick": 60,
+              "expectedRotation": 1.6,
+              "rotation": [
+                0,
+                1.599999999999998,
+                0
+              ]
+            }
+          },
+          {
+            "name": "real keyboard moves authored entity and records input",
+            "passed": true,
+            "details": {
+              "controlledId": "m0-spinner",
+              "before": {
+                "position": [
+                  -2,
+                  1,
+                  1.5
+                ],
+                "rotation": [
+                  0,
+                  1.599999999999998,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "after": {
+                "position": [
+                  -1.75,
+                  1,
+                  1.5
+                ],
+                "rotation": [
+                  0,
+                  1.6266666666666647,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "inputLog": [
+                {
+                  "tick": 60,
+                  "key": "ArrowRight"
+                }
+              ]
+            }
+          },
+          {
+            "name": "snapshot restores actual game state",
+            "passed": true,
+            "details": {
+              "savedTick": 61,
+              "mutatedTick": 84,
+              "restoredTick": 61,
+              "exactSnapshotEquality": true
+            }
+          },
+          {
+            "name": "path rendering actual GPU readback",
+            "passed": true,
+            "details": {
+              "mode": "path",
+              "errors": [],
+              "pixels": {
+                "sum": 10849255,
+                "nonBlack": 32360,
+                "hash": 3729672376
+              }
+            }
+          },
+          {
+            "name": "dev-path screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 516843,
+              "uniqueColors": 11907,
+              "sum": 174636647,
+              "green": 500,
+              "greenBounds": {
+                "minX": 307,
+                "minY": 206,
+                "maxX": 375,
+                "maxY": 272
+              }
+            }
+          },
+          {
+            "name": "dev-after-input-raster screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510471,
+              "uniqueColors": 8972,
+              "sum": 165227533,
+              "green": 0,
+              "greenBounds": {
+                "minX": 1280,
+                "minY": 720,
+                "maxX": -1,
+                "maxY": -1
+              }
+            }
+          },
+          {
+            "name": "cold hardware WebGPU",
+            "passed": true,
+            "details": {
+              "secureContext": true,
+              "webgpu": true,
+              "adapter": {
+                "vendor": "nvidia",
+                "architecture": "blackwell",
+                "device": "",
+                "description": "",
+                "isFallbackAdapter": false
+              },
+              "devicePixelRatio": 1.0000000298023224,
+              "viewport": {
+                "width": 1280,
+                "height": 720
+              }
+            }
+          },
+          {
+            "name": "fresh browser and restarted server cold state matches initial",
+            "passed": true,
+            "details": {
+              "tick": 0,
+              "inputLog": [],
+              "gameEqualsInitial": true,
+              "irEqualsInitial": true
+            }
+          },
+          {
+            "name": "cold-raster screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510041,
+              "uniqueColors": 8457,
+              "sum": 164466712,
+              "green": 0,
+              "greenBounds": {
+                "minX": 1280,
+                "minY": 720,
+                "maxX": -1,
+                "maxY": -1
+              }
+            }
+          },
+          {
+            "name": "dist hardware WebGPU",
+            "passed": true,
+            "details": {
+              "secureContext": true,
+              "webgpu": true,
+              "adapter": {
+                "vendor": "nvidia",
+                "architecture": "blackwell",
+                "device": "",
+                "description": "",
+                "isFallbackAdapter": false
+              },
+              "devicePixelRatio": 1.0000000298023224,
+              "viewport": {
+                "width": 1280,
+                "height": 720
+              }
+            }
+          },
+          {
+            "name": "dist-initial screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 515858,
+              "uniqueColors": 8906,
+              "sum": 165631519,
+              "green": 0,
+              "greenBounds": {
+                "minX": 1280,
+                "minY": 720,
+                "maxX": -1,
+                "maxY": -1
+              }
+            }
+          },
+          {
+            "name": "dist-after-input screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 509260,
+              "uniqueColors": 8611,
+              "sum": 164687952,
+              "green": 0,
+              "greenBounds": {
+                "minX": 1280,
+                "minY": 720,
+                "maxX": -1,
+                "maxY": -1
+              }
+            }
+          },
+          {
+            "name": "dist production control stripped",
+            "passed": true,
+            "details": {
+              "control": "undefined",
+              "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+              "canvases": [
+                {
+                  "width": 960,
+                  "height": 540
+                },
+                {
+                  "width": 960,
+                  "height": 540
+                }
+              ],
+              "resources": [
+                "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+                "http://127.0.0.1:4185/favicon.ico",
+                "http://127.0.0.1:4185/generated/scene.ir.json",
+                "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+              ]
+            }
+          },
+          {
+            "name": "dist standalone resource boundary",
+            "passed": true,
+            "details": {
+              "requests": [
+                {
+                  "url": "/",
+                  "status": 200,
+                  "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\index.html",
+                  "bytes": 574
+                },
+                {
+                  "url": "/assets/index-D6ZevpMx.js",
+                  "status": 200,
+                  "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\assets\\index-D6ZevpMx.js",
+                  "bytes": 743873
+                },
+                {
+                  "url": "/favicon.ico",
+                  "status": 404
+                },
+                {
+                  "url": "/generated/scene.ir.json",
+                  "status": 200,
+                  "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\scene.ir.json",
+                  "bytes": 7461
+                },
+                {
+                  "url": "/generated/game.js?v=1793788563358",
+                  "status": 200,
+                  "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
+                  "bytes": 4485
+                }
+              ],
+              "net": [
+                {
+                  "url": "http://127.0.0.1:4185/",
+                  "resourceType": "document"
+                },
+                {
+                  "url": "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+                  "resourceType": "script"
+                },
+                {
+                  "url": "http://127.0.0.1:4185/generated/scene.ir.json",
+                  "resourceType": "fetch"
+                },
+                {
+                  "url": "http://127.0.0.1:4185/generated/game.js?v=1793788563358",
+                  "resourceType": "script"
+                }
+              ]
+            }
+          },
+          {
+            "name": "dist canvas rendered and keyboard changes picture",
+            "passed": true,
+            "details": {
+              "distState": {
+                "control": "undefined",
+                "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+                "canvases": [
+                  {
+                    "width": 960,
+                    "height": 540
+                  },
+                  {
+                    "width": 960,
+                    "height": 540
+                  }
+                ],
+                "resources": [
+                  "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+                  "http://127.0.0.1:4185/favicon.ico",
+                  "http://127.0.0.1:4185/generated/scene.ir.json",
+                  "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+                ]
+              },
+              "distScreenshotHash": "1129abb5539bc12176333c7cd6dc236dc3985ce39c4f1c67a3857e1ee9f63c69",
+              "distAfterHash": "524fc9afdf1f0f007f2ce5aff4bbdcc9ef4261380b532c574edbff2fea774d13"
+            }
+          },
+          {
+            "name": "no browser page errors",
+            "passed": true,
+            "details": []
+          }
+        ],
+        "processes": [
+          {
+            "kind": "dev",
+            "executable": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "<frozen-engine>\\threecat.ps1",
+              "dev",
+              "--project",
+              "<frozen-engine>\\evidence\\ai-game-a",
+              "--port",
+              "4183"
+            ],
+            "cwd": "<frozen-engine>",
+            "pid": 38584
+          },
+          {
+            "kind": "cold",
+            "executable": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "<frozen-engine>\\threecat.ps1",
+              "dev",
+              "--project",
+              "<frozen-engine>\\evidence\\ai-game-a",
+              "--port",
+              "4183"
+            ],
+            "cwd": "<frozen-engine>",
+            "pid": 45208
+          }
+        ],
+        "cleanup": [
+          {
+            "kind": "dev-process-tree",
+            "pid": 38584,
+            "exitCode": 0,
+            "stdout": "�ɹ�: ����ֹ PID 26036 (���� PID 28808 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 37424 (���� PID 38584 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28808 (���� PID 38584 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 38584 (���� PID 13252 �ӽ���)�Ľ��̡�\r\n",
+            "stderr": ""
+          },
+          {
+            "kind": "dev-process-tree",
+            "pid": 45208,
+            "exitCode": 0,
+            "stdout": "�ɹ�: ����ֹ PID 48356 (���� PID 50688 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 45004 (���� PID 45208 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 50688 (���� PID 45208 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 45208 (���� PID 13252 �ӽ���)�Ľ��̡�\r\n",
+            "stderr": ""
+          }
+        ],
+        "report": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.json",
+        "hardwareEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-hardware.json",
+        "cdpEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-browser-system.json"
+      },
+      "artifacts": [
+        "evidence/m0/ai/flows/zip-no-git/execution/baseline-check.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/baseline-check.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/browser-acceptance.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/browser-acceptance.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/browser-evidence-complete.command-result.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/browser-evidence-complete.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/build.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/build.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/capture-path.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/capture.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/capture.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/cold-browser-system.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/cold-hardware.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/cold-raster-image-stats.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/cold-raster.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/cold-server.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/cold-state.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/commands.jsonl",
+        "evidence/m0/ai/flows/zip-no-git/execution/create.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/create.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-after-input-raster-image-stats.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-after-input-raster.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-browser-system.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-hardware.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-initial-raster-image-stats.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-initial-raster.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-path-image-stats.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-path.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/dev-server.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-after-input-image-stats.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-after-input.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-browser-system.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-hardware.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-initial-image-stats.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-initial.png",
+        "evidence/m0/ai/flows/zip-no-git/execution/dist-runtime.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/doctor.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/doctor.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/game-fixed.ts",
+        "evidence/m0/ai/flows/zip-no-git/execution/game-negative.ts",
+        "evidence/m0/ai/flows/zip-no-git/execution/game-original.ts",
+        "evidence/m0/ai/flows/zip-no-git/execution/initial-state.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/keyboard-state.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/negative-type-check.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/negative-type-check.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/path-pixels.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/path-state.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/repaired-check.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/repaired-check.log.txt",
+        "evidence/m0/ai/flows/zip-no-git/execution/snapshot-mutated.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/snapshot-restored.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/snapshot-saved.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/stepped-60-state.json",
+        "evidence/m0/ai/flows/zip-no-git/execution/verified-scene.ir.json",
+        "evidence/m0/ai/flows/zip-no-git/game-output/assets/index-D6ZevpMx.js",
+        "evidence/m0/ai/flows/zip-no-git/game-output/assets/index-D6ZevpMx.js.map",
+        "evidence/m0/ai/flows/zip-no-git/game-output/generated/.threecat-cache.json",
+        "evidence/m0/ai/flows/zip-no-git/game-output/generated/build-report.json",
+        "evidence/m0/ai/flows/zip-no-git/game-output/generated/game.js",
+        "evidence/m0/ai/flows/zip-no-git/game-output/generated/game.js.map",
+        "evidence/m0/ai/flows/zip-no-git/game-output/generated/scene.ir.json",
+        "evidence/m0/ai/flows/zip-no-git/game-output/generated/version.json",
+        "evidence/m0/ai/flows/zip-no-git/game-output/index.html",
+        "evidence/m0/ai/flows/zip-no-git/game-output/LICENSE",
+        "evidence/m0/ai/flows/zip-no-git/game-output/THIRDPARTY-NOTICES.txt",
+        "evidence/m0/ai/flows/zip-no-git/game-output/THREE-LICENSE.txt",
+        "evidence/m0/ai/flows/zip-no-git/game-output/threecat-build.json",
+        "evidence/m0/ai/flows/zip-no-git/game-output/game.ts",
+        "evidence/m0/ai/flows/zip-no-git/game-output/threecat.project.json"
+      ],
+      "incidents": [
+        {
+          "classification": "evidence-wrapper-filename-collision",
+          "unresolvedEngineFailure": false,
+          "description": "Initial browser checks passed; command wrapper overwrote detailed report with summary. Preserved attempt evidence, changed wrapper output suffix, reran browser verification successfully.",
+          "preservedEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git-attempt-1"
+        }
+      ],
+      "commandAttempts": [
+        {
+          "step": "doctor",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 doctor",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:28:32.428Z",
+          "finishedAt": "2026-11-04T10:28:36.151Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\doctor.log"
+        },
+        {
+          "step": "create",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:28:36.196Z",
+          "finishedAt": "2026-11-04T10:28:37.267Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\create.log"
+        },
+        {
+          "step": "baseline-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:00.146Z",
+          "finishedAt": "2026-11-04T10:29:01.395Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\baseline-check.log"
+        },
+        {
+          "step": "negative-type-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:02.992Z",
+          "finishedAt": "2026-11-04T10:29:04.207Z",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log"
+        },
+        {
+          "step": "repaired-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:25.165Z",
+          "finishedAt": "2026-11-04T10:29:26.445Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log"
+        },
+        {
+          "step": "build",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project source/threecat/evidence/ai-game-a",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:27.779Z",
+          "finishedAt": "2026-11-04T10:29:29.072Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\build.log"
+        },
+        {
+          "step": "capture",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project source/threecat/evidence/ai-game-a --mode path --output evidence/zip-no-git/capture-path.png --port 4185",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:40.487Z",
+          "finishedAt": "2026-11-04T10:29:43.489Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture.log"
+        },
+        {
+          "step": "browser-acceptance",
+          "command": "node browser-acceptance.mjs zip-no-git",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:32:59.424Z",
+          "finishedAt": "2026-11-04T10:33:07.798Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.log"
+        },
+        {
+          "step": "browser-evidence-complete",
+          "command": "node browser-acceptance.mjs zip-no-git",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:35:56.069Z",
+          "finishedAt": "2026-11-04T10:36:04.618Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-evidence-complete.log"
+        }
+      ],
+      "normalization": "commands lists successful final steps and deliberate negatives; prior unexpected test-harness failures remain in commandAttempts, incidents and originalIndependentReport"
+    },
+    {
+      "kind": "external-directory",
+      "status": "passed",
+      "project": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b",
+      "engine": "<frozen-engine>",
+      "executionWorkdirs": [
+        "<validation-work>\\ZIPwork-20261104-182629",
+        "<frozen-engine>"
+      ],
+      "ports": [
+        4184,
+        4186
+      ],
+      "commands": [
+        {
+          "step": "create",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:28:37.304Z",
+          "finishedAt": "2026-11-04T10:28:38.350Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\create.log"
+        },
+        {
+          "step": "baseline-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:01.432Z",
+          "finishedAt": "2026-11-04T10:29:02.920Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\baseline-check.log"
+        },
+        {
+          "step": "negative-missing-material",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:04.253Z",
+          "finishedAt": "2026-11-04T10:29:05.463Z",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log"
+        },
+        {
+          "step": "repaired-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:26.489Z",
+          "finishedAt": "2026-11-04T10:29:27.748Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log"
+        },
+        {
+          "step": "build",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:29.125Z",
+          "finishedAt": "2026-11-04T10:29:30.435Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\build.log"
+        },
+        {
+          "step": "capture",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project \"外部 游戏 中文/ai-game-b\" --mode path --output evidence/external-directory/capture-path.png --port 4186",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:53.596Z",
+          "finishedAt": "2026-11-04T10:29:56.631Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture.log"
+        },
+        {
+          "step": "browser-explore",
+          "command": "node browser-explore.mjs",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:30:32.434Z",
+          "finishedAt": "2026-11-04T10:30:36.389Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-explore.log"
+        },
+        {
+          "step": "browser-acceptance-retest",
+          "command": "node browser-acceptance.mjs external-directory",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:34:45.484Z",
+          "finishedAt": "2026-11-04T10:34:54.126Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance-retest.log"
+        },
+        {
+          "step": "browser-dist-keyboard-evidence",
+          "command": "node browser-acceptance.mjs external-directory",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:36:04.661Z",
+          "finishedAt": "2026-11-04T10:36:13.323Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-dist-keyboard-evidence.log"
+        }
+      ],
+      "successfulOperationCount": 8,
+      "expectedFailures": [
+        {
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "diagnostics": [
+            {
+              "code": "TC_STATIC_REFERENCE",
+              "severity": "error",
+              "message": "Unknown static identifier: missingGreenMaterial",
+              "suggestion": "Use literal data and supported @threecat/sdk declaration calls.",
+              "source": {
+                "file": "game.ts",
+                "line": 1,
+                "column": 1,
+                "length": 3266
+              }
+            },
+            {
+              "code": "TC_TS_2304",
+              "severity": "error",
+              "message": "Cannot find name 'missingGreenMaterial'.",
+              "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+              "source": {
+                "file": "game.ts",
+                "line": 72,
+                "column": 19,
+                "length": 20
+              }
+            }
+          ],
+          "rawDiagnostic": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log",
+          "sourceAtFailure": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-negative.ts",
+          "repair": "Declare ai-green material and reference green; set Motion default speed to 1.5; retain authored crate.",
+          "repairedCommand": {
+            "step": "repaired-check",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+            "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+            "startedAt": "2026-11-04T10:29:26.489Z",
+            "finishedAt": "2026-11-04T10:29:27.748Z",
+            "exitCode": 0,
+            "expectedFailure": false,
+            "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log"
+          },
+          "sourceAfterRepair": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-fixed.ts"
+        }
+      ],
+      "authoredChanges": [
+        {
+          "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\game.ts",
+          "description": "Motion.speed default 0.8 -> 1.5; define ai-green #22cc44; add box ai-created-crate, position [2.6,0.5,1.6], size [0.6,0.6,0.6]."
+        }
+      ],
+      "publicSdkOnly": true,
+      "imports": [
+        "@threecat/sdk"
+      ],
+      "noGit": true,
+      "browser": {
+        "status": "passed",
+        "headless": false,
+        "checkCount": 27,
+        "checks": [
+          {
+            "name": "compiled Motion default",
+            "passed": true,
+            "details": {
+              "speed": 1.5,
+              "enabled": true
+            }
+          },
+          {
+            "name": "compiled authored green crate",
+            "passed": true,
+            "details": {
+              "entity": {
+                "id": "ai-created-crate",
+                "transform": {
+                  "position": [
+                    2.6,
+                    0.5,
+                    1.6
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "components": {},
+                "mesh": {
+                  "geometry": {
+                    "kind": "box",
+                    "size": [
+                      0.6,
+                      0.6,
+                      0.6
+                    ]
+                  },
+                  "material": "ai-green",
+                  "castShadow": true,
+                  "receiveShadow": true
+                }
+              },
+              "material": {
+                "id": "ai-green",
+                "color": "#22cc44",
+                "roughness": 0.6,
+                "metalness": 0,
+                "source": {
+                  "file": "game.ts",
+                  "line": 18,
+                  "column": 15,
+                  "length": 75
+                }
+              }
+            }
+          },
+          {
+            "name": "dev hardware WebGPU",
+            "passed": true,
+            "details": {
+              "secureContext": true,
+              "webgpu": true,
+              "adapter": {
+                "vendor": "nvidia",
+                "architecture": "blackwell",
+                "device": "",
+                "description": "",
+                "isFallbackAdapter": false
+              },
+              "devicePixelRatio": 1.0000000298023224,
+              "viewport": {
+                "width": 1280,
+                "height": 720
+              }
+            }
+          },
+          {
+            "name": "runtime WebGPU ready",
+            "passed": true,
+            "details": {
+              "backend": "WebGPUBackend",
+              "errors": []
+            }
+          },
+          {
+            "name": "runtime initial game matches IR",
+            "passed": true,
+            "details": {
+              "transforms": {
+                "ai-created-crate": {
+                  "position": [
+                    2.6,
+                    0.5,
+                    1.6
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-spinner": {
+                  "position": [
+                    -2,
+                    1,
+                    1.5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-group": {
+                  "position": [
+                    6,
+                    0,
+                    -2
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-child": {
+                  "position": [
+                    1,
+                    0.5,
+                    0
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-orb": {
+                  "position": [
+                    -3.8,
+                    0.85,
+                    1.5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-ground": {
+                  "position": [
+                    -2,
+                    0.05,
+                    1.5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                },
+                "m0-sun": {
+                  "position": [
+                    -2,
+                    7,
+                    5
+                  ],
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "scale": [
+                    1,
+                    1,
+                    1
+                  ]
+                }
+              },
+              "components": {
+                "ai-created-crate": {},
+                "m0-spinner": {
+                  "Motion": {
+                    "speed": 1.5,
+                    "enabled": true
+                  }
+                },
+                "m0-group": {},
+                "m0-child": {},
+                "m0-orb": {},
+                "m0-ground": {},
+                "m0-sun": {}
+              }
+            }
+          },
+          {
+            "name": "runtime crate exists at authored position",
+            "passed": true,
+            "details": {
+              "position": [
+                2.6,
+                0.5,
+                1.6
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          {
+            "name": "dev-initial-raster screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510128,
+              "uniqueColors": 8786,
+              "sum": 162746603,
+              "green": 6003,
+              "greenBounds": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              }
+            }
+          },
+          {
+            "name": "dev-initial-raster authored green pixels visible",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510128,
+              "uniqueColors": 8786,
+              "sum": 162746603,
+              "green": 6003,
+              "greenBounds": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              }
+            }
+          },
+          {
+            "name": "actual authored gameplay rotates after 60 fixed steps",
+            "passed": true,
+            "details": {
+              "initialTick": 0,
+              "tick": 60,
+              "expectedRotation": 1.5,
+              "rotation": [
+                0,
+                1.4999999999999987,
+                0
+              ]
+            }
+          },
+          {
+            "name": "real keyboard moves authored entity and records input",
+            "passed": true,
+            "details": {
+              "controlledId": "ai-created-crate",
+              "before": {
+                "position": [
+                  2.6,
+                  0.5,
+                  1.6
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "after": {
+                "position": [
+                  2.85,
+                  0.5,
+                  1.6
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  1,
+                  1,
+                  1
+                ]
+              },
+              "inputLog": [
+                {
+                  "tick": 60,
+                  "key": "ArrowRight"
+                }
+              ]
+            }
+          },
+          {
+            "name": "snapshot restores actual game state",
+            "passed": true,
+            "details": {
+              "savedTick": 61,
+              "mutatedTick": 84,
+              "restoredTick": 61,
+              "exactSnapshotEquality": true
+            }
+          },
+          {
+            "name": "path rendering actual GPU readback",
+            "passed": true,
+            "details": {
+              "mode": "path",
+              "errors": [],
+              "pixels": {
+                "sum": 10751388,
+                "nonBlack": 32370,
+                "hash": 2326936287
+              }
+            }
+          },
+          {
+            "name": "dev-path screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 517113,
+              "uniqueColors": 12700,
+              "sum": 173044130,
+              "green": 6982,
+              "greenBounds": {
+                "minX": 285,
+                "minY": 201,
+                "maxX": 668,
+                "maxY": 457
+              }
+            }
+          },
+          {
+            "name": "dev-after-input-raster screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 509630,
+              "uniqueColors": 9202,
+              "sum": 163656496,
+              "green": 6253,
+              "greenBounds": {
+                "minX": 578,
+                "minY": 344,
+                "maxX": 663,
+                "maxY": 441
+              }
+            }
+          },
+          {
+            "name": "cold hardware WebGPU",
+            "passed": true,
+            "details": {
+              "secureContext": true,
+              "webgpu": true,
+              "adapter": {
+                "vendor": "nvidia",
+                "architecture": "blackwell",
+                "device": "",
+                "description": "",
+                "isFallbackAdapter": false
+              },
+              "devicePixelRatio": 1.0000000298023224,
+              "viewport": {
+                "width": 1280,
+                "height": 720
+              }
+            }
+          },
+          {
+            "name": "fresh browser and restarted server cold state matches initial",
+            "passed": true,
+            "details": {
+              "tick": 0,
+              "inputLog": [],
+              "gameEqualsInitial": true,
+              "irEqualsInitial": true
+            }
+          },
+          {
+            "name": "cold-raster screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510128,
+              "uniqueColors": 8786,
+              "sum": 162746603,
+              "green": 6003,
+              "greenBounds": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              }
+            }
+          },
+          {
+            "name": "cold-raster authored green pixels visible",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 510128,
+              "uniqueColors": 8786,
+              "sum": 162746603,
+              "green": 6003,
+              "greenBounds": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              }
+            }
+          },
+          {
+            "name": "dist hardware WebGPU",
+            "passed": true,
+            "details": {
+              "secureContext": true,
+              "webgpu": true,
+              "adapter": {
+                "vendor": "nvidia",
+                "architecture": "blackwell",
+                "device": "",
+                "description": "",
+                "isFallbackAdapter": false
+              },
+              "devicePixelRatio": 1.0000000298023224,
+              "viewport": {
+                "width": 1280,
+                "height": 720
+              }
+            }
+          },
+          {
+            "name": "dist-initial screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 516646,
+              "uniqueColors": 9222,
+              "sum": 164096862,
+              "green": 6005,
+              "greenBounds": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              }
+            }
+          },
+          {
+            "name": "dist-initial authored green pixels visible",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 516646,
+              "uniqueColors": 9222,
+              "sum": 164096862,
+              "green": 6005,
+              "greenBounds": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              }
+            }
+          },
+          {
+            "name": "dist-after-input screenshot is nonblank",
+            "passed": true,
+            "details": {
+              "screenshotWidth": 1280,
+              "screenshotHeight": 720,
+              "sampledArea": [
+                960,
+                540
+              ],
+              "nonBlack": 508843,
+              "uniqueColors": 8905,
+              "sum": 163050239,
+              "green": 6253,
+              "greenBounds": {
+                "minX": 578,
+                "minY": 344,
+                "maxX": 663,
+                "maxY": 441
+              }
+            }
+          },
+          {
+            "name": "dist keyboard moves nonanimated green crate visually",
+            "passed": true,
+            "details": {
+              "before": {
+                "minX": 556,
+                "minY": 338,
+                "maxX": 639,
+                "maxY": 432
+              },
+              "after": {
+                "minX": 578,
+                "minY": 344,
+                "maxX": 663,
+                "maxY": 441
+              }
+            }
+          },
+          {
+            "name": "dist production control stripped",
+            "passed": true,
+            "details": {
+              "control": "undefined",
+              "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 22\n",
+              "canvases": [
+                {
+                  "width": 960,
+                  "height": 540
+                },
+                {
+                  "width": 960,
+                  "height": 540
+                }
+              ],
+              "resources": [
+                "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+                "http://127.0.0.1:4186/favicon.ico",
+                "http://127.0.0.1:4186/generated/scene.ir.json",
+                "http://127.0.0.1:4186/generated/game.js?v=1793788572035"
+              ]
+            }
+          },
+          {
+            "name": "dist standalone resource boundary",
+            "passed": true,
+            "details": {
+              "requests": [
+                {
+                  "url": "/",
+                  "status": 200,
+                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
+                  "bytes": 574
+                },
+                {
+                  "url": "/assets/index-D6ZevpMx.js",
+                  "status": 200,
+                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
+                  "bytes": 743873
+                },
+                {
+                  "url": "/favicon.ico",
+                  "status": 404
+                },
+                {
+                  "url": "/generated/scene.ir.json",
+                  "status": 200,
+                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
+                  "bytes": 8322
+                },
+                {
+                  "url": "/generated/game.js?v=1793788572035",
+                  "status": 200,
+                  "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
+                  "bytes": 4771
+                }
+              ],
+              "net": [
+                {
+                  "url": "http://127.0.0.1:4186/",
+                  "resourceType": "document"
+                },
+                {
+                  "url": "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+                  "resourceType": "script"
+                },
+                {
+                  "url": "http://127.0.0.1:4186/generated/scene.ir.json",
+                  "resourceType": "fetch"
+                },
+                {
+                  "url": "http://127.0.0.1:4186/generated/game.js?v=1793788572035",
+                  "resourceType": "script"
+                }
+              ]
+            }
+          },
+          {
+            "name": "dist canvas rendered and keyboard changes picture",
+            "passed": true,
+            "details": {
+              "distState": {
+                "control": "undefined",
+                "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 22\n",
+                "canvases": [
+                  {
+                    "width": 960,
+                    "height": 540
+                  },
+                  {
+                    "width": 960,
+                    "height": 540
+                  }
+                ],
+                "resources": [
+                  "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+                  "http://127.0.0.1:4186/favicon.ico",
+                  "http://127.0.0.1:4186/generated/scene.ir.json",
+                  "http://127.0.0.1:4186/generated/game.js?v=1793788572035"
+                ]
+              },
+              "distScreenshotHash": "5f0929f52386107168851b33b2ff38b1aa3b5f0df2c5eb8c0e937236591ec563",
+              "distAfterHash": "b080b914a8c2643b2b83245711cbfcc9a93e75514e42678b8988d6639ab5baff"
+            }
+          },
+          {
+            "name": "no browser page errors",
+            "passed": true,
+            "details": []
+          }
+        ],
+        "processes": [
+          {
+            "kind": "dev",
+            "executable": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "<frozen-engine>\\threecat.ps1",
+              "dev",
+              "--project",
+              "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b",
+              "--port",
+              "4184"
+            ],
+            "cwd": "<frozen-engine>",
+            "pid": 48676
+          },
+          {
+            "kind": "cold",
+            "executable": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "<frozen-engine>\\threecat.ps1",
+              "dev",
+              "--project",
+              "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b",
+              "--port",
+              "4184"
+            ],
+            "cwd": "<frozen-engine>",
+            "pid": 44212
+          }
+        ],
+        "cleanup": [
+          {
+            "kind": "dev-process-tree",
+            "pid": 48676,
+            "exitCode": 0,
+            "stdout": "�ɹ�: ����ֹ PID 22576 (���� PID 40664 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 1388 (���� PID 48676 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 40664 (���� PID 48676 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 48676 (���� PID 50200 �ӽ���)�Ľ��̡�\r\n",
+            "stderr": ""
+          },
+          {
+            "kind": "dev-process-tree",
+            "pid": 44212,
+            "exitCode": 0,
+            "stdout": "�ɹ�: ����ֹ PID 32500 (���� PID 28168 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28328 (���� PID 44212 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 28168 (���� PID 44212 �ӽ���)�Ľ��̡�\r\n�ɹ�: ����ֹ PID 44212 (���� PID 50200 �ӽ���)�Ľ��̡�\r\n",
+            "stderr": ""
+          }
+        ],
+        "report": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance.json",
+        "hardwareEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-hardware.json",
+        "cdpEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-browser-system.json"
+      },
+      "artifacts": [
+        "evidence/m0/ai/flows/external-directory/execution/baseline-check.json",
+        "evidence/m0/ai/flows/external-directory/execution/baseline-check.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance-retest.json",
+        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance-retest.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance.json",
+        "evidence/m0/ai/flows/external-directory/execution/browser-acceptance.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/browser-dist-keyboard-evidence.command-result.json",
+        "evidence/m0/ai/flows/external-directory/execution/browser-dist-keyboard-evidence.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/browser-explore.json",
+        "evidence/m0/ai/flows/external-directory/execution/browser-explore.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/build.json",
+        "evidence/m0/ai/flows/external-directory/execution/build.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/capture-path.png",
+        "evidence/m0/ai/flows/external-directory/execution/capture.json",
+        "evidence/m0/ai/flows/external-directory/execution/capture.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/cold-browser-system.json",
+        "evidence/m0/ai/flows/external-directory/execution/cold-hardware.json",
+        "evidence/m0/ai/flows/external-directory/execution/cold-raster-image-stats.json",
+        "evidence/m0/ai/flows/external-directory/execution/cold-raster.png",
+        "evidence/m0/ai/flows/external-directory/execution/cold-server.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/cold-state.json",
+        "evidence/m0/ai/flows/external-directory/execution/commands.jsonl",
+        "evidence/m0/ai/flows/external-directory/execution/create.json",
+        "evidence/m0/ai/flows/external-directory/execution/create.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/dev-after-input-raster-image-stats.json",
+        "evidence/m0/ai/flows/external-directory/execution/dev-after-input-raster.png",
+        "evidence/m0/ai/flows/external-directory/execution/dev-browser-system.json",
+        "evidence/m0/ai/flows/external-directory/execution/dev-hardware.json",
+        "evidence/m0/ai/flows/external-directory/execution/dev-initial-raster-image-stats.json",
+        "evidence/m0/ai/flows/external-directory/execution/dev-initial-raster.png",
+        "evidence/m0/ai/flows/external-directory/execution/dev-path-image-stats.json",
+        "evidence/m0/ai/flows/external-directory/execution/dev-path.png",
+        "evidence/m0/ai/flows/external-directory/execution/dev-server.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/dist-after-input-image-stats.json",
+        "evidence/m0/ai/flows/external-directory/execution/dist-after-input.png",
+        "evidence/m0/ai/flows/external-directory/execution/dist-browser-system.json",
+        "evidence/m0/ai/flows/external-directory/execution/dist-hardware.json",
+        "evidence/m0/ai/flows/external-directory/execution/dist-initial-image-stats.json",
+        "evidence/m0/ai/flows/external-directory/execution/dist-initial.png",
+        "evidence/m0/ai/flows/external-directory/execution/dist-runtime.json",
+        "evidence/m0/ai/flows/external-directory/execution/explore-dev-server.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/explore-dev.png",
+        "evidence/m0/ai/flows/external-directory/execution/game-fixed.ts",
+        "evidence/m0/ai/flows/external-directory/execution/game-negative.ts",
+        "evidence/m0/ai/flows/external-directory/execution/game-original.ts",
+        "evidence/m0/ai/flows/external-directory/execution/initial-state.json",
+        "evidence/m0/ai/flows/external-directory/execution/keyboard-state.json",
+        "evidence/m0/ai/flows/external-directory/execution/negative-missing-material.json",
+        "evidence/m0/ai/flows/external-directory/execution/negative-missing-material.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/path-pixels.json",
+        "evidence/m0/ai/flows/external-directory/execution/path-state.json",
+        "evidence/m0/ai/flows/external-directory/execution/repaired-check.json",
+        "evidence/m0/ai/flows/external-directory/execution/repaired-check.log.txt",
+        "evidence/m0/ai/flows/external-directory/execution/snapshot-mutated.json",
+        "evidence/m0/ai/flows/external-directory/execution/snapshot-restored.json",
+        "evidence/m0/ai/flows/external-directory/execution/snapshot-saved.json",
+        "evidence/m0/ai/flows/external-directory/execution/stepped-60-state.json",
+        "evidence/m0/ai/flows/external-directory/execution/verified-scene.ir.json",
+        "evidence/m0/ai/flows/external-directory/game-output/assets/index-D6ZevpMx.js",
+        "evidence/m0/ai/flows/external-directory/game-output/assets/index-D6ZevpMx.js.map",
+        "evidence/m0/ai/flows/external-directory/game-output/generated/.threecat-cache.json",
+        "evidence/m0/ai/flows/external-directory/game-output/generated/build-report.json",
+        "evidence/m0/ai/flows/external-directory/game-output/generated/game.js",
+        "evidence/m0/ai/flows/external-directory/game-output/generated/game.js.map",
+        "evidence/m0/ai/flows/external-directory/game-output/generated/scene.ir.json",
+        "evidence/m0/ai/flows/external-directory/game-output/generated/version.json",
+        "evidence/m0/ai/flows/external-directory/game-output/index.html",
+        "evidence/m0/ai/flows/external-directory/game-output/LICENSE",
+        "evidence/m0/ai/flows/external-directory/game-output/THIRDPARTY-NOTICES.txt",
+        "evidence/m0/ai/flows/external-directory/game-output/THREE-LICENSE.txt",
+        "evidence/m0/ai/flows/external-directory/game-output/threecat-build.json",
+        "evidence/m0/ai/flows/external-directory/game-output/game.ts",
+        "evidence/m0/ai/flows/external-directory/game-output/threecat.project.json"
+      ],
+      "incidents": [
+        {
+          "classification": "acceptance-harness-assumption",
+          "unresolvedEngineFailure": false,
+          "initialCommandExitCode": 1,
+          "initialCommandStep": "browser-acceptance",
+          "description": "First assertion assumed ArrowRight moved spinner. Raw state proved it moved the newly added first entity ai-created-crate by +0.25. Corrected assertion to observe crate and retained initial failure; final dev and dist visual checks passed without engine/game changes.",
+          "preservedEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory-attempt-1",
+          "finalChecks": [
+            "real keyboard moves authored entity and records input",
+            "dist keyboard moves nonanimated green crate visually"
+          ]
+        }
+      ],
+      "commandAttempts": [
+        {
+          "step": "create",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 create --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:28:37.304Z",
+          "finishedAt": "2026-11-04T10:28:38.350Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\create.log"
+        },
+        {
+          "step": "baseline-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:01.432Z",
+          "finishedAt": "2026-11-04T10:29:02.920Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\baseline-check.log"
+        },
+        {
+          "step": "negative-missing-material",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:04.253Z",
+          "finishedAt": "2026-11-04T10:29:05.463Z",
+          "exitCode": 1,
+          "expectedFailure": true,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log"
+        },
+        {
+          "step": "repaired-check",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:26.489Z",
+          "finishedAt": "2026-11-04T10:29:27.748Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log"
+        },
+        {
+          "step": "build",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 build --project \"外部 游戏 中文/ai-game-b\"",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:29.125Z",
+          "finishedAt": "2026-11-04T10:29:30.435Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\build.log"
+        },
+        {
+          "step": "capture",
+          "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 capture --project \"外部 游戏 中文/ai-game-b\" --mode path --output evidence/external-directory/capture-path.png --port 4186",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:29:53.596Z",
+          "finishedAt": "2026-11-04T10:29:56.631Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture.log"
+        },
+        {
+          "step": "browser-explore",
+          "command": "node browser-explore.mjs",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:30:32.434Z",
+          "finishedAt": "2026-11-04T10:30:36.389Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-explore.log"
+        },
+        {
+          "step": "browser-acceptance",
+          "command": "node browser-acceptance.mjs external-directory",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:33:07.838Z",
+          "finishedAt": "2026-11-04T10:33:16.132Z",
+          "exitCode": 1,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance.log"
+        },
+        {
+          "step": "browser-acceptance-retest",
+          "command": "node browser-acceptance.mjs external-directory",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:34:45.484Z",
+          "finishedAt": "2026-11-04T10:34:54.126Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance-retest.log"
+        },
+        {
+          "step": "browser-dist-keyboard-evidence",
+          "command": "node browser-acceptance.mjs external-directory",
+          "cwd": "<validation-work>\\ZIPwork-20261104-182629",
+          "startedAt": "2026-11-04T10:36:04.661Z",
+          "finishedAt": "2026-11-04T10:36:13.323Z",
+          "exitCode": 0,
+          "expectedFailure": false,
+          "log": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-dist-keyboard-evidence.log"
+        }
+      ],
+      "normalization": "commands lists successful final steps and deliberate negatives; prior unexpected test-harness failures remain in commandAttempts, incidents and originalIndependentReport"
+    }
+  ],
+  "cleanup": {
+    "capturedAt": "2026-11-04T10:39:09.779Z",
+    "knownBrowserProfiles": [
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-O6M4HJ",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-H5F6Ja",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-6sbgP3",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-n4Ka74",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-MXsM5A",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-FSTcHP",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-BtTraB",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-5Q5uQD",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-UVzi99",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-HFjMIe",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-RamroA",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-Qp3r6E",
+      "<home>\\AppData\\Local\\Temp\\playwright_chromiumdev_profile-lmejiL"
+    ],
+    "lingeringOwnedProcesses": [],
+    "reservedPortsStillListening": [],
+    "passed": true,
+    "evidencePreserved": true
+  },
+  "cleanupEvidence": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\cleanup-final.json",
+  "missingArtifacts": [],
+  "unresolvedEngineFailures": [],
+  "limitations": [
+    "Only the requested two M0 workflows were accepted. No full engine feature matrix, all 165 upstream tests, or upstream release/typecheck claim is inferred from this task.",
+    "GPU: headed Chromium 156.0.8078.4 on NVIDIA Blackwell / RTX 5070 Ti Laptop GPU, WebGPUBackend, isFallbackAdapter=false. Viewport 1280x720, DPR 1, engine canvases 960x540; this is NOT a 1080p performance benchmark or broad hardware certification.",
+    "M0 path mode is software-triangle-BVH compute on physical GPU, not hardware RT. Screenshots show prototype sampling noise. No production renderer or denoiser acceptance is claimed.",
+    "Cold verification restarts dev server and launches a fresh browser/context; retained compiler caches are permitted. It does not claim full dependency reinstallation on every cold launch.",
+    "Snapshot verification covers the documented probe snapshot (tick/transforms/components/input/topology) and exact restore in this test, not general long-term saves or version migration.",
+    "Both production dist runs served files exclusively from their own dist directory with engine dev servers stopped and no development control exposed. Harmless favicon.ico 404 is retained in runtime reports.",
+    "The missing material negative emitted both a coarse TC_STATIC_REFERENCE position at game.ts:1:1 and a precise TC_TS_2304 at game.ts:72:19. The precise diagnostic satisfies source location verification; coarse duplicate retained, engine not modified.",
+    "Initial browser test-harness failures and evidence-wrapper correction are retained and explicitly classified in flows.incidents. No failed engine source was patched or hidden."
+  ],
+  "visualReview": {
+    "reviewed": true,
+    "method": "Opened actual headed-browser raster/path/dist screenshots and checked authored green crate visibility, scene geometry, nonblank rendering, and image readback statistics; no generated or substitute images.",
+    "screenshots": [
+      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-initial.png",
+      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-path.png",
+      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-path.png",
+      "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-initial.png"
+    ]
+  },
+  "completedAt": "2026-11-04T10:39:09.825Z",
+  "provenanceFiles": [
+    "evidence/m0/ai/context/artifact-manifest.json",
+    "evidence/m0/ai/context/cleanup-final.json",
+    "evidence/m0/ai/context/external-directory/baseline-check.json",
+    "evidence/m0/ai/context/external-directory/baseline-check.log.txt",
+    "evidence/m0/ai/context/external-directory/browser-acceptance-retest.json",
+    "evidence/m0/ai/context/external-directory/browser-acceptance-retest.log.txt",
+    "evidence/m0/ai/context/external-directory/browser-acceptance.json",
+    "evidence/m0/ai/context/external-directory/browser-acceptance.log.txt",
+    "evidence/m0/ai/context/external-directory/browser-dist-keyboard-evidence.command-result.json",
+    "evidence/m0/ai/context/external-directory/browser-dist-keyboard-evidence.log.txt",
+    "evidence/m0/ai/context/external-directory/browser-explore.json",
+    "evidence/m0/ai/context/external-directory/browser-explore.log.txt",
+    "evidence/m0/ai/context/external-directory/build.json",
+    "evidence/m0/ai/context/external-directory/build.log.txt",
+    "evidence/m0/ai/context/external-directory/capture-path.png",
+    "evidence/m0/ai/context/external-directory/capture.json",
+    "evidence/m0/ai/context/external-directory/capture.log.txt",
+    "evidence/m0/ai/context/external-directory/cold-browser-system.json",
+    "evidence/m0/ai/context/external-directory/cold-hardware.json",
+    "evidence/m0/ai/context/external-directory/cold-raster-image-stats.json",
+    "evidence/m0/ai/context/external-directory/cold-raster.png",
+    "evidence/m0/ai/context/external-directory/cold-server.log.txt",
+    "evidence/m0/ai/context/external-directory/cold-state.json",
+    "evidence/m0/ai/context/external-directory/commands.jsonl",
+    "evidence/m0/ai/context/external-directory/create.json",
+    "evidence/m0/ai/context/external-directory/create.log.txt",
+    "evidence/m0/ai/context/external-directory/dev-after-input-raster-image-stats.json",
+    "evidence/m0/ai/context/external-directory/dev-after-input-raster.png",
+    "evidence/m0/ai/context/external-directory/dev-browser-system.json",
+    "evidence/m0/ai/context/external-directory/dev-hardware.json",
+    "evidence/m0/ai/context/external-directory/dev-initial-raster-image-stats.json",
+    "evidence/m0/ai/context/external-directory/dev-initial-raster.png",
+    "evidence/m0/ai/context/external-directory/dev-path-image-stats.json",
+    "evidence/m0/ai/context/external-directory/dev-path.png",
+    "evidence/m0/ai/context/external-directory/dev-server.log.txt",
+    "evidence/m0/ai/context/external-directory/dist-after-input-image-stats.json",
+    "evidence/m0/ai/context/external-directory/dist-after-input.png",
+    "evidence/m0/ai/context/external-directory/dist-browser-system.json",
+    "evidence/m0/ai/context/external-directory/dist-hardware.json",
+    "evidence/m0/ai/context/external-directory/dist-initial-image-stats.json",
+    "evidence/m0/ai/context/external-directory/dist-initial.png",
+    "evidence/m0/ai/context/external-directory/dist-runtime.json",
+    "evidence/m0/ai/context/external-directory/explore-dev-server.log.txt",
+    "evidence/m0/ai/context/external-directory/explore-dev.png",
+    "evidence/m0/ai/context/external-directory/game-fixed.ts",
+    "evidence/m0/ai/context/external-directory/game-negative.ts",
+    "evidence/m0/ai/context/external-directory/game-original.ts",
+    "evidence/m0/ai/context/external-directory/initial-state.json",
+    "evidence/m0/ai/context/external-directory/keyboard-state.json",
+    "evidence/m0/ai/context/external-directory/negative-missing-material.json",
+    "evidence/m0/ai/context/external-directory/negative-missing-material.log.txt",
+    "evidence/m0/ai/context/external-directory/path-pixels.json",
+    "evidence/m0/ai/context/external-directory/path-state.json",
+    "evidence/m0/ai/context/external-directory/repaired-check.json",
+    "evidence/m0/ai/context/external-directory/repaired-check.log.txt",
+    "evidence/m0/ai/context/external-directory/snapshot-mutated.json",
+    "evidence/m0/ai/context/external-directory/snapshot-restored.json",
+    "evidence/m0/ai/context/external-directory/snapshot-saved.json",
+    "evidence/m0/ai/context/external-directory/stepped-60-state.json",
+    "evidence/m0/ai/context/external-directory/verified-scene.ir.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/baseline-check.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/baseline-check.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/browser-acceptance.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/browser-acceptance.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/browser-explore.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/browser-explore.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/build.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/build.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/capture-path.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/capture.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/capture.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/cold-browser-system.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/cold-hardware.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/cold-raster.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/cold-server.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/cold-state.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/commands.jsonl",
+    "evidence/m0/ai/context/external-directory-attempt-1/create.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/create.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/dev-after-input-raster.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/dev-browser-system.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/dev-hardware.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/dev-initial-raster.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/dev-path.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/dev-server.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/dist-after-input.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/dist-browser-system.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/dist-hardware.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/dist-initial.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/dist-runtime.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/explore-dev-server.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/explore-dev.png",
+    "evidence/m0/ai/context/external-directory-attempt-1/game-fixed.ts",
+    "evidence/m0/ai/context/external-directory-attempt-1/game-negative.ts",
+    "evidence/m0/ai/context/external-directory-attempt-1/game-original.ts",
+    "evidence/m0/ai/context/external-directory-attempt-1/initial-state.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/keyboard-state.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/negative-missing-material.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/negative-missing-material.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/path-pixels.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/path-state.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/repaired-check.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/repaired-check.log.txt",
+    "evidence/m0/ai/context/external-directory-attempt-1/snapshot-mutated.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/snapshot-restored.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/snapshot-saved.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/stepped-60-state.json",
+    "evidence/m0/ai/context/external-directory-attempt-1/verified-scene.ir.json",
+    "evidence/m0/ai/context/fingerprint-after-setup.json",
+    "evidence/m0/ai/context/fingerprint-before.json",
+    "evidence/m0/ai/context/fingerprint-final.json",
+    "evidence/m0/ai/context/integrity-after-setup.json",
+    "evidence/m0/ai/context/integrity-before.json",
+    "evidence/m0/ai/context/integrity-completion.json",
+    "evidence/m0/ai/context/integrity-final.json",
+    "evidence/m0/ai/context/original-files.json",
+    "evidence/m0/ai/context/preparation/commands.jsonl",
+    "evidence/m0/ai/context/preparation/npm-ci-offline.log.txt",
+    "evidence/m0/ai/context/preparation/setup.json",
+    "evidence/m0/ai/context/preparation/setup.log.txt",
+    "evidence/m0/ai/context/zip-no-git/baseline-check.json",
+    "evidence/m0/ai/context/zip-no-git/baseline-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git/browser-acceptance.json",
+    "evidence/m0/ai/context/zip-no-git/browser-acceptance.log.txt",
+    "evidence/m0/ai/context/zip-no-git/browser-evidence-complete.command-result.json",
+    "evidence/m0/ai/context/zip-no-git/browser-evidence-complete.log.txt",
+    "evidence/m0/ai/context/zip-no-git/build.json",
+    "evidence/m0/ai/context/zip-no-git/build.log.txt",
+    "evidence/m0/ai/context/zip-no-git/capture-path.png",
+    "evidence/m0/ai/context/zip-no-git/capture.json",
+    "evidence/m0/ai/context/zip-no-git/capture.log.txt",
+    "evidence/m0/ai/context/zip-no-git/cold-browser-system.json",
+    "evidence/m0/ai/context/zip-no-git/cold-hardware.json",
+    "evidence/m0/ai/context/zip-no-git/cold-raster-image-stats.json",
+    "evidence/m0/ai/context/zip-no-git/cold-raster.png",
+    "evidence/m0/ai/context/zip-no-git/cold-server.log.txt",
+    "evidence/m0/ai/context/zip-no-git/cold-state.json",
+    "evidence/m0/ai/context/zip-no-git/commands.jsonl",
+    "evidence/m0/ai/context/zip-no-git/create.json",
+    "evidence/m0/ai/context/zip-no-git/create.log.txt",
+    "evidence/m0/ai/context/zip-no-git/dev-after-input-raster-image-stats.json",
+    "evidence/m0/ai/context/zip-no-git/dev-after-input-raster.png",
+    "evidence/m0/ai/context/zip-no-git/dev-browser-system.json",
+    "evidence/m0/ai/context/zip-no-git/dev-hardware.json",
+    "evidence/m0/ai/context/zip-no-git/dev-initial-raster-image-stats.json",
+    "evidence/m0/ai/context/zip-no-git/dev-initial-raster.png",
+    "evidence/m0/ai/context/zip-no-git/dev-path-image-stats.json",
+    "evidence/m0/ai/context/zip-no-git/dev-path.png",
+    "evidence/m0/ai/context/zip-no-git/dev-server.log.txt",
+    "evidence/m0/ai/context/zip-no-git/dist-after-input-image-stats.json",
+    "evidence/m0/ai/context/zip-no-git/dist-after-input.png",
+    "evidence/m0/ai/context/zip-no-git/dist-browser-system.json",
+    "evidence/m0/ai/context/zip-no-git/dist-hardware.json",
+    "evidence/m0/ai/context/zip-no-git/dist-initial-image-stats.json",
+    "evidence/m0/ai/context/zip-no-git/dist-initial.png",
+    "evidence/m0/ai/context/zip-no-git/dist-runtime.json",
+    "evidence/m0/ai/context/zip-no-git/doctor.json",
+    "evidence/m0/ai/context/zip-no-git/doctor.log.txt",
+    "evidence/m0/ai/context/zip-no-git/game-fixed.ts",
+    "evidence/m0/ai/context/zip-no-git/game-negative.ts",
+    "evidence/m0/ai/context/zip-no-git/game-original.ts",
+    "evidence/m0/ai/context/zip-no-git/initial-state.json",
+    "evidence/m0/ai/context/zip-no-git/keyboard-state.json",
+    "evidence/m0/ai/context/zip-no-git/negative-type-check.json",
+    "evidence/m0/ai/context/zip-no-git/negative-type-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git/path-pixels.json",
+    "evidence/m0/ai/context/zip-no-git/path-state.json",
+    "evidence/m0/ai/context/zip-no-git/repaired-check.json",
+    "evidence/m0/ai/context/zip-no-git/repaired-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git/snapshot-mutated.json",
+    "evidence/m0/ai/context/zip-no-git/snapshot-restored.json",
+    "evidence/m0/ai/context/zip-no-git/snapshot-saved.json",
+    "evidence/m0/ai/context/zip-no-git/stepped-60-state.json",
+    "evidence/m0/ai/context/zip-no-git/verified-scene.ir.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/baseline-check.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/baseline-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/browser-acceptance.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/browser-acceptance.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/build.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/build.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/capture-path.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/capture.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/capture.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-browser-system.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-hardware.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-raster.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-server.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/cold-state.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/commands.jsonl",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/create.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/create.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-after-input-raster.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-browser-system.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-hardware.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-initial-raster.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-path.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dev-server.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-after-input.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-browser-system.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-hardware.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-initial.png",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/dist-runtime.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/doctor.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/doctor.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/game-fixed.ts",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/game-negative.ts",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/game-original.ts",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/initial-state.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/keyboard-state.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/negative-type-check.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/negative-type-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/path-pixels.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/path-state.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/repaired-check.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/repaired-check.log.txt",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/snapshot-mutated.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/snapshot-restored.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/snapshot-saved.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/stepped-60-state.json",
+    "evidence/m0/ai/context/zip-no-git-attempt-1/verified-scene.ir.json"
+  ],
+  "archive": {
+    "name": "threecat-m0-input.zip",
+    "sha256": "a00874e403dca60f9984a5c4a8241b1b75975c22dfd4bc4ef3c1c553615dafcf"
+  },
+  "originalIndependentReport": "evidence/m0/ai/independent-report.json"
+}

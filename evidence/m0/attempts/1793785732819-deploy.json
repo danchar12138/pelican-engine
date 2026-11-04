@@ -1,0 +1,8 @@
+{
+  "id": "deploy",
+  "status": "failed",
+  "recordedAt": "2026-11-04T09:48:52.818Z",
+  "detail": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'object'\n- 'undefined'\n",
+  "stdout": "",
+  "stderr": ""
+}

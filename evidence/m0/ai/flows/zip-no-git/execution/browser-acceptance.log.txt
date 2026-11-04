@@ -1,0 +1,418 @@
+COMMAND: node browser-acceptance.mjs zip-no-git
+CWD: <validation-work>\ZIPwork-20261104-182629
+START: 2026-11-04T10:32:59.424Z
+STDOUT:
+{
+  "flow": "zip-no-git",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "compiled Motion default",
+      "passed": true,
+      "details": {
+        "speed": 0.8,
+        "enabled": true
+      }
+    },
+    {
+      "name": "dev hardware WebGPU",
+      "passed": true,
+      "details": {
+        "secureContext": true,
+        "webgpu": true,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        },
+        "devicePixelRatio": 1.0000000298023224,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      }
+    },
+    {
+      "name": "runtime WebGPU ready",
+      "passed": true,
+      "details": {
+        "backend": "WebGPUBackend",
+        "errors": []
+      }
+    },
+    {
+      "name": "runtime initial game matches IR",
+      "passed": true,
+      "details": {
+        "transforms": {
+          "m0-spinner": {
+            "position": [
+              -2,
+              1,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-group": {
+            "position": [
+              6,
+              0,
+              -2
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-child": {
+            "position": [
+              1,
+              0.5,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-orb": {
+            "position": [
+              -3.8,
+              0.85,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-ground": {
+            "position": [
+              -2,
+              0.05,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-sun": {
+            "position": [
+              -2,
+              7,
+              5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "components": {
+          "m0-spinner": {
+            "Motion": {
+              "speed": 0.8,
+              "enabled": true
+            }
+          },
+          "m0-group": {},
+          "m0-child": {},
+          "m0-orb": {},
+          "m0-ground": {},
+          "m0-sun": {}
+        }
+      }
+    },
+    {
+      "name": "actual authored gameplay rotates after 60 fixed steps",
+      "passed": true,
+      "details": {
+        "initialTick": 0,
+        "tick": 60,
+        "expectedRotation": 1.6,
+        "rotation": [
+          0,
+          1.599999999999998,
+          0
+        ]
+      }
+    },
+    {
+      "name": "real keyboard moves authored entity and records input",
+      "passed": true,
+      "details": {
+        "before": {
+          "position": [
+            -2,
+            1,
+            1.5
+          ],
+          "rotation": [
+            0,
+            1.599999999999998,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "after": {
+          "position": [
+            -1.75,
+            1,
+            1.5
+          ],
+          "rotation": [
+            0,
+            1.6266666666666647,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inputLog": [
+          {
+            "tick": 60,
+            "key": "ArrowRight"
+          }
+        ]
+      }
+    },
+    {
+      "name": "snapshot restores actual game state",
+      "passed": true,
+      "details": {
+        "savedTick": 61,
+        "mutatedTick": 84,
+        "restoredTick": 61,
+        "exactSnapshotEquality": true
+      }
+    },
+    {
+      "name": "path rendering actual GPU readback",
+      "passed": true,
+      "details": {
+        "mode": "path",
+        "errors": [],
+        "pixels": {
+          "sum": 10849255,
+          "nonBlack": 32360,
+          "hash": 3729672376
+        }
+      }
+    },
+    {
+      "name": "cold hardware WebGPU",
+      "passed": true,
+      "details": {
+        "secureContext": true,
+        "webgpu": true,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        },
+        "devicePixelRatio": 1.0000000298023224,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      }
+    },
+    {
+      "name": "fresh browser and restarted server cold state matches initial",
+      "passed": true,
+      "details": {
+        "tick": 0,
+        "inputLog": [],
+        "gameEqualsInitial": true,
+        "irEqualsInitial": true
+      }
+    },
+    {
+      "name": "dist hardware WebGPU",
+      "passed": true,
+      "details": {
+        "secureContext": true,
+        "webgpu": true,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        },
+        "devicePixelRatio": 1.0000000298023224,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      }
+    },
+    {
+      "name": "dist production control stripped",
+      "passed": true,
+      "details": {
+        "control": "undefined",
+        "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 22\n",
+        "canvases": [
+          {
+            "width": 960,
+            "height": 540
+          },
+          {
+            "width": 960,
+            "height": 540
+          }
+        ],
+        "resources": [
+          "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+          "http://127.0.0.1:4185/favicon.ico",
+          "http://127.0.0.1:4185/generated/scene.ir.json",
+          "http://127.0.0.1:4185/generated/game.js?v=1793788386655"
+        ]
+      }
+    },
+    {
+      "name": "dist standalone resource boundary",
+      "passed": true,
+      "details": {
+        "requests": [
+          {
+            "url": "/",
+            "status": 200,
+            "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\index.html",
+            "bytes": 574
+          },
+          {
+            "url": "/assets/index-D6ZevpMx.js",
+            "status": 200,
+            "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\assets\\index-D6ZevpMx.js",
+            "bytes": 743873
+          },
+          {
+            "url": "/favicon.ico",
+            "status": 404
+          },
+          {
+            "url": "/generated/scene.ir.json",
+            "status": 200,
+            "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\scene.ir.json",
+            "bytes": 7461
+          },
+          {
+            "url": "/generated/game.js?v=1793788386655",
+            "status": 200,
+            "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
+            "bytes": 4485
+          }
+        ],
+        "net": [
+          {
+            "url": "http://127.0.0.1:4185/",
+            "resourceType": "document"
+          },
+          {
+            "url": "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+            "resourceType": "script"
+          },
+          {
+            "url": "http://127.0.0.1:4185/generated/scene.ir.json",
+            "resourceType": "fetch"
+          },
+          {
+            "url": "http://127.0.0.1:4185/generated/game.js?v=1793788386655",
+            "resourceType": "script"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dist canvas rendered and keyboard changes picture",
+      "passed": true,
+      "details": {
+        "distState": {
+          "control": "undefined",
+          "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 22\n",
+          "canvases": [
+            {
+              "width": 960,
+              "height": 540
+            },
+            {
+              "width": 960,
+              "height": 540
+            }
+          ],
+          "resources": [
+            "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+            "http://127.0.0.1:4185/favicon.ico",
+            "http://127.0.0.1:4185/generated/scene.ir.json",
+            "http://127.0.0.1:4185/generated/game.js?v=1793788386655"
+          ]
+        },
+        "distScreenshotHash": "a02f06f0a6769ee25738df8f97848e68955320cc54db5982fe9e29ae815bea4f",
+        "distAfterHash": "313fcbc4293b5b691d0e3fd46421acec346887c9555f2ab56c3fde56ff4df1a0"
+      }
+    },
+    {
+      "name": "no browser page errors",
+      "passed": true,
+      "details": []
+    }
+  ]
+}
+
+STDERR:
+
+EXIT: 0
+ERROR: 

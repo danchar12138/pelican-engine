@@ -1,0 +1,18 @@
+{
+  "screenshotWidth": 1280,
+  "screenshotHeight": 720,
+  "sampledArea": [
+    960,
+    540
+  ],
+  "nonBlack": 510128,
+  "uniqueColors": 8786,
+  "sum": 162746603,
+  "green": 6003,
+  "greenBounds": {
+    "minX": 556,
+    "minY": 338,
+    "maxX": 639,
+    "maxY": 432
+  }
+}

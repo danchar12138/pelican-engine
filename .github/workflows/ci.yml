@@ -1,0 +1,48 @@
+﻿name: CPU checks and static build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# No release permission or environment approval gate. Milestone publication is
+# performed by the authorized main AI after real hardware acceptance.
+permissions:
+  contents: read
+
+concurrency:
+  group: cpu-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu:
+    name: Windows / Node 24 / CPU checks only
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Strict typecheck
+        run: npm run typecheck
+      - name: CPU unit tests, including release failure and ZIP tests
+        run: npm test
+      - name: Compile and build static dist
+        run: npm run build
+      - name: Explain hardware acceptance boundary
+        shell: pwsh
+        run: |
+          @'
+          ## CPU CI boundary
+          This job checks TypeScript, CPU tests and the static build only.
+          It does not run verify:m0, generate evidence/m0/acceptance.json,
+          establish real WebGPU hardware acceptance, or publish a Release.
+          A green job is not M0 acceptance. The authorized main AI publishes
+          a prerelease only after the real hardware evidence gate passes.
+          '@ >> $env:GITHUB_STEP_SUMMARY

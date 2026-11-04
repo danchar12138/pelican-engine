@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.md text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.wgsl text eol=lf
+*.png binary
+*.zip binary

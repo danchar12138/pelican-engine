@@ -1,0 +1,16 @@
+{
+  "secureContext": true,
+  "webgpu": true,
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": false
+  },
+  "devicePixelRatio": 1.0000000298023224,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  }
+}

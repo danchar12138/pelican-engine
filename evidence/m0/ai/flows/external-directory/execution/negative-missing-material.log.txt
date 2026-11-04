@@ -1,0 +1,141 @@
+COMMAND: powershell.exe -NoProfile -ExecutionPolicy Bypass -File source/threecat/threecat.ps1 check --project "外部 游戏 中文/ai-game-b"
+CWD: <validation-work>\ZIPwork-20261104-182629
+START: 2026-11-04T10:29:04.253Z
+STDOUT:
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "check-1793788145223",
+  "status": "failed",
+  "diagnostics": [
+    {
+      "code": "TC_STATIC_REFERENCE",
+      "severity": "error",
+      "message": "Unknown static identifier: missingGreenMaterial",
+      "suggestion": "Use literal data and supported @threecat/sdk declaration calls.",
+      "source": {
+        "file": "game.ts",
+        "line": 1,
+        "column": 1,
+        "length": 3266
+      }
+    },
+    {
+      "code": "TC_TS_2304",
+      "severity": "error",
+      "message": "Cannot find name 'missingGreenMaterial'.",
+      "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+      "source": {
+        "file": "game.ts",
+        "line": 72,
+        "column": 19,
+        "length": 20
+      }
+    }
+  ],
+  "artifacts": [
+    ".threecat\\public\\generated\\build-report.json"
+  ],
+  "data": {
+    "format": "threecat.build-report",
+    "version": 1,
+    "success": false,
+    "engineVersion": "0.0.1-m0.0",
+    "compilerVersion": "6.0.3",
+    "project": {
+      "id": "",
+      "entry": "game.ts"
+    },
+    "diagnostics": [
+      {
+        "code": "TC_STATIC_REFERENCE",
+        "severity": "error",
+        "message": "Unknown static identifier: missingGreenMaterial",
+        "suggestion": "Use literal data and supported @threecat/sdk declaration calls.",
+        "source": {
+          "file": "game.ts",
+          "line": 1,
+          "column": 1,
+          "length": 3266
+        }
+      },
+      {
+        "code": "TC_TS_2304",
+        "severity": "error",
+        "message": "Cannot find name 'missingGreenMaterial'.",
+        "suggestion": "Correct the TypeScript types or use a supported public SDK interface.",
+        "source": {
+          "file": "game.ts",
+          "line": 72,
+          "column": 19,
+          "length": 20
+        }
+      }
+    ],
+    "inputs": [
+      {
+        "root": "engine",
+        "path": "experiments/compiler/extract.ts",
+        "hash": "a3efa2df5831fab02ff9093881de001590ea6c4608d2daff473b11380a486b32"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/index.ts",
+        "hash": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/normalize.ts",
+        "hash": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153"
+      },
+      {
+        "root": "engine",
+        "path": "experiments/compiler/types.ts",
+        "hash": "f4d3bd243ef71621bbe40c6665c76daf18b7b0e91355d298787fe86ccb43a1da"
+      },
+      {
+        "root": "engine",
+        "path": "packages/sdk/src/index.ts",
+        "hash": "f1f9684f7b8fd9d2e44d8fdad86b2338f4612fb896782f7c67a993b56862223d"
+      },
+      {
+        "root": "project",
+        "path": "game.ts",
+        "hash": "6a16c3b6ceaf5759973758f871d34f1c99057eccb7e1522db4f11fd8a8e7cd51"
+      },
+      {
+        "root": "project",
+        "path": "threecat.project.json",
+        "hash": "b583f8077351992634fbd3ae641cd453eb326dfed89c44a9e7bb4aba23268b52"
+      }
+    ],
+    "outputs": [],
+    "incremental": {
+      "cacheHit": false,
+      "changedInputs": [
+        "game.ts"
+      ],
+      "reused": [],
+      "schemaHash": "",
+      "defaultsHash": ""
+    },
+    "hotReload": {
+      "strategy": "cold-start",
+      "preserveState": false,
+      "defaults": "new-entities-only",
+      "reason": "No previous successful build."
+    },
+    "modules": [],
+    "limitations": [
+      "M0 static declaration subset; not arbitrary TypeScript compile-time execution.",
+      "Graph IR validation is implemented; GPU lowering and dispatch belong to the renderer.",
+      "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
+      "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim."
+    ],
+    "durationMs": 157.01530000000002
+  }
+}
+
+STDERR:
+
+EXIT: 1
+ERROR: 

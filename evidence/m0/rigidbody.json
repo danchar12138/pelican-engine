@@ -1,0 +1,310 @@
+{
+  "passed": true,
+  "versions": {
+    "rapier2d": "0.21.0",
+    "rapier3d": "0.21.0",
+    "packages": {
+      "rapier2d": "0.21.0",
+      "rapier3d": "0.21.0"
+    },
+    "license": "Apache-2.0",
+    "initialization": {
+      "2d": {
+        "wallMs": 14.653599999999642,
+        "cached": false,
+        "api": "init()"
+      },
+      "3d": {
+        "wallMs": 27.652099999999336,
+        "cached": false,
+        "api": "init()"
+      }
+    }
+  },
+  "cases": [
+    {
+      "dimension": "2d",
+      "passed": true,
+      "checks": {
+        "boxSettledOnGround": true,
+        "ballBouncedAfterContact": true,
+        "collisionEvents": true,
+        "contactManifolds": true,
+        "allStatesFinite": true,
+        "raycastHandle": true,
+        "raycastMiss": true,
+        "restoredRaycastHandle": true,
+        "fixedJoint": true,
+        "snapshotNonempty": true,
+        "snapshotRestore": true,
+        "snapshotReplayEveryTick": true,
+        "snapshotHandlesPreserved": true,
+        "snapshotEventsReplayed": true,
+        "snapshotInputNotMutated": true,
+        "invalidSnapshotsRejected": true,
+        "lifecycleBalanced": true
+      },
+      "fixedDt": 0.016666666666666666,
+      "ticks": 240,
+      "bodies": {
+        "box": {
+          "initialY": 3,
+          "finalY": 0.49991273880004883,
+          "finalSpeed": 0,
+          "settled": true
+        },
+        "ball": {
+          "initialY": 5,
+          "finalY": 1.3151569366455078,
+          "finalSpeed": 2.487823009490967,
+          "bounced": true,
+          "peakUpwardSpeedAfterContact": 7.58640718460083
+        },
+        "allStatesFinite": true
+      },
+      "contacts": {
+        "started": 4,
+        "stopped": 3,
+        "boxGroundStarted": 1,
+        "ballGroundStarted": 3,
+        "boxGroundManifoldSamples": 197,
+        "ballGroundManifoldSamples": 6
+      },
+      "raycast": {
+        "expectedColliderHandle": 5e-324,
+        "hitColliderHandle": 5e-324,
+        "timeOfImpact": 9.00008773803711,
+        "miss": true,
+        "restoredHandleMatches": true
+      },
+      "joint": {
+        "kind": "fixed",
+        "handle": 0,
+        "valid": true,
+        "maxAnchorError": 0,
+        "finalSpeed": 0
+      },
+      "snapshot": {
+        "bytes": 4595,
+        "captureWallMs": 3.4962999999988824,
+        "restoreWallMs": 10.84230000000025,
+        "capturedTick": 30,
+        "replayedSteps": 210,
+        "tolerance": 0.00001,
+        "maxRestoreDifference": 0,
+        "maxReplayDifference": 0,
+        "handlesPreserved": true,
+        "eventsMatch": true,
+        "rejectedInvalidInputs": [
+          "empty",
+          "truncated",
+          "garbage",
+          "wrong-type"
+        ]
+      },
+      "timing": {
+        "stepWallMs": 39.049199999997654,
+        "meanStepWallMs": 0.16270499999999022,
+        "maxStepWallMs": 31.455200000000332,
+        "replayStepWallMs": 2.136400000008507,
+        "caseWallMs": 72.04420000000027
+      },
+      "lifecycle": {
+        "cycles": 8,
+        "worldsCreated": 16,
+        "worldsFreed": 16,
+        "eventQueuesCreated": 16,
+        "eventQueuesFreed": 16,
+        "ownedWorldsAfter": 0,
+        "ownedEventQueuesAfter": 0,
+        "releasedEveryCycle": true
+      },
+      "softBodyApi": {
+        "exported": true,
+        "exports": [
+          "SoftBody",
+          "SoftBodyCellModel",
+          "SoftBodyDesc",
+          "SoftBodyMaterial",
+          "SoftBodySet",
+          "SoftBodySolver",
+          "SoftBodyTearEvent",
+          "SoftEdgePlasticFlow",
+          "SoftMeshBinding",
+          "SoftMeshBindingMode",
+          "SoftPatchConstraints",
+          "SoftRecoverySettings"
+        ],
+        "worldMethods": [
+          "addSoftBodyCluster",
+          "createSoftBody",
+          "cutSoftBody",
+          "forEachSoftBody",
+          "getSoftBody",
+          "mapNewSoftBodies",
+          "removeSoftBody",
+          "removeSoftBodyCluster",
+          "tearSoftBody",
+          "wakeUpSoftBody"
+        ],
+        "descriptorFactories": [
+          "rope",
+          "volumetric",
+          "polyline",
+          "polygon",
+          "disk",
+          "grid"
+        ],
+        "worldSetPresent": true
+      }
+    },
+    {
+      "dimension": "3d",
+      "passed": true,
+      "checks": {
+        "boxSettledOnGround": true,
+        "ballBouncedAfterContact": true,
+        "collisionEvents": true,
+        "contactManifolds": true,
+        "allStatesFinite": true,
+        "raycastHandle": true,
+        "raycastMiss": true,
+        "restoredRaycastHandle": true,
+        "fixedJoint": true,
+        "snapshotNonempty": true,
+        "snapshotRestore": true,
+        "snapshotReplayEveryTick": true,
+        "snapshotHandlesPreserved": true,
+        "snapshotEventsReplayed": true,
+        "snapshotInputNotMutated": true,
+        "invalidSnapshotsRejected": true,
+        "lifecycleBalanced": true
+      },
+      "fixedDt": 0.016666666666666666,
+      "ticks": 240,
+      "bodies": {
+        "box": {
+          "initialY": 3,
+          "finalY": 0.4999305307865143,
+          "finalSpeed": 0,
+          "settled": true
+        },
+        "ball": {
+          "initialY": 5,
+          "finalY": 1.3151570558547974,
+          "finalSpeed": 2.487823486328125,
+          "bounced": true,
+          "peakUpwardSpeedAfterContact": 7.586407661437988
+        },
+        "allStatesFinite": true
+      },
+      "contacts": {
+        "started": 4,
+        "stopped": 3,
+        "boxGroundStarted": 1,
+        "ballGroundStarted": 3,
+        "boxGroundManifoldSamples": 197,
+        "ballGroundManifoldSamples": 6
+      },
+      "raycast": {
+        "expectedColliderHandle": 5e-324,
+        "hitColliderHandle": 5e-324,
+        "timeOfImpact": 9.000069618225098,
+        "miss": true,
+        "restoredHandleMatches": true
+      },
+      "joint": {
+        "kind": "fixed",
+        "handle": 0,
+        "valid": true,
+        "maxAnchorError": 0,
+        "finalSpeed": 0
+      },
+      "snapshot": {
+        "bytes": 5716,
+        "captureWallMs": 3.1568000000006577,
+        "restoreWallMs": 15.050199999999677,
+        "capturedTick": 30,
+        "replayedSteps": 210,
+        "tolerance": 0.00001,
+        "maxRestoreDifference": 0,
+        "maxReplayDifference": 0,
+        "handlesPreserved": true,
+        "eventsMatch": true,
+        "rejectedInvalidInputs": [
+          "empty",
+          "truncated",
+          "garbage",
+          "wrong-type"
+        ]
+      },
+      "timing": {
+        "stepWallMs": 66.23179999999775,
+        "meanStepWallMs": 0.275965833333324,
+        "maxStepWallMs": 57.60369999999966,
+        "replayStepWallMs": 2.499099999999089,
+        "caseWallMs": 103.08820000000014
+      },
+      "lifecycle": {
+        "cycles": 8,
+        "worldsCreated": 16,
+        "worldsFreed": 16,
+        "eventQueuesCreated": 16,
+        "eventQueuesFreed": 16,
+        "ownedWorldsAfter": 0,
+        "ownedEventQueuesAfter": 0,
+        "releasedEveryCycle": true
+      },
+      "softBodyApi": {
+        "exported": true,
+        "exports": [
+          "SoftBody",
+          "SoftBodyCellModel",
+          "SoftBodyDesc",
+          "SoftBodyMaterial",
+          "SoftBodySet",
+          "SoftBodySolver",
+          "SoftBodyTearEvent",
+          "SoftEdgePlasticFlow",
+          "SoftMeshBinding",
+          "SoftMeshBindingMode",
+          "SoftPatchConstraints",
+          "SoftRecoverySettings"
+        ],
+        "worldMethods": [
+          "addSoftBodyCluster",
+          "createSoftBody",
+          "cutSoftBody",
+          "forEachSoftBody",
+          "getSoftBody",
+          "mapNewSoftBodies",
+          "removeSoftBody",
+          "removeSoftBodyCluster",
+          "tearSoftBody",
+          "wakeUpSoftBody"
+        ],
+        "descriptorFactories": [
+          "rope",
+          "volumetric",
+          "trimesh",
+          "cloth",
+          "clothTube",
+          "clothAnisotropic",
+          "cuboid",
+          "sphere"
+        ],
+        "worldSetPresent": true
+      }
+    }
+  ],
+  "limitations": [
+    "Small Node CPU/WASM candidate probe: 240 fixed 1/60-second ticks, five rigid bodies, four colliders and one fixed joint per dimension. Not a production integration or representative game benchmark.",
+    "Wall timings include JS/WASM boundary cost; exclude module import, queries and instrumentation from step timings. Initialization is measured once per module instance and cached calls report that original measurement, not another cold start.",
+    "Snapshot replay tolerance is 1e-5 within the same installed package, dimension, process and fixed-step inputs. No cross-version, cross-dimension, cross-platform or networking determinism guarantee.",
+    "Empty/truncated/garbage snapshots are checked, but native snapshot bytes have no application schema/version/checksum envelope here; do not deserialize arbitrary untrusted input. EventQueue contents and application state are outside the checkpoint.",
+    "Lifecycle counts prove balanced explicit free() calls including restored worlds and separate event queues, not absence of allocator retention or a heap-leak proof. Reports expose no live WASM handles as objects or methods.",
+    "Both installed JS packages export soft-body APIs, verified by runtime exports, public descriptor factories and world methods. No soft-body construction, stepping, tearing, stability or coupling acceptance is performed by this rigid-body probe.",
+    "Vehicle controllers, articulated mechanisms beyond one fixed joint, CCD/high-speed tunneling, large stacks, browser deployment, gameplay adapters and GPU acceleration are not evaluated.",
+    "The public compat init() declaration accepts no arguments; the installed 0.21.0 wrapper internally uses the new WASM object-form initializer. No undocumented init({}) call or console-warning suppression is used."
+  ]
+}

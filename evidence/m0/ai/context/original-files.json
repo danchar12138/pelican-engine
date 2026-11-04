@@ -1,0 +1,330 @@
+[
+  {
+    "path": ".gitattributes",
+    "sha256": "5b2716a825e5e807c4058bf8c6fc430cb2e047d8fb3040e26965b98fbbd0578b"
+  },
+  {
+    "path": ".github\\workflows\\ci.yml",
+    "sha256": "6257caebc38a3534f7dc339cd94ee272dbf8236a70a1a643722d757e379dd151"
+  },
+  {
+    "path": ".gitignore",
+    "sha256": "25a4559021ef5310760a1784073d38f4979631db197cb83e550194344a0d4a26"
+  },
+  {
+    "path": "AGENTS.md",
+    "sha256": "0b60778446c31e7a51336f6b8b327bf2ded2edd4b128654f61dfef0c750ae895"
+  },
+  {
+    "path": "docs\\adr\\0001-m0-prototype-findings.md",
+    "sha256": "f38dba349859b139bfbf0b6f94e9217e932b9d13be62570ac4ef3fc74ca391db"
+  },
+  {
+    "path": "docs\\AI-WORKFLOW.md",
+    "sha256": "21c6cffe8588ff688153543ff6f324279db33fc9b93dadb4ab72ed6e8bb7ae14"
+  },
+  {
+    "path": "docs\\ARCHITECTURE.md",
+    "sha256": "c6712c43828978f24cd908375dbf625c175e9146d54399764296d62b0b13cbc4"
+  },
+  {
+    "path": "docs\\CAPABILITIES.md",
+    "sha256": "9a0c7e985532913720ae51cb882d0abcec9d3a01212032278f88f32798275d21"
+  },
+  {
+    "path": "docs\\DECISIONS.md",
+    "sha256": "240122f486507339a670c1891c365b28b61aec15137449620d7623f7e2cd1367"
+  },
+  {
+    "path": "docs\\M0-REPORT.md",
+    "sha256": "d8984cc5025dd5bc5230582dea613a05b5b95c5b0985cc42791ffca58b4843f9"
+  },
+  {
+    "path": "docs\\M0-USAGE.md",
+    "sha256": "e7fa13101e493be3ac1f752c5815f709e6a141d12bc2b6d8177b2a90696d8b8d"
+  },
+  {
+    "path": "docs\\RELEASING.md",
+    "sha256": "e305463eb6286f6452da2d3dc6bd31423161863d232f76a03e06a6729d900bf3"
+  },
+  {
+    "path": "docs\\RESEARCH.md",
+    "sha256": "07c96b33d852c5f9836bf445b0a617e90e9aecb36076537931c7b45ab6e29e7a"
+  },
+  {
+    "path": "docs\\ROADMAP.md",
+    "sha256": "d499532a2f544f72f8bb2c2ec5d707d7b7cf57d99e5bf120c5520c8c27d4294c"
+  },
+  {
+    "path": "docs\\tasks\\M0.md",
+    "sha256": "3471345979e7da2ee112e193e3838bd26d188f623e8c78a4497e63642380d86d"
+  },
+  {
+    "path": "docs\\THIRD-PARTY-NOTICES.md",
+    "sha256": "1f836d37b3c4d9fbb580c5b55d04f990021aa8b792d60de1b0e19cd3436873ab"
+  },
+  {
+    "path": "engine.manifest.json",
+    "sha256": "3b331fa02e9034a734d0d89e2b2068ab50ccc5b86bbb5f50756be929d91e201b"
+  },
+  {
+    "path": "examples\\m0\\game.ts",
+    "sha256": "ae7c01fb7117d81fbc21bba2ddc7511a94ada5fe4e41a1b624a920dedf78054c"
+  },
+  {
+    "path": "examples\\m0\\README.md",
+    "sha256": "9f8e9f6598448c1420c0fb528050a50075d104a899d742d327f2cce849f00d1d"
+  },
+  {
+    "path": "examples\\m0\\threecat.project.json",
+    "sha256": "bb9547027787fe042324bd65984221cc9a0308744ad854d0babb7f180ff2d183"
+  },
+  {
+    "path": "experiments\\compiler\\CONTRACT.md",
+    "sha256": "5728f3273585dd69ad52bd9607411b62efd798c937954ff149af6f0687fe443d"
+  },
+  {
+    "path": "experiments\\compiler\\extract.ts",
+    "sha256": "a3efa2df5831fab02ff9093881de001590ea6c4608d2daff473b11380a486b32"
+  },
+  {
+    "path": "experiments\\compiler\\index.ts",
+    "sha256": "f2546643ca1e8ae819b9fa36f64991cd10321f4cea71faa0c69ee851e9f8c77a"
+  },
+  {
+    "path": "experiments\\compiler\\normalize.ts",
+    "sha256": "3ddacd4e4cebf37aff112f5dc5785d426a2cabb31d38af20943f4d3d131f1153"
+  },
+  {
+    "path": "experiments\\compiler\\types.ts",
+    "sha256": "f4d3bd243ef71621bbe40c6665c76daf18b7b0e91355d298787fe86ccb43a1da"
+  },
+  {
+    "path": "experiments\\render\\geometry.ts",
+    "sha256": "33920acb7c3b7dfa6f87ceacab3df1fcaf711205faf1823a3f3c4f73339e05ce"
+  },
+  {
+    "path": "experiments\\render\\graph.ts",
+    "sha256": "c080bc9586f026059745476ce01840611af9ee586b5fc4d667ab5a16bc88513c"
+  },
+  {
+    "path": "experiments\\render\\main.ts",
+    "sha256": "3394492dbf5ace5694c65c2587557bcdf67626db702ce8fcf79b8dff47716ab8"
+  },
+  {
+    "path": "experiments\\render\\pathtrace.ts",
+    "sha256": "343343bbd445a3c7253741313c22098cc7a1a865b94c19e5998237cabfaf34cd"
+  },
+  {
+    "path": "experiments\\rigidbody\\adapters.ts",
+    "sha256": "7c3bd8350c09573a767ad8910e0fa3be2848b316f6c492f3758271110ee4373e"
+  },
+  {
+    "path": "experiments\\rigidbody\\checkpoint.ts",
+    "sha256": "f10d6fb255011d43626ae2b4568915173fc0838ce84ea14ef32f26a782dad23b"
+  },
+  {
+    "path": "experiments\\rigidbody\\index.ts",
+    "sha256": "09394ce013be340cd97eb2279a6070b7abe6cfab3dd69033be1c6c5ca42325e5"
+  },
+  {
+    "path": "experiments\\rigidbody\\probe.ts",
+    "sha256": "9bed41a5ba48171dde6e5f662a4176c016ac2fd46943c033ae33c407123cf70a"
+  },
+  {
+    "path": "experiments\\rigidbody\\README.md",
+    "sha256": "d8a29bca8e63e06be490cba52df1405e1e36a337b6de8ff1bb0473ba42a622bd"
+  },
+  {
+    "path": "experiments\\rigidbody\\run-probe.ts",
+    "sha256": "0d031bd088f1a8071feb921312f9459db5188d96c1950d5023bc960976f52d78"
+  },
+  {
+    "path": "experiments\\rigidbody\\types.ts",
+    "sha256": "7195f92e2ffd7b225c434c1995305fdb374723ba50b5f3f5b5fa91772ae119b7"
+  },
+  {
+    "path": "experiments\\simulation\\evidence.json",
+    "sha256": "3c1a23c5dc2fe8ff46236d75108b9f5ffabf0390f5411226d0ab203b20a4fb8a"
+  },
+  {
+    "path": "experiments\\simulation\\index.ts",
+    "sha256": "e29bcc61bd8bdea2cefc7855640d8f45a8fa7f70150fdbab065e2c9e000cf5a7"
+  },
+  {
+    "path": "experiments\\simulation\\math.ts",
+    "sha256": "03ce0fdfdf1187e2e2809aae52eadab76f762ed7c31602124ad008b1ad3f25ab"
+  },
+  {
+    "path": "experiments\\simulation\\probe.ts",
+    "sha256": "5e76e577cd26d400de2e0059ea81082d5e978bb7a2d17e5509895aa2b75d5412"
+  },
+  {
+    "path": "experiments\\simulation\\README.md",
+    "sha256": "5831a344fb3a1fe4a5dc68e6470ed7c89397fd5efd1cc604a77f0fa1c09702e6"
+  },
+  {
+    "path": "experiments\\simulation\\run-probe.ts",
+    "sha256": "228e6246901fe60e571fc5b54036a215f3ace8b41556cf813d23a6de36fff097"
+  },
+  {
+    "path": "experiments\\simulation\\scenes.ts",
+    "sha256": "a566f83f834c19007f40107f00ddf43220585164e26a0c9f63200e25dcc9efc3"
+  },
+  {
+    "path": "experiments\\simulation\\solver.ts",
+    "sha256": "3836f6aee8cbfc64be7bdee3ffaee0f4f0f2e74550d98363e821b76d9cc3fe0c"
+  },
+  {
+    "path": "experiments\\simulation\\types.ts",
+    "sha256": "823cc6dc1eb402fb4e0c0fb877f5ec81bf26447244f645ebb9d2f4f0a5db28b8"
+  },
+  {
+    "path": "experiments\\world\\adapters.ts",
+    "sha256": "1add237703ec923f5fc22df79e8b84740089e50287db9941f4c6738e755243c2"
+  },
+  {
+    "path": "experiments\\world\\evidence.json",
+    "sha256": "5cb8362b71d59ff99acccb97c388c6bb65c64c6c3e169ffd677f2de2836f24a5"
+  },
+  {
+    "path": "experiments\\world\\geometry.ts",
+    "sha256": "ed90d436afd62aa033d8203620d555ba03bdb35c0dce96021a76991dccfa642c"
+  },
+  {
+    "path": "experiments\\world\\index.ts",
+    "sha256": "88398643bfee988ae601b6fc140878074d10cf036c874564c3419042d8a9ba85"
+  },
+  {
+    "path": "experiments\\world\\probe.ts",
+    "sha256": "64bfb1b32934ee480d0cec766879d25ac386b2ad76ffddd4e74146c99db53fec"
+  },
+  {
+    "path": "experiments\\world\\README.md",
+    "sha256": "af3f7c26d32aa08433c3191ec527c7fd27646ab688fe3e9a470c1a8e1cbd7295"
+  },
+  {
+    "path": "experiments\\world\\run-probe.ts",
+    "sha256": "89521fece97e52b3cb0614c7e577c9d59b15af031ac0f68cb6e99a1ef17b15c9"
+  },
+  {
+    "path": "experiments\\world\\types.ts",
+    "sha256": "eeb33bc0277b0828657ee7ac16bafc210aa965d4aa1afd514ec7d712d329959d"
+  },
+  {
+    "path": "experiments\\world\\world.ts",
+    "sha256": "53d02af52fe6b3790282f11f3a6d07497138de708a46cbf94bfaf4b547e2da36"
+  },
+  {
+    "path": "index.html",
+    "sha256": "8fac1bc345f8755531292397b28b0b2a6259784c052e5368457312553199dec2"
+  },
+  {
+    "path": "LICENSE",
+    "sha256": "a4f3c06d23fda2fe0fee6f0e6152d5de9886bb1e9f30271230aa04f7da59dee6"
+  },
+  {
+    "path": "package-lock.json",
+    "sha256": "88770866d983f6289e86da6421ca25830c891584377dc888ea4960591624db8e"
+  },
+  {
+    "path": "package.json",
+    "sha256": "0e8401fa9583881f116c48f2e7d54d78f6d12e9a1d735abaeacfa66e15e0fa2f"
+  },
+  {
+    "path": "packages\\sdk\\README.md",
+    "sha256": "0b8995ce5acd2b646055bbc33c1f56b18178b6266f77e2c4e8eee015f80e886a"
+  },
+  {
+    "path": "packages\\sdk\\src\\index.ts",
+    "sha256": "f1f9684f7b8fd9d2e44d8fdad86b2338f4612fb896782f7c67a993b56862223d"
+  },
+  {
+    "path": "README.md",
+    "sha256": "2fbefe7ed39794e1c4d0a77cc7cb59eae4f532cd31a6c2a65b24f008ffe39e90"
+  },
+  {
+    "path": "tests\\compiler.test.ts",
+    "sha256": "54e680aef0750eac5cabbde820d32f89754e40cbadde44e744ea82e7336a20c1"
+  },
+  {
+    "path": "tests\\deployment.test.ts",
+    "sha256": "c56bf8509052468170c4cd0862345ff95b5a1e71e4be81a97633e33b378a961a"
+  },
+  {
+    "path": "tests\\environment.test.ts",
+    "sha256": "bd55cc5982608d6022e10d1a8e58efb5113077788611eb56090abd815b1037e7"
+  },
+  {
+    "path": "tests\\release.test.ts",
+    "sha256": "b7ce444efeddff652dafc36d7a4ad366191c53ff55bf5e40ed20a5e5a4ced0d8"
+  },
+  {
+    "path": "tests\\render.test.ts",
+    "sha256": "aa02f54a696e88ace19b799a3e92ea5abefa0778e9d89c1a838e9642b89838c7"
+  },
+  {
+    "path": "tests\\rigidbody.test.ts",
+    "sha256": "0b39ecdd577f98d4de1785bde654891dd01192c8854aea456c1cd1ffa2605e4b"
+  },
+  {
+    "path": "tests\\simulation.test.ts",
+    "sha256": "6ce24e58f9d85bc36f4fa9058f0d0e54c7897a2f46db5739e40f9f0ed121e9e3"
+  },
+  {
+    "path": "tests\\world.test.ts",
+    "sha256": "f9c87097a5dd1de5deec4781759babb6acda0467d87f1ac97332d297612c7244"
+  },
+  {
+    "path": "threecat.ps1",
+    "sha256": "adc214d28cabf68cd46f409a24443c7d38c30e3c289672b86638ebbe46726237"
+  },
+  {
+    "path": "tools\\cli.ts",
+    "sha256": "01ac2be09f947e2fc02d2b3182dc6dc4819e7399fa7e648e4e21025cf60665d9"
+  },
+  {
+    "path": "tools\\doctor.ts",
+    "sha256": "8cc201dedae27080af1af4cb781d34d08357b4a1fead7cd659680aab90967070"
+  },
+  {
+    "path": "tools\\gpu-probe.ts",
+    "sha256": "05f440ac5060ebbe1aee37f4589417e07541a27a69e955fa304e7a7729dbd69b"
+  },
+  {
+    "path": "tools\\license-inventory.ts",
+    "sha256": "af04d6b141148ee96841baa5a714846086cc4ef8507ab40625d8bcb0683d5d73"
+  },
+  {
+    "path": "tools\\prepare-zip-validation.ts",
+    "sha256": "e365e3b4d1e314a7ecc7fdd79d38c740821fde8de79a5f2c6ae95cc538e5e761"
+  },
+  {
+    "path": "tools\\release.ts",
+    "sha256": "c0248ec5b9f038e359652e3fbab05308337d4deb02b4a60fb087c3b6c056d5cb"
+  },
+  {
+    "path": "tools\\setup.ts",
+    "sha256": "f4e2dcc909e214fb6a26090318e5a5c64f81d93d7f5ec0ca763723a6530178c7"
+  },
+  {
+    "path": "tools\\source-fingerprint.ts",
+    "sha256": "a1e2f3aa57f4509d90bd199e5e4c15a99db042d2565754d45e49041e381e0553"
+  },
+  {
+    "path": "tools\\static-server.ts",
+    "sha256": "43fafbc271107421d7bb252989f5cbd49f72bd9304107d551b6cee75dabe39fa"
+  },
+  {
+    "path": "tools\\verify-m0.ts",
+    "sha256": "8fb72e97c82139d37589ca84a74f7e94253323c1b3dba964ca69403edc534820"
+  },
+  {
+    "path": "tsconfig.json",
+    "sha256": "42535a8efc6d95d120188dea9cb204511a72765e2237c39e439ac69f4183e6a6"
+  },
+  {
+    "path": "vite.config.ts",
+    "sha256": "47b9e8febfbf93abf08bcee4a99159ed81f8f7753e47cf76dd871a5885c00b60"
+  }
+]

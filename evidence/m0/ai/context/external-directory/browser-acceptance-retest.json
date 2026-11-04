@@ -1,0 +1,699 @@
+{
+  "flow": "external-directory",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "compiled Motion default",
+      "passed": true,
+      "details": {
+        "speed": 1.5,
+        "enabled": true
+      }
+    },
+    {
+      "name": "compiled authored green crate",
+      "passed": true,
+      "details": {
+        "entity": {
+          "id": "ai-created-crate",
+          "transform": {
+            "position": [
+              2.6,
+              0.5,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "mesh": {
+            "geometry": {
+              "kind": "box",
+              "size": [
+                0.6,
+                0.6,
+                0.6
+              ]
+            },
+            "material": "ai-green",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        "material": {
+          "id": "ai-green",
+          "color": "#22cc44",
+          "roughness": 0.6,
+          "metalness": 0,
+          "source": {
+            "file": "game.ts",
+            "line": 18,
+            "column": 15,
+            "length": 75
+          }
+        }
+      }
+    },
+    {
+      "name": "dev hardware WebGPU",
+      "passed": true,
+      "details": {
+        "secureContext": true,
+        "webgpu": true,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        },
+        "devicePixelRatio": 1.0000000298023224,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      }
+    },
+    {
+      "name": "runtime WebGPU ready",
+      "passed": true,
+      "details": {
+        "backend": "WebGPUBackend",
+        "errors": []
+      }
+    },
+    {
+      "name": "runtime initial game matches IR",
+      "passed": true,
+      "details": {
+        "transforms": {
+          "ai-created-crate": {
+            "position": [
+              2.6,
+              0.5,
+              1.6
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-spinner": {
+            "position": [
+              -2,
+              1,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-group": {
+            "position": [
+              6,
+              0,
+              -2
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-child": {
+            "position": [
+              1,
+              0.5,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-orb": {
+            "position": [
+              -3.8,
+              0.85,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-ground": {
+            "position": [
+              -2,
+              0.05,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "m0-sun": {
+            "position": [
+              -2,
+              7,
+              5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "components": {
+          "ai-created-crate": {},
+          "m0-spinner": {
+            "Motion": {
+              "speed": 1.5,
+              "enabled": true
+            }
+          },
+          "m0-group": {},
+          "m0-child": {},
+          "m0-orb": {},
+          "m0-ground": {},
+          "m0-sun": {}
+        }
+      }
+    },
+    {
+      "name": "runtime crate exists at authored position",
+      "passed": true,
+      "details": {
+        "position": [
+          2.6,
+          0.5,
+          1.6
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "dev-initial-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dev-initial-raster authored green pixels visible",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "actual authored gameplay rotates after 60 fixed steps",
+      "passed": true,
+      "details": {
+        "initialTick": 0,
+        "tick": 60,
+        "expectedRotation": 1.5,
+        "rotation": [
+          0,
+          1.4999999999999987,
+          0
+        ]
+      }
+    },
+    {
+      "name": "real keyboard moves authored entity and records input",
+      "passed": true,
+      "details": {
+        "controlledId": "ai-created-crate",
+        "before": {
+          "position": [
+            2.6,
+            0.5,
+            1.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "after": {
+          "position": [
+            2.85,
+            0.5,
+            1.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inputLog": [
+          {
+            "tick": 60,
+            "key": "ArrowRight"
+          }
+        ]
+      }
+    },
+    {
+      "name": "snapshot restores actual game state",
+      "passed": true,
+      "details": {
+        "savedTick": 61,
+        "mutatedTick": 84,
+        "restoredTick": 61,
+        "exactSnapshotEquality": true
+      }
+    },
+    {
+      "name": "path rendering actual GPU readback",
+      "passed": true,
+      "details": {
+        "mode": "path",
+        "errors": [],
+        "pixels": {
+          "sum": 10751388,
+          "nonBlack": 32370,
+          "hash": 2326936287
+        }
+      }
+    },
+    {
+      "name": "dev-path screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 517113,
+        "uniqueColors": 12700,
+        "sum": 173044130,
+        "green": 6982,
+        "greenBounds": {
+          "minX": 285,
+          "minY": 201,
+          "maxX": 668,
+          "maxY": 457
+        }
+      }
+    },
+    {
+      "name": "dev-after-input-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 509630,
+        "uniqueColors": 9202,
+        "sum": 163656496,
+        "green": 6253,
+        "greenBounds": {
+          "minX": 578,
+          "minY": 344,
+          "maxX": 663,
+          "maxY": 441
+        }
+      }
+    },
+    {
+      "name": "cold hardware WebGPU",
+      "passed": true,
+      "details": {
+        "secureContext": true,
+        "webgpu": true,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        },
+        "devicePixelRatio": 1.0000000298023224,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      }
+    },
+    {
+      "name": "fresh browser and restarted server cold state matches initial",
+      "passed": true,
+      "details": {
+        "tick": 0,
+        "inputLog": [],
+        "gameEqualsInitial": true,
+        "irEqualsInitial": true
+      }
+    },
+    {
+      "name": "cold-raster screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "cold-raster authored green pixels visible",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510128,
+        "uniqueColors": 8786,
+        "sum": 162746603,
+        "green": 6003,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dist hardware WebGPU",
+      "passed": true,
+      "details": {
+        "secureContext": true,
+        "webgpu": true,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "device": "",
+          "description": "",
+          "isFallbackAdapter": false
+        },
+        "devicePixelRatio": 1.0000000298023224,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      }
+    },
+    {
+      "name": "dist-initial screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 518331,
+        "uniqueColors": 9433,
+        "sum": 164591205,
+        "green": 6005,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dist-initial authored green pixels visible",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 518331,
+        "uniqueColors": 9433,
+        "sum": 164591205,
+        "green": 6005,
+        "greenBounds": {
+          "minX": 556,
+          "minY": 338,
+          "maxX": 639,
+          "maxY": 432
+        }
+      }
+    },
+    {
+      "name": "dist-after-input screenshot is nonblank",
+      "passed": true,
+      "details": {
+        "screenshotWidth": 1280,
+        "screenshotHeight": 720,
+        "sampledArea": [
+          960,
+          540
+        ],
+        "nonBlack": 510529,
+        "uniqueColors": 8862,
+        "sum": 162996884,
+        "green": 6253,
+        "greenBounds": {
+          "minX": 578,
+          "minY": 344,
+          "maxX": 663,
+          "maxY": 441
+        }
+      }
+    },
+    {
+      "name": "dist production control stripped",
+      "passed": true,
+      "details": {
+        "control": "undefined",
+        "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 28\n",
+        "canvases": [
+          {
+            "width": 960,
+            "height": 540
+          },
+          {
+            "width": 960,
+            "height": 540
+          }
+        ],
+        "resources": [
+          "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+          "http://127.0.0.1:4186/favicon.ico",
+          "http://127.0.0.1:4186/generated/scene.ir.json",
+          "http://127.0.0.1:4186/generated/game.js?v=1793788492871"
+        ]
+      }
+    },
+    {
+      "name": "dist standalone resource boundary",
+      "passed": true,
+      "details": {
+        "requests": [
+          {
+            "url": "/",
+            "status": 200,
+            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
+            "bytes": 574
+          },
+          {
+            "url": "/assets/index-D6ZevpMx.js",
+            "status": 200,
+            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
+            "bytes": 743873
+          },
+          {
+            "url": "/favicon.ico",
+            "status": 404
+          },
+          {
+            "url": "/generated/scene.ir.json",
+            "status": 200,
+            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
+            "bytes": 8322
+          },
+          {
+            "url": "/generated/game.js?v=1793788492871",
+            "status": 200,
+            "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
+            "bytes": 4771
+          }
+        ],
+        "net": [
+          {
+            "url": "http://127.0.0.1:4186/",
+            "resourceType": "document"
+          },
+          {
+            "url": "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+            "resourceType": "script"
+          },
+          {
+            "url": "http://127.0.0.1:4186/generated/scene.ir.json",
+            "resourceType": "fetch"
+          },
+          {
+            "url": "http://127.0.0.1:4186/generated/game.js?v=1793788492871",
+            "resourceType": "script"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dist canvas rendered and keyboard changes picture",
+      "passed": true,
+      "details": {
+        "distState": {
+          "control": "undefined",
+          "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 28\n",
+          "canvases": [
+            {
+              "width": 960,
+              "height": 540
+            },
+            {
+              "width": 960,
+              "height": 540
+            }
+          ],
+          "resources": [
+            "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+            "http://127.0.0.1:4186/favicon.ico",
+            "http://127.0.0.1:4186/generated/scene.ir.json",
+            "http://127.0.0.1:4186/generated/game.js?v=1793788492871"
+          ]
+        },
+        "distScreenshotHash": "20dbd53ee9ce40429a23c7ce517c442f2b2c94f2416166387cabb6880fd304fa",
+        "distAfterHash": "4f17758262ed40d80355da55b84e8c2de28b125e2d91d11df324042c7fd2c52f"
+      }
+    },
+    {
+      "name": "no browser page errors",
+      "passed": true,
+      "details": []
+    }
+  ]
+}

@@ -1,0 +1,596 @@
+{
+  "recordedAt": "2026-11-04T09:22:12.658Z",
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 9 9955HX 16-Core Processor           ",
+    "logicalProcessors": 32
+  },
+  "processCpu": {
+    "userMs": 1828,
+    "systemMs": 140,
+    "elapsedWallMs": 1767.0942
+  },
+  "prototype": "threecat-m0-cpu-interaction",
+  "version": 1,
+  "passed": true,
+  "seed": 12345,
+  "fixedDt": 0.016666666666666666,
+  "steps": 240,
+  "cases": [
+    {
+      "kind": "rope",
+      "passed": true,
+      "checks": {
+        "finite": true,
+        "contactOccurred": true,
+        "noContactControlClean": true,
+        "oneWayControlHasContactWithoutReaction": true,
+        "measuredReaction": true,
+        "bodyResponds": true,
+        "particlesRespond": true,
+        "distanceStable": true,
+        "volumeStable": true,
+        "boundedSpeed": true,
+        "fluidPressureActive": true,
+        "restored": true,
+        "replayed": true,
+        "geometryUpdated": true,
+        "released": true
+      },
+      "load": {
+        "bodies": 1,
+        "particles": 15,
+        "distanceConstraints": 27,
+        "volumeConstraints": 0,
+        "triangles": 0
+      },
+      "controls": {
+        "noContact": {
+          "contactCount": 0,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [1.1, -0.8, 0]
+        },
+        "oneWay": {
+          "contactCount": 600,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [1.1, -0.8, 0]
+        },
+        "peakBodyDistanceFromNoContact": 0.9371748285290926,
+        "peakBodyDistanceFromOneWay": 0.9371748285290926,
+        "peakParticleRmsFromNoContact": 0.5517578278720462,
+        "peakParticleRmsFromOneWay": 0.4816016890053985
+      },
+      "stability": {
+        "samples": 240,
+        "allFinite": true,
+        "maxDistanceRelativeError": 0.015791659992464104,
+        "maxVolumeRelativeError": 0,
+        "minSignedVolumeRatio": null,
+        "maxSpeed": 4.933768886132629,
+        "maxFluidPressure": 0
+      },
+      "snapshot": {
+        "bytes": 5491,
+        "captureWallMs": 0.04279999999999973,
+        "restoreWallMs": 0.3616999999999848,
+        "capturedTick": 120,
+        "replayedSteps": 120,
+        "maxRestoreDifference": 0,
+        "maxReplayDifference": 0,
+        "renderRestoredExactly": true,
+        "renderReplayedExactly": true
+      },
+      "geometry": {
+        "initialBytes": 1957,
+        "finalBytes": 1975,
+        "maxPositionChange": 1.99542726712187,
+        "topologyUnchanged": true
+      },
+      "timing": {
+        "coupledSolverWallMs": 21.90140000000025,
+        "noContactSolverWallMs": 16.113699999999938,
+        "oneWaySolverWallMs": 20.98400000000015,
+        "meanCoupledStepMs": 0.09125583333333438,
+        "maxCoupledStepMs": 1.3700000000000045,
+        "probeWallMs": 82.1708
+      },
+      "lifecycle": {
+        "cycles": 12,
+        "releasedEveryCycle": true,
+        "ownedCountsAfterDispose": {
+          "bodies": 0,
+          "particles": 0,
+          "constraints": 0,
+          "triangles": 0
+        }
+      },
+      "final": {
+        "kind": "rope",
+        "tick": 240,
+        "simulatedSeconds": 4,
+        "disposed": false,
+        "finite": true,
+        "resources": {
+          "bodies": 1,
+          "particles": 15,
+          "constraints": 27,
+          "triangles": 0
+        },
+        "bodies": [
+          {
+            "id": "body:0",
+            "position": [0.9747729391717692, -0.8, -0.001382144683399422],
+            "velocity": [0.2510860033431328, 0, -0.0003136688306932655],
+            "inverseMass": 2.857142857142857,
+            "radius": 0.25
+          }
+        ],
+        "particleBounds": {
+          "min": [
+            -0.7467373575950582, -0.3298236964113717, -0.00043907945155752557
+          ],
+          "max": [0, 1.15, 0.00005397807765524514]
+        },
+        "maxDistanceRelativeError": 0.0009948196640727398,
+        "maxVolumeRelativeError": 0,
+        "minSignedVolumeRatio": null,
+        "maxSpeed": 0.2510861992682255,
+        "kineticEnergy": 0.019103044693144403,
+        "momentum": [
+          0.10230475639189235, -0.016672027122216482, -0.0001452738330347531
+        ],
+        "contacts": {
+          "contactCount": 386,
+          "reactionImpulse": [
+            -0.39827437035697044, 0.14604776099174485, -0.0001677879049090968
+          ],
+          "absoluteReactionImpulse": 0.44912237050486253,
+          "maxContactCorrection": 0.0037515853376856034,
+          "maxObservedSpeed": 2.323556453134535
+        },
+        "fluid": null,
+        "timing": {
+          "solverWallMs": 21.90140000000025,
+          "measuredSteps": 240,
+          "meanStepMs": 0.09125583333333438,
+          "maxStepMs": 1.3700000000000045
+        }
+      }
+    },
+    {
+      "kind": "cloth",
+      "passed": true,
+      "checks": {
+        "finite": true,
+        "contactOccurred": true,
+        "noContactControlClean": true,
+        "oneWayControlHasContactWithoutReaction": true,
+        "measuredReaction": true,
+        "bodyResponds": true,
+        "particlesRespond": true,
+        "distanceStable": true,
+        "volumeStable": true,
+        "boundedSpeed": true,
+        "fluidPressureActive": true,
+        "restored": true,
+        "replayed": true,
+        "geometryUpdated": true,
+        "released": true
+      },
+      "load": {
+        "bodies": 1,
+        "particles": 49,
+        "distanceConstraints": 226,
+        "volumeConstraints": 0,
+        "triangles": 72
+      },
+      "controls": {
+        "noContact": {
+          "contactCount": 0,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [0.08, -0.8, 0.8500000000000001]
+        },
+        "oneWay": {
+          "contactCount": 569,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [0.08, -0.8, 0.8500000000000001]
+        },
+        "peakBodyDistanceFromNoContact": 0.6384569787841069,
+        "peakBodyDistanceFromOneWay": 0.6384569787841069,
+        "peakParticleRmsFromNoContact": 0.3511729180506988,
+        "peakParticleRmsFromOneWay": 0.39644117419050234
+      },
+      "stability": {
+        "samples": 240,
+        "allFinite": true,
+        "maxDistanceRelativeError": 0.011491547402061944,
+        "maxVolumeRelativeError": 0,
+        "minSignedVolumeRatio": null,
+        "maxSpeed": 3.6194444675276567,
+        "maxFluidPressure": 0
+      },
+      "snapshot": {
+        "bytes": 27121,
+        "captureWallMs": 0.14629999999999654,
+        "restoreWallMs": 0.4048999999999978,
+        "capturedTick": 120,
+        "replayedSteps": 120,
+        "maxRestoreDifference": 0,
+        "maxReplayDifference": 0,
+        "renderRestoredExactly": true,
+        "renderReplayedExactly": true
+      },
+      "geometry": {
+        "initialBytes": 8018,
+        "finalBytes": 7922,
+        "maxPositionChange": 1.901467239214548,
+        "topologyUnchanged": true
+      },
+      "timing": {
+        "coupledSolverWallMs": 145.64880000000036,
+        "noContactSolverWallMs": 134.15520000000015,
+        "oneWaySolverWallMs": 143.87249999999915,
+        "meanCoupledStepMs": 0.6068700000000015,
+        "maxCoupledStepMs": 1.3109000000000037,
+        "probeWallMs": 526.8519000000001
+      },
+      "lifecycle": {
+        "cycles": 12,
+        "releasedEveryCycle": true,
+        "ownedCountsAfterDispose": {
+          "bodies": 0,
+          "particles": 0,
+          "constraints": 0,
+          "triangles": 0
+        }
+      },
+      "final": {
+        "kind": "cloth",
+        "tick": 240,
+        "simulatedSeconds": 4,
+        "disposed": false,
+        "finite": true,
+        "resources": {
+          "bodies": 1,
+          "particles": 49,
+          "constraints": 226,
+          "triangles": 72
+        },
+        "bodies": [
+          {
+            "id": "body:0",
+            "position": [0.5781743287306114, -0.8, 0.8500000000000001],
+            "velocity": [0.10600514455671561, 0, 0],
+            "inverseMass": 2.857142857142857,
+            "radius": 0.25
+          }
+        ],
+        "particleBounds": {
+          "min": [
+            -0.6003429613068989, -0.16143366463714684, -0.3546816265771753
+          ],
+          "max": [0.6010794327192219, 1, 0.00673753163729655]
+        },
+        "maxDistanceRelativeError": 0.0003520379961764044,
+        "maxVolumeRelativeError": 0,
+        "minSignedVolumeRatio": null,
+        "maxSpeed": 0.4986567742084713,
+        "kineticEnergy": 0.029008160716870852,
+        "momentum": [
+          0.03569610018204049, -0.041605189523523795, 0.15198230999035664
+        ],
+        "contacts": {
+          "contactCount": 430,
+          "reactionImpulse": [
+            0.05800927036272894, 0.05957718632300508, -0.3201056511107641
+          ],
+          "absoluteReactionImpulse": 0.34130321305724864,
+          "maxContactCorrection": 0.003720667659415755,
+          "maxObservedSpeed": 2.6303701614832966
+        },
+        "fluid": null,
+        "timing": {
+          "solverWallMs": 145.64880000000036,
+          "measuredSteps": 240,
+          "meanStepMs": 0.6068700000000015,
+          "maxStepMs": 1.3109000000000037
+        }
+      }
+    },
+    {
+      "kind": "softbody",
+      "passed": true,
+      "checks": {
+        "finite": true,
+        "contactOccurred": true,
+        "noContactControlClean": true,
+        "oneWayControlHasContactWithoutReaction": true,
+        "measuredReaction": true,
+        "bodyResponds": true,
+        "particlesRespond": true,
+        "distanceStable": true,
+        "volumeStable": true,
+        "boundedSpeed": true,
+        "fluidPressureActive": true,
+        "restored": true,
+        "replayed": true,
+        "geometryUpdated": true,
+        "released": true
+      },
+      "load": {
+        "bodies": 1,
+        "particles": 27,
+        "distanceConstraints": 98,
+        "volumeConstraints": 48,
+        "triangles": 48
+      },
+      "controls": {
+        "noContact": {
+          "contactCount": 0,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [1.1, -0.8, 0]
+        },
+        "oneWay": {
+          "contactCount": 395,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [1.1, -0.8, 0]
+        },
+        "peakBodyDistanceFromNoContact": 1.325509442166743,
+        "peakBodyDistanceFromOneWay": 1.325509442166743,
+        "peakParticleRmsFromNoContact": 1.0208393674139817,
+        "peakParticleRmsFromOneWay": 2.6062626078567552
+      },
+      "stability": {
+        "samples": 240,
+        "allFinite": true,
+        "maxDistanceRelativeError": 0.04107080659221489,
+        "maxVolumeRelativeError": 0.04308830480331993,
+        "minSignedVolumeRatio": 0.9569116951966801,
+        "maxSpeed": 5.880200506047819,
+        "maxFluidPressure": 0
+      },
+      "snapshot": {
+        "bytes": 17214,
+        "captureWallMs": 0.10170000000005075,
+        "restoreWallMs": 0.3671999999999116,
+        "capturedTick": 120,
+        "replayedSteps": 120,
+        "maxRestoreDifference": 0,
+        "maxReplayDifference": 0,
+        "renderRestoredExactly": true,
+        "renderReplayedExactly": true
+      },
+      "geometry": {
+        "initialBytes": 4327,
+        "finalBytes": 4267,
+        "maxPositionChange": 1.441556646678173,
+        "topologyUnchanged": true
+      },
+      "timing": {
+        "coupledSolverWallMs": 136.812600000001,
+        "noContactSolverWallMs": 134.15200000000027,
+        "oneWaySolverWallMs": 132.53050000000007,
+        "meanCoupledStepMs": 0.5700525000000042,
+        "maxCoupledStepMs": 2.2006000000000085,
+        "probeWallMs": 497.9466
+      },
+      "lifecycle": {
+        "cycles": 12,
+        "releasedEveryCycle": true,
+        "ownedCountsAfterDispose": {
+          "bodies": 0,
+          "particles": 0,
+          "constraints": 0,
+          "triangles": 0
+        }
+      },
+      "final": {
+        "kind": "softbody",
+        "tick": 240,
+        "simulatedSeconds": 4,
+        "disposed": false,
+        "finite": true,
+        "resources": {
+          "bodies": 1,
+          "particles": 27,
+          "constraints": 146,
+          "triangles": 48
+        },
+        "bodies": [
+          {
+            "id": "body:0",
+            "position": [0.30364573477956497, -0.8, 0.0360206479130531],
+            "velocity": [-0.023584942027845557, 0, 0.0667049967946029],
+            "inverseMass": 2.857142857142857,
+            "radius": 0.25
+          }
+        ],
+        "particleBounds": {
+          "min": [0.6137206285277921, -0.9650000000000001, -0.2926853458346777],
+          "max": [1.1614968327973514, -0.4839911470470471, 0.2560627042352152]
+        },
+        "maxDistanceRelativeError": 0.00020063808228378257,
+        "maxVolumeRelativeError": 0.0001941983778772638,
+        "minSignedVolumeRatio": 0.9998058016221227,
+        "maxSpeed": 0.07578620209785646,
+        "kineticEnergy": 0.0017024652035715186,
+        "momentum": [
+          0.00793825957112504, -0.000037697889230747794, 0.001555519090065783
+        ],
+        "contacts": {
+          "contactCount": 88,
+          "reactionImpulse": [
+            -0.52255980684935, -0.09023123511455937, 0.024851583021209392
+          ],
+          "absoluteReactionImpulse": 0.5403172353742305,
+          "maxContactCorrection": 0.003639405306727017,
+          "maxObservedSpeed": 1.9261967302329408
+        },
+        "fluid": null,
+        "timing": {
+          "solverWallMs": 136.812600000001,
+          "measuredSteps": 240,
+          "meanStepMs": 0.5700525000000042,
+          "maxStepMs": 2.2006000000000085
+        }
+      }
+    },
+    {
+      "kind": "fluid",
+      "passed": true,
+      "checks": {
+        "finite": true,
+        "contactOccurred": true,
+        "noContactControlClean": true,
+        "oneWayControlHasContactWithoutReaction": true,
+        "measuredReaction": true,
+        "bodyResponds": true,
+        "particlesRespond": true,
+        "distanceStable": true,
+        "volumeStable": true,
+        "boundedSpeed": true,
+        "fluidPressureActive": true,
+        "restored": true,
+        "replayed": true,
+        "geometryUpdated": true,
+        "released": true
+      },
+      "load": {
+        "bodies": 1,
+        "particles": 64,
+        "distanceConstraints": 0,
+        "volumeConstraints": 0,
+        "triangles": 0
+      },
+      "controls": {
+        "noContact": {
+          "contactCount": 0,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [1.1, -0.8, 0]
+        },
+        "oneWay": {
+          "contactCount": 5399,
+          "absoluteReactionImpulse": 0,
+          "finalBodyPosition": [1.1, -0.8, 0]
+        },
+        "peakBodyDistanceFromNoContact": 0.24982241435191432,
+        "peakBodyDistanceFromOneWay": 0.24982241435191432,
+        "peakParticleRmsFromNoContact": 1.0418973349726892,
+        "peakParticleRmsFromOneWay": 0.2266529029415052
+      },
+      "stability": {
+        "samples": 240,
+        "allFinite": true,
+        "maxDistanceRelativeError": 0,
+        "maxVolumeRelativeError": 0,
+        "minSignedVolumeRatio": null,
+        "maxSpeed": 2.9836157088253192,
+        "maxFluidPressure": 4.788558200896799
+      },
+      "snapshot": {
+        "bytes": 12340,
+        "captureWallMs": 0.0786000000000513,
+        "restoreWallMs": 0.16480000000001382,
+        "capturedTick": 120,
+        "replayedSteps": 120,
+        "maxRestoreDifference": 0,
+        "maxReplayDifference": 0,
+        "renderRestoredExactly": true,
+        "renderReplayedExactly": true
+      },
+      "geometry": {
+        "initialBytes": 7122,
+        "finalBytes": 6245,
+        "maxPositionChange": 2.106395421559805,
+        "topologyUnchanged": true
+      },
+      "timing": {
+        "coupledSolverWallMs": 178.4083000000012,
+        "noContactSolverWallMs": 164.07049999999936,
+        "oneWaySolverWallMs": 173.54080000000067,
+        "meanCoupledStepMs": 0.7433679166666717,
+        "maxCoupledStepMs": 2.2023000000001502,
+        "probeWallMs": 657.7873999999999
+      },
+      "lifecycle": {
+        "cycles": 12,
+        "releasedEveryCycle": true,
+        "ownedCountsAfterDispose": {
+          "bodies": 0,
+          "particles": 0,
+          "constraints": 0,
+          "triangles": 0
+        }
+      },
+      "final": {
+        "kind": "fluid",
+        "tick": 240,
+        "simulatedSeconds": 4,
+        "disposed": false,
+        "finite": true,
+        "resources": {
+          "bodies": 1,
+          "particles": 64,
+          "constraints": 0,
+          "triangles": 0
+        },
+        "bodies": [
+          {
+            "id": "body:0",
+            "position": [1.1, -0.7999999981696169, -0.0012943901406620168],
+            "velocity": [0, -4.8565151899993e-9, -0.0003328885277770373],
+            "inverseMass": 2.857142857142857,
+            "radius": 0.25
+          }
+        ],
+        "particleBounds": {
+          "min": [-0.047798670006691246, -0.995, -1.0450000000000002],
+          "max": [1.2950000000000002, -0.995, 1.0450000000000002]
+        },
+        "maxDistanceRelativeError": 0,
+        "maxVolumeRelativeError": 0,
+        "minSignedVolumeRatio": null,
+        "maxSpeed": 0.09919007780824952,
+        "kineticEnergy": 0.00038221494132225514,
+        "momentum": [
+          0.005540107252670899, -1.6997803164997547e-9, 0.00009605086997596657
+        ],
+        "contacts": {
+          "contactCount": 16655,
+          "reactionImpulse": [
+            -0.0907786105201503, 0.04172182815955526, -0.0001708274803820284
+          ],
+          "absoluteReactionImpulse": 0.19201395999638057,
+          "maxContactCorrection": 0.0034565234304269055,
+          "maxObservedSpeed": 3.0719095816078803
+        },
+        "fluid": {
+          "method": "WCSPH",
+          "restDensity": 1,
+          "minDensity": 0.20413093614886713,
+          "maxDensity": 0.9273811570658393,
+          "maxPressure": 0
+        },
+        "timing": {
+          "solverWallMs": 178.4083000000012,
+          "measuredSteps": 240,
+          "meanStepMs": 0.7433679166666717,
+          "maxStepMs": 2.2023000000001502
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Small CPU-only reference experiments; no GPU / WebGPU performance or production physics claim.",
+    "One dynamic translational sphere per scene; no angular dynamics, friction, rigid mesh contacts or CCD.",
+    "Rope / cloth / tetrahedral softbody couple only to that sphere and static axis-aligned walls, not to each other.",
+    "No cloth self-collision, tearing, plasticity, arbitrary solid surface collision or rigid-body library integration.",
+    "WCSPH has O(n²) neighbors, compressive pressure / viscosity, no surface tension or boundary-density correction; particle sphere contact is not hydrodynamically accurate buoyancy.",
+    "Fixed walls and rope / cloth anchors exchange momentum with the environment; damping dissipates energy.",
+    "Owned-array lifecycle checks demonstrate explicit release only, not absence of process / GPU memory leaks.",
+    "Snapshot replay is checked on the same JS runtime; no cross-browser or cross-architecture bitwise determinism guarantee.",
+    "Render data is renderer-independent; dynamic BVH / actual WebGPU and ray-tracing synchronization is a separate integration test."
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "distRoot": "<frozen-engine>\\evidence\\ai-game-a\\dist",
+  "staticServerRoot": "<frozen-engine>\\evidence\\ai-game-a\\dist",
+  "engineDevServersStopped": true,
+  "requests": [
+    {
+      "url": "/",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\index.html",
+      "bytes": 574
+    },
+    {
+      "url": "/assets/index-D6ZevpMx.js",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\assets\\index-D6ZevpMx.js",
+      "bytes": 743873
+    },
+    {
+      "url": "/favicon.ico",
+      "status": 404
+    },
+    {
+      "url": "/generated/scene.ir.json",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\scene.ir.json",
+      "bytes": 7461
+    },
+    {
+      "url": "/generated/game.js?v=1793788386655",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
+      "bytes": 4485
+    }
+  ],
+  "net": [
+    {
+      "url": "http://127.0.0.1:4185/",
+      "resourceType": "document"
+    },
+    {
+      "url": "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+      "resourceType": "script"
+    },
+    {
+      "url": "http://127.0.0.1:4185/generated/scene.ir.json",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4185/generated/game.js?v=1793788386655",
+      "resourceType": "script"
+    }
+  ],
+  "distState": {
+    "control": "undefined",
+    "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 22\n",
+    "canvases": [
+      {
+        "width": 960,
+        "height": 540
+      },
+      {
+        "width": 960,
+        "height": 540
+      }
+    ],
+    "resources": [
+      "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+      "http://127.0.0.1:4185/favicon.ico",
+      "http://127.0.0.1:4185/generated/scene.ir.json",
+      "http://127.0.0.1:4185/generated/game.js?v=1793788386655"
+    ]
+  },
+  "distScreenshotHash": "a02f06f0a6769ee25738df8f97848e68955320cc54db5982fe9e29ae815bea4f",
+  "distAfterHash": "313fcbc4293b5b691d0e3fd46421acec346887c9555f2ab56c3fde56ff4df1a0"
+}

@@ -1,0 +1,11 @@
+COMMAND: "C:\\Program Files\\nodejs\\node.exe" "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js" --prefix source/threecat ci --offline --no-audit --no-fund
+CWD: <validation-work>\ZIPwork-20261104-182629
+START: 2026-11-04T10:28:11.570Z
+STDOUT:
+
+added 35 packages in 3s
+
+STDERR:
+
+EXIT: 0
+ERROR: 

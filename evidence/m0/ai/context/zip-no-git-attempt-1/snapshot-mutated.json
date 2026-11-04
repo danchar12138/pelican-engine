@@ -1,0 +1,128 @@
+{
+  "tick": 84,
+  "cameraPhase": 0,
+  "transforms": {
+    "m0-spinner": {
+      "position": [
+        -1.75,
+        1,
+        1.5
+      ],
+      "rotation": [
+        0,
+        2.239999999999999,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "m0-group": {
+      "position": [
+        6,
+        0,
+        -2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "m0-child": {
+      "position": [
+        1,
+        0.5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "m0-orb": {
+      "position": [
+        -3.8,
+        0.85,
+        1.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "m0-ground": {
+      "position": [
+        -2,
+        0.05,
+        1.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "m0-sun": {
+      "position": [
+        -2,
+        7,
+        5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "components": {
+    "m0-spinner": {
+      "Motion": {
+        "speed": 0.8,
+        "enabled": true
+      }
+    },
+    "m0-group": {},
+    "m0-child": {},
+    "m0-orb": {},
+    "m0-ground": {},
+    "m0-sun": {}
+  },
+  "inputLog": [
+    {
+      "tick": 60,
+      "key": "ArrowRight"
+    }
+  ],
+  "topology": []
+}

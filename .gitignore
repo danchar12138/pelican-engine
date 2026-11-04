@@ -1,0 +1,12 @@
+node_modules/
+.threecat/
+dist/
+release/
+playwright-report/
+test-results/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+public/generated/

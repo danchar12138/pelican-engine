@@ -1,0 +1,579 @@
+{
+  "ready": true,
+  "backend": "WebGPUBackend",
+  "mode": "raster",
+  "tick": 0,
+  "width": 960,
+  "height": 540,
+  "inputLog": [],
+  "triangleCount": 520,
+  "nodeCount": 271,
+  "generation": 1,
+  "geometryHash": 3733929058,
+  "objects": {
+    "box": [
+      -1.6,
+      0.5,
+      0
+    ],
+    "morph": 0.5,
+    "bone": 0,
+    "camera": [
+      5,
+      3.8,
+      7
+    ]
+  },
+  "errors": [],
+  "compiledIR": {
+    "format": "threecat.scene",
+    "version": 1,
+    "engineVersion": "0.0.1-m0.0",
+    "gameId": "m0-game",
+    "scene": {
+      "id": "m0-scene",
+      "camera": {
+        "position": [
+          5,
+          3.8,
+          7
+        ],
+        "target": [
+          0,
+          0.7,
+          0
+        ],
+        "fov": 45,
+        "near": 0.1,
+        "far": 1000
+      },
+      "environment": {
+        "background": "#151c2b",
+        "ambientIntensity": 0.5
+      },
+      "entities": [
+        {
+          "id": "m0-spinner",
+          "transform": {
+            "position": [
+              -2,
+              1,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {
+            "Motion": {
+              "speed": 0.8,
+              "enabled": true
+            }
+          },
+          "mesh": {
+            "geometry": {
+              "kind": "box",
+              "size": [
+                1.4,
+                1.4,
+                1.4
+              ]
+            },
+            "material": "copper",
+            "castShadow": true,
+            "receiveShadow": true
+          },
+          "prefab": "Spinner"
+        },
+        {
+          "id": "m0-group",
+          "transform": {
+            "position": [
+              6,
+              0,
+              -2
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {}
+        },
+        {
+          "id": "m0-child",
+          "transform": {
+            "position": [
+              1,
+              0.5,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "parent": "m0-group",
+          "mesh": {
+            "geometry": {
+              "kind": "box",
+              "size": [
+                0.25,
+                0.25,
+                0.25
+              ]
+            },
+            "material": "copper",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        {
+          "id": "m0-orb",
+          "transform": {
+            "position": [
+              -3.8,
+              0.85,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "mesh": {
+            "geometry": {
+              "kind": "sphere",
+              "radius": 0.7
+            },
+            "material": "animated",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        {
+          "id": "m0-ground",
+          "transform": {
+            "position": [
+              -2,
+              0.05,
+              1.5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "mesh": {
+            "geometry": {
+              "kind": "box",
+              "size": [
+                4.8,
+                0.2,
+                3.6
+              ]
+            },
+            "material": "floor",
+            "castShadow": true,
+            "receiveShadow": true
+          }
+        },
+        {
+          "id": "m0-sun",
+          "transform": {
+            "position": [
+              -2,
+              7,
+              5
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          "components": {},
+          "light": {
+            "kind": "directional",
+            "color": "#fff0d8",
+            "intensity": 4,
+            "castShadow": true
+          }
+        }
+      ]
+    },
+    "components": [
+      {
+        "id": "Motion",
+        "schema": {
+          "speed": {
+            "type": "number",
+            "default": 0.8
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "source": {
+          "file": "game.ts",
+          "line": 11,
+          "column": 23,
+          "length": 147
+        }
+      }
+    ],
+    "prefabs": [
+      {
+        "id": "Spinner",
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {
+          "Motion": {
+            "speed": 0.8,
+            "enabled": true
+          }
+        },
+        "mesh": {
+          "geometry": {
+            "kind": "box",
+            "size": [
+              1.4,
+              1.4,
+              1.4
+            ]
+          },
+          "material": "copper",
+          "castShadow": true,
+          "receiveShadow": true
+        }
+      }
+    ],
+    "materials": [
+      {
+        "id": "copper",
+        "color": "#db7836",
+        "roughness": 0.26,
+        "metalness": 0.65,
+        "source": {
+          "file": "game.ts",
+          "line": 18,
+          "column": 16,
+          "length": 93
+        }
+      },
+      {
+        "id": "floor",
+        "color": "#71839a",
+        "roughness": 0.8,
+        "metalness": 0.05,
+        "source": {
+          "file": "game.ts",
+          "line": 24,
+          "column": 15,
+          "length": 91
+        }
+      },
+      {
+        "id": "animated",
+        "color": "#4488dd",
+        "roughness": 0.35,
+        "metalness": 0,
+        "source": {
+          "file": "game.ts",
+          "line": 30,
+          "column": 18,
+          "length": 402
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "base",
+              "op": "vec3",
+              "value": [
+                0.1,
+                0.4,
+                0.8
+              ]
+            },
+            {
+              "id": "clock",
+              "op": "time"
+            },
+            {
+              "id": "wave",
+              "op": "sin",
+              "inputs": [
+                "clock"
+              ]
+            },
+            {
+              "id": "tint",
+              "op": "multiply",
+              "inputs": [
+                "base",
+                "wave"
+              ]
+            },
+            {
+              "id": "color",
+              "op": "add",
+              "inputs": [
+                "base",
+                "tint"
+              ]
+            }
+          ],
+          "output": "color",
+          "nodeTypes": {
+            "base": "vec3",
+            "clock": "float",
+            "wave": "float",
+            "tint": "vec3",
+            "color": "vec3"
+          },
+          "outputType": "vec3"
+        }
+      }
+    ],
+    "computes": [
+      {
+        "id": "pulse",
+        "count": 16,
+        "workgroupSize": 16,
+        "outputType": "float",
+        "graph": {
+          "nodes": [
+            {
+              "id": "clock",
+              "op": "time"
+            },
+            {
+              "id": "wave",
+              "op": "sin",
+              "inputs": [
+                "clock"
+              ]
+            }
+          ],
+          "output": "wave",
+          "nodeTypes": {
+            "clock": "float",
+            "wave": "float"
+          },
+          "outputType": "float"
+        },
+        "source": {
+          "file": "game.ts",
+          "line": 45,
+          "column": 15,
+          "length": 233
+        }
+      }
+    ],
+    "systems": [
+      {
+        "id": "spin",
+        "phase": "update",
+        "source": {
+          "file": "game.ts",
+          "line": 108,
+          "column": 14,
+          "length": 430
+        }
+      }
+    ],
+    "assets": []
+  },
+  "game": {
+    "transforms": {
+      "m0-spinner": {
+        "position": [
+          -2,
+          1,
+          1.5
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "m0-group": {
+        "position": [
+          6,
+          0,
+          -2
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "m0-child": {
+        "position": [
+          1,
+          0.5,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "m0-orb": {
+        "position": [
+          -3.8,
+          0.85,
+          1.5
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "m0-ground": {
+        "position": [
+          -2,
+          0.05,
+          1.5
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "m0-sun": {
+        "position": [
+          -2,
+          7,
+          5
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "components": {
+      "m0-spinner": {
+        "Motion": {
+          "speed": 0.8,
+          "enabled": true
+        }
+      },
+      "m0-group": {},
+      "m0-child": {},
+      "m0-orb": {},
+      "m0-ground": {},
+      "m0-sun": {}
+    }
+  },
+  "metrics": [
+    {
+      "frame": 0,
+      "bvhMs": 6.300000011920929,
+      "uploadMs": 0.10000002384185791,
+      "submitMs": 0,
+      "wallMs": 67
+    }
+  ],
+  "capabilities": {
+    "tracer": "software-triangle-BVH",
+    "hardwareRT": false,
+    "denoiser": false,
+    "hybrid": "raster + traced image compositing prototype",
+    "pathBounces": 5,
+    "tracedLights": "first authored light only; raster also contains private probe lights",
+    "textures": "unsupported in M0 render adapter"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "threecat",
+  "version": "0.0.1-m0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "doctor": "tsx tools/doctor.ts",
+    "setup": "tsx tools/setup.ts",
+    "dev": "tsx tools/cli.ts dev",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "compile": "tsx tools/cli.ts compile",
+    "check": "tsx tools/cli.ts check",
+    "build": "tsx tools/cli.ts build",
+    "verify:m0": "tsx tools/verify-m0.ts",
+    "release:check": "tsx tools/release.ts check",
+    "release:pack": "tsx tools/release.ts pack"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@dimforge/rapier2d-compat": "0.21.0",
+    "@dimforge/rapier3d-compat": "0.21.0",
+    "@types/node": "26.6.6",
+    "@types/three": "0.187.0",
+    "@webgpu/types": "0.1.74",
+    "playwright": "1.64.1",
+    "prettier": "3.6.2",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}

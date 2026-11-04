@@ -1,0 +1,75 @@
+{
+  "distRoot": "<frozen-engine>\\evidence\\ai-game-a\\dist",
+  "staticServerRoot": "<frozen-engine>\\evidence\\ai-game-a\\dist",
+  "engineDevServersStopped": true,
+  "requests": [
+    {
+      "url": "/",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\index.html",
+      "bytes": 574
+    },
+    {
+      "url": "/assets/index-D6ZevpMx.js",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\assets\\index-D6ZevpMx.js",
+      "bytes": 743873
+    },
+    {
+      "url": "/favicon.ico",
+      "status": 404
+    },
+    {
+      "url": "/generated/scene.ir.json",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\scene.ir.json",
+      "bytes": 7461
+    },
+    {
+      "url": "/generated/game.js?v=1793788563358",
+      "status": 200,
+      "file": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
+      "bytes": 4485
+    }
+  ],
+  "net": [
+    {
+      "url": "http://127.0.0.1:4185/",
+      "resourceType": "document"
+    },
+    {
+      "url": "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+      "resourceType": "script"
+    },
+    {
+      "url": "http://127.0.0.1:4185/generated/scene.ir.json",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4185/generated/game.js?v=1793788563358",
+      "resourceType": "script"
+    }
+  ],
+  "distState": {
+    "control": "undefined",
+    "body": "threecat M0 · raster\nWebGPU · 520 triangles · tick 17\n",
+    "canvases": [
+      {
+        "width": 960,
+        "height": 540
+      },
+      {
+        "width": 960,
+        "height": 540
+      }
+    ],
+    "resources": [
+      "http://127.0.0.1:4185/assets/index-D6ZevpMx.js",
+      "http://127.0.0.1:4185/favicon.ico",
+      "http://127.0.0.1:4185/generated/scene.ir.json",
+      "http://127.0.0.1:4185/generated/game.js?v=1793788563358"
+    ]
+  },
+  "distScreenshotHash": "1129abb5539bc12176333c7cd6dc236dc3985ce39c4f1c67a3857e1ee9f63c69",
+  "distAfterHash": "524fc9afdf1f0f007f2ce5aff4bbdcc9ef4261380b532c574edbff2fea774d13"
+}

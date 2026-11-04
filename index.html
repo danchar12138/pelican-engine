@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>threecat M0 WebGPU probe</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #071018;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+      #status {
+        z-index: 2;
+        position: fixed;
+        left: 16px;
+        top: 12px;
+        color: #d4eaf1;
+        font: 13px monospace;
+        pointer-events: none;
+        white-space: pre;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status">Initializing WebGPU…</div>
+    <script type="module" src="/experiments/render/main.ts"></script>
+  </body>
+</html>

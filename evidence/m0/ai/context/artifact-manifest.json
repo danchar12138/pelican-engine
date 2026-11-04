@@ -1,0 +1,712 @@
+[
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\baseline-check.json",
+    "bytes": 3075,
+    "sha256": "c39b41d5c56021efc369947823c19365ae8d26972062d2d366b56440e905df44"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\baseline-check.log",
+    "bytes": 3380,
+    "sha256": "41cfd5164f430b77825c52424934750ec97311f031b789f689e721aff952ed63"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.json",
+    "bytes": 20125,
+    "sha256": "824b1c4f3201da93585c748b6608834dd9f56aca48440e5f27174642be9b603c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-acceptance.log",
+    "bytes": 9899,
+    "sha256": "edf367fe3d7388e376f5f5ce0c3c37be1b12af775b931321783a55e4bec2b2ee"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-evidence-complete.command-result.json",
+    "bytes": 12598,
+    "sha256": "ae85a564509b0ac47c9c70844409b2d4652368d15bec4f4939d5e5c73b1fcdd9"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\browser-evidence-complete.log",
+    "bytes": 12806,
+    "sha256": "5f7db60e606fb9f84056cb8462dcd8691e73f1a8fd0fd92fda0589197923f477"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\build.json",
+    "bytes": 286,
+    "sha256": "6cb65812b97bac5317155c1e76245048a88cef73665ab1f333d7fa57e93ce069"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\build.log",
+    "bytes": 591,
+    "sha256": "dc9b179bd479abb7f4e9df5510ac39eec62d815fb2526fcf1307aa67bae863b2"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture-path.png",
+    "bytes": 450092,
+    "sha256": "97ccfb911c3bdef26912a58e000b3c59ce4cb5692e575b606d31c0ef6675e3db"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture.json",
+    "bytes": 314,
+    "sha256": "aadeb1aedcca01a947bfc4e4698a215001702e3515dabbbaf5ebc7132742dc8f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\capture.log",
+    "bytes": 691,
+    "sha256": "04b46fe3aa546b3b7351d127612730f13a0bff144961ce928c73d5c0c912c366"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-browser-system.json",
+    "bytes": 10484,
+    "sha256": "ad0e0fc69aa0ada985d04537c3c1c7aa5439d901eb9fad8696b991297cf79767"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-hardware.json",
+    "bytes": 294,
+    "sha256": "c313b61f986aaf0ae8b137d899a695c72afb8e9c331455857790a1af1487fce7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-raster-image-stats.json",
+    "bytes": 267,
+    "sha256": "ed02067ad4f78b1814d82572409c30088f280d10828479d22ebc1c79af2132a7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-raster.png",
+    "bytes": 82806,
+    "sha256": "9a68e5fcc62152e620af975af33516f840052182a00cfd5a3994c1476dfdcecb"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-server.log",
+    "bytes": 310,
+    "sha256": "cf20a3241bae6930153ced28c058d7070f0325eb70b83c14e9d2878c6b5feb7f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\cold-state.json",
+    "bytes": 10951,
+    "sha256": "7c53bfc5b5812d6e2711a60a1431ccfa2534a1c2418819336fe9ec5ebd4d71ac"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\commands.jsonl",
+    "bytes": 4652,
+    "sha256": "abc17cc725e91ea1550c1043868061cffa0c62cf0fb223955d3f0a89beab3f1e"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\create.json",
+    "bytes": 258,
+    "sha256": "04708d9f0f4c9ea32f508d33fbfe6869dfaca872b61a93870459d5a02103c527"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\create.log",
+    "bytes": 564,
+    "sha256": "82d6a6a47bb9f45baf328bdd9a5aea6bcd699b531522227a0ab770d4832e9a48"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-after-input-raster-image-stats.json",
+    "bytes": 267,
+    "sha256": "c5293a3f1b6c9c995f8fa3ec5d5573599d96e11290550537b54fa3630dfd427b"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-after-input-raster.png",
+    "bytes": 86765,
+    "sha256": "7a457a4992be1cb5ab3f2085963a41a383f021d7a4c48f92451af502d5666901"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-browser-system.json",
+    "bytes": 10483,
+    "sha256": "a196d1309be40c4cd97182abe14b3457a290ac67e952bfc35fc54f54dd958c29"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-hardware.json",
+    "bytes": 294,
+    "sha256": "c313b61f986aaf0ae8b137d899a695c72afb8e9c331455857790a1af1487fce7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-initial-raster-image-stats.json",
+    "bytes": 267,
+    "sha256": "ed02067ad4f78b1814d82572409c30088f280d10828479d22ebc1c79af2132a7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-initial-raster.png",
+    "bytes": 82806,
+    "sha256": "9a68e5fcc62152e620af975af33516f840052182a00cfd5a3994c1476dfdcecb"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-path-image-stats.json",
+    "bytes": 271,
+    "sha256": "2bfd1edce9e559308235c5782a373d175ee65a31c9b918dc0536b500193c0adb"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-path.png",
+    "bytes": 478399,
+    "sha256": "cf33af671cce0245f33c0b99aa97368a12a516d718752ba101c985ef4ce48202"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dev-server.log",
+    "bytes": 310,
+    "sha256": "7a85581c4a59c9d943e66db440d3aa3bb82c6cc332cf3ca65130560362d25633"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-after-input-image-stats.json",
+    "bytes": 267,
+    "sha256": "a87515e7fa68ebf3eef14fe8594b8c2e277b665f9b36a8551654bc16fefe6bb9"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-after-input.png",
+    "bytes": 86009,
+    "sha256": "524fc9afdf1f0f007f2ce5aff4bbdcc9ef4261380b532c574edbff2fea774d13"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-browser-system.json",
+    "bytes": 10484,
+    "sha256": "d02281d157b51019d4ea6b819c0b4486715dab668f50f7cbb8dbe4cd04a71a07"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-hardware.json",
+    "bytes": 294,
+    "sha256": "c313b61f986aaf0ae8b137d899a695c72afb8e9c331455857790a1af1487fce7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-initial-image-stats.json",
+    "bytes": 267,
+    "sha256": "abbad2ca61f95e04ab04bc578da7a4753abb47b044ce291e4d45d6c8496bae87"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-initial.png",
+    "bytes": 84975,
+    "sha256": "1129abb5539bc12176333c7cd6dc236dc3985ce39c4f1c67a3857e1ee9f63c69"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\dist-runtime.json",
+    "bytes": 2644,
+    "sha256": "eb627514e3f808a5951ae16e4c8c60f0bba9c8a8240b00f788e9e89fb6efaa53"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\doctor.json",
+    "bytes": 4524,
+    "sha256": "0bb3199be48eda9db183df2c5b5bffc8f6cf616d0f4991ce989e2a4a658d0ed6"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\doctor.log",
+    "bytes": 4785,
+    "sha256": "674552435f4fad23bd0d91848f2bad818286deb8abe478edd6652115879d1762"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-fixed.ts",
+    "bytes": 3058,
+    "sha256": "b615b21f06279c170736d9f9464f9fc6199a3d851a650be602b78a6afb46e7a2"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-negative.ts",
+    "bytes": 3057,
+    "sha256": "30a2464f4ef04239eb34915d93d9de4c20eb0f208e834ae687a7280ffeaee2d2"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\game-original.ts",
+    "bytes": 3054,
+    "sha256": "ae7c01fb7117d81fbc21bba2ddc7511a94ada5fe4e41a1b624a920dedf78054c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\initial-state.json",
+    "bytes": 10936,
+    "sha256": "cef73b79abedf00cf296e47dd796454dd6b281c1fd5d1564184d231d1189dbfe"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\keyboard-state.json",
+    "bytes": 19809,
+    "sha256": "67afc9d54ed97e5fa406045282f388edc3c06677dd5a6feeba01eebc71d6eaf4"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.json",
+    "bytes": 3338,
+    "sha256": "ac20b426e9d713383416216af52b0ff2ce48a626506adcbe07fd6b59e6b6807e"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\negative-type-check.log",
+    "bytes": 3643,
+    "sha256": "179c752b41ed170f54b038b389bc111b636e4e6f4cf676e8df487c20665effde"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\path-pixels.json",
+    "bytes": 64,
+    "sha256": "c6572f520a6fd1afec64cdbffb3279a615f884a58120ad9f9cf8d0962888a787"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\path-state.json",
+    "bytes": 24310,
+    "sha256": "76e614abd371caa4bec1c9c19626ce7a7877251e135a074326072bf1597e99a4"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.json",
+    "bytes": 2870,
+    "sha256": "835efc299ade98e613d9201d86124f784d292ed97df6f21b7f94f5c13bf1d34f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\repaired-check.log",
+    "bytes": 3175,
+    "sha256": "b8a606ac8dc3a3e3b841aa1a9fdd3fe422bd4d67d9dbc14529499f3fab4ced39"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\snapshot-mutated.json",
+    "bytes": 1634,
+    "sha256": "c2c09ac5e42a7c37e88f860a2b91f695a662e59371dc80b3950c19c28e023372"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\snapshot-restored.json",
+    "bytes": 1635,
+    "sha256": "c4de62bf941587d3eecc08772120d19d2365cd1640189d8571d0aa3925b5aad8"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\snapshot-saved.json",
+    "bytes": 1635,
+    "sha256": "c4de62bf941587d3eecc08772120d19d2365cd1640189d8571d0aa3925b5aad8"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\stepped-60-state.json",
+    "bytes": 19460,
+    "sha256": "010d8cd1ad976a370c80f585c130b0471c75a32e035f7f2f9ae620dafc606f6b"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\zip-no-git\\verified-scene.ir.json",
+    "bytes": 7461,
+    "sha256": "aafd6a5b1fc781e837239f617996f5186154c6457e4dc6d3c0f6ba47dbab2979"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\assets\\index-D6ZevpMx.js",
+    "bytes": 743873,
+    "sha256": "e7cf549e5d533ae0ec9038319cab76bd4280ce4f069a6a385d03a59082400b5b"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\assets\\index-D6ZevpMx.js.map",
+    "bytes": 5248762,
+    "sha256": "700c716567ed948f78da7a08b8bfe04f7648649d465e8054f28c2cbb6bed3c8c"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\.threecat-cache.json",
+    "bytes": 4651,
+    "sha256": "a4c0774f31d91286eb1239d9fed5a867f5568afca95e6d237af3cbb69d2512b9"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\build-report.json",
+    "bytes": 2606,
+    "sha256": "6cfd0bfc9c680cc80ad00c3a20193c9369c23cf86100d2dec64183283d1683fb"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js",
+    "bytes": 4485,
+    "sha256": "13d6c76648da63b20f8d0ee51005d14d6607349aa69c70dc0931cbbf8b020f61"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\game.js.map",
+    "bytes": 13122,
+    "sha256": "a4b7707f1e33acc78f7142c8a0313e3d62ae5858c2be367fcccf1a923dc965e3"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\scene.ir.json",
+    "bytes": 7461,
+    "sha256": "aafd6a5b1fc781e837239f617996f5186154c6457e4dc6d3c0f6ba47dbab2979"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\generated\\version.json",
+    "bytes": 215,
+    "sha256": "34ae690bab37a7f5d3995cad314a98184be3f81a6c87f4fd2382dfbbb8094de1"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\index.html",
+    "bytes": 574,
+    "sha256": "1dd48b2d7e11ca9c383bcc31d2e9cb65129b63d9f91d3074d4628940df84c41f"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\LICENSE",
+    "bytes": 1078,
+    "sha256": "a4f3c06d23fda2fe0fee6f0e6152d5de9886bb1e9f30271230aa04f7da59dee6"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\THIRDPARTY-NOTICES.txt",
+    "bytes": 148,
+    "sha256": "14deece82eda6c5c22985995260c352d5c423a0b29e7d62ec7ba4ef409b3bed1"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\THREE-LICENSE.txt",
+    "bytes": 1081,
+    "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\dist\\threecat-build.json",
+    "bytes": 349,
+    "sha256": "d5ac53ea266ea8e5b982b672685054727fc6c9124a000129ab359749d4f8d62c"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\game.ts",
+    "bytes": 3058,
+    "sha256": "b615b21f06279c170736d9f9464f9fc6199a3d851a650be602b78a6afb46e7a2"
+  },
+  {
+    "path": "<frozen-engine>\\evidence\\ai-game-a\\threecat.project.json",
+    "bytes": 126,
+    "sha256": "fa7bccc07752a1bbf8deb77725da467cc228532947141e4635d424410eaaf5fe"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\baseline-check.json",
+    "bytes": 3075,
+    "sha256": "8a93d7db28a02105de11df66d49138a772c2bd10c983da00a7ddface57c6e7e5"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\baseline-check.log",
+    "bytes": 3378,
+    "sha256": "72f6f1e5d2f75458544e0e0a7d9de2480c7c900546150f66485cd61a7508d514"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance-retest.json",
+    "bytes": 15841,
+    "sha256": "43eefbe8dc78f2991fbbdea038878107edc359365822799b7665a6f1ca1f6e1c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance-retest.log",
+    "bytes": 16057,
+    "sha256": "5d56246920d3af30d231ea6d4b289f2deba75bb735a5d35b954ce693d16fe66e"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance.json",
+    "bytes": 23979,
+    "sha256": "a64a33acf749b42acc1d9444f89c820b4683ec6d8de76ff0fdc1bffff1c2e5a0"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-acceptance.log",
+    "bytes": 11756,
+    "sha256": "2c3878e07d24a1e28cd77905459e9e803043fbf7924f091fe051cba41a9bb7ae"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-dist-keyboard-evidence.command-result.json",
+    "bytes": 16215,
+    "sha256": "47325ee05c2ad9bc7a46bd27e5780f33495f6a5248cc562f60fb163b68c59096"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-dist-keyboard-evidence.log",
+    "bytes": 16431,
+    "sha256": "c0dd92ad207dea8fe7422287d386121ea4a6665a8224351d2bf9a071cd08c2fb"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-explore.json",
+    "bytes": 27973,
+    "sha256": "acbaa3a5e5ede131be2a1a0fdc791f0d5b3e61724064efcc5c054d96053bbe19"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\browser-explore.log",
+    "bytes": 28167,
+    "sha256": "3d7cf5656bccbfd940180475f112daee1ebce098f7d4b3a8c265a1be3b6ee2eb"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\build.json",
+    "bytes": 286,
+    "sha256": "8d8aebe49420f05a128f617fb47f93bc04c5dee67ef491744965161aad38a38f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\build.log",
+    "bytes": 589,
+    "sha256": "ea9e5d98022042f043ebaeb37a9790e9c82a1d9d264b15ccd353889807259b9d"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture-path.png",
+    "bytes": 468545,
+    "sha256": "5168d7f9291d05c9a7e04565e1710e5603f516d423ca2714428144c0ebf21b03"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture.json",
+    "bytes": 322,
+    "sha256": "b24399364deb0e16badd3c141063bc6f60d3ec5295509f514fc176e281dfb4c1"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\capture.log",
+    "bytes": 705,
+    "sha256": "5e78fee4a3f80300e5ba43b7598983651b06710bd1e811354144914a7a0d5fd6"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\cold-browser-system.json",
+    "bytes": 10483,
+    "sha256": "cbb582b110263602578c1aea799c34cfcb6d740aed6291d7880a366b54781943"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\cold-hardware.json",
+    "bytes": 294,
+    "sha256": "c313b61f986aaf0ae8b137d899a695c72afb8e9c331455857790a1af1487fce7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\cold-raster-image-stats.json",
+    "bytes": 271,
+    "sha256": "06bf557b0f338ab39786ccce1f03374ffbce6021ca5a2ffb0693493eb5f9f98c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\cold-raster.png",
+    "bytes": 87733,
+    "sha256": "e09b9b33ac0e25c944792a83aecec48a7c3fb0f64e6dd0cc7ab105695de27b79"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\cold-server.log",
+    "bytes": 310,
+    "sha256": "ab13b6826dbace716cfd31bd0ce0daec4d96a0d377d60dd490083dc0457812ac"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\cold-state.json",
+    "bytes": 12171,
+    "sha256": "77307cbeb422546cda190e08599e9572b44a7b438764e2db7d972825b6152025"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\commands.jsonl",
+    "bytes": 5200,
+    "sha256": "968d7e42486e1835ed30a6168f3b14f5ed4d57c827802f3f194f19e59c30ec2b"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\create.json",
+    "bytes": 258,
+    "sha256": "b82cc94eeebbaf139bd82486842efe351678cef4ce44ea5746c40f9065498999"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\create.log",
+    "bytes": 562,
+    "sha256": "002a2dc90621a323afd51d68dba24ea51f6acab4c25ded70df63f2bc60353cee"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-after-input-raster-image-stats.json",
+    "bytes": 271,
+    "sha256": "9fc70a90febe6107884f5ea0c57e8cd8782490b502fcb8320f6f6ff3da211e96"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-after-input-raster.png",
+    "bytes": 91832,
+    "sha256": "585f416e7e4cfb91fe289627fb4ad96c1c48c7ce55e01417fda603324037b9b6"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-browser-system.json",
+    "bytes": 10484,
+    "sha256": "c2fd3f56774ed7e9447d60c8133c47f6dc8c024a7de4c8ebda2efe9f77d4a83b"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-hardware.json",
+    "bytes": 294,
+    "sha256": "c313b61f986aaf0ae8b137d899a695c72afb8e9c331455857790a1af1487fce7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-initial-raster-image-stats.json",
+    "bytes": 271,
+    "sha256": "06bf557b0f338ab39786ccce1f03374ffbce6021ca5a2ffb0693493eb5f9f98c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-initial-raster.png",
+    "bytes": 87733,
+    "sha256": "e09b9b33ac0e25c944792a83aecec48a7c3fb0f64e6dd0cc7ab105695de27b79"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-path-image-stats.json",
+    "bytes": 272,
+    "sha256": "bfabcc793c540e56112e2487e075da703ea5dde893b0ecd48c0293f4309e39cd"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-path.png",
+    "bytes": 493385,
+    "sha256": "6ee8c88c8afaad70be7f9259a4db204efe79003da0120cb92312171977ad9ff3"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dev-server.log",
+    "bytes": 310,
+    "sha256": "177d7f41dac1b009f62c8a857ac31664b649809fd051c3bdaa11d3c56c69266b"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-after-input-image-stats.json",
+    "bytes": 271,
+    "sha256": "c2ce3baefe4c567e6f838e0b62c21af84852db7f321a465c02bd1ed8ad2b7450"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-after-input.png",
+    "bytes": 91496,
+    "sha256": "b080b914a8c2643b2b83245711cbfcc9a93e75514e42678b8988d6639ab5baff"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-browser-system.json",
+    "bytes": 10483,
+    "sha256": "1391189e00288038ebfcc168d1246651544abb169ed783af773dc5bad777d065"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-hardware.json",
+    "bytes": 294,
+    "sha256": "c313b61f986aaf0ae8b137d899a695c72afb8e9c331455857790a1af1487fce7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-initial-image-stats.json",
+    "bytes": 271,
+    "sha256": "92ca48d951569ecb79fd637b46cb9b955ddc4c92497e9433b671ca46f1514503"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-initial.png",
+    "bytes": 90170,
+    "sha256": "5f0929f52386107168851b33b2ff38b1aa3b5f0df2c5eb8c0e937236591ec563"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\dist-runtime.json",
+    "bytes": 2608,
+    "sha256": "6abd5d7aadf0cc9e4ef01447ac2271898e541e8da0e0c48e38c9d38cee84947c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\explore-dev-server.log",
+    "bytes": 310,
+    "sha256": "c5f0aab040b9ac7e8ebf4c00ac03fa348fc81683caf746ed7967608727d201b4"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\explore-dev.png",
+    "bytes": 87733,
+    "sha256": "e09b9b33ac0e25c944792a83aecec48a7c3fb0f64e6dd0cc7ab105695de27b79"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-fixed.ts",
+    "bytes": 3342,
+    "sha256": "f4c5735e5547d27c70b1fed28934e22844cbd28f6dd925c3be7ceaff5331ca21"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-negative.ts",
+    "bytes": 3266,
+    "sha256": "6a16c3b6ceaf5759973758f871d34f1c99057eccb7e1522db4f11fd8a8e7cd51"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\game-original.ts",
+    "bytes": 3054,
+    "sha256": "ae7c01fb7117d81fbc21bba2ddc7511a94ada5fe4e41a1b624a920dedf78054c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\initial-state.json",
+    "bytes": 12186,
+    "sha256": "a62395c71fbfacee47368d0fd09508d1be825a498b8ac4534301f56fb99304c6"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\keyboard-state.json",
+    "bytes": 21169,
+    "sha256": "02cd24efbe5840198e56a7d04f51ffcc583d755e2bed4813d12e3ec988018d59"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.json",
+    "bytes": 3928,
+    "sha256": "a2670d782befe0b7f5630ef7a478c3e2abd02c069d8fd2a6366c25c9483a3b78"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\negative-missing-material.log",
+    "bytes": 4231,
+    "sha256": "9d8622d773428f0258309aad99fe5939a90d83a73ccc999a17898588dc07c865"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\path-pixels.json",
+    "bytes": 64,
+    "sha256": "2c4020aab0651b28c800e2c1e37c9609c191505e0d621699cdf2d57789ea17e0"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\path-state.json",
+    "bytes": 25753,
+    "sha256": "27ebbd05005b99079701e5e6598142ff2f79a77ed666a78be62279961b8f5210"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.json",
+    "bytes": 2904,
+    "sha256": "8a227e5a957d68805922d695fd60ff0a857611fcc8f549d31175a2cdf8e11575"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\repaired-check.log",
+    "bytes": 3207,
+    "sha256": "3e2658e0ba61e397303a29ecde2100973725068cf0c75947d1736ed165ca73be"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\snapshot-mutated.json",
+    "bytes": 1879,
+    "sha256": "52f251fb7ba219839042104d951ebb1809d6e0d403e485f9683df02ff4ea9507"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\snapshot-restored.json",
+    "bytes": 1879,
+    "sha256": "07d878490ea71032877cb216e5ae80f5d92c73f133859504ff061db1b2240a2f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\snapshot-saved.json",
+    "bytes": 1879,
+    "sha256": "07d878490ea71032877cb216e5ae80f5d92c73f133859504ff061db1b2240a2f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\stepped-60-state.json",
+    "bytes": 20837,
+    "sha256": "83d371f6d56d5b80cf5e9d91b698f1d5edb789f9843cb20eba17aac79c6473f7"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\evidence\\external-directory\\verified-scene.ir.json",
+    "bytes": 8322,
+    "sha256": "f16015f8744a9ea163af9371196d3aa7702ee46d69ea1941d51e3cd758baf007"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
+    "bytes": 743873,
+    "sha256": "e7cf549e5d533ae0ec9038319cab76bd4280ce4f069a6a385d03a59082400b5b"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js.map",
+    "bytes": 5248874,
+    "sha256": "00b6b29794709bb6321e793e86bb0075b14cfa9d935f32dbcf89e150ec1bd698"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\.threecat-cache.json",
+    "bytes": 5012,
+    "sha256": "3af213517ab42375687f0b77197721069703c5c5a2aba334bfb617c229f240ac"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\build-report.json",
+    "bytes": 2606,
+    "sha256": "3d652b0e6789a6d92f14debc42f79ce0a1235ca99f48eb6de2f2685c6797eb26"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
+    "bytes": 4771,
+    "sha256": "d1547a9fa70084319da2c5b9fc328820425ecc240904ff1344a36938fc37d6a3"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js.map",
+    "bytes": 13645,
+    "sha256": "08445927325d97e4049dbb63d8c9cc7cdaeb6a2fcd2fb8a757c5ea92f3d41f32"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
+    "bytes": 8322,
+    "sha256": "f16015f8744a9ea163af9371196d3aa7702ee46d69ea1941d51e3cd758baf007"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\version.json",
+    "bytes": 215,
+    "sha256": "34ae690bab37a7f5d3995cad314a98184be3f81a6c87f4fd2382dfbbb8094de1"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
+    "bytes": 574,
+    "sha256": "1dd48b2d7e11ca9c383bcc31d2e9cb65129b63d9f91d3074d4628940df84c41f"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\LICENSE",
+    "bytes": 1078,
+    "sha256": "a4f3c06d23fda2fe0fee6f0e6152d5de9886bb1e9f30271230aa04f7da59dee6"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\THIRDPARTY-NOTICES.txt",
+    "bytes": 148,
+    "sha256": "14deece82eda6c5c22985995260c352d5c423a0b29e7d62ec7ba4ef409b3bed1"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\THREE-LICENSE.txt",
+    "bytes": 1081,
+    "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\threecat-build.json",
+    "bytes": 349,
+    "sha256": "d5ac53ea266ea8e5b982b672685054727fc6c9124a000129ab359749d4f8d62c"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\game.ts",
+    "bytes": 3342,
+    "sha256": "f4c5735e5547d27c70b1fed28934e22844cbd28f6dd925c3be7ceaff5331ca21"
+  },
+  {
+    "path": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\threecat.project.json",
+    "bytes": 142,
+    "sha256": "b583f8077351992634fbd3ae641cd453eb326dfed89c44a9e7bb4aba23268b52"
+  }
+]

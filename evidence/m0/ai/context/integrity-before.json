@@ -1,0 +1,12 @@
+{
+  "stage": "before",
+  "root": "<frozen-engine>",
+  "sha256": "4107b19342a5cf339fc2cbf0071b03b3232bc04b04ed058e548bb30130b2ac26",
+  "expected": "4107b19342a5cf339fc2cbf0071b03b3232bc04b04ed058e548bb30130b2ac26",
+  "archive": "<validation-work>\\threecat-m0-input.zip",
+  "archiveSha256": "a00874e403dca60f9984a5c4a8241b1b75975c22dfd4bc4ef3c1c553615dafcf",
+  "originalFiles": 82,
+  "changed": [],
+  "git": [],
+  "passed": true
+}

@@ -1,0 +1,12 @@
+{
+  "engineVersion": "0.0.1-m0.0",
+  "stage": "risk-prototype",
+  "game": "m0-game",
+  "entry": "index.html",
+  "renderer": "webgpu-only",
+  "limitations": [
+    "M0 test scene and SDK subset, not the complete engine",
+    "Compute BVH path tracer, no hardware ray tracing",
+    "No production denoiser; hybrid is image-compositing prototype"
+  ]
+}

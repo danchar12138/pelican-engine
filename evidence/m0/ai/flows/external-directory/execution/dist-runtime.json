@@ -1,0 +1,75 @@
+{
+  "distRoot": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist",
+  "staticServerRoot": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist",
+  "engineDevServersStopped": true,
+  "requests": [
+    {
+      "url": "/",
+      "status": 200,
+      "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\index.html",
+      "bytes": 574
+    },
+    {
+      "url": "/assets/index-D6ZevpMx.js",
+      "status": 200,
+      "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\assets\\index-D6ZevpMx.js",
+      "bytes": 743873
+    },
+    {
+      "url": "/favicon.ico",
+      "status": 404
+    },
+    {
+      "url": "/generated/scene.ir.json",
+      "status": 200,
+      "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\scene.ir.json",
+      "bytes": 8322
+    },
+    {
+      "url": "/generated/game.js?v=1793788572035",
+      "status": 200,
+      "file": "<validation-work>\\ZIPwork-20261104-182629\\外部 游戏 中文\\ai-game-b\\dist\\generated\\game.js",
+      "bytes": 4771
+    }
+  ],
+  "net": [
+    {
+      "url": "http://127.0.0.1:4186/",
+      "resourceType": "document"
+    },
+    {
+      "url": "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+      "resourceType": "script"
+    },
+    {
+      "url": "http://127.0.0.1:4186/generated/scene.ir.json",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4186/generated/game.js?v=1793788572035",
+      "resourceType": "script"
+    }
+  ],
+  "distState": {
+    "control": "undefined",
+    "body": "threecat M0 · raster\nWebGPU · 532 triangles · tick 22\n",
+    "canvases": [
+      {
+        "width": 960,
+        "height": 540
+      },
+      {
+        "width": 960,
+        "height": 540
+      }
+    ],
+    "resources": [
+      "http://127.0.0.1:4186/assets/index-D6ZevpMx.js",
+      "http://127.0.0.1:4186/favicon.ico",
+      "http://127.0.0.1:4186/generated/scene.ir.json",
+      "http://127.0.0.1:4186/generated/game.js?v=1793788572035"
+    ]
+  },
+  "distScreenshotHash": "5f0929f52386107168851b33b2ff38b1aa3b5f0df2c5eb8c0e937236591ec563",
+  "distAfterHash": "b080b914a8c2643b2b83245711cbfcc9a93e75514e42678b8988d6639ab5baff"
+}
