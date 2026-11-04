@@ -1,0 +1,70 @@
+{
+  "passed": true,
+  "coldStart": true,
+  "subpath": "/arcade/fox-freight/",
+  "standaloneStaticOnly": true,
+  "noControlHook": true,
+  "controlRoutes": [
+    {
+      "endpoint": "__threecat",
+      "status": 404
+    },
+    {
+      "endpoint": "__threecat/inspect",
+      "status": 404
+    },
+    {
+      "endpoint": "__threecat/control",
+      "status": 404
+    },
+    {
+      "endpoint": "api/control",
+      "status": 404
+    }
+  ],
+  "autoRun": true,
+  "actualKeyboardGameplay": true,
+  "taskCount": 1,
+  "rewardRedeemed": true,
+  "saveRefreshRestore": true,
+  "noExternalRequests": true,
+  "hardware": {
+    "fallback": false,
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "webgpu": true
+  },
+  "pixels": {
+    "width": 1280,
+    "height": 720,
+    "region": {
+      "x": 180,
+      "y": 180,
+      "width": 650,
+      "height": 350
+    },
+    "quantizedColors": 370,
+    "brightPixels": 83358,
+    "totalPixels": 227500,
+    "dominantFraction": 0.6176
+  },
+  "requests": [
+    "/arcade/fox-freight/",
+    "/arcade/fox-freight/assets/index-ddZDeuEm.js",
+    "/arcade/fox-freight/generated/scene.ir.json",
+    "/arcade/fox-freight/generated/assets/courier-fox-Fox.glb",
+    "/arcade/fox-freight/generated/assets/receipt-chime-chime.wav",
+    "/arcade/fox-freight/generated/game.js",
+    "/arcade/fox-freight/",
+    "/arcade/fox-freight/assets/index-ddZDeuEm.js",
+    "/arcade/fox-freight/generated/scene.ir.json",
+    "/arcade/fox-freight/generated/assets/courier-fox-Fox.glb",
+    "/arcade/fox-freight/generated/assets/receipt-chime-chime.wav",
+    "/arcade/fox-freight/generated/game.js",
+    "/arcade/fox-freight/generated/scene.ir.json",
+    "/arcade/fox-freight/generated/assets/courier-fox-Fox.glb",
+    "/arcade/fox-freight/generated/assets/receipt-chime-chime.wav",
+    "/arcade/fox-freight/generated/game.js"
+  ],
+  "errors": []
+}

@@ -1,6 +1,6 @@
 {
   "name": "threecat",
-  "version": "0.1.0-m1.0",
+  "version": "0.2.0-m2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -16,11 +16,13 @@
     "compile": "tsx tools/cli.ts compile",
     "check": "tsx tools/cli.ts check",
     "build": "tsx tools/cli.ts build",
+    "optimize": "tsx tools/cli.ts optimize",
     "verify:m0": "tsx tools/verify-m0.ts",
     "release:check": "tsx tools/release.ts check",
     "release:pack": "tsx tools/release.ts pack",
     "verify:m1": "tsx tools/verify-m1.ts",
-    "api:index": "tsx tools/api-index.ts"
+    "api:index": "tsx tools/api-index.ts",
+    "verify:m2": "tsx tools/verify-m2.ts"
   },
   "dependencies": {
     "three": "0.187.0"
@@ -28,6 +30,8 @@
   "devDependencies": {
     "@dimforge/rapier2d-compat": "0.21.0",
     "@dimforge/rapier3d-compat": "0.21.0",
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
     "@types/node": "26.6.6",
     "@types/three": "0.187.0",
     "@webgpu/types": "0.1.74",

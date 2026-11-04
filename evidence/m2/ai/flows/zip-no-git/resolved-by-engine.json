@@ -1,0 +1,103 @@
+{
+  "status": "resolvedByEngine",
+  "resolvedByEngine": true,
+  "priorCandidateAcceptance": "rejected-by-mainline",
+  "priorReportHistoricalStatus": "passed",
+  "reason": "Candidate4 contained confirmed KCC/kinematic contact defect; its fixed-gate substitute was not accepted as final M2 evidence.",
+  "before": {
+    "kind": "kinematic",
+    "port": 4323,
+    "contact": [
+      -0.00021846633171662688,
+      0.7094889879226685,
+      6.490097999572754
+    ],
+    "away": [
+      -0.00021846633171662688,
+      0.7094889879226685,
+      6.490097999572754
+    ],
+    "input": {
+      "held": [
+        "forward"
+      ],
+      "pressed": [],
+      "released": []
+    },
+    "errors": [],
+    "movedAway": false,
+    "checkExitCode": 0,
+    "cleanup": {
+      "exitCode": 0,
+      "stdout": "SUCCESS: The process with PID 43860 (child process of PID 35428) has been terminated.\r\nSUCCESS: The process with PID 35428 (child process of PID 41620) has been terminated.\r\nSUCCESS: The process with PID 41620 (child process of PID 26856) has been terminated.\r\n",
+      "stderr": ""
+    }
+  },
+  "after": {
+    "kind": "kinematic",
+    "port": 4323,
+    "contact": [
+      -0.000250811135629192,
+      0.7100692987442017,
+      6.49032735824585
+    ],
+    "away": [
+      -0.0006857066182419658,
+      0.7083682417869568,
+      0.8302536010742188
+    ],
+    "input": {
+      "held": [
+        "forward"
+      ],
+      "pressed": [],
+      "released": []
+    },
+    "errors": [],
+    "movedAway": true,
+    "checkExitCode": 0,
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "chromium-experimental-multi-draw-indirect",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "chromium-experimental-sampling-resource-table",
+        "chromium-experimental-timestamp-query-inside-passes",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "atomic-vec2u-min-max",
+        "subgroup-size-control",
+        "texture-compression-unaligned",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "primitive-index",
+        "texture-component-swizzle",
+        "subgroups"
+      ]
+    },
+    "backend": "WebGPUBackend",
+    "cleanup": {
+      "exitCode": 0,
+      "stdout": "SUCCESS: The process with PID 46312 (child process of PID 36396) has been terminated.\r\nSUCCESS: The process with PID 36396 (child process of PID 18340) has been terminated.\r\nSUCCESS: The process with PID 18340 (child process of PID 45312) has been terminated.\r\n",
+      "stderr": ""
+    }
+  },
+  "previousSource": "310d38ff51f423ec4d567191b118f47b83d8d3bd586852e8984169f2bd5f3c58",
+  "currentSource": "857f76bd1d85de6d0e05b8ce5b08a2009b7d74b5692f38dbda39ed76ca5d44a2",
+  "oldRecordsUnmodified": true,
+  "gameGateBody": "kinematic",
+  "fixedSubstituteUsed": false
+}

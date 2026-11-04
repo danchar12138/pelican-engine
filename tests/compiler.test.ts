@@ -1366,7 +1366,7 @@ test("compiler M1: runtime/schema additions, edits and removals invalidate proje
   assert.equal(
     initial.diagnostics.filter((d) => d.code === "TC_ENGINE_INPUT_MISSING")
       .length,
-    2,
+    3,
   );
   const hit = await compile();
   success(hit);
@@ -1447,4 +1447,128 @@ test("compiler M1: changing a version lock cannot reuse a previous successful ca
       .artifactState,
     "previous-success-not-current",
   );
+});
+
+const m2SceneGame = (
+  primaryScene: string,
+  gameProperties = `scenes: [second],
+  input: { move: ["ArrowUp", "W"] },
+  ui: [{ id: "health", kind: "bar", value: 0.75, width: 220, color: "#0f0" }],`,
+) => `
+import { defineGame, defineScene } from "@threecat/sdk";
+const first = defineScene(${primaryScene});
+const second = defineScene({ id: "second", entities: [{ id: "other" }] });
+export default defineGame({
+  id: "m2-game",
+  scene: first,
+  ${gameProperties}
+});
+`;
+
+test("compiler M2: resolves multiple scenes and fills SDK defaults while preserving IR v1", async (t) => {
+  const p = await project(
+    t,
+    m2SceneGame(`{
+      id: "first",
+      follow: { entity: "hero" },
+      entities: [{ id: "hero", character: { radius: 0.4, height: 1.8, speed: 3 } }]
+    }`),
+  );
+  const result = await p.compile();
+  success(result);
+  assert.equal(result.ir.version, 1);
+  assert.equal(result.ir.scene.id, "first");
+  assert.deepEqual(result.ir.scene.gravity, [0, -9.81, 0]);
+  assert.deepEqual(result.ir.scene.follow, {
+    entity: "hero",
+    distance: 5,
+    height: 2,
+    lookHeight: 1,
+    yaw: 0,
+    smoothing: 0.1,
+  });
+  assert.deepEqual(result.ir.scene.entities[0]!.character, {
+    radius: 0.4,
+    height: 1.8,
+    speed: 3,
+    jumpSpeed: 5,
+    gravity: 9.81,
+  });
+  assert.equal(result.ir.scenes?.[0]?.id, "second");
+  assert.equal(result.ir.scenes?.[0]?.entities[0]?.id, "other");
+  assert.deepEqual(result.ir.input, { move: ["ArrowUp", "W"] });
+  assert.equal(result.ir.ui?.[0]?.anchor, "top-left");
+  assert.equal(result.ir.ui?.[0]?.visible, true);
+});
+
+test("compiler M2: validates scene identity, local follow targets and parent cycles", async (t) => {
+  const duplicate = await project(
+    t,
+    m2SceneGame(`{ id: "first", entities: [] }`, `scenes: [first],`),
+  );
+  expectCode(await duplicate.compile(), "TC_DUPLICATE_ID");
+
+  const follow = await project(
+    t,
+    m2SceneGame(
+      `{ id: "first", follow: { entity: "elsewhere" }, entities: [] }`,
+    ),
+  );
+  expectCode(await follow.compile(), "TC_CAMERA_FOLLOW_ENTITY");
+
+  const parentCycle = await project(
+    t,
+    m2SceneGame(`{ id: "first", entities: [
+      { id: "a", parent: "b" }, { id: "b", parent: "a" }
+    ] }`),
+  );
+  expectCode(await parentCycle.compile(), "TC_SCENE_CYCLE");
+});
+
+test("compiler M2: rejects malformed input/UI and unreasonable physical dimensions", async (t) => {
+  const malformed = await project(
+    t,
+    m2SceneGame(
+      `{ id: "first", entities: [{ id: "hero", character: { radius: 1, height: 1, speed: 3 } }] }`,
+      `scenes: [second], input: { "": ["W"] }, ui: [{ id: "panel", kind: "text", width: 0, color: "not a color" }],`,
+    ),
+  );
+  const result = await malformed.compile();
+  assert.equal(result.success, false);
+  for (const code of [
+    "TC_CHARACTER_CAPSULE",
+    "TC_INPUT_ACTION",
+    "TC_SCHEMA_RANGE",
+    "TC_UI_COLOR",
+  ])
+    assert.ok(
+      result.diagnostics.some((diagnostic) => diagnostic.code === code),
+      code,
+    );
+});
+
+test("compiler M2: typed text input and world UI anchors preserve metadata and reject missing targets", async (t) => {
+  const p = await project(
+    t,
+    m2SceneGame(
+      '{id:"first",entities:[{id:"hero"}]}',
+      'ui:[{id:"name",kind:"input",text:"\\u4f60\\u597d",world:{entity:"hero"}}],',
+    ),
+  );
+  const result = await p.compile();
+  success(result);
+  assert.equal(result.ir.ui![0].kind, "input");
+  assert.deepEqual(result.ir.ui![0].world, {
+    entity: "hero",
+    offset: [0, 0, 0],
+    occlude: true,
+  });
+  const invalid = await project(
+    t,
+    m2SceneGame(
+      '{id:"first",entities:[]}',
+      'ui:[{id:"world",kind:"button",world:{entity:"missing"}}],',
+    ),
+  );
+  expectCode(await invalid.compile(), "TC_UI_WORLD_ENTITY");
 });

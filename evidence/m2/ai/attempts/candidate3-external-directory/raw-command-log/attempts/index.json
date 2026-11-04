@@ -1,0 +1,115 @@
+[
+  {
+    "command": "node -e const fs=require(fs),p=require(path),c=require(crypto);const root=threecat,out={};function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,e.name);if(e.isDirectory())walk(f);else out[f.replaceAll(\\,/)]=c.createHash(sha256).update(fs.readFileSync(f)).digest(hex);}}walk(root);fs.writeFileSync(report/engine-before.json,JSON.stringify(out,null,2));if(Object.keys(out).some(x=>x.split(/).includes(.git)))throw Error(git found);console.log(JSON.stringify({files:Object.keys(out).length,noGit:true}));",
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "baseline.stdout.txt",
+    "stderr": "baseline.stderr.txt"
+  },
+  {
+    "command": "powershell.exe -NoProfile -File .\\report\\replace-engine.ps1",
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "final-extract.stdout.txt",
+    "stderr": "final-extract.stderr.txt"
+  },
+  {
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\threecat\\threecat.ps1 setup --install-browser",
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "setup.stdout.txt",
+    "stderr": "setup.stderr.txt"
+  },
+  {
+    "command": "node report/gameplay.cjs",
+    "argv": [
+      "node",
+      "report/gameplay.cjs"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "gameplay.stdout.txt",
+    "stderr": "gameplay.stderr.txt"
+  },
+  {
+    "command": "node report/offline.cjs setup",
+    "argv": [
+      "node",
+      "report/offline.cjs",
+      "setup"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "offline-setup.stdout.txt",
+    "stderr": "offline-setup.stderr.txt"
+  },
+  {
+    "command": "node report/offline.cjs check",
+    "argv": [
+      "node",
+      "report/offline.cjs",
+      "check"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "offline-check.stdout.txt",
+    "stderr": "offline-check.stderr.txt"
+  },
+  {
+    "command": "node report/offline.cjs build",
+    "argv": [
+      "node",
+      "report/offline.cjs",
+      "build"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "offline-build.stdout.txt",
+    "stderr": "offline-build.stderr.txt"
+  },
+  {
+    "command": "node report/publish.cjs",
+    "argv": [
+      "node",
+      "report/publish.cjs"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "standalone-publish.stdout.txt",
+    "stderr": "standalone-publish.stderr.txt"
+  },
+  {
+    "command": "node report/offline.cjs setup",
+    "argv": [
+      "node",
+      "report/offline.cjs",
+      "setup"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "offline-setup-fixed.stdout.txt",
+    "stderr": "offline-setup-fixed.stderr.txt"
+  },
+  {
+    "command": "node report/publish.cjs",
+    "argv": [
+      "node",
+      "report/publish.cjs"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "standalone-publish-final.stdout.txt",
+    "stderr": "standalone-publish-final.stderr.txt"
+  },
+  {
+    "command": "node report/discover.cjs",
+    "argv": [
+      "node",
+      "report/discover.cjs"
+    ],
+    "exitCode": 1,
+    "expectedFailure": false,
+    "stdout": "discover.stdout.txt",
+    "stderr": "discover.stderr.txt"
+  }
+]

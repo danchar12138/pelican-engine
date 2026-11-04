@@ -1,0 +1,44 @@
+﻿**********************
+Windows PowerShell 脚本开始
+开始时间: 20261105014040
+用户名: DESKTOP-E5BNQKG\60459
+RunAs 用户: DESKTOP-E5BNQKG\60459
+配置名称: 
+计算机: DESKTOP-E5BNQKG (Microsoft Windows NT 10.0.26300.0)
+主机应用程序: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding=[Text.UTF8Encoding]::new($false)
+$ErrorActionPreference='Stop'
+if((Test-Path -LiteralPath '.\candidate5') -or (Test-Path -LiteralPath '.\report-candidate5')){throw 'Candidate5 directory already exists'}
+New-Item -ItemType Directory -Path '.\report-candidate5' | Out-Null
+Start-Transcript -LiteralPath '.\report-candidate5\bootstrap.txt'
+$archive='C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 4tJdcU\threecat-m2-input.zip'
+$hash=(Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+if($hash -ne '4d258d9140b3b5f2cc77770b1c2e714ecdaa3ed958af7e9324f5013bfa307deb'){throw 'Candidate5 archive hash mismatch'}
+Expand-Archive -LiteralPath $archive -DestinationPath '.\candidate5'
+Write-Output "Candidate5 verified archiveSHA $hash and extracted"
+$reuse=@('apply.cjs','run.cjs','gameplay.cjs','production.cjs','png-evidence.cjs','negative.cjs','deny-network.cjs','offline.cjs','publish.cjs','static-server.cjs','start-static.ps1','start-dev.ps1','verify-servers.cjs','cleanup.ps1','process-audit.ps1')
+foreach($name in $reuse){Copy-Item -LiteralPath (Join-Path '.\report-candidate4' $name) -Destination (Join-Path '.\report-candidate5' $name)}
+Stop-Transcript
+@'
+const fs=require('node:fs'),cp=require('node:child_process');
+for(const file of fs.readdirSync('report-candidate5')){if(!/\.(cjs|ps1)$/.test(file))continue;const path='report-candidate5/'+file,old=fs.readFileSync(path,'utf8'),next=old.replaceAll('candidate4','candidate5');if(next===old)continue;const patch='*** Begin Patch\n*** Update File: '+path+'\n@@\n'+old.split('\n').map(x=>'-'+x).join('\n')+'\n'+next.split('\n').map(x=>'+'+x).join('\n')+'\n*** End Patch';const r=cp.spawnSync('C:/Users/60459/.vscode/extensions/openai.chatgpt-26.1021.22027-win32-x64/bin/windows-x86_64/codex.exe',['--codex-run-as-apply-patch',patch],{encoding:'utf8'});if(r.status!==0)throw Error(r.stdout+r.stderr);console.log(r.stdout);}
+'@ | node
+Get-Content -Encoding UTF8 '.\candidate5\threecat\AGENTS.md' -TotalCount 24
+Get-Content -Encoding UTF8 '.\candidate5\threecat\docs\M2-USAGE.md' -TotalCount 34
+Get-Content -Encoding UTF8 '.\candidate5\threecat\docs\api\index.json' -TotalCount 12
+进程 ID: 35632
+PSVersion: 5.1.26100.9711
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9711
+BuildVersion: 10.0.26100.9711
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+已启动脚本，输出文件为 .\report-candidate5\bootstrap.txt
+Candidate5 verified archiveSHA 4d258d9140b3b5f2cc77770b1c2e714ecdaa3ed958af7e9324f5013bfa307deb and extracted
+**********************
+Windows PowerShell 脚本结束
+结束时间: 20261105014045
+**********************

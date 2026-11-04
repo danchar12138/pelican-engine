@@ -1,0 +1,10 @@
+{
+  "label": "04-offline-setup",
+  "command": "\"powershell.exe\" \"-NoProfile\" \"-ExecutionPolicy\" \"Bypass\" \"-File\" \".\\\\threecat.ps1\" \"setup\" \"--offline\"",
+  "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\threecat",
+  "started": "2026-11-04T17:44:16.830Z",
+  "ended": "2026-11-04T17:44:20.589Z",
+  "exitCode": 0,
+  "stdout": "04-offline-setup.stdout.txt",
+  "stderr": "04-offline-setup.stderr.txt"
+}

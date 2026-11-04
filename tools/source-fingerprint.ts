@@ -23,7 +23,11 @@ export async function sourceFingerprint(root: string) {
       if (info.isSymbolicLink()) continue;
       if (info.isDirectory()) await visit(file);
       else if (
-        /\.(ts|json|ps1|html|yml)$/.test(name) &&
+        (/\.(ts|json|ps1|html|yml|glb|gltf|png|jpe?g|webp|wav|ogg|mp3|ktx2|hdr|exr|bin|dat)$/i.test(
+          name,
+        ) ||
+          (path.relative(root, file).split(path.sep)[0] === "examples" &&
+            path.relative(root, file).split(path.sep).includes("assets"))) &&
         !name.endsWith("evidence.json")
       ) {
         const bytes = await readFile(file);

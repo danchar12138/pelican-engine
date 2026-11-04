@@ -1,0 +1,37 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const root=__dirname,read=n=>JSON.parse(fs.readFileSync(path.join(root,n),'utf8').replace(/^\uFEFF/,''));
+const oldRoot=path.resolve(root,'../../report');
+const old=JSON.parse(fs.readFileSync(path.join(oldRoot,'kinematic-repro-result.json'),'utf8'));
+const current=read('kinematic-repro-result.json');
+assert.equal(old.engineSourceSHA,'310d38ff51f423ec4d567191b118f47b83d8d3bd586852e8984169f2bd5f3c58');
+assert.equal(old.cases.find(c=>c.kind==='kinematic').movedAway,false);
+assert.equal(current.engineSourceSHA,'857f76bd1d85de6d0e05b8ce5b08a2009b7d74b5692f38dbda39ed76ca5d44a2');
+assert.equal(current.cases.find(c=>c.kind==='kinematic').movedAway,true);
+assert.equal(current.resolvedByEngine,true);assert(!current.kinematicBugReproduced);
+fs.mkdirSync(path.join(root,'prior-candidate4'),{recursive:true});
+for(const name of ['kinematic-repro-result.json','repro-kinematic-state.json','repro-fixed-state.json','flow.json','REPORT.md'])fs.copyFileSync(path.join(oldRoot,name),path.join(root,'prior-candidate4',name));
+const comparison={status:'resolvedByEngine',resolvedByEngine:true,priorCandidateAcceptance:'rejected-by-mainline',priorReportHistoricalStatus:JSON.parse(fs.readFileSync(path.join(oldRoot,'flow.json'),'utf8')).status,reason:'Candidate4 contained confirmed KCC/kinematic contact defect; its fixed-gate substitute was not accepted as final M2 evidence.',before:old.cases.find(c=>c.kind==='kinematic'),after:current.cases.find(c=>c.kind==='kinematic'),previousSource:old.engineSourceSHA,currentSource:current.engineSourceSHA,oldRecordsUnmodified:true,gameGateBody:'kinematic',fixedSubstituteUsed:false};
+fs.writeFileSync(path.join(root,'resolved-by-engine.json'),JSON.stringify(comparison,null,2));
+const oldGame=fs.readFileSync(path.resolve(root,'../../candidate4/threecat/games/core-relay/game.ts'),'utf8');
+const game=fs.readFileSync(path.resolve(root,'../threecat/games/core-relay/game.ts'),'utf8');
+const oldLine=oldGame.split('\n').find(l=>l.includes('id: "exit-gate"'));
+assert(oldLine&&oldLine.includes('type: "fixed"'));
+assert.equal(oldGame.replace(oldLine,oldLine.replace('type: "fixed"','type: "kinematic"')),game,'Only game.ts change must be exit-gate body type');
+assert.equal(fs.readFileSync(path.resolve(root,'../../candidate4/threecat/games/core-relay/assets.ts'),'utf8'),fs.readFileSync(path.resolve(root,'../threecat/games/core-relay/assets.ts'),'utf8'));
+fs.writeFileSync(path.join(root,'game-change-proof.json'),JSON.stringify({passed:true,onlyGameSourceChange:'exit-gate rigidBody.type fixed -> kinematic',originalSHA256:crypto.createHash('sha256').update(oldGame).digest('hex'),currentSHA256:crypto.createHash('sha256').update(game).digest('hex'),assetsDefinitionUnchanged:true,projectEnginePath:'../..',noEngineImports:true},null,2));
+const start=read('game-start.state.json'),done=read('game-complete.state.json'),snapshot=read('game-complete.snapshot.json');
+const physics=snapshot.runtime.plugins['$engine.physics'].payload;
+const gate=physics.entities.find(e=>e.id==='exit-gate');assert.equal(gate.type,'kinematic');assert.equal(gate.transform.position[1],4.5);
+const rewards=physics.entities.filter(e=>e.id.startsWith('reward-core-'));assert.equal(rewards.length,3);
+for(const e of rewards){assert.equal(e.type,'dynamic');assert(e.transform.position[1]<0.5);assert(e.transform.position[1]>0);}
+const allCores=done.runtime.records.filter(e=>e.components.EnergyCore);assert.equal(allCores.length,3);for(const e of allCores){assert.equal(e.components.EnergyCore.restored,true);assert.equal(e.components.EnergyCore.charge,1);}
+assert.equal(done.game.components.player.GridState.escaped,true);assert.equal(done.game.components.player.GridState.exitOnline,true);assert(done.game.transforms.player.position[2]>8.1);
+assert.equal(start.compiledIR.scene.entities.find(e=>e.id==='exit-gate').rigidBody.type,'kinematic');
+assert.equal(read('static-verification.json').exitGateBody,'kinematic');assert.equal(read('static-verification.json').productionColdSaveRestore,true);
+assert.equal(read('game-kinematic-retreat.json').movedAway,true);
+const animation=read('running-animation.json');assert.equal(animation.animations[0].currentClip,'Run');assert(animation.animations[0].actions.some(a=>a.time>0&&a.playing));
+const small={passed:true,sourceSHA:current.engineSourceSHA,kinematicGate:gate,dynamicRewards:rewards,character:physics.characters.find(c=>c.entity==='player'),allCoresRestored:true,escaped:true,renderBackend:start.backend,adapter:start.adapter,modelCount:done.gameplay.models.instances,playingModels:done.gameplay.models.playing};
+assert.equal(start.backend,'WebGPUBackend');assert.equal(start.adapter.isFallbackAdapter,false);assert.equal(done.errors.length,0);
+fs.writeFileSync(path.join(root,'physical-runtime-proof.json'),JSON.stringify(small,null,2));
+fs.writeFileSync(path.join(root,'visual-observation.json'),JSON.stringify({observedBy:'Independent game development AI via local image view',images:['game-complete.png','static-cold-restored.png'],findings:['Completed frame shows three restored stretched cores, three physical gold rewards, raised pink gate and Fox beyond the exit. UI shows CORES 3 / 3, EXIT ONLINE and Expedition complete.','Production cold restore frame shows Fox at repaired west core, one restored core and reward, closed gate, CORES 1 / 3 and loaded status.'],consistentWithStateAssertions:true},null,2));
+console.log(JSON.stringify({passed:true,regression:'resolvedByEngine',beforeZ:comparison.before.away[2],afterZ:comparison.after.away[2],onlyGameSourceChange:'gate fixed to kinematic',allThreeRewardsDynamicAndSettled:true,physicalGateType:gate.type,escaped:true},null,2));

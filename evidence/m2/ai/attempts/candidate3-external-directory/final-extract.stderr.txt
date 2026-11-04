@@ -1,0 +1,10 @@
+Resolve-Path : �Ҳ���·����C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 e8oeJn\threecat-m2-input.zip������Ϊ��
+·�������ڡ�
+����λ�� C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.p
+sm1:106 �ַ�: 36
++ ...     $pathsToProcess += Resolve-Path -LiteralPath $LiteralPath | Forea ...
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\60459\...at-m2-input.zip:String) [Resolve-Path], ItemNotFoundE 
+   xception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.ResolvePathCommand
+ 

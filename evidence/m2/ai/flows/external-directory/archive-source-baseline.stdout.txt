@@ -1,0 +1,17 @@
+{
+  "archiveSHA": "4d258d9140b3b5f2cc77770b1c2e714ecdaa3ed958af7e9324f5013bfa307deb",
+  "files": 195,
+  "changed": [
+    "docs/M2-REPORT.md",
+    "packages/physics/index.ts",
+    "packages/physics/README.md",
+    "tests/physics.test.ts",
+    "tools/verify-m2.ts",
+    "examples/physics-risk/game.ts",
+    "examples/physics-risk/README.md",
+    "examples/physics-risk/threecat.project.json",
+    "tools/m2-physics-probe.ts"
+  ],
+  "candidate4ReportFiles": 178,
+  "gameSourceUnchanged": true
+}

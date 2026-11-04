@@ -16,13 +16,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import { promisify } from "node:util";
-import { inflateRawSync } from "node:zlib";
+import { inflateRawSync, gunzipSync } from "node:zlib";
+import { compressDist } from "../tools/compress-dist.ts";
+import ts from "typescript";
 import {
   checkRelease,
   packRelease,
   releaseCli,
   REQUIRED_CHECKS,
   M1_REQUIRED_CHECKS,
+  M2_REQUIRED_CHECKS,
   M0_VERSION,
   type ReleaseManifest,
 } from "../tools/release.ts";
@@ -662,8 +665,8 @@ const M1_FIXTURE_VERSION = "0.1.0-m1.0";
 async function readJson(root: string, name: string) {
   return JSON.parse(await readFile(path.join(root, name), "utf8"));
 }
-async function refreshIdentity(root: string) {
-  const file = "evidence/m1/acceptance.json";
+async function refreshIdentity(root: string, milestone = "m1") {
+  const file = `evidence/${milestone}/acceptance.json`;
   const report = await readJson(root, file);
   report.sourceIdentity = await sourceFingerprint(root);
   await putJson(root, file, report);
@@ -973,7 +976,7 @@ test("M1 refuses to replace missing or empty root dist with nested builds", asyn
 test("future milestones need explicit scopes and implemented profiles; M8 cannot self-declare a full release", async () => {
   const root = await m1Fixture();
   const manifest = await readJson(root, "engine.manifest.json");
-  for (let stage = 2; stage <= 8; stage++) {
+  for (let stage = 3; stage <= 8; stage++) {
     const milestone = `M${stage}`;
     await putJson(root, "engine.manifest.json", {
       ...manifest,
@@ -1031,4 +1034,645 @@ test("manifest version drives patch release names; a flag cannot promote M1 to a
     `threecat-${version}-manifest.json`,
   );
   assert.equal(manifest.prerelease, true);
+});
+
+const M2_FIXTURE_VERSION = "0.2.0-m2.0";
+// File mapping mirrors verify-m2, especially text reports and shared compiler proof.
+const M2_EVIDENCE: Record<string, string[]> = {
+  environment: ["evidence/m2/environment.json"],
+  typecheck: ["evidence/m2/typecheck.txt"],
+  "unit-tests": ["evidence/m2/unit-tests.txt"],
+  compiler: ["evidence/m2/compiler.json", "docs/api/index.json"],
+  assets: ["evidence/m2/assets.json", "evidence/m2/asset-tests.txt"],
+  physics: ["evidence/m2/physics-tests.txt"],
+  runtime: ["evidence/m2/runtime-tests.txt"],
+  "ui-prototype": [
+    "evidence/m2/ui-prototype.json",
+    "evidence/m2/ui-world-occluded.png",
+    "evidence/m2/ui-composition.png",
+    "evidence/m2/ui-focus-world.png",
+  ],
+  "dev-server": ["evidence/m2/compiler.json"],
+  protocol: ["evidence/m2/protocol.json", "evidence/m2/control.png"],
+  unattended: ["evidence/m2/unattended.json"],
+  render: [
+    "evidence/m2/render.json",
+    "evidence/m2/journey.json",
+    "evidence/m2/first-relic.png",
+    "evidence/m2/all-relics.png",
+    "evidence/m2/sanctuary.png",
+  ],
+  deploy: ["evidence/m2/deploy.json", "evidence/m2/dist.png"],
+  "ai-workflow": ["evidence/m2/ai-workflow.json"],
+  "source-freeze": ["evidence/m2/compiler.json"],
+};
+const M2_ASSET_NOTICES = {
+  format: "threecat.asset-notices",
+  version: 1,
+  assets: [
+    {
+      id: "model",
+      path: "assets/model.glb",
+      license: "CC-BY-4.0",
+      attribution: "Synthetic asset author; rule test only",
+      source: "synthetic model",
+    },
+    {
+      id: "chime",
+      path: "assets/chime.wav",
+      license: "MIT",
+      source: "synthetic PCM",
+    },
+  ],
+};
+async function m2Fixture() {
+  const root = await m1Fixture();
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    "engine.manifest.json",
+  ]) {
+    const data = await readJson(root, file);
+    data.version = M2_FIXTURE_VERSION;
+    if (file === "package-lock.json")
+      data.packages[""].version = M2_FIXTURE_VERSION;
+    if (file === "engine.manifest.json") {
+      data.milestone = "M2";
+      data.releaseScope = "playable-game-slice";
+      data.prerelease = false; // A manifest flag cannot promote the milestone.
+    }
+    await putJson(root, file, data);
+  }
+  await put(
+    root,
+    "examples/m2/assets/model.glb",
+    Buffer.from([0x67, 0x6c, 0x54, 0x46, 0, 1]),
+  );
+  await put(
+    root,
+    "examples/m2/assets/chime.wav",
+    Buffer.from([0x52, 0x49, 0x46, 0x46, 0, 1]),
+  );
+  for (const file of new Set(Object.values(M2_EVIDENCE).flat())) {
+    if (file.endsWith(".json")) await putJson(root, file, { fixture: true });
+    else
+      await put(
+        root,
+        file,
+        "SYNTHETIC RULE TEST ONLY; not measured evidence.\n",
+      );
+  }
+  await putJson(root, "evidence/m2/render.json", {
+    fixture: true,
+    passed: true,
+    initial: await readJson(root, "evidence/m0/render.json"),
+  });
+  // Content follows actual verifier envelopes; no invented dev-server/source-freeze reports.
+  await putJson(root, "evidence/m2/compiler.json", {
+    format: "threecat.build-report",
+    version: 1,
+    success: true,
+    engineVersion: M2_FIXTURE_VERSION,
+    diagnostics: [],
+    fixture: true,
+  });
+  await putJson(root, "evidence/m2/deploy.json", {
+    passed: true,
+    base: "/games/m2/",
+    hooks: { control: "undefined", failure: "undefined" },
+    score: "Relics 1 / 3   Hearts 3 / 3",
+    errors: [],
+    fixture: true,
+  });
+  await put(
+    root,
+    "dist/THREE-LICENSE.txt",
+    "Synthetic Three.js license fixture; no dependency code bundled.",
+  );
+  await put(
+    root,
+    "dist/RAPIER-LICENSE.txt",
+    "Synthetic Rapier license fixture; no dependency code bundled.",
+  );
+  await put(
+    root,
+    "dist/THIRDPARTY-NOTICES.txt",
+    "Synthetic runtime notice; rule test only.\n" +
+      JSON.stringify(M2_ASSET_NOTICES.assets),
+  );
+  await putJson(root, "dist/generated/asset-notices.json", M2_ASSET_NOTICES);
+  await putJson(root, "evidence/m2/acceptance.json", {
+    protocolVersion: "0.1.0",
+    engineVersion: M2_FIXTURE_VERSION,
+    milestone: "M2",
+    scope: "playable-game-slice",
+    status: "passed",
+    checks: Object.entries(M2_EVIDENCE).map(([id, evidence]) => ({
+      id,
+      status: "passed",
+      evidence,
+    })),
+    limitations: [
+      "SYNTHETIC RULE TEST ONLY; not measured GPU or completed M2 evidence.",
+      "M2 game slice is not a complete engine; M3-M8 capabilities remain incomplete.",
+      "Textured GLB uses raster; full material hybrid/path tracing belongs to M3.",
+      "Synthetic scope boundary carried unchanged from acceptance.",
+    ],
+  });
+  await refreshIdentity(root, "m2");
+  return root;
+}
+
+test("M2 gate profile stays aligned with the implemented verifier", async () => {
+  const verifier = await readFile(
+    path.resolve(import.meta.dirname, "../tools/verify-m2.ts"),
+    "utf8",
+  );
+  const source = ts.createSourceFile(
+    "verify-m2.ts",
+    verifier,
+    ts.ScriptTarget.Latest,
+  );
+  const actual: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "check" &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0])
+    )
+      actual.push(node.arguments[0].text);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.deepEqual(M2_REQUIRED_CHECKS, actual);
+  assert.deepEqual(Object.keys(M2_EVIDENCE), actual);
+});
+
+test("M2 check and fixture pack use manifest version, game-slice scope and acceptance limitations", async () => {
+  const root = await m2Fixture();
+  const report = await readJson(root, "evidence/m2/acceptance.json");
+  const checked = await checkRelease({ projectRoot: root });
+  assert.equal(checked.status, "succeeded", JSON.stringify(checked));
+  assert.equal(checked.taskId, "M2-release");
+  assert.equal(checked.data!.scope, "playable-game-slice");
+  assert.equal(checked.data!.prerelease, true);
+  assert.deepEqual(
+    checked.data!.checks.map((c) => c.id),
+    M2_REQUIRED_CHECKS,
+  );
+  assert.deepEqual(checked.data!.limitations, report.limitations);
+  assert.equal(
+    checked.data!.sourceIdentity!.sha256,
+    report.sourceIdentity.sha256,
+  );
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+  const packed = await packRelease({ projectRoot: root });
+  assert.equal(packed.status, "succeeded", JSON.stringify(packed));
+  assert.equal(packed.taskId, "M2-release");
+  assert.equal(packed.data!.directory, `release/v${M2_FIXTURE_VERSION}`);
+  const directory = path.join(root, packed.data!.directory),
+    prefix = `threecat-${M2_FIXTURE_VERSION}`;
+  const manifest: ReleaseManifest = await readJson(
+    directory,
+    `${prefix}-manifest.json`,
+  );
+  assert.equal(manifest.engineVersion, M2_FIXTURE_VERSION);
+  assert.equal(manifest.milestone, "M2");
+  assert.equal(manifest.scope, "playable-game-slice");
+  assert.equal(manifest.prerelease, true);
+  for (const archive of manifest.archives) {
+    const bytes = await readFile(path.join(directory, archive.path));
+    assert.equal(sha(bytes), archive.sha256);
+    const entries = unzip(bytes);
+    assert.equal(entries.size, archive.entries.length);
+    for (const entry of archive.entries) {
+      assert.equal(entries.get(entry.path)!.length, entry.bytes);
+      assert.equal(sha(entries.get(entry.path)!), entry.sha256);
+    }
+  }
+  const source = unzip(
+    await readFile(path.join(directory, `${prefix}-source.zip`)),
+  );
+  for (const name of [
+    "evidence/m2/acceptance.json",
+    "examples/m2/assets/model.glb",
+    "examples/m2/assets/chime.wav",
+  ])
+    assert.ok(source.has(`${prefix}/${name}`));
+  const dist = unzip(
+    await readFile(path.join(directory, `${prefix}-dist.zip`)),
+  );
+  for (const name of [
+    "THREE-LICENSE.txt",
+    "RAPIER-LICENSE.txt",
+    "THIRDPARTY-NOTICES.txt",
+    "generated/asset-notices.json",
+  ])
+    assert.deepEqual(
+      dist.get(name),
+      await readFile(path.join(root, "dist", name)),
+    );
+  const evidence = await readJson(directory, `${prefix}-evidence.json`);
+  assert.deepEqual(evidence.limitations, report.limitations);
+  assert.equal(evidence.sourceIdentity.sha256, report.sourceIdentity.sha256);
+  assert.ok(evidence.evidenceFiles.length > 0);
+  assert.ok(
+    evidence.evidenceFiles.every((file: { path: string }) =>
+      file.path.startsWith("evidence/m2/"),
+    ),
+  );
+  const notes = await readFile(
+    path.join(directory, "RELEASE_NOTES.md"),
+    "utf8",
+  );
+  assert.match(notes, /M2 playable-game-slice/);
+  assert.match(notes, /not a complete game engine/);
+  assert.match(notes, /Textured GLB content currently uses raster/);
+  assert.match(notes, /M3-M8 capabilities are not complete/);
+  assert.doesNotMatch(notes, /M1 runtime-foundation|M1 foundation/);
+  for (const limitation of report.limitations)
+    assert.ok(notes.includes(limitation));
+  for (const line of (
+    await readFile(path.join(directory, "SHA256SUMS"), "utf8")
+  )
+    .trim()
+    .split("\n")) {
+    const [expected, name] = line.split("  ");
+    assert.equal(sha(await readFile(path.join(directory, name!))), expected);
+  }
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_OUTPUT_EXISTS");
+});
+
+test("M2 never substitutes M0/M1 acceptance or runtime-foundation scope", async () => {
+  const root = await m2Fixture(),
+    manifest = await readJson(root, "engine.manifest.json");
+  for (const releaseScope of [
+    undefined,
+    "runtime-foundation",
+    "risk-prototypes",
+    "complete-engine",
+  ]) {
+    await putJson(root, "engine.manifest.json", { ...manifest, releaseScope });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_RELEASE_SCOPE");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_RELEASE_SCOPE");
+  }
+  await putJson(root, "engine.manifest.json", manifest);
+  const report = await readJson(root, "evidence/m2/acceptance.json");
+  for (const change of [
+    { scope: "runtime-foundation" },
+    { scope: "complete-engine" },
+    { milestone: "M1" },
+  ]) {
+    await putJson(root, "evidence/m2/acceptance.json", {
+      ...report,
+      ...change,
+    });
+    hasCode(
+      await checkRelease({ projectRoot: root }),
+      "TCREL_ACCEPTANCE_SCOPE",
+    );
+  }
+  await rm(path.join(root, "evidence/m2/acceptance.json"));
+  hasCode(
+    await checkRelease({ projectRoot: root }),
+    "TCREL_ACCEPTANCE_MISSING",
+  );
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_ACCEPTANCE_MISSING");
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("every M2 gate is mandatory and failed, skipped, pending, absent or duplicate status blocks release", async () => {
+  const root = await m2Fixture(),
+    report = await readJson(root, "evidence/m2/acceptance.json");
+  for (const id of M2_REQUIRED_CHECKS) {
+    await putJson(root, "evidence/m2/acceptance.json", {
+      ...report,
+      checks: report.checks.filter((c: { id: string }) => c.id !== id),
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_CHECKS");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_CHECKS");
+    for (const status of ["failed", "skipped", "pending", undefined]) {
+      await putJson(root, "evidence/m2/acceptance.json", {
+        ...report,
+        checks: report.checks.map((c: { id: string }) =>
+          c.id === id ? { ...c, status } : c,
+        ),
+      });
+      hasCode(await checkRelease({ projectRoot: root }), "TCREL_CHECK_STATUS");
+    }
+  }
+  await putJson(root, "evidence/m2/acceptance.json", {
+    ...report,
+    checks: [...report.checks, report.checks[0]],
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_CHECKS");
+  await putJson(root, "evidence/m2/acceptance.json", {
+    ...report,
+    status: "failed",
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_ACCEPTANCE_STATUS");
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("M2 needs current source identity and rejects stale executable, GLB and WAV bytes", async () => {
+  const root = await m2Fixture(),
+    report = await readJson(root, "evidence/m2/acceptance.json");
+  for (const sourceIdentity of [undefined, {}, { sha256: "INVALID" }]) {
+    await putJson(root, "evidence/m2/acceptance.json", {
+      ...report,
+      sourceIdentity,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_SOURCE_IDENTITY");
+  }
+  await putJson(root, "evidence/m2/acceptance.json", {
+    ...report,
+    sourceIdentity: { sha256: "0".repeat(64) },
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_EVIDENCE_STALE");
+  await putJson(root, "evidence/m2/acceptance.json", report);
+  for (const name of [
+    "packages/shared/src/index.ts",
+    "examples/m2/assets/model.glb",
+    "examples/m2/assets/chime.wav",
+  ]) {
+    const original = await readFile(path.join(root, name)),
+      altered = Buffer.from(original);
+    altered[altered.length - 1] = altered[altered.length - 1]! ^ 1;
+    await put(root, name, altered);
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_EVIDENCE_STALE");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_EVIDENCE_STALE");
+    await put(root, name, original);
+    assert.equal(
+      (await checkRelease({ projectRoot: root })).status,
+      "succeeded",
+    );
+  }
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("M2 package, both lock roots, manifest and acceptance versions cannot drift", async () => {
+  const root = await m2Fixture();
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    "engine.manifest.json",
+  ]) {
+    const original = await readJson(root, file);
+    await putJson(root, file, { ...original, version: "0.2.1-m2.0" });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_VERSION");
+    await putJson(root, file, original);
+  }
+  const lock = await readJson(root, "package-lock.json");
+  await putJson(root, "package-lock.json", {
+    ...lock,
+    packages: { "": { version: M1_FIXTURE_VERSION } },
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_VERSION");
+  await putJson(root, "package-lock.json", lock);
+  const report = await readJson(root, "evidence/m2/acceptance.json");
+  for (const change of [
+    { engineVersion: undefined },
+    { engineVersion: M1_FIXTURE_VERSION },
+    { version: M1_FIXTURE_VERSION },
+  ]) {
+    await putJson(root, "evidence/m2/acceptance.json", {
+      ...report,
+      ...change,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_VERSION");
+  }
+});
+
+test("M2 patch filenames remain manifest-driven and cannot be promoted by prerelease false", async () => {
+  const root = await m2Fixture(),
+    version = "0.2.7-m2.4";
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    "engine.manifest.json",
+  ]) {
+    const data = await readJson(root, file);
+    data.version = version;
+    if (file === "package-lock.json") data.packages[""].version = version;
+    await putJson(root, file, data);
+  }
+  const report = await readJson(root, "evidence/m2/acceptance.json");
+  await putJson(root, "evidence/m2/acceptance.json", {
+    ...report,
+    engineVersion: version,
+  });
+  await refreshIdentity(root, "m2");
+  const result = await packRelease({ projectRoot: root });
+  assert.equal(result.status, "succeeded", JSON.stringify(result));
+  assert.equal(result.data!.directory, `release/v${version}`);
+  assert.equal(result.data!.prerelease, true);
+  const manifest = await readJson(root, result.data!.manifest);
+  assert.equal(manifest.engineVersion, version);
+  assert.equal(manifest.prerelease, true);
+  assert.deepEqual(
+    manifest.archives.map((a: { path: string }) => a.path),
+    [`threecat-${version}-source.zip`, `threecat-${version}-dist.zip`],
+  );
+});
+
+test("M2 rejects software adapters and render text that lacks actual WebGPU adapter fields", async () => {
+  const root = await m2Fixture();
+  for (const adapter of [
+    { vendor: "fixture", isFallbackAdapter: true },
+    { vendor: "Google", description: "SwiftShader", isFallbackAdapter: false },
+    { vendor: "Mesa", description: "llvmpipe", isFallbackAdapter: false },
+    { vendor: "Microsoft", description: "WARP", isFallbackAdapter: false },
+    { vendor: "fixture", isFallbackAdapter: false, hardware: false },
+  ]) {
+    await putJson(root, "evidence/m2/render.json", {
+      passed: true,
+      initial: { backend: "WebGPUBackend", adapter },
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_GPU_SOFTWARE");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_GPU_SOFTWARE");
+  }
+  for (const initial of [
+    { passed: true },
+    { backend: "WebGPUBackend", adapter: { vendor: "fixture" } },
+    {
+      backend: "WebGLBackend",
+      adapter: { vendor: "fixture", isFallbackAdapter: false },
+    },
+  ]) {
+    await putJson(root, "evidence/m2/render.json", { passed: true, initial });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_GPU_EVIDENCE");
+  }
+});
+
+test("M2 evidence paths must exist, remain nonempty and cannot cite acceptance", async () => {
+  const root = await m2Fixture(),
+    report = await readJson(root, "evidence/m2/acceptance.json");
+  for (const [evidence, code] of [
+    [[], "TCREL_EVIDENCE_FILES"],
+    [["evidence/m2/missing.json"], "TCREL_EVIDENCE_MISSING"],
+    [["evidence/m2/acceptance.json"], "TCREL_EVIDENCE_FILES"],
+    [["../outside.json"], "TCREL_PATH"],
+  ] as const) {
+    await putJson(root, "evidence/m2/acceptance.json", {
+      ...report,
+      checks: report.checks.map((c: { id: string }) =>
+        c.id === "ai-workflow" ? { ...c, evidence } : c,
+      ),
+    });
+    hasCode(await checkRelease({ projectRoot: root }), code);
+  }
+  await putJson(root, "evidence/m2/acceptance.json", report);
+  for (const file of [
+    "evidence/m2/typecheck.txt",
+    "evidence/m2/physics-tests.txt",
+    "evidence/m2/dist.png",
+  ]) {
+    const original = await readFile(path.join(root, file));
+    await put(root, file, "");
+    hasCode(
+      await checkRelease({ projectRoot: root }),
+      "TCREL_EVIDENCE_MISSING",
+    );
+    await rm(path.join(root, file));
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_EVIDENCE_MISSING");
+    await put(root, file, original);
+  }
+});
+
+test("M2 requires both dependency licenses and asset notices without creating replacements", async () => {
+  const root = await m2Fixture();
+  for (const [name, code] of [
+    ["THREE-LICENSE.txt", "TCREL_LICENSE"],
+    ["RAPIER-LICENSE.txt", "TCREL_LICENSE"],
+    ["THIRDPARTY-NOTICES.txt", "TCREL_NOTICE"],
+    ["generated/asset-notices.json", "TCREL_NOTICE"],
+  ]) {
+    const file = `dist/${name}`,
+      original = await readFile(path.join(root, file));
+    for (const content of ["", " \n\t"]) {
+      await put(root, file, content);
+      hasCode(await checkRelease({ projectRoot: root }), code!);
+      hasCode(await packRelease({ projectRoot: root }), code!);
+    }
+    await rm(path.join(root, file));
+    hasCode(await checkRelease({ projectRoot: root }), code!);
+    hasCode(await packRelease({ projectRoot: root }), code!);
+    await assert.rejects(lstat(path.join(root, file)), { code: "ENOENT" });
+    await put(root, file, original);
+  }
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("M2 asset notice validation matches compiler format and retains nullable licenses", async () => {
+  const root = await m2Fixture(),
+    file = "dist/generated/asset-notices.json";
+  for (const value of [
+    {},
+    { ...M2_ASSET_NOTICES, format: "wrong" },
+    { ...M2_ASSET_NOTICES, version: 2 },
+    { ...M2_ASSET_NOTICES, assets: {} },
+    { ...M2_ASSET_NOTICES, assets: [null] },
+    {
+      ...M2_ASSET_NOTICES,
+      assets: [{ id: "model", path: "assets/model.glb" }],
+    },
+    {
+      ...M2_ASSET_NOTICES,
+      assets: [{ id: "model", path: "assets/model.glb", license: " " }],
+    },
+    {
+      ...M2_ASSET_NOTICES,
+      assets: [{ ...M2_ASSET_NOTICES.assets[0], attribution: 42 }],
+    },
+  ]) {
+    await putJson(root, file, value);
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_NOTICE");
+  }
+  await put(root, file, "{broken");
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_JSON");
+  await putJson(root, file, {
+    ...M2_ASSET_NOTICES,
+    assets: [{ id: "unknown", path: "assets/unknown.glb", license: null }],
+  });
+  assert.equal((await checkRelease({ projectRoot: root })).status, "succeeded");
+  await putJson(root, file, { ...M2_ASSET_NOTICES, assets: [] });
+  assert.equal((await checkRelease({ projectRoot: root })).status, "succeeded");
+});
+
+test("M2 requires acceptance limitations, the supported protocol and a nonempty root dist", async () => {
+  const root = await m2Fixture();
+  const report = await readJson(root, "evidence/m2/acceptance.json");
+  for (const limitations of [undefined, [], [" "], [42]]) {
+    await putJson(root, "evidence/m2/acceptance.json", {
+      ...report,
+      limitations,
+    });
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_LIMITATIONS");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_LIMITATIONS");
+  }
+  await putJson(root, "evidence/m2/acceptance.json", {
+    ...report,
+    protocolVersion: "9.0.0",
+  });
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_PROTOCOL");
+  await putJson(root, "evidence/m2/acceptance.json", report);
+  await put(root, "examples/game/dist/index.html", "wrong nested build");
+  await refreshIdentity(root, "m2");
+  await rm(path.join(root, "dist/index.html"));
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST");
+  hasCode(await packRelease({ projectRoot: root }), "TCREL_DIST");
+  await put(root, "dist/index.html", "");
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST");
+  await assert.rejects(lstat(path.join(root, "release")), { code: "ENOENT" });
+});
+
+test("M2 archive retains negotiated compressed runtime files and rejects missing, stale or inconsistent encodings", async () => {
+  const root = await m2Fixture();
+  await put(
+    root,
+    "dist/assets/runtime.js",
+    "const vertices=" + JSON.stringify("mesh ".repeat(2000)) + ";",
+  );
+  const report = await compressDist(path.join(root, "dist"));
+  const entry = report.entries.find(
+    (item) => item.path === "assets/runtime.js",
+  )!;
+  assert.ok(entry.encodings.gz);
+  const original = await readFile(path.join(root, "dist/assets/runtime.js.gz"));
+  const manifest = await readJson(root, "dist/compression-manifest.json");
+  assert.equal((await checkRelease({ projectRoot: root })).status, "succeeded");
+  await rm(path.join(root, "dist/assets/runtime.js.gz"));
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST_COMPRESSION");
+  await put(root, "dist/assets/runtime.js.gz", original);
+  await put(root, "dist/assets/runtime.js.gz", Buffer.from("bad gzip"));
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST_COMPRESSION");
+  await put(root, "dist/assets/runtime.js.gz", original);
+  const bad = structuredClone(manifest);
+  bad.entries.find((item: any) => item.path === "assets/runtime.js").encodings
+    .gz.bytes++;
+  await putJson(root, "dist/compression-manifest.json", bad);
+  hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST_COMPRESSION");
+  await putJson(root, "dist/compression-manifest.json", manifest);
+  const packed = await packRelease({ projectRoot: root });
+  assert.equal(packed.status, "succeeded", JSON.stringify(packed));
+  const archive = unzip(
+    await readFile(
+      path.join(
+        root,
+        packed.data!.directory,
+        "threecat-" + M2_FIXTURE_VERSION + "-dist.zip",
+      ),
+    ),
+  );
+  const name =
+    [...archive.keys()].find((file) =>
+      file.endsWith("/assets/runtime.js.gz"),
+    ) ?? [...archive.keys()].find((file) => file === "assets/runtime.js.gz");
+  assert.ok(name);
+  assert.deepEqual(
+    gunzipSync(archive.get(name)!),
+    await readFile(path.join(root, "dist/assets/runtime.js")),
+  );
 });

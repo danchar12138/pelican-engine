@@ -1,0 +1,78 @@
+﻿**********************
+Windows PowerShell 脚本开始
+开始时间: 20261105000431
+用户名: DESKTOP-E5BNQKG\60459
+RunAs 用户: DESKTOP-E5BNQKG\60459
+配置名称: 
+计算机: DESKTOP-E5BNQKG (Microsoft Windows NT 10.0.26300.0)
+主机应用程序: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding=[Text.UTF8Encoding]::new($false)
+$flow=Join-Path (Get-Location) 'flow-external'
+if(Test-Path -LiteralPath $flow){throw 'flow-external already exists; refusing reuse'}
+New-Item -ItemType Directory -Path "$flow\report" | Out-Null
+Start-Transcript -LiteralPath "$flow\report\bootstrap.txt"
+$zip=Join-Path (Get-Location) 'threecat-m2-input.zip'
+$hash=(Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
+if($hash -ne '45f992ee1bd7ac2c48be1e6ffa17655cfee792e75532a3f07faa983a3a8c3f96'){throw 'ZIP hash mismatch'}
+Write-Output "ZIP SHA256 $hash"
+Expand-Archive -LiteralPath $zip -DestinationPath $flow
+Get-ChildItem -LiteralPath $flow -Force
+Get-ChildItem -LiteralPath $flow -Filter AGENTS.md -Recurse | Select-Object FullName
+Get-ChildItem -LiteralPath $flow -Filter '*M2*' -Recurse | Select-Object FullName
+Stop-Transcript
+进程 ID: 4236
+PSVersion: 5.1.26100.9711
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9711
+BuildVersion: 10.0.26100.9711
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+已启动脚本，输出文件为 C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\report\bootstrap.txt
+ZIP SHA256 45f992ee1bd7ac2c48be1e6ffa17655cfee792e75532a3f07faa983a3a8c3f96
+
+
+    目录: C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----         2026/11/5      0:04                report
+d-----         2026/11/5      0:04                threecat
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\AGENTS.md
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\docs\M2-REPORT.md
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\docs\M2-USAGE.md
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\docs\releases\M2.md
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\docs\tasks\M2.md
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\examples\m2
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\tools\m2-browser-probe.ts
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\tools\m2-deploy-probe.ts
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\tools\m2-performance-prob
+           e.ts
+
+
+FullName : C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\threecat\tools\verify-m2.ts
+
+**********************
+Windows PowerShell 脚本结束
+结束时间: 20261105000433
+**********************

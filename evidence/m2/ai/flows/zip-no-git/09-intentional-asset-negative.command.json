@@ -1,0 +1,11 @@
+{
+  "label": "09-intentional-asset-negative",
+  "command": "\"powershell.exe\" \"-NoProfile\" \"-ExecutionPolicy\" \"Bypass\" \"-File\" \".\\\\threecat.ps1\" \"check\" \"--project\" \".\\\\games\\\\core-relay\"",
+  "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\threecat",
+  "started": "2026-11-04T17:46:11.625Z",
+  "ended": "2026-11-04T17:46:13.144Z",
+  "exitCode": 1,
+  "expectedFailure": true,
+  "stdout": "09-intentional-asset-negative.stdout.txt",
+  "stderr": "09-intentional-asset-negative.stderr.txt"
+}

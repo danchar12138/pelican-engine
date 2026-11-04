@@ -1,5 +1,5 @@
 /** threecat public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.1.0-m1.0";
+export const SDK_VERSION = "0.2.0-m2.0";
 export type Vec3 = readonly [number, number, number];
 export interface Transform {
   position: Vec3;
@@ -61,6 +61,7 @@ export interface EntityHandle {
 export type EntityRef = string | EntityHandle;
 export interface SpawnInput {
   id: string;
+  prefab?: string;
   parent?: string;
   transform?: TransformPatch;
   components?: Record<string, ComponentData>;
@@ -102,6 +103,134 @@ export interface SystemContext extends EngineFacade {
   random(): number;
   emit(type: string, payload: unknown): void;
   events(type?: string): readonly GameEvent[];
+  readonly input: InputService;
+  readonly physics: PhysicsService;
+  readonly animation: AnimationService;
+  readonly camera: CameraService;
+  readonly ui: UIService;
+  readonly audio: AudioService;
+  readonly storage: StorageService;
+  readonly scenes: SceneService;
+}
+export interface InputService {
+  held(action: string): boolean;
+  pressed(action: string): boolean;
+  released(action: string): boolean;
+  axis(negative: string, positive: string): number;
+}
+export interface PhysicsService {
+  moveCharacter(entity: string, displacement: Vec3): void;
+  grounded(entity: string): boolean;
+  velocity(entity: string): Vec3;
+  setVelocity(entity: string, velocity: Vec3): void;
+  impulse(entity: string, impulse: Vec3): void;
+  raycast(
+    origin: Vec3,
+    direction: Vec3,
+    maxDistance: number,
+    options?: { exclude?: readonly string[]; includeTriggers?: boolean },
+  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;
+}
+export interface AnimationService {
+  play(
+    entity: string,
+    clip: string,
+    options?: { fade?: number; speed?: number; loop?: boolean },
+  ): void;
+  state(entity: string): {
+    clip: string | null;
+    time: number;
+    playing: boolean;
+  };
+}
+export interface CameraService {
+  follow(
+    entity: string,
+    options?: {
+      distance?: number;
+      height?: number;
+      lookHeight?: number;
+      yaw?: number;
+      smoothing?: number;
+    },
+  ): void;
+  orbit(yaw: number): void;
+}
+export interface UIService {
+  setText(id: string, text: string): void;
+  setProgress(id: string, value: number): void;
+  setVisible(id: string, visible: boolean): void;
+}
+export interface AudioService {
+  play(
+    id: string,
+    options?: { volume?: number; loop?: boolean; entity?: string },
+  ): string;
+  stop(voice: string): void;
+  volume(value: number): void;
+}
+export interface StorageService {
+  save(slot: string): void;
+  load(slot: string): void;
+  status(): {
+    state: "idle" | "saving" | "loading" | "saved" | "loaded" | "failed";
+    slot: string | null;
+    error: string | null;
+  };
+}
+export interface SceneService {
+  current(): string;
+  load(id: string): void;
+}
+export interface ModelDefinition {
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  asset: AssetDefinition | string;
+  scale?: number;
+  offset?: Vec3;
+  rotation?: Vec3;
+  animation?: { clip: string; speed?: number; loop?: boolean };
+}
+export interface RigidBodyDefinition {
+  type: "fixed" | "dynamic" | "kinematic";
+  collider: {
+    shape: "box" | "sphere" | "capsule";
+    size?: Vec3;
+    radius?: number;
+    halfHeight?: number;
+    offset?: Vec3;
+  };
+  mass?: number;
+  friction?: number;
+  restitution?: number;
+  trigger?: boolean;
+}
+export interface CharacterDefinition {
+  radius: number;
+  height: number;
+  speed: number;
+  jumpSpeed?: number;
+  /** Downward acceleration magnitude in world units/s^2; defaults to 9.81. Scene.gravity is a signed vector. */
+  gravity?: number;
+}
+export interface UIElementDefinition {
+  id: string;
+  kind: "text" | "bar" | "button" | "input";
+  text?: string;
+  value?: number;
+  visible?: boolean;
+  anchor?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
+  x?: number;
+  y?: number;
+  width?: number;
+  color?: string;
+  world?: { entity: string; offset?: Vec3; occlude?: boolean };
+}
+export interface SoundDefinition {
+  id: string;
+  asset: AssetDefinition | string;
+  volume?: number;
+  loop?: boolean;
 }
 export const SYSTEM_PHASES = [
   "input",
@@ -151,7 +280,10 @@ export interface ComputeDefinition extends ComputeInput {
 export interface AssetInput {
   id: string;
   path: string;
-  type: "texture" | "binary";
+  type: "texture" | "binary" | "model" | "audio";
+  source?: string;
+  license?: string;
+  attribution?: string;
 }
 export interface AssetDefinition extends AssetInput {
   readonly kind: "asset";
@@ -167,6 +299,15 @@ export interface LightDefinition {
   color?: string;
   intensity?: number;
   castShadow?: boolean;
+  target?: Vec3;
+  shadow?: {
+    mapSize?: number;
+    extent?: number;
+    bias?: number;
+    normalBias?: number;
+    near?: number;
+    far?: number;
+  };
 }
 export interface EntityInput {
   id: string;
@@ -175,6 +316,9 @@ export interface EntityInput {
   transform?: TransformPatch;
   mesh?: MeshDefinition;
   light?: LightDefinition;
+  model?: ModelDefinition;
+  rigidBody?: RigidBodyDefinition;
+  character?: CharacterDefinition;
   components?: readonly ComponentInstance[];
 }
 export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
@@ -192,7 +336,20 @@ export interface SceneInput {
     near?: number;
     far?: number;
   };
-  environment?: { background?: string; ambientIntensity?: number };
+  environment?: {
+    background?: string;
+    ambientIntensity?: number;
+    lighting?: "none" | "studio";
+  };
+  follow?: {
+    entity: string;
+    distance?: number;
+    height?: number;
+    lookHeight?: number;
+    yaw?: number;
+    smoothing?: number;
+  };
+  gravity?: Vec3;
   entities: readonly EntityInput[];
 }
 export interface SceneDefinition extends SceneInput {
@@ -220,6 +377,10 @@ export interface GameInput {
   materials?: readonly MaterialDefinition[];
   computes?: readonly ComputeDefinition[];
   assets?: readonly AssetDefinition[];
+  scenes?: readonly SceneDefinition[];
+  input?: Readonly<Record<string, readonly string[]>>;
+  ui?: readonly UIElementDefinition[];
+  sounds?: readonly SoundDefinition[];
 }
 export interface GameDefinition extends GameInput {
   readonly kind: "game";

@@ -19,11 +19,28 @@ import {
 import type { RuntimeWorld, WorldSnapshot } from "./contracts.ts";
 import type { RuntimeEvent } from "./events.ts";
 import { cloneSerializable } from "./random.ts";
+import { resolveEntityDefinition } from "./prefabs.ts";
 import { diagnosticFrom, type RuntimeDiagnostic } from "./error.ts";
+import type {
+  RuntimePlugin,
+  RuntimePluginFactory,
+  RuntimeServices,
+} from "./plugins.ts";
 
 export interface HostOptions {
   fixedDt?: number;
   seed?: number;
+  plugins?: readonly RuntimePluginFactory[];
+}
+export interface HostPluginSnapshot {
+  version?: string;
+  payload: unknown;
+}
+export interface HostTrace extends SchedulerTrace {
+  plugins?: {
+    initial: Record<string, HostPluginSnapshot>;
+    final: Record<string, HostPluginSnapshot>;
+  };
 }
 export interface HostSnapshot {
   format: "threecat.host";
@@ -31,6 +48,7 @@ export interface HostSnapshot {
   engineVersion: string;
   world: WorldSnapshot;
   scheduler: SchedulerSnapshot;
+  plugins?: Record<string, HostPluginSnapshot>;
 }
 
 function canonical(value: unknown): string {
@@ -67,7 +85,7 @@ export class RuntimeHost {
   readonly world: RuntimeWorld;
   readonly facade: SystemContext;
   readonly scene: SceneIR;
-  private scheduler: RuntimeScheduler;
+  private scheduler!: RuntimeScheduler;
   private systemIdentity?: readonly SystemDefinition[];
   private bindings: { run: SystemDefinition["run"]; contract: string }[] = [];
   private game?: GameInstance;
@@ -75,6 +93,9 @@ export class RuntimeHost {
   private released = false;
   private readonly fixedDt: number;
   private readonly seed: number;
+  private readonly plugins: RuntimePlugin[] = [];
+  private readonly services: Partial<RuntimeServices> = {};
+  private recordingPlugins?: Record<string, HostPluginSnapshot>;
 
   constructor(ir: SceneIR, options: HostOptions = {}) {
     if (ir.format !== "threecat.scene" || ir.version !== 1)
@@ -95,19 +116,49 @@ export class RuntimeHost {
       })),
       entities: ir.scene.entities.map((entity) => ({
         id: entity.id,
+        prefab: entity.prefab,
         parent: entity.parent,
         transform: entity.transform,
         components: entity.components as Record<string, ComponentData>,
       })),
     });
+    let createdScheduler: RuntimeScheduler | undefined;
     try {
-      this.scheduler = createScheduler({
+      createdScheduler = createScheduler({
         world: this.world,
         fixedDt: this.fixedDt,
         seed: this.seed,
       });
+      this.scheduler = createdScheduler;
+      for (const factory of options.plugins ?? []) {
+        const plugin = factory({
+          world: this.world,
+          scene: this.scene,
+          events: (type) => this.scheduler.events(type),
+          emit: (type, payload) =>
+            this.scheduler.emit(type, payload, { source: "system" }),
+        });
+        this.registerPlugin(plugin);
+      }
     } catch (error) {
+      const failures: string[] = [];
+      for (const plugin of [...this.plugins].reverse()) {
+        try {
+          plugin.dispose();
+        } catch (disposeError) {
+          failures.push(String(disposeError));
+        }
+      }
+      try {
+        createdScheduler?.dispose();
+      } catch (disposeError) {
+        failures.push(String(disposeError));
+      }
       this.world.dispose();
+      if (failures.length)
+        throw new Error(
+          `TC_PLUGIN_INIT: ${String(error)}; cleanup failures: ${failures.join("; ")}`,
+        );
       throw error;
     }
     const host = this;
@@ -153,6 +204,30 @@ export class RuntimeHost {
         this.assertAlive();
         return this.scheduler.events(type);
       },
+      get input() {
+        return host.service("input");
+      },
+      get physics() {
+        return host.service("physics");
+      },
+      get animation() {
+        return host.service("animation");
+      },
+      get camera() {
+        return host.service("camera");
+      },
+      get ui() {
+        return host.service("ui");
+      },
+      get audio() {
+        return host.service("audio");
+      },
+      get storage() {
+        return host.service("storage");
+      },
+      get scenes() {
+        return host.service("scenes");
+      },
       entities: {
         resolve: (entity) => this.world.resolve(entity),
         isAlive: (entity) => this.world.isAlive(entity),
@@ -162,7 +237,44 @@ export class RuntimeHost {
           this.world.getComponent(entity, component),
         setComponent: (entity, component, value) =>
           this.world.setComponent(entity, component, value),
-        spawn: (entity) => this.world.queue({ type: "spawn", entity }),
+        spawn: (entity) => {
+          const captured = cloneSerializable(entity);
+          if (captured.prefab !== undefined) {
+            const definition = this.scene.prefabs.find(
+              (entry) => entry.id === captured.prefab,
+            );
+            if (!definition)
+              throw new Error("TC_PREFAB_MISSING: " + captured.prefab);
+            this.world.queue({
+              type: "spawn",
+              entity: {
+                id: captured.id,
+                prefab: captured.prefab,
+                ...(captured.parent === undefined
+                  ? {}
+                  : { parent: captured.parent }),
+                transform: {
+                  ...structuredClone(definition.transform),
+                  ...captured.transform,
+                },
+                components: Object.fromEntries(
+                  [
+                    ...new Set([
+                      ...Object.keys(definition.components),
+                      ...Object.keys(captured.components ?? {}),
+                    ]),
+                  ].map((id) => [
+                    id,
+                    {
+                      ...(definition.components[id] as ComponentData),
+                      ...captured.components?.[id],
+                    },
+                  ]),
+                ),
+              },
+            });
+          } else this.world.queue({ type: "spawn", entity: captured });
+        },
         destroy: (entity) => this.world.queue({ type: "destroy", entity }),
         addComponent: (entity, component, data) =>
           this.world.queue({
@@ -175,6 +287,99 @@ export class RuntimeHost {
           this.world.queue({ type: "removeComponent", entity, component }),
       },
     };
+  }
+
+  private registerPlugin(plugin: RuntimePlugin): void {
+    if (!plugin || typeof plugin !== "object")
+      throw new Error("TC_PLUGIN_ID: Plugin must have a stable non-empty id.");
+    if (this.plugins.some((entry) => entry.id === plugin.id))
+      throw new Error(`TC_PLUGIN_DUPLICATE: Duplicate plugin id ${plugin.id}.`);
+    this.plugins.push(plugin);
+    if (typeof plugin.id !== "string" || !plugin.id.trim())
+      throw new Error("TC_PLUGIN_ID: Plugin must have a stable non-empty id.");
+    if (
+      typeof plugin.snapshot !== "function" ||
+      typeof plugin.validateSnapshot !== "function" ||
+      typeof plugin.restore !== "function" ||
+      typeof plugin.dispose !== "function"
+    )
+      throw new Error(
+        `TC_PLUGIN_CONTRACT: Plugin ${plugin.id} is missing lifecycle methods.`,
+      );
+    for (const [key, service] of Object.entries(plugin.services ?? {})) {
+      if (service === undefined) continue;
+      if (this.services[key as keyof RuntimeServices] !== undefined)
+        throw new Error(
+          `TC_SERVICE_DUPLICATE: Multiple plugins provide ${key}.`,
+        );
+      this.services[key as keyof RuntimeServices] = service as never;
+    }
+    for (const system of plugin.systems ?? [])
+      if (!system.id.startsWith("$engine."))
+        throw new Error(
+          `TC_PLUGIN_SYSTEM_ID: Engine system ${system.id} must use the $engine. prefix.`,
+        );
+  }
+
+  private service<K extends keyof RuntimeServices>(key: K): RuntimeServices[K] {
+    this.assertAlive();
+    const service = this.services[key];
+    if (service === undefined)
+      throw new Error(
+        `TC_SERVICE_UNAVAILABLE: No runtime plugin provides '${key}'.`,
+      );
+    return service as RuntimeServices[K];
+  }
+
+  private pluginSnapshot(): Record<string, HostPluginSnapshot> {
+    const result: Record<string, HostPluginSnapshot> = {};
+    for (const plugin of this.plugins) {
+      const payload = cloneSerializable(plugin.snapshot());
+      const version = (plugin as RuntimePlugin & { version?: unknown }).version;
+      if (version !== undefined && typeof version !== "string")
+        throw new Error(
+          `TC_PLUGIN_VERSION: Plugin ${plugin.id} version must be a string.`,
+        );
+      result[plugin.id] = {
+        ...(version === undefined ? {} : { version }),
+        payload,
+      };
+    }
+    return result;
+  }
+
+  private validatePlugins(value: unknown): Record<string, HostPluginSnapshot> {
+    const snapshots = cloneSerializable(value) as Record<
+      string,
+      HostPluginSnapshot
+    >;
+    if (!snapshots || typeof snapshots !== "object" || Array.isArray(snapshots))
+      throw new Error("TC_PLUGIN_SNAPSHOT: Expected a plugin snapshot map.");
+    const ids = this.plugins.map((plugin) => plugin.id).sort();
+    if (canonical(Object.keys(snapshots).sort()) !== canonical(ids))
+      throw new Error(
+        "TC_PLUGIN_SNAPSHOT_SET: Snapshot plugins do not match active plugins.",
+      );
+    for (const plugin of this.plugins) {
+      const entry = snapshots[plugin.id];
+      const version = (plugin as RuntimePlugin & { version?: unknown }).version;
+      if (
+        !entry ||
+        typeof entry !== "object" ||
+        !("payload" in entry) ||
+        entry.version !== version
+      )
+        throw new Error(
+          `TC_PLUGIN_SNAPSHOT_VERSION: Incompatible snapshot for plugin ${plugin.id}.`,
+        );
+      plugin.validateSnapshot(entry.payload);
+    }
+    return snapshots;
+  }
+
+  private restorePlugins(snapshots: Record<string, HostPluginSnapshot>): void {
+    for (const plugin of this.plugins)
+      plugin.restore(cloneSerializable(snapshots[plugin.id]!.payload));
   }
 
   attach(game: GameInstance): void {
@@ -225,17 +430,54 @@ export class RuntimeHost {
         throw new Error(
           "TC_RUNTIME_SYSTEM_ASYNC: Systems must be synchronous functions.",
         );
+    for (const system of systems) {
+      if (system.id.startsWith("$engine."))
+        throw new Error(
+          "TC_RUNTIME_RESERVED_SYSTEM: Game system ids cannot use the $engine. prefix.",
+        );
+      if (
+        [...(system.before ?? []), ...(system.after ?? [])].some((id) =>
+          id.startsWith("$engine."),
+        )
+      )
+        throw new Error(
+          `TC_RUNTIME_RESERVED_SYSTEM: Game system ${system.id} cannot reference engine systems.`,
+        );
+    }
+    const engineSystems = this.plugins.flatMap((plugin) => [
+      ...(plugin.systems ?? []),
+    ]);
+    const allIds = new Set<string>();
+    for (const system of [...engineSystems, ...systems]) {
+      if (allIds.has(system.id))
+        throw new Error(
+          `TC_RUNTIME_SYSTEM_COLLISION: Duplicate system id ${system.id}.`,
+        );
+      allIds.add(system.id);
+    }
+    const gameInputIds = systems
+      .filter((system) => (system.phase ?? "update") === "input")
+      .map((system) => system.id);
+    const gameSystems = systems.map((system) => {
+      const run = system.run;
+      return {
+        ...metadata(system),
+        run: (delta: number) => run(this.facade, delta),
+      };
+    });
     const candidate = createScheduler({
       world: this.world,
       fixedDt: this.fixedDt,
       seed: this.seed,
-      systems: systems.map((system) => {
-        const run = system.run;
-        return {
-          ...metadata(system),
-          run: (delta: number) => run(this.facade, delta),
-        };
-      }),
+      systems: [
+        ...engineSystems.map((system) => ({
+          ...system,
+          ...(system.phase === "input" && gameInputIds.length
+            ? { before: [...(system.before ?? []), ...gameInputIds] }
+            : {}),
+        })),
+        ...gameSystems,
+      ],
     });
     this.scheduler.dispose();
     this.scheduler = candidate;
@@ -362,11 +604,24 @@ export class RuntimeHost {
   }
 
   inspect() {
+    const pluginStates: Record<string, unknown> = {};
+    for (const plugin of this.plugins) {
+      try {
+        pluginStates[plugin.id] = cloneSerializable(plugin.inspect?.() ?? null);
+      } catch (error) {
+        pluginStates[plugin.id] = { error: String(error) };
+      }
+    }
     return {
       engineVersion: SDK_VERSION,
       world: this.world.inspect(),
       records: this.released ? [] : this.world.records(),
       scheduler: this.scheduler.inspect(),
+      plugins: {
+        ids: this.plugins.map((plugin) => plugin.id),
+        states: pluginStates,
+        services: Object.keys(this.services).sort(),
+      },
       diagnostics: structuredClone(this.errors),
       disposed: this.released,
     };
@@ -381,6 +636,7 @@ export class RuntimeHost {
       engineVersion: SDK_VERSION,
       world: structuredClone(scheduler.world),
       scheduler,
+      ...(this.plugins.length ? { plugins: this.pluginSnapshot() } : {}),
     };
   }
 
@@ -401,25 +657,142 @@ export class RuntimeHost {
       throw new Error(
         "TC_RUNTIME_SNAPSHOT_WORLD: Host and scheduler world snapshots disagree.",
       );
-    // Scheduler preflights clock/random/events/contracts before atomically restoring the world.
-    this.scheduler.restore(data.scheduler);
+    if (!Array.isArray(data.world?.entities))
+      throw new Error("TC_RUNTIME_SNAPSHOT_WORLD: Missing entity records.");
+    for (const record of data.world.entities)
+      resolveEntityDefinition(this.scene, record);
+    let pluginSnapshots: Record<string, HostPluginSnapshot> | undefined;
+    if (this.plugins.length) {
+      if (data.plugins === undefined)
+        throw new Error(
+          "TC_PLUGIN_SNAPSHOT_SET: Plugin snapshots are required.",
+        );
+      pluginSnapshots = this.validatePlugins(data.plugins);
+      for (const plugin of this.plugins)
+        plugin.validateWorld?.(
+          cloneSerializable(pluginSnapshots[plugin.id].payload),
+          structuredClone(data.world),
+        );
+    } else if (data.plugins !== undefined) {
+      if (
+        !data.plugins ||
+        typeof data.plugins !== "object" ||
+        Array.isArray(data.plugins) ||
+        Object.keys(data.plugins).length > 0
+      )
+        throw new Error(
+          "TC_PLUGIN_SNAPSHOT_SET: Snapshot contains plugins but this host has none.",
+        );
+    }
+    if (!pluginSnapshots && this.plugins.length)
+      throw new Error("TC_PLUGIN_SNAPSHOT_SET: Plugin snapshots are required.");
+    if (!this.plugins.length) {
+      this.scheduler.restore(data.scheduler);
+      return;
+    }
+    const previousScheduler = this.scheduler.snapshot();
+    const previousPlugins = this.plugins.length
+      ? this.pluginSnapshot()
+      : undefined;
+    try {
+      this.scheduler.restore(data.scheduler);
+      if (pluginSnapshots) this.restorePlugins(pluginSnapshots);
+    } catch (error) {
+      const rollbackErrors: string[] = [];
+      try {
+        this.scheduler.restore(previousScheduler);
+      } catch (rollbackError) {
+        rollbackErrors.push(String(rollbackError));
+      }
+      if (previousPlugins) {
+        for (const plugin of this.plugins) {
+          try {
+            plugin.restore(
+              cloneSerializable(previousPlugins[plugin.id]!.payload),
+            );
+          } catch (rollbackError) {
+            rollbackErrors.push(`${plugin.id}: ${String(rollbackError)}`);
+          }
+        }
+      }
+      const partial = rollbackErrors.length > 0;
+      const wrapped = new Error(
+        `TC_PLUGIN_RESTORE: ${String(error)}${partial ? `; partialState=true; rollback failures: ${rollbackErrors.join("; ")}` : "; previous state restored."}`,
+      );
+      this.errors.push(diagnosticFrom(wrapped));
+      throw wrapped;
+    }
   }
 
   startRecording(): void {
     this.assertConfigured();
+    this.recordingPlugins = this.plugins.length
+      ? this.pluginSnapshot()
+      : undefined;
     this.scheduler.startRecording();
   }
-  stopRecording(): SchedulerTrace {
+  stopRecording(): HostTrace {
     this.assertConfigured();
-    return this.scheduler.stopRecording();
+    const trace = this.scheduler.stopRecording() as HostTrace;
+    if (this.recordingPlugins) {
+      trace.plugins = {
+        initial: this.recordingPlugins,
+        final: this.pluginSnapshot(),
+      };
+    }
+    this.recordingPlugins = undefined;
+    return trace;
   }
   cancelRecording(): void {
     this.assertConfigured();
+    this.recordingPlugins = undefined;
     this.scheduler.cancelRecording();
   }
   replay(trace: unknown): ReturnType<RuntimeScheduler["replay"]> {
     this.assertConfigured();
-    const result = this.scheduler.replay(trace);
+    let result: ReturnType<RuntimeScheduler["replay"]>;
+    try {
+      const data = cloneSerializable(trace) as HostTrace;
+      if (this.plugins.length) {
+        if (!data.plugins)
+          throw new Error(
+            "TC_PLUGIN_TRACE_REQUIRED: Trace does not contain plugin state.",
+          );
+        const initial = this.validatePlugins(data.plugins.initial);
+        const final = this.validatePlugins(data.plugins.final);
+        for (const plugin of this.plugins) {
+          plugin.validateWorld?.(
+            cloneSerializable(initial[plugin.id].payload),
+            structuredClone(data.initial.world),
+          );
+          plugin.validateWorld?.(
+            cloneSerializable(final[plugin.id].payload),
+            structuredClone(data.final.world),
+          );
+        }
+        this.restorePlugins(initial);
+        result = this.scheduler.replay(data);
+        if (
+          result.status === "passed" &&
+          canonical(this.pluginSnapshot()) !== canonical(final)
+        )
+          throw new Error("TC_REPLAY_DIVERGENCE: Final plugin state differs.");
+      } else {
+        if (
+          data.plugins &&
+          (Object.keys(data.plugins.initial).length ||
+            Object.keys(data.plugins.final).length)
+        )
+          throw new Error(
+            "TC_PLUGIN_TRACE_SET: Trace requires plugins not present in this host.",
+          );
+        result = this.scheduler.replay(data);
+      }
+    } catch (error) {
+      result = { status: "failed", actionsExecuted: 0, fault: null };
+      this.errors.push(diagnosticFrom(error));
+      return result;
+    }
     if (result.status === "failed")
       this.errors.push(
         diagnosticFrom(
@@ -432,12 +805,36 @@ export class RuntimeHost {
   dispose(): void {
     if (this.released) return;
     this.assertBoundary();
+    const failures: unknown[] = [];
     try {
       this.game?.dispose();
-    } finally {
+    } catch (error) {
+      failures.push(error);
+    }
+    for (const plugin of [...this.plugins].reverse()) {
+      try {
+        plugin.dispose();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    try {
       this.scheduler.dispose();
+    } catch (error) {
+      failures.push(error);
+    }
+    try {
       this.world.dispose();
-      this.released = true;
+    } catch (error) {
+      failures.push(error);
+    }
+    this.released = true;
+    if (failures.length) {
+      for (const error of failures) this.errors.push(diagnosticFrom(error));
+      throw new AggregateError(
+        failures,
+        `TC_RUNTIME_DISPOSE: ${failures.map(String).join("; ")}`,
+      );
     }
   }
   private assertAlive(): void {

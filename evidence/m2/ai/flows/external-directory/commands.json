@@ -1,0 +1,398 @@
+[
+  {
+    "command": "node report-candidate5/audit.cjs",
+    "argv": [
+      "node",
+      "report-candidate5/audit.cjs"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "archive-source-baseline.stdout.txt",
+    "stderr": "archive-source-baseline.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\candidate5\\threecat\\threecat.ps1 setup --offline",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".\\candidate5\\threecat\\threecat.ps1",
+      "setup",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "setup-cache.stdout.txt",
+    "stderr": "setup-cache.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/negative.cjs introduce",
+    "argv": [
+      "node",
+      "report-candidate5/negative.cjs",
+      "introduce"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "introduce-negative.stdout.txt",
+    "stderr": "introduce-negative.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\candidate5\\threecat\\threecat.ps1 check --project \".\\外部游戏 空格\"",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".\\candidate5\\threecat\\threecat.ps1",
+      "check",
+      "--project",
+      ".\\外部游戏 空格"
+    ],
+    "exitCode": 1,
+    "expectedFailure": true,
+    "stdout": "negative-clip.stdout.txt",
+    "stderr": "negative-clip.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/negative.cjs repair",
+    "argv": [
+      "node",
+      "report-candidate5/negative.cjs",
+      "repair"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "repair-negative.stdout.txt",
+    "stderr": "repair-negative.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\candidate5\\threecat\\threecat.ps1 check --project \".\\外部游戏 空格\"",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ".\\candidate5\\threecat\\threecat.ps1",
+      "check",
+      "--project",
+      ".\\外部游戏 空格"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "final-check.stdout.txt",
+    "stderr": "final-check.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -File .\\report-candidate5\\start-dev.ps1",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-File",
+      ".\\report-candidate5\\start-dev.ps1"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "start-dev.stdout.txt",
+    "stderr": "start-dev.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/verify-servers.cjs --dev",
+    "argv": [
+      "node",
+      "report-candidate5/verify-servers.cjs",
+      "--dev"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "dev-ready.stdout.txt",
+    "stderr": "dev-ready.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/gate-retreat.cjs",
+    "argv": [
+      "node",
+      "report-candidate5/gate-retreat.cjs"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "gate-retreat-final.stdout.txt",
+    "stderr": "gate-retreat-final.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/gameplay.cjs",
+    "argv": [
+      "node",
+      "report-candidate5/gameplay.cjs"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "gameplay.stdout.txt",
+    "stderr": "gameplay.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/offline.cjs setup",
+    "argv": [
+      "node",
+      "report-candidate5/offline.cjs",
+      "setup"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "offline-setup.stdout.txt",
+    "stderr": "offline-setup.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/offline.cjs check",
+    "argv": [
+      "node",
+      "report-candidate5/offline.cjs",
+      "check"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "offline-check.stdout.txt",
+    "stderr": "offline-check.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/offline.cjs build",
+    "argv": [
+      "node",
+      "report-candidate5/offline.cjs",
+      "build"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "offline-build.stdout.txt",
+    "stderr": "offline-build.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/publish.cjs",
+    "argv": [
+      "node",
+      "report-candidate5/publish.cjs"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "publish-isolated.stdout.txt",
+    "stderr": "publish-isolated.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -File .\\report-candidate5\\start-static.ps1",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-File",
+      ".\\report-candidate5\\start-static.ps1"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "start-isolated-static.stdout.txt",
+    "stderr": "start-isolated-static.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/verify-servers.cjs --static",
+    "argv": [
+      "node",
+      "report-candidate5/verify-servers.cjs",
+      "--static"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "isolated-static-ready.stdout.txt",
+    "stderr": "isolated-static-ready.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/production.cjs",
+    "argv": [
+      "node",
+      "report-candidate5/production.cjs"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "isolated-production.stdout.txt",
+    "stderr": "isolated-production.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -File .\\report-candidate5\\cleanup.ps1",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-File",
+      ".\\report-candidate5\\cleanup.ps1"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "final-cleanup.stdout.txt",
+    "stderr": "final-cleanup.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "node report-candidate5/audit.cjs --after",
+    "argv": [
+      "node",
+      "report-candidate5/audit.cjs",
+      "--after"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "final-audit.stdout.txt",
+    "stderr": "final-audit.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  },
+  {
+    "command": "powershell.exe -NoProfile -File .\\report-candidate5\\process-audit.ps1",
+    "argv": [
+      "powershell.exe",
+      "-NoProfile",
+      "-File",
+      ".\\report-candidate5\\process-audit.ps1"
+    ],
+    "exitCode": 0,
+    "expectedFailure": false,
+    "stdout": "final-process-audit.stdout.txt",
+    "stderr": "final-process-audit.stderr.txt",
+    "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external",
+    "shell": "powershell.exe",
+    "environment": {
+      "PLAYWRIGHT_BROWSERS_PATH": "C:/Users/60459/AppData/Local/ms-playwright",
+      "npm_config_cache": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\npm",
+      "TEMP": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-external\\cache\\tmp"
+    }
+  }
+]

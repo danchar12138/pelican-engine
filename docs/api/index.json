@@ -1,14 +1,14 @@
 {
   "format": "threecat.api-index",
   "version": 1,
-  "engineVersion": "0.1.0-m1.0",
+  "engineVersion": "0.2.0-m2.0",
   "entry": "@threecat/sdk",
   "source": "packages/sdk/src/index.ts",
   "symbols": [
     {
       "name": "SDK_VERSION",
       "kind": "constant",
-      "signature": "SDK_VERSION = \"0.1.0-m1.0\"",
+      "signature": "SDK_VERSION = \"0.2.0-m2.0\"",
       "line": 2
     },
     {
@@ -116,10 +116,11 @@
     {
       "name": "SpawnInput",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface SpawnInput {\n  id: string;\n  parent?: string;\n  transform?: TransformPatch;\n  components?: Record<string, ComponentData>;\n}",
+      "signature": "export interface SpawnInput {\n  id: string;\n  prefab?: string;\n  parent?: string;\n  transform?: TransformPatch;\n  components?: Record<string, ComponentData>;\n}",
       "line": 62,
       "fields": [
         "id",
+        "prefab",
         "parent",
         "transform",
         "components"
@@ -129,7 +130,7 @@
       "name": "EntityCommands",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EntityCommands {\n  resolve(id: string): EntityHandle;\n  isAlive(entity: EntityRef): boolean;\n  getTransform(entity: EntityRef): Transform;\n  setTransform(entity: EntityRef, patch: TransformPatch): void;\n  getComponent(entity: EntityRef, component: string): ComponentData;\n  setComponent(\n    entity: EntityRef,\n    component: string,\n    patch: ComponentData,\n  ): void;\n  /** Structural changes become visible at the engine's next command-commit boundary. */\n  spawn(input: SpawnInput): void;\n  destroy(entity: EntityRef): void;\n  addComponent(\n    entity: EntityRef,\n    component: string,\n    data?: ComponentData,\n  ): void;\n  removeComponent(entity: EntityRef, component: string): void;\n}",
-      "line": 68,
+      "line": 69,
       "fields": [
         "resolve",
         "isAlive",
@@ -147,7 +148,7 @@
       "name": "GameEvent",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameEvent {\n  readonly type: string;\n  readonly tick: number;\n  readonly sequence: number;\n  readonly payload: unknown;\n}",
-      "line": 89,
+      "line": 90,
       "fields": [
         "type",
         "tick",
@@ -158,51 +159,221 @@
     {
       "name": "SystemContext",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface SystemContext extends EngineFacade {\n  readonly time: {\n    readonly tick: number;\n    readonly elapsed: number;\n    readonly fixedDt: number;\n  };\n  readonly entities: EntityCommands;\n  random(): number;\n  emit(type: string, payload: unknown): void;\n  events(type?: string): readonly GameEvent[];\n}",
-      "line": 95,
+      "signature": "export interface SystemContext extends EngineFacade {\n  readonly time: {\n    readonly tick: number;\n    readonly elapsed: number;\n    readonly fixedDt: number;\n  };\n  readonly entities: EntityCommands;\n  random(): number;\n  emit(type: string, payload: unknown): void;\n  events(type?: string): readonly GameEvent[];\n  readonly input: InputService;\n  readonly physics: PhysicsService;\n  readonly animation: AnimationService;\n  readonly camera: CameraService;\n  readonly ui: UIService;\n  readonly audio: AudioService;\n  readonly storage: StorageService;\n  readonly scenes: SceneService;\n}",
+      "line": 96,
       "fields": [
         "time",
         "entities",
         "random",
         "emit",
-        "events"
+        "events",
+        "input",
+        "physics",
+        "animation",
+        "camera",
+        "ui",
+        "audio",
+        "storage",
+        "scenes"
+      ]
+    },
+    {
+      "name": "InputService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface InputService {\n  held(action: string): boolean;\n  pressed(action: string): boolean;\n  released(action: string): boolean;\n  axis(negative: string, positive: string): number;\n}",
+      "line": 115,
+      "fields": [
+        "held",
+        "pressed",
+        "released",
+        "axis"
+      ]
+    },
+    {
+      "name": "PhysicsService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface PhysicsService {\n  moveCharacter(entity: string, displacement: Vec3): void;\n  grounded(entity: string): boolean;\n  velocity(entity: string): Vec3;\n  setVelocity(entity: string, velocity: Vec3): void;\n  impulse(entity: string, impulse: Vec3): void;\n  raycast(\n    origin: Vec3,\n    direction: Vec3,\n    maxDistance: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;\n}",
+      "line": 121,
+      "fields": [
+        "moveCharacter",
+        "grounded",
+        "velocity",
+        "setVelocity",
+        "impulse",
+        "raycast"
+      ]
+    },
+    {
+      "name": "AnimationService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface AnimationService {\n  play(\n    entity: string,\n    clip: string,\n    options?: { fade?: number; speed?: number; loop?: boolean },\n  ): void;\n  state(entity: string): {\n    clip: string | null;\n    time: number;\n    playing: boolean;\n  };\n}",
+      "line": 134,
+      "fields": [
+        "play",
+        "state"
+      ]
+    },
+    {
+      "name": "CameraService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface CameraService {\n  follow(\n    entity: string,\n    options?: {\n      distance?: number;\n      height?: number;\n      lookHeight?: number;\n      yaw?: number;\n      smoothing?: number;\n    },\n  ): void;\n  orbit(yaw: number): void;\n}",
+      "line": 146,
+      "fields": [
+        "follow",
+        "orbit"
+      ]
+    },
+    {
+      "name": "UIService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface UIService {\n  setText(id: string, text: string): void;\n  setProgress(id: string, value: number): void;\n  setVisible(id: string, visible: boolean): void;\n}",
+      "line": 159,
+      "fields": [
+        "setText",
+        "setProgress",
+        "setVisible"
+      ]
+    },
+    {
+      "name": "AudioService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface AudioService {\n  play(\n    id: string,\n    options?: { volume?: number; loop?: boolean; entity?: string },\n  ): string;\n  stop(voice: string): void;\n  volume(value: number): void;\n}",
+      "line": 164,
+      "fields": [
+        "play",
+        "stop",
+        "volume"
+      ]
+    },
+    {
+      "name": "StorageService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface StorageService {\n  save(slot: string): void;\n  load(slot: string): void;\n  status(): {\n    state: \"idle\" | \"saving\" | \"loading\" | \"saved\" | \"loaded\" | \"failed\";\n    slot: string | null;\n    error: string | null;\n  };\n}",
+      "line": 172,
+      "fields": [
+        "save",
+        "load",
+        "status"
+      ]
+    },
+    {
+      "name": "SceneService",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SceneService {\n  current(): string;\n  load(id: string): void;\n}",
+      "line": 181,
+      "fields": [
+        "current",
+        "load"
+      ]
+    },
+    {
+      "name": "ModelDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface ModelDefinition {\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n  asset: AssetDefinition | string;\n  scale?: number;\n  offset?: Vec3;\n  rotation?: Vec3;\n  animation?: { clip: string; speed?: number; loop?: boolean };\n}",
+      "line": 185,
+      "fields": [
+        "castShadow",
+        "receiveShadow",
+        "asset",
+        "scale",
+        "offset",
+        "rotation",
+        "animation"
+      ]
+    },
+    {
+      "name": "RigidBodyDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface RigidBodyDefinition {\n  type: \"fixed\" | \"dynamic\" | \"kinematic\";\n  collider: {\n    shape: \"box\" | \"sphere\" | \"capsule\";\n    size?: Vec3;\n    radius?: number;\n    halfHeight?: number;\n    offset?: Vec3;\n  };\n  mass?: number;\n  friction?: number;\n  restitution?: number;\n  trigger?: boolean;\n}",
+      "line": 194,
+      "fields": [
+        "type",
+        "collider",
+        "mass",
+        "friction",
+        "restitution",
+        "trigger"
+      ]
+    },
+    {
+      "name": "CharacterDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface CharacterDefinition {\n  radius: number;\n  height: number;\n  speed: number;\n  jumpSpeed?: number;\n  /** Downward acceleration magnitude in world units/s^2; defaults to 9.81. Scene.gravity is a signed vector. */\n  gravity?: number;\n}",
+      "line": 208,
+      "fields": [
+        "radius",
+        "height",
+        "speed",
+        "jumpSpeed",
+        "gravity"
+      ]
+    },
+    {
+      "name": "UIElementDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface UIElementDefinition {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  text?: string;\n  value?: number;\n  visible?: boolean;\n  anchor?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x?: number;\n  y?: number;\n  width?: number;\n  color?: string;\n  world?: { entity: string; offset?: Vec3; occlude?: boolean };\n}",
+      "line": 216,
+      "fields": [
+        "id",
+        "kind",
+        "text",
+        "value",
+        "visible",
+        "anchor",
+        "x",
+        "y",
+        "width",
+        "color",
+        "world"
+      ]
+    },
+    {
+      "name": "SoundDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface SoundDefinition {\n  id: string;\n  asset: AssetDefinition | string;\n  volume?: number;\n  loop?: boolean;\n}",
+      "line": 229,
+      "fields": [
+        "id",
+        "asset",
+        "volume",
+        "loop"
       ]
     },
     {
       "name": "SYSTEM_PHASES",
       "kind": "constant",
       "signature": "SYSTEM_PHASES = [\n  \"input\",\n  \"prePhysics\",\n  \"physics\",\n  \"postPhysics\",\n  \"update\",\n  \"presentation\",\n] as const",
-      "line": 106
+      "line": 235
     },
     {
       "name": "SystemPhase",
       "kind": "TypeAliasDeclaration",
       "signature": "export type SystemPhase = (typeof SYSTEM_PHASES)[number];",
-      "line": 114
+      "line": 243
     },
     {
       "name": "Geometry",
       "kind": "TypeAliasDeclaration",
       "signature": "export type Geometry =\n  | { kind: \"box\"; size?: Vec3 }\n  | { kind: \"sphere\"; radius?: number; segments?: number }\n  | { kind: \"plane\"; size?: readonly [number, number] };",
-      "line": 115
+      "line": 244
     },
     {
       "name": "GraphType",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphType = \"float\" | \"vec3\";",
-      "line": 119
+      "line": 248
     },
     {
       "name": "GraphNode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphNode =\n  | { id: string; op: \"float\"; value: number }\n  | { id: string; op: \"vec3\"; value: Vec3 }\n  | { id: string; op: \"time\" }\n  | { id: string; op: \"add\" | \"multiply\"; inputs: readonly [string, string] }\n  | { id: string; op: \"sin\"; inputs: readonly [string] };",
-      "line": 120
+      "line": 249
     },
     {
       "name": "Graph",
       "kind": "InterfaceDeclaration",
       "signature": "export interface Graph {\n  nodes: readonly GraphNode[];\n  output: string;\n}",
-      "line": 126,
+      "line": 255,
       "fields": [
         "nodes",
         "output"
@@ -212,7 +383,7 @@
       "name": "MaterialInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialInput {\n  id: string;\n  color?: string;\n  roughness?: number;\n  metalness?: number;\n  texture?: AssetDefinition | string;\n  graph?: Graph;\n}",
-      "line": 130,
+      "line": 259,
       "fields": [
         "id",
         "color",
@@ -226,7 +397,7 @@
       "name": "MaterialDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialDefinition extends MaterialInput {\n  readonly kind: \"material\";\n}",
-      "line": 138,
+      "line": 267,
       "fields": [
         "kind"
       ]
@@ -235,7 +406,7 @@
       "name": "ComputeInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeInput {\n  id: string;\n  graph: Graph;\n  outputType: GraphType;\n  count: number;\n  workgroupSize?: number;\n}",
-      "line": 141,
+      "line": 270,
       "fields": [
         "id",
         "graph",
@@ -248,7 +419,7 @@
       "name": "ComputeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDefinition extends ComputeInput {\n  readonly kind: \"compute\";\n}",
-      "line": 148,
+      "line": 277,
       "fields": [
         "kind"
       ]
@@ -256,19 +427,22 @@
     {
       "name": "AssetInput",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\";\n}",
-      "line": 151,
+      "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\" | \"model\" | \"audio\";\n  source?: string;\n  license?: string;\n  attribution?: string;\n}",
+      "line": 280,
       "fields": [
         "id",
         "path",
-        "type"
+        "type",
+        "source",
+        "license",
+        "attribution"
       ]
     },
     {
       "name": "AssetDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetDefinition extends AssetInput {\n  readonly kind: \"asset\";\n}",
-      "line": 156,
+      "line": 288,
       "fields": [
         "kind"
       ]
@@ -277,7 +451,7 @@
       "name": "MeshDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MeshDefinition {\n  geometry: Geometry;\n  material: MaterialDefinition | string;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 159,
+      "line": 291,
       "fields": [
         "geometry",
         "material",
@@ -288,20 +462,22 @@
     {
       "name": "LightDefinition",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n}",
-      "line": 165,
+      "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n  target?: Vec3;\n  shadow?: {\n    mapSize?: number;\n    extent?: number;\n    bias?: number;\n    normalBias?: number;\n    near?: number;\n    far?: number;\n  };\n}",
+      "line": 297,
       "fields": [
         "kind",
         "color",
         "intensity",
-        "castShadow"
+        "castShadow",
+        "target",
+        "shadow"
       ]
     },
     {
       "name": "EntityInput",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  components?: readonly ComponentInstance[];\n}",
-      "line": 171,
+      "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  model?: ModelDefinition;\n  rigidBody?: RigidBodyDefinition;\n  character?: CharacterDefinition;\n  components?: readonly ComponentInstance[];\n}",
+      "line": 312,
       "fields": [
         "id",
         "prefab",
@@ -309,6 +485,9 @@
         "transform",
         "mesh",
         "light",
+        "model",
+        "rigidBody",
+        "character",
         "components"
       ]
     },
@@ -316,7 +495,7 @@
       "name": "PrefabInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabInput extends Omit<EntityInput, \"prefab\" | \"parent\"> {\n  extends?: PrefabDefinition | string;\n}",
-      "line": 180,
+      "line": 324,
       "fields": [
         "extends"
       ]
@@ -325,7 +504,7 @@
       "name": "PrefabDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabDefinition extends PrefabInput {\n  readonly kind: \"prefab\";\n}",
-      "line": 183,
+      "line": 327,
       "fields": [
         "kind"
       ]
@@ -333,12 +512,14 @@
     {
       "name": "SceneInput",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: { background?: string; ambientIntensity?: number };\n  entities: readonly EntityInput[];\n}",
-      "line": 186,
+      "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: {\n    background?: string;\n    ambientIntensity?: number;\n    lighting?: \"none\" | \"studio\";\n  };\n  follow?: {\n    entity: string;\n    distance?: number;\n    height?: number;\n    lookHeight?: number;\n    yaw?: number;\n    smoothing?: number;\n  };\n  gravity?: Vec3;\n  entities: readonly EntityInput[];\n}",
+      "line": 330,
       "fields": [
         "id",
         "camera",
         "environment",
+        "follow",
+        "gravity",
         "entities"
       ]
     },
@@ -346,7 +527,7 @@
       "name": "SceneDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneDefinition extends SceneInput {\n  readonly kind: \"scene\";\n}",
-      "line": 198,
+      "line": 355,
       "fields": [
         "kind"
       ]
@@ -355,7 +536,7 @@
       "name": "SystemInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemInput {\n  id: string;\n  phase?: SystemPhase;\n  before?: readonly string[];\n  after?: readonly string[];\n  reads?: readonly string[];\n  writes?: readonly string[];\n  structural?: boolean;\n  run: (engine: SystemContext, dt: number) => void;\n}",
-      "line": 201,
+      "line": 358,
       "fields": [
         "id",
         "phase",
@@ -371,7 +552,7 @@
       "name": "SystemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemDefinition extends SystemInput {\n  readonly kind: \"system\";\n}",
-      "line": 211,
+      "line": 368,
       "fields": [
         "kind"
       ]
@@ -379,8 +560,8 @@
     {
       "name": "GameInput",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  assets?: readonly AssetDefinition[];\n}",
-      "line": 214,
+      "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  assets?: readonly AssetDefinition[];\n  scenes?: readonly SceneDefinition[];\n  input?: Readonly<Record<string, readonly string[]>>;\n  ui?: readonly UIElementDefinition[];\n  sounds?: readonly SoundDefinition[];\n}",
+      "line": 371,
       "fields": [
         "id",
         "scene",
@@ -389,14 +570,18 @@
         "prefabs",
         "materials",
         "computes",
-        "assets"
+        "assets",
+        "scenes",
+        "input",
+        "ui",
+        "sounds"
       ]
     },
     {
       "name": "GameDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameDefinition extends GameInput {\n  readonly kind: \"game\";\n}",
-      "line": 224,
+      "line": 385,
       "fields": [
         "kind"
       ]
@@ -405,7 +590,7 @@
       "name": "GameInstance",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInstance {\n  update(dt: number): void;\n  dispose(): void;\n}",
-      "line": 227,
+      "line": 388,
       "fields": [
         "update",
         "dispose"
@@ -415,55 +600,55 @@
       "name": "defineComponent",
       "kind": "FunctionDeclaration",
       "signature": "export function defineComponent<const S extends ComponentSchema>(input: {\n  id: string;\n  schema: S;\n}): ComponentDefinition<S>;",
-      "line": 231
+      "line": 392
     },
     {
       "name": "defineMaterial",
       "kind": "FunctionDeclaration",
       "signature": "export function defineMaterial(input: MaterialInput): MaterialDefinition;",
-      "line": 237
+      "line": 398
     },
     {
       "name": "defineCompute",
       "kind": "FunctionDeclaration",
       "signature": "export function defineCompute(input: ComputeInput): ComputeDefinition;",
-      "line": 240
+      "line": 401
     },
     {
       "name": "defineAsset",
       "kind": "FunctionDeclaration",
       "signature": "export function defineAsset(input: AssetInput): AssetDefinition;",
-      "line": 243
+      "line": 404
     },
     {
       "name": "definePrefab",
       "kind": "FunctionDeclaration",
       "signature": "export function definePrefab(input: PrefabInput): PrefabDefinition;",
-      "line": 246
+      "line": 407
     },
     {
       "name": "defineScene",
       "kind": "FunctionDeclaration",
       "signature": "export function defineScene(input: SceneInput): SceneDefinition;",
-      "line": 249
+      "line": 410
     },
     {
       "name": "defineSystem",
       "kind": "FunctionDeclaration",
       "signature": "export function defineSystem(input: SystemInput): SystemDefinition;",
-      "line": 252
+      "line": 413
     },
     {
       "name": "defineGame",
       "kind": "FunctionDeclaration",
       "signature": "export function defineGame(input: GameInput): GameDefinition;",
-      "line": 255
+      "line": 416
     },
     {
       "name": "instantiateGame",
       "kind": "FunctionDeclaration",
       "signature": "export function instantiateGame(\n  game: GameDefinition,\n  engine: EngineFacade,\n): GameInstance;",
-      "line": 259
+      "line": 420
     }
   ]
 }

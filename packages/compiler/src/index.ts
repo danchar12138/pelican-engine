@@ -362,12 +362,14 @@ export async function compileProject(
       await filesUnder(path.join(engineRoot, "packages/sdk/src"))
     ).filter((p) => p.endsWith(".ts"));
     const packageInputs: string[] = [];
-    for (const name of ["runtime", "schema"]) {
+    let assetPackageAvailable = true;
+    for (const name of ["runtime", "schema", "assets"]) {
       const directory = path.join(engineRoot, "packages", name);
       const files = (await filesUnder(directory)).filter(
         (p) => /\.(?:ts|json)$/.test(p) && !p.includes("node_modules"),
       );
       packageInputs.push(...files);
+      if (name === "assets" && !files.length) assetPackageAvailable = false;
       if (!files.length)
         diagnostics.push({
           code: "TC_ENGINE_INPUT_MISSING",
@@ -397,6 +399,16 @@ export async function compileProject(
       ...engineInputs.map((p) => makeInput(p, "engine")),
       makeInput(entry, "project"),
     ]);
+    try {
+      initialInputs.push(
+        await makeInput(
+          path.join(engineRoot, "packages/compiler/package.json"),
+          "engine",
+        ),
+      );
+    } catch {
+      // External engine copies may predate package-level metadata.
+    }
     try {
       await fs.access(manifestPath);
       initialInputs.push(await makeInput(manifestPath, "project"));
@@ -454,6 +466,10 @@ export async function compileProject(
         report.incremental.changedInputs.push("<tool-version>");
       if (
         sameTools &&
+        (assetPackageAvailable ||
+          !previous.ir.assets.some(
+            (asset) => asset.type === "model" || asset.type === "audio",
+          )) &&
         previous.compilerVersion === ts.version &&
         previous.bundlerVersion === viteVersion &&
         !changed.length &&
@@ -593,6 +609,15 @@ export async function compileProject(
     const bundled = await bundle(entry, sdkPath, projectRoot);
     const artifactData: Record<string, string | Uint8Array> = {
       "scene.ir.json": JSON.stringify(ir, null, 2),
+      "asset-notices.json": JSON.stringify(
+        {
+          format: "threecat.asset-notices",
+          version: 1,
+          assets: ir.assetNotices ?? [],
+        },
+        null,
+        2,
+      ),
       "game.js": bundled.code,
       "game.js.map": bundled.map,
       "version.json": JSON.stringify(
@@ -610,8 +635,21 @@ export async function compileProject(
         2,
       ),
     };
-    for (const asset of normalized.assetCopies as AssetCopy[])
-      artifactData[asset.output] = await fs.readFile(asset.source);
+    for (const asset of normalized.assetCopies as AssetCopy[]) {
+      const bytes = await fs.readFile(asset.source);
+      if (hash(bytes) !== asset.expectedHash) {
+        diagnostics.push({
+          code: "TC_ASSET_CHANGED",
+          severity: "error",
+          message:
+            "Asset changed before output: " +
+            slash(path.relative(projectRoot, asset.source)),
+          suggestion: "Finish writing assets and rebuild.",
+        });
+        return await fail();
+      }
+      artifactData[asset.output] = bytes;
+    }
     await fs.mkdir(outDir, { recursive: true });
     for (const [file, data] of Object.entries(artifactData)) {
       const target = path.join(outDir, file);

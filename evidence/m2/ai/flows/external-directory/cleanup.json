@@ -1,0 +1,17 @@
+﻿{
+    "scope":  "Only verified flow-owned dev/static process trees",
+    "ports":  [
+                  {
+                      "closed":  true,
+                      "port":  52659
+                  },
+                  {
+                      "closed":  true,
+                      "port":  60919
+                  }
+              ],
+    "stoppedPids":  [
+                        36244,
+                        28356
+                    ]
+}

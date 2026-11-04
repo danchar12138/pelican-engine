@@ -1,0 +1,12 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "dev-1793814132579",
+  "status": "running",
+  "diagnostics": [],
+  "artifacts": [],
+  "data": {
+    "url": "http://127.0.0.1:52659/",
+    "project": "外部游戏 空格",
+    "hotUpdate": "full-reload; compatibility policy is reported but live patch is not implemented"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "passed": true,
+  "backend": "WebGPUBackend",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "isFallbackAdapter": false,
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "texture-formats-tier1",
+      "bgra8unorm-storage",
+      "texture-compression-bc",
+      "dual-source-blending",
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "float32-blendable",
+      "subgroup-size-control",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "shader-f16",
+      "timestamp-query",
+      "texture-formats-tier2",
+      "clip-distances",
+      "primitive-index",
+      "texture-component-swizzle",
+      "subgroups"
+    ]
+  },
+  "scenario": "three-entity public SDK character/floor/kinematic-gate contact then reverse and open",
+  "contact": [
+    -0.000250811135629192,
+    0.7100692987442017,
+    6.49032735824585
+  ],
+  "away": [
+    -0.0006857066182419658,
+    0.7083682417869568,
+    0.8302536010742188
+  ],
+  "opened": {
+    "gate": [
+      0,
+      5,
+      7
+    ],
+    "player": [
+      -0.0006629733252339065,
+      0.7096769213676453,
+      10.090276718139648
+    ]
+  },
+  "replay": {
+    "status": "passed",
+    "actionsExecuted": 103,
+    "fault": null
+  },
+  "errors": []
+}

@@ -1,0 +1,10 @@
+{
+  "label": "01-engine-baseline",
+  "command": "\"node\" \"..\\\\report\\\\audit.cjs\" \"before\"",
+  "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\threecat",
+  "started": "2026-11-04T17:43:55.330Z",
+  "ended": "2026-11-04T17:43:55.398Z",
+  "exitCode": 0,
+  "stdout": "01-engine-baseline.stdout.txt",
+  "stderr": "01-engine-baseline.stderr.txt"
+}

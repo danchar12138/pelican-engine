@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "candidate": 5,
+  "buildAndDeploymentByteIdentical": true,
+  "buildFiles": 40,
+  "gameSourceByteUnchanged": true,
+  "publicSDKOnly": true,
+  "nonFallbackWebGPU": true,
+  "gateContactRetreat": true,
+  "refreshAndNewPageRestore": true,
+  "productionColdRestore": true,
+  "candidate4ReportBytePreserved": true,
+  "candidate4ReportFiles": 178,
+  "engineFiles": 195,
+  "candidate4EngineFiles": 191,
+  "canonicalCommands": 20,
+  "unexpectedAttemptsPreserved": 2,
+  "cleanup": true
+}

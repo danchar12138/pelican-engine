@@ -1,4 +1,4 @@
 {
-    "entry":  "game.ts",
-    "engineVersion":  "0.1.0-m1.0"
+  "entry": "game.ts",
+  "engineVersion": "0.2.0-m2.0"
 }

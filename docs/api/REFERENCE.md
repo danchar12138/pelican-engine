@@ -1,4 +1,4 @@
-# threecat 0.1.0-m1.0 API 索引
+# threecat 0.2.0-m2.0 API 索引
 
 由公开 SDK 源码生成。签名以源码和 TypeScript 检查为准，不在文档维护第二套声明。
 
@@ -7,7 +7,7 @@
 来源：`packages/sdk/src/index.ts:2`
 
 ```ts
-SDK_VERSION = "0.1.0-m1.0"
+SDK_VERSION = "0.2.0-m2.0"
 ```
 
 ## Vec3
@@ -160,6 +160,7 @@ export type EntityRef = string | EntityHandle;
 ```ts
 export interface SpawnInput {
   id: string;
+  prefab?: string;
   parent?: string;
   transform?: TransformPatch;
   components?: Record<string, ComponentData>;
@@ -168,7 +169,7 @@ export interface SpawnInput {
 
 ## EntityCommands
 
-来源：`packages/sdk/src/index.ts:68`
+来源：`packages/sdk/src/index.ts:69`
 
 ```ts
 export interface EntityCommands {
@@ -196,7 +197,7 @@ export interface EntityCommands {
 
 ## GameEvent
 
-来源：`packages/sdk/src/index.ts:89`
+来源：`packages/sdk/src/index.ts:90`
 
 ```ts
 export interface GameEvent {
@@ -209,7 +210,7 @@ export interface GameEvent {
 
 ## SystemContext
 
-来源：`packages/sdk/src/index.ts:95`
+来源：`packages/sdk/src/index.ts:96`
 
 ```ts
 export interface SystemContext extends EngineFacade {
@@ -222,12 +223,231 @@ export interface SystemContext extends EngineFacade {
   random(): number;
   emit(type: string, payload: unknown): void;
   events(type?: string): readonly GameEvent[];
+  readonly input: InputService;
+  readonly physics: PhysicsService;
+  readonly animation: AnimationService;
+  readonly camera: CameraService;
+  readonly ui: UIService;
+  readonly audio: AudioService;
+  readonly storage: StorageService;
+  readonly scenes: SceneService;
+}
+```
+
+## InputService
+
+来源：`packages/sdk/src/index.ts:115`
+
+```ts
+export interface InputService {
+  held(action: string): boolean;
+  pressed(action: string): boolean;
+  released(action: string): boolean;
+  axis(negative: string, positive: string): number;
+}
+```
+
+## PhysicsService
+
+来源：`packages/sdk/src/index.ts:121`
+
+```ts
+export interface PhysicsService {
+  moveCharacter(entity: string, displacement: Vec3): void;
+  grounded(entity: string): boolean;
+  velocity(entity: string): Vec3;
+  setVelocity(entity: string, velocity: Vec3): void;
+  impulse(entity: string, impulse: Vec3): void;
+  raycast(
+    origin: Vec3,
+    direction: Vec3,
+    maxDistance: number,
+    options?: { exclude?: readonly string[]; includeTriggers?: boolean },
+  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;
+}
+```
+
+## AnimationService
+
+来源：`packages/sdk/src/index.ts:134`
+
+```ts
+export interface AnimationService {
+  play(
+    entity: string,
+    clip: string,
+    options?: { fade?: number; speed?: number; loop?: boolean },
+  ): void;
+  state(entity: string): {
+    clip: string | null;
+    time: number;
+    playing: boolean;
+  };
+}
+```
+
+## CameraService
+
+来源：`packages/sdk/src/index.ts:146`
+
+```ts
+export interface CameraService {
+  follow(
+    entity: string,
+    options?: {
+      distance?: number;
+      height?: number;
+      lookHeight?: number;
+      yaw?: number;
+      smoothing?: number;
+    },
+  ): void;
+  orbit(yaw: number): void;
+}
+```
+
+## UIService
+
+来源：`packages/sdk/src/index.ts:159`
+
+```ts
+export interface UIService {
+  setText(id: string, text: string): void;
+  setProgress(id: string, value: number): void;
+  setVisible(id: string, visible: boolean): void;
+}
+```
+
+## AudioService
+
+来源：`packages/sdk/src/index.ts:164`
+
+```ts
+export interface AudioService {
+  play(
+    id: string,
+    options?: { volume?: number; loop?: boolean; entity?: string },
+  ): string;
+  stop(voice: string): void;
+  volume(value: number): void;
+}
+```
+
+## StorageService
+
+来源：`packages/sdk/src/index.ts:172`
+
+```ts
+export interface StorageService {
+  save(slot: string): void;
+  load(slot: string): void;
+  status(): {
+    state: "idle" | "saving" | "loading" | "saved" | "loaded" | "failed";
+    slot: string | null;
+    error: string | null;
+  };
+}
+```
+
+## SceneService
+
+来源：`packages/sdk/src/index.ts:181`
+
+```ts
+export interface SceneService {
+  current(): string;
+  load(id: string): void;
+}
+```
+
+## ModelDefinition
+
+来源：`packages/sdk/src/index.ts:185`
+
+```ts
+export interface ModelDefinition {
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  asset: AssetDefinition | string;
+  scale?: number;
+  offset?: Vec3;
+  rotation?: Vec3;
+  animation?: { clip: string; speed?: number; loop?: boolean };
+}
+```
+
+## RigidBodyDefinition
+
+来源：`packages/sdk/src/index.ts:194`
+
+```ts
+export interface RigidBodyDefinition {
+  type: "fixed" | "dynamic" | "kinematic";
+  collider: {
+    shape: "box" | "sphere" | "capsule";
+    size?: Vec3;
+    radius?: number;
+    halfHeight?: number;
+    offset?: Vec3;
+  };
+  mass?: number;
+  friction?: number;
+  restitution?: number;
+  trigger?: boolean;
+}
+```
+
+## CharacterDefinition
+
+来源：`packages/sdk/src/index.ts:208`
+
+```ts
+export interface CharacterDefinition {
+  radius: number;
+  height: number;
+  speed: number;
+  jumpSpeed?: number;
+  /** Downward acceleration magnitude in world units/s^2; defaults to 9.81. Scene.gravity is a signed vector. */
+  gravity?: number;
+}
+```
+
+## UIElementDefinition
+
+来源：`packages/sdk/src/index.ts:216`
+
+```ts
+export interface UIElementDefinition {
+  id: string;
+  kind: "text" | "bar" | "button" | "input";
+  text?: string;
+  value?: number;
+  visible?: boolean;
+  anchor?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
+  x?: number;
+  y?: number;
+  width?: number;
+  color?: string;
+  world?: { entity: string; offset?: Vec3; occlude?: boolean };
+}
+```
+
+## SoundDefinition
+
+来源：`packages/sdk/src/index.ts:229`
+
+```ts
+export interface SoundDefinition {
+  id: string;
+  asset: AssetDefinition | string;
+  volume?: number;
+  loop?: boolean;
 }
 ```
 
 ## SYSTEM_PHASES
 
-来源：`packages/sdk/src/index.ts:106`
+来源：`packages/sdk/src/index.ts:235`
 
 ```ts
 SYSTEM_PHASES = [
@@ -242,7 +462,7 @@ SYSTEM_PHASES = [
 
 ## SystemPhase
 
-来源：`packages/sdk/src/index.ts:114`
+来源：`packages/sdk/src/index.ts:243`
 
 ```ts
 export type SystemPhase = (typeof SYSTEM_PHASES)[number];
@@ -250,7 +470,7 @@ export type SystemPhase = (typeof SYSTEM_PHASES)[number];
 
 ## Geometry
 
-来源：`packages/sdk/src/index.ts:115`
+来源：`packages/sdk/src/index.ts:244`
 
 ```ts
 export type Geometry =
@@ -261,7 +481,7 @@ export type Geometry =
 
 ## GraphType
 
-来源：`packages/sdk/src/index.ts:119`
+来源：`packages/sdk/src/index.ts:248`
 
 ```ts
 export type GraphType = "float" | "vec3";
@@ -269,7 +489,7 @@ export type GraphType = "float" | "vec3";
 
 ## GraphNode
 
-来源：`packages/sdk/src/index.ts:120`
+来源：`packages/sdk/src/index.ts:249`
 
 ```ts
 export type GraphNode =
@@ -282,7 +502,7 @@ export type GraphNode =
 
 ## Graph
 
-来源：`packages/sdk/src/index.ts:126`
+来源：`packages/sdk/src/index.ts:255`
 
 ```ts
 export interface Graph {
@@ -293,7 +513,7 @@ export interface Graph {
 
 ## MaterialInput
 
-来源：`packages/sdk/src/index.ts:130`
+来源：`packages/sdk/src/index.ts:259`
 
 ```ts
 export interface MaterialInput {
@@ -308,7 +528,7 @@ export interface MaterialInput {
 
 ## MaterialDefinition
 
-来源：`packages/sdk/src/index.ts:138`
+来源：`packages/sdk/src/index.ts:267`
 
 ```ts
 export interface MaterialDefinition extends MaterialInput {
@@ -318,7 +538,7 @@ export interface MaterialDefinition extends MaterialInput {
 
 ## ComputeInput
 
-来源：`packages/sdk/src/index.ts:141`
+来源：`packages/sdk/src/index.ts:270`
 
 ```ts
 export interface ComputeInput {
@@ -332,7 +552,7 @@ export interface ComputeInput {
 
 ## ComputeDefinition
 
-来源：`packages/sdk/src/index.ts:148`
+来源：`packages/sdk/src/index.ts:277`
 
 ```ts
 export interface ComputeDefinition extends ComputeInput {
@@ -342,19 +562,22 @@ export interface ComputeDefinition extends ComputeInput {
 
 ## AssetInput
 
-来源：`packages/sdk/src/index.ts:151`
+来源：`packages/sdk/src/index.ts:280`
 
 ```ts
 export interface AssetInput {
   id: string;
   path: string;
-  type: "texture" | "binary";
+  type: "texture" | "binary" | "model" | "audio";
+  source?: string;
+  license?: string;
+  attribution?: string;
 }
 ```
 
 ## AssetDefinition
 
-来源：`packages/sdk/src/index.ts:156`
+来源：`packages/sdk/src/index.ts:288`
 
 ```ts
 export interface AssetDefinition extends AssetInput {
@@ -364,7 +587,7 @@ export interface AssetDefinition extends AssetInput {
 
 ## MeshDefinition
 
-来源：`packages/sdk/src/index.ts:159`
+来源：`packages/sdk/src/index.ts:291`
 
 ```ts
 export interface MeshDefinition {
@@ -377,7 +600,7 @@ export interface MeshDefinition {
 
 ## LightDefinition
 
-来源：`packages/sdk/src/index.ts:165`
+来源：`packages/sdk/src/index.ts:297`
 
 ```ts
 export interface LightDefinition {
@@ -385,12 +608,21 @@ export interface LightDefinition {
   color?: string;
   intensity?: number;
   castShadow?: boolean;
+  target?: Vec3;
+  shadow?: {
+    mapSize?: number;
+    extent?: number;
+    bias?: number;
+    normalBias?: number;
+    near?: number;
+    far?: number;
+  };
 }
 ```
 
 ## EntityInput
 
-来源：`packages/sdk/src/index.ts:171`
+来源：`packages/sdk/src/index.ts:312`
 
 ```ts
 export interface EntityInput {
@@ -400,13 +632,16 @@ export interface EntityInput {
   transform?: TransformPatch;
   mesh?: MeshDefinition;
   light?: LightDefinition;
+  model?: ModelDefinition;
+  rigidBody?: RigidBodyDefinition;
+  character?: CharacterDefinition;
   components?: readonly ComponentInstance[];
 }
 ```
 
 ## PrefabInput
 
-来源：`packages/sdk/src/index.ts:180`
+来源：`packages/sdk/src/index.ts:324`
 
 ```ts
 export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
@@ -416,7 +651,7 @@ export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
 
 ## PrefabDefinition
 
-来源：`packages/sdk/src/index.ts:183`
+来源：`packages/sdk/src/index.ts:327`
 
 ```ts
 export interface PrefabDefinition extends PrefabInput {
@@ -426,7 +661,7 @@ export interface PrefabDefinition extends PrefabInput {
 
 ## SceneInput
 
-来源：`packages/sdk/src/index.ts:186`
+来源：`packages/sdk/src/index.ts:330`
 
 ```ts
 export interface SceneInput {
@@ -438,14 +673,27 @@ export interface SceneInput {
     near?: number;
     far?: number;
   };
-  environment?: { background?: string; ambientIntensity?: number };
+  environment?: {
+    background?: string;
+    ambientIntensity?: number;
+    lighting?: "none" | "studio";
+  };
+  follow?: {
+    entity: string;
+    distance?: number;
+    height?: number;
+    lookHeight?: number;
+    yaw?: number;
+    smoothing?: number;
+  };
+  gravity?: Vec3;
   entities: readonly EntityInput[];
 }
 ```
 
 ## SceneDefinition
 
-来源：`packages/sdk/src/index.ts:198`
+来源：`packages/sdk/src/index.ts:355`
 
 ```ts
 export interface SceneDefinition extends SceneInput {
@@ -455,7 +703,7 @@ export interface SceneDefinition extends SceneInput {
 
 ## SystemInput
 
-来源：`packages/sdk/src/index.ts:201`
+来源：`packages/sdk/src/index.ts:358`
 
 ```ts
 export interface SystemInput {
@@ -472,7 +720,7 @@ export interface SystemInput {
 
 ## SystemDefinition
 
-来源：`packages/sdk/src/index.ts:211`
+来源：`packages/sdk/src/index.ts:368`
 
 ```ts
 export interface SystemDefinition extends SystemInput {
@@ -482,7 +730,7 @@ export interface SystemDefinition extends SystemInput {
 
 ## GameInput
 
-来源：`packages/sdk/src/index.ts:214`
+来源：`packages/sdk/src/index.ts:371`
 
 ```ts
 export interface GameInput {
@@ -494,12 +742,16 @@ export interface GameInput {
   materials?: readonly MaterialDefinition[];
   computes?: readonly ComputeDefinition[];
   assets?: readonly AssetDefinition[];
+  scenes?: readonly SceneDefinition[];
+  input?: Readonly<Record<string, readonly string[]>>;
+  ui?: readonly UIElementDefinition[];
+  sounds?: readonly SoundDefinition[];
 }
 ```
 
 ## GameDefinition
 
-来源：`packages/sdk/src/index.ts:224`
+来源：`packages/sdk/src/index.ts:385`
 
 ```ts
 export interface GameDefinition extends GameInput {
@@ -509,7 +761,7 @@ export interface GameDefinition extends GameInput {
 
 ## GameInstance
 
-来源：`packages/sdk/src/index.ts:227`
+来源：`packages/sdk/src/index.ts:388`
 
 ```ts
 export interface GameInstance {
@@ -520,7 +772,7 @@ export interface GameInstance {
 
 ## defineComponent
 
-来源：`packages/sdk/src/index.ts:231`
+来源：`packages/sdk/src/index.ts:392`
 
 ```ts
 export function defineComponent<const S extends ComponentSchema>(input: {
@@ -531,7 +783,7 @@ export function defineComponent<const S extends ComponentSchema>(input: {
 
 ## defineMaterial
 
-来源：`packages/sdk/src/index.ts:237`
+来源：`packages/sdk/src/index.ts:398`
 
 ```ts
 export function defineMaterial(input: MaterialInput): MaterialDefinition;
@@ -539,7 +791,7 @@ export function defineMaterial(input: MaterialInput): MaterialDefinition;
 
 ## defineCompute
 
-来源：`packages/sdk/src/index.ts:240`
+来源：`packages/sdk/src/index.ts:401`
 
 ```ts
 export function defineCompute(input: ComputeInput): ComputeDefinition;
@@ -547,7 +799,7 @@ export function defineCompute(input: ComputeInput): ComputeDefinition;
 
 ## defineAsset
 
-来源：`packages/sdk/src/index.ts:243`
+来源：`packages/sdk/src/index.ts:404`
 
 ```ts
 export function defineAsset(input: AssetInput): AssetDefinition;
@@ -555,7 +807,7 @@ export function defineAsset(input: AssetInput): AssetDefinition;
 
 ## definePrefab
 
-来源：`packages/sdk/src/index.ts:246`
+来源：`packages/sdk/src/index.ts:407`
 
 ```ts
 export function definePrefab(input: PrefabInput): PrefabDefinition;
@@ -563,7 +815,7 @@ export function definePrefab(input: PrefabInput): PrefabDefinition;
 
 ## defineScene
 
-来源：`packages/sdk/src/index.ts:249`
+来源：`packages/sdk/src/index.ts:410`
 
 ```ts
 export function defineScene(input: SceneInput): SceneDefinition;
@@ -571,7 +823,7 @@ export function defineScene(input: SceneInput): SceneDefinition;
 
 ## defineSystem
 
-来源：`packages/sdk/src/index.ts:252`
+来源：`packages/sdk/src/index.ts:413`
 
 ```ts
 export function defineSystem(input: SystemInput): SystemDefinition;
@@ -579,7 +831,7 @@ export function defineSystem(input: SystemInput): SystemDefinition;
 
 ## defineGame
 
-来源：`packages/sdk/src/index.ts:255`
+来源：`packages/sdk/src/index.ts:416`
 
 ```ts
 export function defineGame(input: GameInput): GameDefinition;
@@ -587,7 +839,7 @@ export function defineGame(input: GameInput): GameDefinition;
 
 ## instantiateGame
 
-来源：`packages/sdk/src/index.ts:259`
+来源：`packages/sdk/src/index.ts:420`
 
 ```ts
 export function instantiateGame(

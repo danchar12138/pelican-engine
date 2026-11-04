@@ -1,0 +1,7 @@
+﻿{
+    "pid":  42000,
+    "command":  "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\threecat.ps1 dev --project .\\games\\core-relay --port 4319",
+    "cwd":  "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\threecat",
+    "started":  "2026-11-05T01:46:14.6007463+08:00",
+    "candidate":  5
+}

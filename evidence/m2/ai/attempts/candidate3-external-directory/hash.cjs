@@ -1,0 +1,7 @@
+const fs=require('node:fs'),p=require('node:path'),c=require('node:crypto');
+const before=p.join(__dirname,'engine-before.json'),out={},root=p.resolve(__dirname,'../threecat');
+const excludes=new Set(['node_modules','.threecat','dist','.git']);
+function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(excludes.has(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())walk(f);else out[p.relative(root,f).split(p.sep).join('/')]=c.createHash('sha256').update(fs.readFileSync(f)).digest('hex');}}
+walk(root);
+if(process.argv.includes('--compare')){const old=JSON.parse(fs.readFileSync(before));const differences=[...new Set([...Object.keys(old),...Object.keys(out)])].filter(k=>old[k]!==out[k]);fs.writeFileSync(p.join(__dirname,'engine-after.json'),JSON.stringify(out,null,2));const result={engineFilesModified:differences.length!==0,differences,files:Object.keys(out).length};fs.writeFileSync(p.join(__dirname,'engine-integrity.json'),JSON.stringify(result,null,2));console.log(result);if(differences.length)process.exit(1);}
+else{fs.writeFileSync(before,JSON.stringify(out,null,2));const git=[];function check(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(e.name==='.git')git.push(p.join(d,e.name));else if(e.isDirectory()&&!excludes.has(e.name))check(p.join(d,e.name));}}check(root);console.log({files:Object.keys(out).length,noGit:git.length===0});if(git.length)process.exit(1);}

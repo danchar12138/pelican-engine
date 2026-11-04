@@ -1,0 +1,57 @@
+{
+  "passed": true,
+  "realKeyboardOnly": true,
+  "inspectAndStepOnly": true,
+  "kinematicClosedGate": true,
+  "firstTickRetreat": true,
+  "repeatedContactRetreat": true,
+  "contact": [
+    -1.5999250411987305,
+    0.7099390029907227,
+    -7.495157718658447
+  ],
+  "firstTick": [
+    -1.5999250411987305,
+    0.7100390195846558,
+    -7.445157527923584
+  ],
+  "final": [
+    -1.599542498588562,
+    0.7100999355316162,
+    -5.133337497711182
+  ],
+  "backend": "WebGPUBackend",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "isFallbackAdapter": false,
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "texture-formats-tier1",
+      "bgra8unorm-storage",
+      "chromium-experimental-multi-draw-indirect",
+      "texture-compression-bc",
+      "dual-source-blending",
+      "core-features-and-limits",
+      "chromium-experimental-sampling-resource-table",
+      "chromium-experimental-timestamp-query-inside-passes",
+      "float32-filterable",
+      "indirect-first-instance",
+      "float32-blendable",
+      "atomic-vec2u-min-max",
+      "subgroup-size-control",
+      "texture-compression-unaligned",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "timestamp-query",
+      "texture-formats-tier2",
+      "shader-f16",
+      "clip-distances",
+      "primitive-index",
+      "texture-component-swizzle",
+      "subgroups"
+    ]
+  },
+  "errors": []
+}

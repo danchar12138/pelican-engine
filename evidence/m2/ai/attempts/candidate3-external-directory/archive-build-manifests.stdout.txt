@@ -1,0 +1,5 @@
+{
+  "standaloneRoot": "deployment\\arcade\\fox-freight",
+  "files": 40,
+  "totalBytes": 20267034
+}

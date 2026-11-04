@@ -23,6 +23,13 @@ import {
 } from "./browser-session.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const activeManifest = JSON.parse(
+  await readFile(path.join(root, "engine.manifest.json"), "utf8"),
+);
+if (activeManifest.milestone !== "M1" || activeManifest.version !== SDK_VERSION)
+  throw new Error(
+    "TC_VERIFY_MILESTONE: verify:m1 requires the matching M1 source release. Historical evidence will not be overwritten.",
+  );
 const evidence = path.join(root, "evidence/m1");
 await mkdir(evidence, { recursive: true });
 const exec = promisify(execFile);

@@ -1,0 +1,10 @@
+page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:54339/?automation=1
+Call log:
+[2m  - navigating to "http://localhost:54339/?automation=1", waiting until "load"[22m
+
+    at C:\Users\60459\AppData\Local\Temp\threecat M2 ZIP 中文 FQNfsC\flow-external\report\discover.cjs:4:484 {
+  log: [
+    '  - navigating to "http://localhost:54339/?automation=1", waiting until "load"'
+  ],
+  name: 'Error'
+}

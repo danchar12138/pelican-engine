@@ -1,0 +1,83 @@
+﻿**********************
+Windows PowerShell 脚本开始
+开始时间: 20261105000439
+用户名: DESKTOP-E5BNQKG\60459
+RunAs 用户: DESKTOP-E5BNQKG\60459
+配置名称: 
+计算机: DESKTOP-E5BNQKG (Microsoft Windows NT 10.0.26300.0)
+主机应用程序: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding=[Text.UTF8Encoding]::new($false)
+Start-Transcript -LiteralPath '.\report\first-docs.txt'
+Get-Content -LiteralPath '.\threecat\AGENTS.md'
+Get-Content -LiteralPath '.\threecat\docs\M2-USAGE.md'
+rg --files '.\threecat\docs' | Select-String -Pattern 'SDK|sdk|INDEX|index'
+Stop-Transcript
+进程 ID: 40852
+PSVersion: 5.1.26100.9711
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9711
+BuildVersion: 10.0.26100.9711
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+已启动脚本，输出文件为 .\report\first-docs.txt
+# threecat锛氬閮?AI 宸ヤ綔鍏ュ彛
+
+## 鍏堣鐘舵€?
+褰撳墠 **M1 宸插彂甯冿紱M2 瀹屾暣娓告垙鍒囩墖涓庤祫浜х绾挎鍦ㄩ泦鎴愰獙鏀讹紝灏氭湭鍙戝竷**銆傚綋鍓嶅紑鍙戝伐浣滄爲鎿嶄綔瑙?[M2 浣跨敤鎸囧紩](docs/M2-USAGE.md)锛汳0/M1 鍘嗗彶楠屾敹淇濇寔涓嶅彉銆侻2 瀹為檯闂ㄧ瑙?`evidence/m2/acceptance.json`锛屼换浣曞け璐ラ」閮戒笉鑳芥嵁鍏朵粬閫氳繃椤规帹鏂畬鎴愩€傛湭鏉ヨ鍒掍笉鑳藉綋浣滃凡缁忓疄鐜般€?
+鐢ㄦ埛鐜板凡鏄庣‘鎺堟潈鍏ㄨ嚜鍔ㄦ寜闃舵瀹屾垚 M1鈥揗8銆傛帴缁换鍔′繚鎸佽鐩爣锛屼笉鎶婁竴娆′細璇濄€佷笂涓嬫枃鍒囨崲鎴栦竴娆￠樁娈靛彂甯冭褰撲綔鎾ら攢鍚庣画鎺堟潈銆傛寜渚濊禆銆佺湡瀹為獙鏀朵笌鍚岃妭鐐瑰彂甯冭鍒欐寔缁帹杩涖€?
+鐢ㄦ埛宸叉巿鏉冨叏鑷姩鐮斿彂 M0銆佸缓绔?GitHub 寮€婧愪粨搴擄紝骞跺湪姣忎釜閲岀▼纰戦獙鏀跺悗鍙戝竷 Release銆備粨搴撲负 `danchar12138/threecat`锛涘彂甯冭鑼冭 [RELEASING.md](docs/RELEASING.md)銆傚悗缁瘡涓凡鎺堟潈閲岀▼纰戦兘闇€楠岃瘉銆佹彁浜ゃ€佹帹閫併€佸垱寤哄搴?Release 涓庢牎楠岄檮浠讹紝涓嶈兘鍙仠鐣欏湪鏈湴瀹屾垚銆備笉瑕佸洜鏃╂湡鈥滀粎鍒跺畾鏂规鈥濈殑鍘嗗彶鐘舵€佸啀娆¤姹傛壒鍑嗗凡缁忔巿鏉冪殑宸ヤ綔銆傛彁浜ゃ€佹帹閫併€佹爣绛惧拰 Release 蹇呴』浣嶄簬鍚屼竴涓凡楠屾敹鐨勯噷绋嬬浜や粯鑺傜偣锛屼笉鎻愬墠闆舵暎鎺ㄩ€侊紱鎻愪氦娑堟伅浣跨敤 Conventional Commits 缁撴瀯鍙婁腑鏂囨弿杩般€備笉瑕佽烦杩囪瘉鎹€佷互绌哄疄鐜版垨璺宠繃娴嬭瘯浜や粯鍔熻兘銆?
+## 浜у搧涓庤亴璐?
+- 100% 鎶€鏈墽琛岀敱澶栭儴 AI 瀹屾垚锛屼汉鎻愬嚭闇€姹傘€佺害鏉熷拰鍙嶉銆傛父鎴忓唴閮ㄦ病鏈夊ぇ妯″瀷鎴?AI 鏅鸿兘浣撱€?- **寮曟搸鐮斿彂 AI**锛氬湪寮曟搸鎵€鏈夎€呮巿鏉冧笅缁存姢 SDK銆佺紪璇戝櫒銆佽繍琛屾椂銆佸伐鍏枫€佹枃妗ｃ€佹祴璇曚笌鐗堟湰銆?- **娓告垙寮€鍙?AI**锛氫唬琛ㄦ父鎴忎綔鑰呬娇鐢ㄥ紩鎿庯紱鍙慨鏀规父鎴忓伐浣滃尯鍙婇€氳繃宸ュ叿绠＄悊鐨勯」鐩枃浠讹紝浣跨敤鍏紑 API锛屼笉淇敼寮曟搸鎴栫粫杩囧唴閮ㄤ緷璧栥€?- 寮€婧愬厑璁镐慨鏀规簮鐮侊紱涓婅堪杈圭晫鏄爣鍑嗗紑鍙戣鑼冿紝涓嶆槸闃茬鏀规満鍒舵垨闄勫姞璁稿彲闄愬埗銆傜敤鎴锋槑纭姹傜爺鍙戝紩鎿庢椂鎸夊紩鎿庣爺鍙戣亴璐ｅ鐞嗐€?
+## 蹇呴』閬靛畧鐨勭害鏉?
+1. WebGPU-only锛屼笉鎻愪緵 WebGL 鍥為€€锛屼笉鎶婅蒋浠跺悗绔殑缁撴灉鍋囩О纭欢鎬ц兘銆?2. 娌℃湁鍙鍖栫紪杈戝櫒锛涙父鎴?UI銆佹祻瑙堝櫒杩愯鐢婚潰鍜岃嚜鍔ㄥ寲鎴浘浠嶅睘浜庢寮忚兘鍔涖€?3. 娓告垙渚?TypeScript 閫氳繃寮曟搸鍏紑鎺ュ彛瀹氫箟鍐呭銆佺帺娉曚笌鍙楁帶鍥惧舰璁＄畻锛屼笉瀵煎叆 Three.js/TSL銆丟PUDevice 鎴栫墿鐞嗗簱鍐呴儴瀵硅薄銆?4. 涓嶄緷璧?Git銆佸浐瀹氳矾寰勩€佷笓鐢?AI 骞冲彴銆佽处鍙锋垨鍦ㄧ嚎寮€鍙戞湇鍔°€俍IP銆佺洰褰曘€佸閮ㄥ紩鎿庤矾寰勯兘搴斿彲鐢ㄣ€?5. 寮€鍙戠幆澧冧粎 Windows锛涚帺瀹舵棤娴忚鍣?鎿嶄綔绯荤粺鐧藉悕鍗曪紝妫€娴嬪疄闄呰兘鍔涖€?6. 璧勪骇鐢熸垚鏂瑰紡鐢辨父鎴忓紑鍙戣€呰嚜琛屽喅瀹氾紝涓嶅缓璁惧繀闇€鐨勭敓鎴愭湇鍔″钩鍙般€?7. 瀹屾暣棣栧彂鍖呮嫭鍔ㄦ€佸厜杩?璺緞杩借釜鍜屽竷鏂欍€佺怀绱€佽蒋浣撱€佹祦浣撶瓑锛屼笉鎿呰嚜鐢ㄨ瑙夋浛浠ｇ湡瀹炰氦浜掓垨闈欐€佸睍绀烘浛浠ｅ姩鎬佹敮鎸併€?8. 涓嶅皢鎺ㄨ崘閰嶇疆銆佹祴璇曟満鍣ㄦ垨宸ュ叿寤鸿鍗囩骇涓轰骇鍝佷娇鐢ㄩ檺鍒躲€?
+## 鎺ョ画涓€涓换鍔?
+1. 闃呰 [鍐崇瓥](docs/DECISIONS.md)銆乕璁″垝](docs/ROADMAP.md)锛屽啀璇荤浉鍏虫灦鏋勪笌楠屾敹椤广€?2. 妫€鏌ョ洰褰曘€佺幇鏈夋枃浠躲€佸伐浣滃尯淇敼鍜屽綋鍓嶄緷璧栫姸鎬侊紱涓嶅亣瀹氳矾寰勬垨宸ュ叿宸插瓨鍦ㄣ€?3. 鏄庣‘浠诲姟 ID銆佸墠缃緷璧栥€佸啓鍏ヨ寖鍥淬€佹帴鍙ｅ绾︺€佷氦浠樿瘉鎹笌鏈В鍐抽棶棰樸€?4. 鏈変緷璧栫殑浠诲姟鍏堥『搴忓鐞嗭紱鐙珛浠诲姟鍙苟琛岋紝浣嗕笉寰楄澶氫釜浠诲姟鍚屾椂淇敼鍏变韩鏍稿績鏂囦欢銆?5. 鍏堝疄鐜版渶灏忕鍒扮閾捐矾锛屽啀澧炲姞鑳藉姏锛涢€傚綋楠岃瘉鐪熷疄琛屼负銆佸け璐ュ鐞嗗拰璧勬簮鐢熷懡鍛ㄦ湡銆?6. 鎶ュ憡鍙樻洿銆侀獙璇佺粨鏋溿€佽瘉鎹綅缃拰鍓╀綑椋庨櫓锛屾洿鏂颁换鍔＄姸鎬併€傛湭鎵ц娴嬭瘯蹇呴』鐩磋锛屼笉浠ユ帹娴嬩唬鏇块€氳繃銆?
+浠诲姟妯℃澘銆佸懡浠ゅ崗璁笌浜ゆ帴瑙勫垯瑙?[AI 宸ヤ綔娴乚(docs/AI-WORKFLOW.md)銆傚崟涓?AI 蹇呴』鑳芥寜鐩稿悓渚濊禆鍥鹃『搴忓畬鎴愪换鍔★紝澶?AI 涓嶆槸蹇呴渶鐜銆?
+## 鏂囨。涓庢帴鍙ｈ鍒?
+- 宸茬‘璁ら渶姹傜殑鍞竴鍏ュ彛鏄?`docs/DECISIONS.md`锛涙妧鏈璁″彉鍔ㄤ笉寰楁殫鏀逛骇鍝佽寖鍥淬€?- 鍏紑鎺ュ彛搴旀湁鍗曚竴浜嬪疄鏉ユ簮锛屾淳鐢熺被鍨嬨€丼chema銆佹枃妗ｅ拰绀轰緥闇€淇濇寔涓€鑷达紱鍏蜂綋鐢熸垚宸ュ叿鐢?M0 鍐冲畾銆?- 閿欒蹇呴』鎻愪緵绋冲畾閿欒鐮併€佹簮浣嶇疆/瀹炰綋/璧勬簮鏍囪瘑鍜屼慨澶嶅缓璁紱涓嶈兘鍙緭鍑哄師濮嬪簳灞傚爢鏍堛€?- 缂哄け鑳藉姏搴旇褰曚负缂哄彛锛涚姝㈡父鎴忓紑鍙戜换鍔￠€氳繃淇敼寮曟搸鍐呴儴瀹炵幇鎺╃洊缂哄彛銆?- 瀵瑰瀹ｇО姝ｅ紡瀹屾垚鍓嶏紝蹇呴』閫氳繃 `docs/CAPABILITIES.md` 瀵瑰簲楠屾敹銆?- 鏂囨。鍑虹幇鐨勬嫙瀹氬懡浠ゃ€佹帴鍙ｄ笌鐩綍锛屽湪瀹炵幇鍓嶄繚鐣欌€滄嫙瀹氣€濇爣璇嗐€?
+## 瀹夊叏涓庡彲鎭㈠鎬?
+浣跨敤椤圭洰鍐呮垨鐢ㄦ埛绾т緷璧栵紝涓嶆妸浜哄伐绠＄悊鍛樻搷浣滃綋鎴愭爣鍑嗘楠ゃ€備笉灏嗗瘑閽ュ啓鍏ユ簮鐮併€佽瘉鎹垨鏃ュ織銆傝縼绉讳笌鐮村潖鎬ф搷浣滃墠寤虹珛鍙獙璇佺殑鎭㈠鐐癸紱Git 涓嶅瓨鍦ㄦ椂浣跨敤鏂囦欢绾ф仮澶嶆満鍒躲€傚紑鍙戞€佹帶鍒堕€氶亾涓嶈繘鍏ラ粯璁ょ敓浜т骇鐗┿€?
+## 浜や粯鏂瑰紡
+
+M0 鏋勫缓宸茶緭鍑?`dist/`锛岄儴缃插埌鏅€?Web 鏈嶅姟鍣ㄨ繍琛岋紱瀹冩槸椋庨櫓鍘熷瀷锛屼笉浠ｈ〃瀹屾暣棣栧彂鑳藉姏銆傛簮鐮侀噰鐢?MIT锛岀涓夋柟鏉ユ簮涓庤鍙垎鍒褰曘€?
+# M2锛氭父鎴忓垏鐗囧紑鍙戝叆鍙?
+褰撳墠鐗堟湰 `0.2.0-m2.0` 涓哄紑鍙戝€欓€夈€傚凡鏈夌鍒扮娓告垙涓庣湡瀹?WebGPU 楠岃瘉锛屾渶缁堝彂甯冪姸鎬佷互 `evidence/m2/acceptance.json` 涓哄噯銆侻2 涓嶇瓑浜庡畬鏁撮鍙戯紝M3鈥揗8 鐨勫叏閮ㄨ兘鍔涗粛椤婚€愰」瀹屾垚銆?
+## 鍑嗗涓庡垱寤?
+Windows 涓嬪彲浠?GitHub銆乑IP銆佽В鍘嬬洰褰曟垨澶栭儴寮曟搸璺緞寮€濮嬶紝涓嶈姹?Git銆佽处鍙锋垨涓撶敤 AI 骞冲彴銆傚彧淇敼娓告垙鐩綍锛屾父鎴忎唬鐮佷粎瀵煎叆 `@threecat/sdk`銆?
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" setup --install-browser
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" create --project "<new-game>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" check --project "<game>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" dev --project "<game>" --port 4173
+```
+
+`create` 澶嶅埗 M2 瀹屾暣绀轰緥鍜岀礌鏉愬苟閰嶇疆鏈湴寮曟搸寮曠敤锛涗笉浼氳鐩栧凡鏈夌洰褰曘€傞」鐩竻鍗?`engine.path` 鎸夋父鎴忕洰褰曡В鏋愶紝`engine.version` 蹇呴』绮剧‘鍖归厤銆傚噯澶囧ソ缂撳瓨鍚庡彲鐢?`setup --offline`锛涙ā鍨嬪拰绱犳潗鐢熶骇鏂瑰紡涓嶇敱寮曟搸闄愬埗銆?
+## 鍏紑缂栫▼闈?
+- 鍐呭瀹氫箟锛歚defineComponent/definePrefab/defineScene/defineAsset/defineMaterial/defineSystem/defineGame`锛沗game.scenes` 瀹氫箟棰濆鍦烘櫙銆?- 瀹炰綋锛歚entities.spawn({id,prefab,transform,components})` 鎸夌紪璇戦鍒朵綋榛樿鍊肩敓鎴愶紝`entities.destroy` 鍦ㄩ樁娈佃竟鐣屾彁浜ゃ€傜渷鐣?prefab 鍒涘缓浠呭惈鍙樻崲鍜岀粍浠剁殑閫昏緫瀹炰綋銆傚疄浣撳彞鏌勫湪鎭㈠鍚庨』閲嶆柊瑙ｆ瀽銆?- 杈撳叆锛歚game.input` 灏?action 鏄犲皠鑷?`KeyboardEvent.key` 瀛楃涓诧紝`ctx.input.held/pressed/released/axis` 璇诲彇鍥哄畾 tick 鐘舵€侊紝Space 鏄崟涓┖鏍笺€俇I 鎸夐挳鍙槧灏?`ui:<id>`锛涘悓 tick 鎸変笅涓庨噴鏀句細淇濈暀 pressed 杈规部銆?- 瑙掕壊锛歚character` 瀹氫箟鑳跺泭锛宍physics.moveCharacter` 鎻愪氦涓嬩竴鐗╃悊姝?XYZ 浣嶇Щ锛沗setVelocity` 璁剧疆鎸佺画閫熷害锛屾 Y 璺宠穬銆傝鑹?gravity 鏄悜涓嬪姞閫熷害澶у皬锛岄粯璁?9.81锛涘満鏅?gravity 涓哄甫绗﹀彿鍚戦噺銆?- 鐗╃悊锛氬０鏄?`rigidBody`锛屼娇鐢ㄩ€熷害銆佸啿閲忋€佸皠绾垮強纰版挒/瑙﹀彂浜嬩欢銆傚皠绾垮彲浼?`{exclude:[entity],includeTriggers:false}`銆傛墍鏈夌涓夋柟瀵硅薄閮界敱寮曟搸鎸佹湁銆?- 妯″瀷涓庡姩鐢伙細`model.asset/scale/offset/rotation/animation/castShadow/receiveShadow`锛沗ctx.animation.play/state` 鏀寔鐗囨鍒囨崲鍜屾贰鍏ャ€侴LB 浣跨敤绉佹湁 GLTFLoader锛岄楠煎拰 Morph 瀹炰緥鐙珛銆?- 鐩告満锛歚scene.follow`銆乣ctx.camera.follow/orbit`锛泂moothing 涓?0鈥? 鐨勬瘡 60 Hz 鎻掑€兼瘮渚嬶紝0 琛ㄧず绔嬪嵆璺熼殢銆傝窡闅忕浉鏈洪€氳繃鐗╃悊灏勭嚎閬垮紑閬尅鐗┿€?- 鍏夋爡锛欸LB PBR/绾圭悊銆乻RGB銆侀槾褰便€佺幆澧冪収鏄庯紱`scene.environment.lighting: "studio"` 鏄樉寮?IBL 棰勮銆傛柟鍚戝厜鏀寔 target 鍜?shadow mapSize/extent/bias/normalBias/near/far銆?- 璧勪骇浼樺寲锛歚optimize --project <game> --asset <id> --output <鏂?glb>` 鏄惧紡鐢熸垚鏃犳崯浼樺寲鏂囦欢锛屽悎骞朵綅绾х浉鍚岀殑椤剁偣鍙婇噸澶嶈祫婧愶紝淇濈暀鍔ㄧ敾鍜屾潗璐ㄥ悕绉帮紝涓嶈鐩栧師鏂囦欢銆傛簮鐮侀噰鐢ㄤ紭鍖栦骇鐗╁墠闇€鏄惧紡鏇存柊璧勪骇璺緞銆俙build` 棰濆鐢熸垚鍙€?`.br/.gz` 鍙?`compression-manifest.json`锛涙櫘閫氶潤鎬佹湇鍔″櫒鍙€夋嫨閰嶇疆 Content-Encoding 鍗忓晢锛屽師濮嬫枃浠跺缁堜繚鐣欍€?- UI锛歚game.ui` 澹版槑 text/bar/button锛屼娇鐢?`ctx.ui.setText/setProgress/setVisible`銆傝繖鏄?M2 鍩虹瀛愰泦锛屼笉浠ｈ〃 M6 瀹屾暣 UI銆?- 闊抽锛歚game.sounds`銆乣ctx.audio.play/stop/volume`銆傞€昏緫 voice ID銆侀煶閲忎笌宸茬煡鏃堕暱鎸夊浐瀹?tick 绠＄悊锛涙祻瑙堝櫒绂佹鑷姩鎾斁鏃朵粎闊抽绛夊緟鐪熷疄鎵嬪娍锛屼笉闃诲 GPU銆佺帺娉曟垨娴嬭瘯銆?- 瀛樻。涓庡満鏅細`ctx.storage.save/load/status`銆乣ctx.scenes.current/load`銆傝姹傚湪瀹屾暣 tick 涔嬪悗鐢卞钩鍙版墽琛岋紝澶辫触淇濈暀褰撳墠鍦烘櫙骞惰緭鍑虹姸鎬侊紱瀛樻。缁戝畾寮曟搸銆佹父鎴忎笌璧勪骇鍝堝笇銆傛瘡 tick 鍙帴鍙椾竴涓瓨妗?鍒囧満鏅姹傘€?
+绯荤粺闃舵涓?`input 鈫?prePhysics 鈫?physics 鈫?postPhysics 鈫?update 鈫?presentation`銆傛父鎴忕郴缁熷０鏄?`reads/writes` 涓?`structural`锛涙椂闂淬€侀殢鏈恒€佷簨浠跺拰璺?tick 鐘舵€佷娇鐢ㄥ叕寮€鏈嶅姟鎴栫粍浠讹紝涓嶇敤妯″潡闂寘鎵胯浇蹇呴』鎭㈠鐨勭姸鎬併€傛簮鐮佸叆鍙ｃ€丼chema 涓庡畬鏁寸鍚嶈 `packages/sdk/src/index.ts` 鍜?`docs/api/REFERENCE.md`銆?
+## 绀轰緥涓庢棤浜哄€煎畧娴嬭瘯
+
+榛樿绀轰緥 `examples/m2/game.ts`锛歐ASD/鏂瑰悜閿Щ鍔紝Space 璺宠穬锛孍 鏀堕泦锛孎5 淇濆瓨锛孎9 璇诲彇锛孯 閲嶅紑锛孮/T 鏃嬭浆鐩告満锛汢 鐢熸垚鍒氫綋绠卞瓙锛孨 鐢熸垚涓€鍙兌鍥婄鎾炶鑹诧紝鐢ㄤ簬楠岃瘉鍏紑棰勫埗浣撶敓鎴愪笌瀛樻。銆備换鍔℃槸鍥炴敹涓変欢鐗╁搧銆佽翰閬垮贰閫婚殰纰嶃€佽繘鍏ュ寳渚ч棬锛屽啀鍙粠閫氬叧鍦烘櫙璇诲彇鏃у瓨妗ｃ€?
+鏅€氶〉闈㈣嚜鍔ㄨ繍琛岋紝鏃犻渶鐐瑰嚮鎴栧洖杞︺€備粎寮€鍙戠増 `?automation=1` 鏄庣‘鏆傚仠銆傛帶鍒舵ˉ浣跨敤鏁板€艰疆璇㈠拰 Node 鎴鏃堕棿锛屽惎鍔ㄤ笉绛夊緟绐楀彛婵€娲绘垨 GPU 闃熷垪瀹屾垚閫氱煡銆傛父鎴?UI 涓嶆樉绀哄唴閮ㄥ紩鎿庣姸鎬侊紝娴嬭瘯閫氳繃缁撴瀯鍖?`inspect` 鍖哄垎 paused 涓?faulted銆?
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" inspect --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" input --key w --pressed true --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" step --count 60 --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" input --key w --pressed false --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" capture --live --output "<game>\frame.png" --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" build --project "<game>"
+```
+
+`capture --live` 璇诲彇鎺у埗妗ユ寔鏈夌殑褰撳墠椤碉紱鐙珛 `capture --project` 寤虹珛鍐蜂細璇濄€傝繑鍥?JSON envelope 鍜岄€€鍑虹爜锛岃礋渚嬩笉浼氳鏃ф瀯寤哄啋鍏呮垚鍔熴€傜敓浜?`dist/` 閮ㄧ讲鍒版櫘閫?Web 鏈嶅姟鍣紝鍖呮嫭瀛愯矾寰勶紝鍘婚櫎寮€鍙戞帶鍒?API锛屼笉渚濊禆鍘熷紩鎿庣洰褰曟垨浠讳綍 AI 鏈嶅姟銆?
+## 杈圭晫涓庝笅涓€姝?
+绱犳潗妫€鏌ュ綋鍓嶆敮鎸佽嚜鍖呭惈鏍稿績 GLB 2.0銆佸彈鏀寔 PNG/JPEG銆丳CM/float WAV 涓?binary锛涗笉鏀寔鐨勬墿灞曘€佸閮ㄨ祫婧愭垨缂栫爜鏄庣‘鎶ラ敊銆傝祫婧愭槑缁嗚 `packages/assets/README.md`銆傜紪璇戝櫒妫€鏌ユ崯鍧忔枃浠躲€佺墖娈靛悕銆佹潵婧愬０鏄庡拰瀛楄妭鍝堝笇锛屽苟杈撳嚭 `asset-notices.json`锛涜鍙瘉瀛楁涓嶆槸寮曟搸瀵圭涓夋柟鏉冨埄鐨勬媴淇濄€?
+GLB 绾圭悊鍦烘櫙鐩墠鍙厑璁?raster锛沨ybrid/path 鏄庣‘杩斿洖 `TC_TRACE_STAGE`锛屼笉闈欓粯浣跨敤鏃犵汗鐞嗚繎浼笺€傚畬鏁村厜杩芥潗璐ㄤ笌鍔ㄦ€?PT 灞炰簬 M3銆傜墿鐞嗗巻鍙插揩鐓х洰鍓嶆湁鎿嶄綔鏁板拰鎭㈠鎴愭湰闄愬埗锛岃 `packages/physics/README.md`锛涢暱鏈熷浐瀹氬ぇ灏?checkpoint 浠嶉』浼樺寲銆傚畬鏁存ā鎷熴€佸ぇ涓栫晫銆?D/UI/闊抽銆佽縼绉讳笌鏈€缁堥鍙戦獙鏀剁户缁寜 M4鈥揗8 瀹屾垚銆?
+
+.\threecat\docs\api\index.json
+**********************
+Windows PowerShell 脚本结束
+结束时间: 20261105000440
+**********************

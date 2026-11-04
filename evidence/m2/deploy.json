@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "base": "/games/m2/",
+  "hooks": {
+    "control": "undefined",
+    "failure": "undefined"
+  },
+  "score": "Relics 1 / 3   Hearts 3 / 3",
+  "errors": []
+}

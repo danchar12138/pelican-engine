@@ -1,0 +1,202 @@
+[
+  {
+    "path": "assets/index-DLhI8y-l.js",
+    "bytes": 5330095,
+    "sha256": "08bf2f255877abc41194797be83a576b98976b0e2213fa519f06a571de0053ca"
+  },
+  {
+    "path": "assets/index-DLhI8y-l.js.br",
+    "bytes": 1653367,
+    "sha256": "4d8c2c3aaef4f30b5a9a64bb5060e303e11216a2c4ad72e125ef9c390a95a775"
+  },
+  {
+    "path": "assets/index-DLhI8y-l.js.gz",
+    "bytes": 1922075,
+    "sha256": "c2c310bfc9b2b571ca058292339f4bc3a205cb1c065e61a616097a389cf2f4c3"
+  },
+  {
+    "path": "assets/index-DLhI8y-l.js.map",
+    "bytes": 10761736,
+    "sha256": "6d110888b3475b77e94486f2229cc7f1691ca5c2180f7e08ca3001c56e54c426"
+  },
+  {
+    "path": "compression-manifest.json",
+    "bytes": 6604,
+    "sha256": "e5c9c9888b82bdffe73b4e02a6f5c46120a51d9606674d22eb500b786d66f83b"
+  },
+  {
+    "path": "generated/.threecat-cache.json",
+    "bytes": 22288,
+    "sha256": "d53e6103421ae10628c1f4c3d6a3a23ce8474b9859c1e17b02add56708fa8040"
+  },
+  {
+    "path": "generated/.threecat-cache.json.br",
+    "bytes": 5292,
+    "sha256": "162e8f602079d169a57d055adffa2ce229d946163a9e9d43b033e35c2da80e70"
+  },
+  {
+    "path": "generated/.threecat-cache.json.gz",
+    "bytes": 5647,
+    "sha256": "c489b53044a34daf6e693ff48aa08df9583f648a9c633e65d94f665b3d76dc52"
+  },
+  {
+    "path": "generated/asset-notices.json",
+    "bytes": 591,
+    "sha256": "10fd22a5f5877b23822998ab4c00fddcc077bdc3026c96ed17f23351705d3671"
+  },
+  {
+    "path": "generated/asset-notices.json.br",
+    "bytes": 344,
+    "sha256": "a8cc6a4a96b01fb1715550c744053218f28a7b0f98e4047755dd1595d5c1bada"
+  },
+  {
+    "path": "generated/asset-notices.json.gz",
+    "bytes": 362,
+    "sha256": "e8dab2c534cbe9cb0e738fd3908e7545767ce73e9a4695839d94f3814a64c714"
+  },
+  {
+    "path": "generated/assets/courier-fox-Fox.glb",
+    "bytes": 162852,
+    "sha256": "d97044e701822bac5a62696459b27d7b375aada5de8574ed4362edbba94771f7"
+  },
+  {
+    "path": "generated/assets/courier-fox-Fox.glb.br",
+    "bytes": 76897,
+    "sha256": "2c562c7e09ea7e18e3dcd5d9be3b433edc1d0fefee4bdc5075476402498d97d2"
+  },
+  {
+    "path": "generated/assets/courier-fox-Fox.glb.gz",
+    "bytes": 81305,
+    "sha256": "5df1a77e0d22e755dbfe7614c4018dc56f6ddc2b4414e37fb049802a845115ae"
+  },
+  {
+    "path": "generated/assets/receipt-chime-chime.wav",
+    "bytes": 39734,
+    "sha256": "35e7abcd74fbe089e517c5c15d5c35ac3705e92db8fbfb5b17b3d50337b416e1"
+  },
+  {
+    "path": "generated/assets/receipt-chime-chime.wav.br",
+    "bytes": 33519,
+    "sha256": "b849736d2c63d10720a2e655a9b4cdc842784b4c4c899cd93f9b1111c94393b4"
+  },
+  {
+    "path": "generated/assets/receipt-chime-chime.wav.gz",
+    "bytes": 33886,
+    "sha256": "7b90586759e86c05554652cbb84b92c7d04d0a567f95c9c3dfaebd6551d101dc"
+  },
+  {
+    "path": "generated/build-report.json",
+    "bytes": 7171,
+    "sha256": "302c4a4b907c4d565bdd489a296cc05c062cd420ae0af88725f15fb0a24c224b"
+  },
+  {
+    "path": "generated/build-report.json.br",
+    "bytes": 2384,
+    "sha256": "139b0dd71f201ba4e808de0e7f3faca96f7308330c19f964e0d740516fb272c5"
+  },
+  {
+    "path": "generated/build-report.json.gz",
+    "bytes": 2485,
+    "sha256": "495f08366ee5859b5d5072814f5aba14ed94a4fe3dfd7b09c7c379e3eb95c8e5"
+  },
+  {
+    "path": "generated/game.js",
+    "bytes": 13716,
+    "sha256": "40420301ad155cef9294406d0a894dfd93ca202f94036d3443c5335b110c0e68"
+  },
+  {
+    "path": "generated/game.js.br",
+    "bytes": 3973,
+    "sha256": "22e2c703aac4e4967fe13933e68faeb71a1f7b7904888c959f7d3f75f3895f14"
+  },
+  {
+    "path": "generated/game.js.gz",
+    "bytes": 4210,
+    "sha256": "c91332fc8835d391f6c6efb6bed408f5922560f10f1dd30ba94d9de051f1c6dc"
+  },
+  {
+    "path": "generated/game.js.map",
+    "bytes": 33793,
+    "sha256": "7d63f8c5519a9cdd7742a62e06d62ccad34e271edfcf83d4eca0fc4fdacd29b0"
+  },
+  {
+    "path": "generated/scene.ir.json",
+    "bytes": 37032,
+    "sha256": "04ab0012c43f38f86fa0655c3df0591f833ad1aedc9989b8cf2b9f30a99c8951"
+  },
+  {
+    "path": "generated/scene.ir.json.br",
+    "bytes": 3981,
+    "sha256": "a1571656802c71de91d5254a18f5631305725bde0e62ff3480bb74460ce045d5"
+  },
+  {
+    "path": "generated/scene.ir.json.gz",
+    "bytes": 4288,
+    "sha256": "b961bf6d58f0df53cffa924c7add0c1bfc52727a70982ebc3dbb0a5f9def18fc"
+  },
+  {
+    "path": "generated/version.json",
+    "bytes": 275,
+    "sha256": "a3df4ab3e3863f1d61463c44b61e9d1c640c4a1097d4852a0e0e0ba712dda78d"
+  },
+  {
+    "path": "generated/version.json.br",
+    "bytes": 164,
+    "sha256": "a949bc4f78e8aefefe1a5de1baa0bb4eca0464fb413161a1059d0c2802cdd232"
+  },
+  {
+    "path": "generated/version.json.gz",
+    "bytes": 186,
+    "sha256": "c534dbb359621dfc90004c2141ed831ef012440447f668aab982efe849b0a483"
+  },
+  {
+    "path": "index.html",
+    "bytes": 611,
+    "sha256": "ff9ad3e5431ec1d7ddf069b6eb90f3e69e8057ba15624896242a857bd0511f66"
+  },
+  {
+    "path": "index.html.br",
+    "bytes": 315,
+    "sha256": "c076dd7584b02f78af6f06b53484ca704bc2e7cc25132dee0f100d5865e73116"
+  },
+  {
+    "path": "index.html.gz",
+    "bytes": 430,
+    "sha256": "97faabe8c91f5b7242fa38c56aebe3ef53cfbdf4bc10a7718524da3e4a704a5c"
+  },
+  {
+    "path": "LICENSE",
+    "bytes": 1078,
+    "sha256": "a4f3c06d23fda2fe0fee6f0e6152d5de9886bb1e9f30271230aa04f7da59dee6"
+  },
+  {
+    "path": "RAPIER-LICENSE.txt",
+    "bytes": 11343,
+    "sha256": "4c05555705e3efde601fb1252ae48f1d63992af8a8fb8947745b7fa834e8f519"
+  },
+  {
+    "path": "THIRDPARTY-NOTICES.txt",
+    "bytes": 743,
+    "sha256": "1d397d4987c824ae6a5b6bdeebc2fbb148290bcd704d8029185bdbfb2165603f"
+  },
+  {
+    "path": "THREE-LICENSE.txt",
+    "bytes": 1081,
+    "sha256": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc"
+  },
+  {
+    "path": "threecat-build.json",
+    "bytes": 532,
+    "sha256": "bc62616b80d6d9f08dd87a5839d1b2ead9fb843b77574489cd1b26b9afc0dccc"
+  },
+  {
+    "path": "threecat-build.json.br",
+    "bytes": 300,
+    "sha256": "769bb04ae22f09b55aa43061877a78c1decc46218058619ed26fe844aa1c594f"
+  },
+  {
+    "path": "threecat-build.json.gz",
+    "bytes": 349,
+    "sha256": "68066910b9a59690c473eac64c692c047ec683b1cc43c1cab3a19afc796aa2a7"
+  }
+]

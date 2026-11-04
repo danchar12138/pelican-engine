@@ -1,0 +1,11 @@
+{
+  "ready": true,
+  "servers": [
+    {
+      "pid": 38588,
+      "port": 65208,
+      "url": "http://127.0.0.1:65208/arcade/fox-freight/",
+      "root": "deployment"
+    }
+  ]
+}

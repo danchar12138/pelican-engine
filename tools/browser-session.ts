@@ -91,7 +91,7 @@ export async function waitForEngine(
               __threecatFailure?: unknown;
               __threecat?: { command?: unknown };
             };
-            const failure = runtime.__threecatFailure;
+            const failure = runtime.__threecatFailure || data.threecatFailure;
             if (failure) return { state: "failed", detail: String(failure) };
             if (data.threecatReady !== "true") return false;
             if (

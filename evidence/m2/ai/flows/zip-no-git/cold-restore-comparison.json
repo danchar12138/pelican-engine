@@ -1,0 +1,288 @@
+{
+  "passed": true,
+  "browserProcessClosedAndRelaunched": true,
+  "initialColdRestoredCores": 0,
+  "savedTick": 1019,
+  "restoredTick": 1019,
+  "allGameplayRecordsExactlyEqual": true,
+  "saved": [
+    {
+      "id": "player",
+      "transform": {
+        "position": [
+          -0.0038926657289266586,
+          0.7100704908370972,
+          -6.021854400634766
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "GridState": {
+          "restored": 1,
+          "restart": 0,
+          "exitOnline": false,
+          "escaped": false,
+          "speed": 4,
+          "gateHeight": 1.4
+        }
+      }
+    },
+    {
+      "id": "core-west",
+      "prefab": "energy-core",
+      "transform": {
+        "position": [
+          -5,
+          1.6,
+          0
+        ],
+        "rotation": [
+          0,
+          30.570000000000004,
+          0
+        ],
+        "scale": [
+          0.7,
+          1.4,
+          0.7
+        ]
+      },
+      "components": {
+        "EnergyCore": {
+          "charge": 1,
+          "restored": true
+        }
+      }
+    },
+    {
+      "id": "core-north",
+      "prefab": "energy-core",
+      "transform": {
+        "position": [
+          0,
+          0.9,
+          -6
+        ],
+        "rotation": [
+          0,
+          5.095,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "EnergyCore": {
+          "charge": 0.4166666666666668,
+          "restored": false
+        }
+      }
+    },
+    {
+      "id": "core-east",
+      "prefab": "energy-core",
+      "transform": {
+        "position": [
+          5,
+          0.9,
+          0
+        ],
+        "rotation": [
+          0,
+          5.095,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "EnergyCore": {
+          "charge": 0,
+          "restored": false
+        }
+      }
+    },
+    {
+      "id": "reward-core-west",
+      "prefab": "capacitor-reward",
+      "transform": {
+        "position": [
+          -3.825993776321411,
+          0.22493094205856323,
+          0.10013279318809509
+        ],
+        "rotation": [
+          2.0537109611267933e-7,
+          -0.005641570596753272,
+          1.3068343343345224e-7
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "Capacitor": {
+          "source": "core-west",
+          "reward": 1
+        }
+      }
+    }
+  ],
+  "restored": [
+    {
+      "id": "player",
+      "transform": {
+        "position": [
+          -0.0038926657289266586,
+          0.7100704908370972,
+          -6.021854400634766
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "GridState": {
+          "restored": 1,
+          "restart": 0,
+          "exitOnline": false,
+          "escaped": false,
+          "speed": 4,
+          "gateHeight": 1.4
+        }
+      }
+    },
+    {
+      "id": "core-west",
+      "prefab": "energy-core",
+      "transform": {
+        "position": [
+          -5,
+          1.6,
+          0
+        ],
+        "rotation": [
+          0,
+          30.570000000000004,
+          0
+        ],
+        "scale": [
+          0.7,
+          1.4,
+          0.7
+        ]
+      },
+      "components": {
+        "EnergyCore": {
+          "charge": 1,
+          "restored": true
+        }
+      }
+    },
+    {
+      "id": "core-north",
+      "prefab": "energy-core",
+      "transform": {
+        "position": [
+          0,
+          0.9,
+          -6
+        ],
+        "rotation": [
+          0,
+          5.095,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "EnergyCore": {
+          "charge": 0.4166666666666668,
+          "restored": false
+        }
+      }
+    },
+    {
+      "id": "core-east",
+      "prefab": "energy-core",
+      "transform": {
+        "position": [
+          5,
+          0.9,
+          0
+        ],
+        "rotation": [
+          0,
+          5.095,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "EnergyCore": {
+          "charge": 0,
+          "restored": false
+        }
+      }
+    },
+    {
+      "id": "reward-core-west",
+      "prefab": "capacitor-reward",
+      "transform": {
+        "position": [
+          -3.825993776321411,
+          0.22493094205856323,
+          0.10013279318809509
+        ],
+        "rotation": [
+          2.0537109611267933e-7,
+          -0.005641570596753272,
+          1.3068343343345224e-7
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": {
+        "Capacitor": {
+          "source": "core-west",
+          "reward": 1
+        }
+      }
+    }
+  ]
+}

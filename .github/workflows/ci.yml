@@ -29,6 +29,8 @@ jobs:
           cache: npm
       - name: Install pinned dependencies
         run: npm ci
+      - name: Install locked Chromium for DOM input tests
+        run: npx --no-install playwright install chromium
       - name: Strict typecheck
         run: npm run typecheck
       - name: CPU unit tests, including release failure and ZIP tests
@@ -41,8 +43,8 @@ jobs:
           @'
           ## CPU CI boundary
           This job checks TypeScript, CPU tests and the static build only.
-          It does not run verify:m0, generate evidence/m0/acceptance.json,
+          It does not run milestone hardware verifiers, generate acceptance,
           establish real WebGPU hardware acceptance, or publish a Release.
-          A green job is not M0 acceptance. The authorized main AI publishes
+          A green job is not milestone acceptance. The authorized main AI publishes
           a prerelease only after the real hardware evidence gate passes.
           '@ >> $env:GITHUB_STEP_SUMMARY

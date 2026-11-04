@@ -1,4 +1,4 @@
-# @threecat/compiler (M1)
+# @threecat/compiler (M1 foundation, M2 content extensions)
 
 The formal compiler implementation lives in `src/`. It has no implementation dependency on `experiments/`.
 The old experimental TypeScript entry points reexport this package for M0 source API compatibility.
@@ -76,6 +76,16 @@ This remains whole-project reuse, not a claim of per-stage incremental execution
 Windows cross-drive SDK maps use stable `threecat-sdk/...` names. Source roots are applied before normalization
 and then cleared; source content is embedded. Unexpected cross-drive non-SDK sources fail explicitly.
 Vite's temporary production `NODE_ENV` transaction is serialized and restored on success/failure.
+
+## M2 assets and content
+
+The public SDK is the definition source for additional scenes, model/rigid-body/character declarations, input bindings, basic UI, audio and camera following. The compiler resolves the same entity/default rules for every scene and preserves prefab identity for runtime instances. Model offset/rotation and shadow properties survive IR; signed scene gravity and downward character-gravity magnitude are distinct. Keyboard bindings accept literal Space.
+
+Assets support `model`, `texture`, `audio` and `binary`. The offline asset inspector validates supported file bytes before copying, writes actual metadata into `ir.assets[].metadata`, validates authored animation clip names and emits source-position diagnostics for malformed content. Both inspection and final output copying verify the content hash so a changing source cannot silently produce inconsistent IR. Unsupported formats/extensions are diagnosed rather than approximated. Inspection limits are documented in `packages/assets/README.md`.
+
+Optional source/license/attribution fields remain verbatim declarations. `asset-notices.json` accompanies the bundle, preserving undeclared licenses as null and issuing `TC_ASSET_LICENSE_UNDECLARED` warnings. These declarations are not a legal-rights verification service. Explicit lossless `optimize` preprocessing creates a new GLB, and the author adopts it by changing the declared path; ordinary compilation never mutates source assets.
+
+Asset-package sources and compiler package metadata participate in cache invalidation. Whole-project reuse remains the current policy. A compatible-schema report is update guidance, not a promise of live state migration: the development server still performs a cold reload.
 
 ## Validation
 

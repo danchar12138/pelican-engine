@@ -1,0 +1,10 @@
+{
+  "label": "13-copy-static-deployment",
+  "command": "\"powershell.exe\" \"-NoProfile\" \"-Command\" \"New-Item -ItemType Directory -Path ../deployment -ErrorAction Stop | Out-Null; Copy-Item -LiteralPath games/core-relay/dist -Destination ../deployment/relay -Recurse -ErrorAction Stop; Get-Content ../deployment/relay/threecat-build.json\"",
+  "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\threecat",
+  "started": "2026-11-04T17:46:45.208Z",
+  "ended": "2026-11-04T17:46:45.551Z",
+  "exitCode": 0,
+  "stdout": "13-copy-static-deployment.stdout.txt",
+  "stderr": "13-copy-static-deployment.stderr.txt"
+}

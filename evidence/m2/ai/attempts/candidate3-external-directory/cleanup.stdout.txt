@@ -1,0 +1,1 @@
+Closed own servers and verified both listening ports closed. PIDs: 51632 35792 28996 28836 45824

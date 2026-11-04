@@ -1,0 +1,41 @@
+[
+  {
+    "commands": [
+      "19-gameplay-real",
+      "28-final-gameplay-retry",
+      "30-velocity-gameplay"
+    ],
+    "cause": "Character sticks after contacting kinematic gate; independently reproduced with only 3 entities",
+    "fix": "Game uses documented explicit transform updates to fixed collider; minimum repro retained; engine unchanged"
+  },
+  {
+    "commands": [
+      "27-final-gameplay"
+    ],
+    "cause": "Browser navigation raced the dev-server startup",
+    "fix": "External browser test polls HTTP readiness with deadline before navigation"
+  },
+  {
+    "commands": [
+      "33-fixed-gate-gameplay"
+    ],
+    "cause": "Game restoration system lacked Capacitor write permission during runtime spawn",
+    "fix": "Added Capacitor to the game system writes declaration; full game and cold restore passed"
+  },
+  {
+    "commands": [
+      "42-independent-static-cold",
+      "43-independent-static-retry"
+    ],
+    "cause": "UI regex did not accept doubled whitespace in the score text",
+    "fix": "Read actual frame/DOM; changed test matcher to whitespace-tolerant regex"
+  },
+  {
+    "commands": [
+      "45-static-cold-proof",
+      "46-static-storage-observe"
+    ],
+    "cause": "External production test assumed dev-bridge snapshot shape",
+    "fix": "Read actual threecat.save runtime.world.entities; production cold restore passed in 47 and 51"
+  }
+]

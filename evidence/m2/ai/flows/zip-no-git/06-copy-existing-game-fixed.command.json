@@ -1,0 +1,10 @@
+{
+  "label": "06-copy-existing-game-fixed",
+  "command": "\"powershell.exe\" \"-NoProfile\" \"-Command\" \"New-Item -ItemType Directory -Path games/core-relay -ErrorAction Stop | Out-Null; Copy-Item -LiteralPath ../../candidate4/threecat/games/core-relay/game.ts,../../candidate4/threecat/games/core-relay/assets.ts,../../candidate4/threecat/games/core-relay/threecat.project.json,../../candidate4/threecat/games/core-relay/README.md -Destination games/core-relay -ErrorAction Stop; Copy-Item -LiteralPath ../../candidate4/threecat/games/core-relay/assets -Destination games/core-relay/assets -Recurse -ErrorAction Stop; Get-Content games/core-relay/threecat.project.json\"",
+  "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\threecat",
+  "started": "2026-11-04T17:44:34.845Z",
+  "ended": "2026-11-04T17:44:35.177Z",
+  "exitCode": 0,
+  "stdout": "06-copy-existing-game-fixed.stdout.txt",
+  "stderr": "06-copy-existing-game-fixed.stderr.txt"
+}

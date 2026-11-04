@@ -1,0 +1,10 @@
+{
+  "oldSession":64223,
+  "oldCommand":"threecat.ps1 setup --install-browser",
+  "observedExitCode":1,
+  "diagnostic":"TCSETUP_BROWSER_TIMEOUT",
+  "processCheck":"Known downloader PIDs no longer present before session final poll; no cancellation sent to an already finished process.",
+  "browserCache":"C:/Users/60459/AppData/Local/ms-playwright",
+  "browserRevision":1248,
+  "policy":"Reuse user-authorized preinstalled locked browser read-only; all new temp/cache/project/report writes remain in this flow."
+}

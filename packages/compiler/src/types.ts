@@ -4,6 +4,9 @@ import type {
   Graph,
   GraphType,
   LightDefinition,
+  RigidBodyDefinition,
+  CharacterDefinition,
+  UIElementDefinition,
   Transform,
   Vec3,
 } from "../../sdk/src/index.ts";
@@ -51,6 +54,24 @@ export interface EntityIR {
     receiveShadow: boolean;
   };
   light?: LightDefinition;
+  model?: {
+    castShadow?: boolean;
+    receiveShadow?: boolean;
+    asset: string;
+    scale: number;
+    offset?: Vec3;
+    rotation?: Vec3;
+    animation?: { clip: string; speed: number; loop: boolean };
+  };
+  rigidBody?: {
+    type: RigidBodyDefinition["type"];
+    collider: RigidBodyDefinition["collider"];
+    mass: number;
+    friction: number;
+    restitution: number;
+    trigger: boolean;
+  };
+  character?: CharacterDefinition & { jumpSpeed: number; gravity: number };
   components: Record<string, Record<string, unknown>>;
 }
 export interface SceneIR {
@@ -67,9 +88,44 @@ export interface SceneIR {
       near: number;
       far: number;
     };
-    environment: { background: string; ambientIntensity: number };
+    environment: {
+      background: string;
+      ambientIntensity: number;
+      lighting?: "none" | "studio";
+    };
+    follow?: {
+      entity: string;
+      distance: number;
+      height: number;
+      lookHeight: number;
+      yaw: number;
+      smoothing: number;
+    };
+    gravity: Vec3;
     entities: EntityIR[];
   };
+  /** Additional resolved scenes; primary `scene` remains the default entry. */
+  scenes?: SceneIR["scene"][];
+  input?: Record<string, string[]>;
+  ui?: {
+    id: string;
+    kind: "text" | "bar" | "button" | "input";
+    text: string;
+    value: number;
+    visible: boolean;
+    anchor:
+      | "top-left"
+      | "top-right"
+      | "bottom-left"
+      | "bottom-right"
+      | "center";
+    x: number;
+    y: number;
+    width: number;
+    color: string;
+    world?: { entity: string; offset: Vec3; occlude: boolean };
+  }[];
+  sounds?: { id: string; asset: string; volume: number; loop: boolean }[];
   components: { id: string; schema: ComponentSchema; source: SourceLocation }[];
   prefabs: EntityIR[];
   materials: {
@@ -92,11 +148,20 @@ export interface SceneIR {
   systems: SystemIR[];
   assets: {
     id: string;
-    type: "texture" | "binary";
+    type: "texture" | "binary" | "model" | "audio";
     path: string;
     sourcePath: string;
     hash: string;
+    metadata?: Record<string, unknown>;
+    sourceInfo?: { source?: string; license?: string; attribution?: string };
     source: SourceLocation;
+  }[];
+  assetNotices?: {
+    id: string;
+    path: string;
+    license: string | null;
+    attribution?: string;
+    source?: string;
   }[];
 }
 export interface CompileOptions {

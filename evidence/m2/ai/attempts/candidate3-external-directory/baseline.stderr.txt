@@ -1,0 +1,12 @@
+[eval]:1
+(crypto=>{{const fs=require(fs),p=require(path),c=require(crypto);const root=threecat,out={};function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,e.name);if(e.isDirectory())walk(f);else out[f.replaceAll(\,/)]=c.createHash(sha256).update(fs.readFileSync(f)).digest(hex);}}walk(root);fs.writeFileSync(report/engine-before.json,JSON.stringify(out,null,2));if(Object.keys(out).some(x=>x.split(/).includes(.git)))throw Error(git}})(require('node:crypto'))
+                                                                                                                                                                                                                                               ^
+Expected unicode escape
+
+SyntaxError: Invalid or unexpected token
+    at makeContextifyScript (node:internal/vm:194:14)
+    at compileScript (node:internal/process/execution:388:10)
+    at evalTypeScript (node:internal/process/execution:260:22)
+    at node:internal/main/eval_string:71:3
+
+Node.js v24.15.0

@@ -1,4 +1,6 @@
 import * as THREE from "three/webgpu";
+import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
+import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
 import { buildBVH, extractTriangles } from "./geometry.ts";
 import { graphToTSL, evaluateGraph, runComputeGraph } from "./graph.ts";
@@ -7,6 +9,7 @@ import { startupPolicy, boundedOperation, runtimeStatus } from "./startup.ts";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import { RuntimeHost } from "../../runtime/src/host.ts";
+import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import {
   ResourceManager,
   type ResourceScope,
@@ -38,7 +41,7 @@ const width = Number(new URLSearchParams(location.search).get("width") ?? 960);
 const height = Number(
   new URLSearchParams(location.search).get("height") ?? 540,
 );
-const status = document.querySelector("#status")!;
+const status = document.querySelector<HTMLElement>("#status")!;
 const errors: string[] = [];
 const startup = startupPolicy(import.meta.env.DEV, location.search);
 let adapterInfo:
@@ -57,6 +60,7 @@ let tick = 0,
   uploadMs = 0,
   submitMs = 0;
 let frameAccumulator = 0;
+let lastStepCpuMs = 0;
 let lastFrameTime: number | undefined;
 let triangleCount = 0,
   nodeCount = 0,
@@ -70,6 +74,7 @@ const metrics: {
   uploadMs: number;
   submitMs: number;
   wallMs: number;
+  simulationMs: number;
 }[] = [];
 const scene = new THREE.Scene();
 const probeEnabled = new URLSearchParams(location.search).get("probe") === "m0";
@@ -199,6 +204,7 @@ resourceManager.registerLoader("module", {
   },
   dispose() {},
 });
+let gameplay: GameplayContent | undefined;
 let contentScope: ResourceScope | undefined;
 let contentGeneration = 0;
 let loadingContent = false;
@@ -246,6 +252,11 @@ function reportFailure(error: unknown) {
   lastFrameTime = undefined;
   const message = String(error);
   errors.push(message);
+  if (document.documentElement) {
+    document.documentElement.dataset.threecatReady = "false";
+    document.documentElement.dataset.threecatFailure = message;
+  }
+  status.hidden = false;
   status.textContent = message;
   console.error(error);
 }
@@ -283,6 +294,7 @@ function releaseObject(
   });
   for (const geometry of geometries) geometry.dispose();
   for (const material of materials) material.dispose();
+  (root.userData.lightTarget as THREE.Object3D | undefined)?.removeFromParent();
   root.removeFromParent();
   root.clear();
 }
@@ -304,6 +316,32 @@ function createEntityView(
             entity.light.intensity ?? 1,
           );
     light.castShadow = entity.light.castShadow ?? false;
+    if (light instanceof THREE.DirectionalLight) {
+      light.target.position.fromArray(entity.light.target ?? [0, 0, 0]);
+      // Targets use world coordinates and must remain outside the transformed light group.
+      node.userData.lightTarget = light.target;
+    }
+    if ("shadow" in light) {
+      const shadow = entity.light.shadow;
+      light.shadow.mapSize.set(
+        shadow?.mapSize ?? 2048,
+        shadow?.mapSize ?? 2048,
+      );
+      light.shadow.bias = shadow?.bias ?? -0.0001;
+      light.shadow.normalBias = shadow?.normalBias ?? 0.04;
+      light.shadow.camera.near = shadow?.near ?? 0.1;
+      light.shadow.camera.far = shadow?.far ?? 100;
+      if (light instanceof THREE.DirectionalLight) {
+        const extent = shadow?.extent ?? 20;
+        Object.assign(light.shadow.camera, {
+          left: -extent,
+          right: extent,
+          top: extent,
+          bottom: -extent,
+        });
+      }
+      light.shadow.camera.updateProjectionMatrix();
+    }
     node.add(light);
   }
   if (entity.mesh) {
@@ -330,6 +368,17 @@ function syncRuntime() {
   componentState.clear();
   const records = runtime.world.records();
   const live = new Set(records.map((record) => record.id));
+  const modelRecords = compiledIR
+    ? records.filter(
+        (record) => resolveEntityDefinition(compiledIR!, record)?.model,
+      )
+    : [];
+  for (const record of modelRecords)
+    gameplay?.models.register(
+      record.id,
+      resolveEntityDefinition(compiledIR!, record)!.model!,
+    );
+  gameplay?.models.reconcile(modelRecords.map((record) => record.id));
   // Detach surviving descendants before disposing a removed parent's owned visual subtree.
   const removed = new Set(
     [...gameObjects]
@@ -346,6 +395,7 @@ function syncRuntime() {
     }
   for (const [id, object] of gameObjects)
     if (!live.has(id)) {
+      gameplay?.models.remove(id);
       releaseObject(object);
       gameObjects.delete(id);
     }
@@ -353,17 +403,28 @@ function syncRuntime() {
     transforms.set(record.id, structuredClone(record.transform));
     componentState.set(record.id, structuredClone(record.components));
     let object = gameObjects.get(record.id);
+    if (object && object.userData.threecatPrefab !== record.prefab) {
+      releaseObject(object);
+      gameObjects.delete(record.id);
+      object = undefined;
+    }
     if (!object) {
-      const authored = compiledIR?.scene.entities.find(
-        (entity) => entity.id === record.id,
-      );
+      const authored = compiledIR
+        ? resolveEntityDefinition(compiledIR, record)
+        : undefined;
       object = authored
         ? createEntityView(authored, gameMaterials)
         : new THREE.Group();
+
       object.name = record.id;
+      object.userData.threecatPrefab = record.prefab;
       gameRoot.add(object);
+      if (object.userData.lightTarget)
+        gameRoot.add(object.userData.lightTarget);
       gameObjects.set(record.id, object);
     }
+    if (modelRecords.some((model) => model.id === record.id))
+      gameplay?.models.attach(record.id, object);
     object.position.fromArray(record.transform.position);
     object.rotation.set(...record.transform.rotation);
     object.scale.fromArray(record.transform.scale);
@@ -373,6 +434,7 @@ function syncRuntime() {
     const parent = record.parent ? gameObjects.get(record.parent) : gameRoot;
     if (parent && object.parent !== parent) parent.add(object);
   }
+  gameRoot.updateMatrixWorld(true);
   authoredLights = [];
   for (const entity of compiledIR?.scene.entities ?? [])
     if (entity.light) {
@@ -469,7 +531,16 @@ function syncSimulation() {
     simulationGroup.add(mesh);
   }
 }
-async function loadGame() {
+interface GameSave {
+  format: "threecat.save";
+  version: 1;
+  engineVersion: string;
+  gameId: string;
+  sceneId: string;
+  assets: Record<string, string>;
+  runtime: HostSnapshot;
+}
+async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
   if (disposed) throw new Error("TC_BROWSER_DISPOSED");
   if (loadingContent || restoring)
     throw new Error(
@@ -477,6 +548,7 @@ async function loadGame() {
     );
   loadingContent = true;
   let nextScope: ResourceScope | undefined;
+  let nextGameplay: GameplayContent | undefined;
   let candidate: RuntimeHost | undefined;
   let candidateGame: { update(dt: number): void; dispose(): void } | undefined;
   let attached = false;
@@ -499,14 +571,51 @@ async function loadGame() {
       { url: sceneURL.href },
       nextScope,
     );
-    const ir = resourceManager.get(sceneLease.handle) as SceneIR;
+    const ir = structuredClone(
+      resourceManager.get(sceneLease.handle),
+    ) as SceneIR;
     if (!ir || ir.format !== "threecat.scene" || ir.version !== 1)
       throw new Error("TC_IR_VERSION");
-    if (ir.materials.some((material) => material.texture))
+    if (sceneId && sceneId !== ir.scene.id) {
+      const selected = ir.scenes?.find((entry) => entry.id === sceneId);
+      if (!selected) throw new Error("TC_SCENE_MISSING: " + sceneId);
+      ir.scenes = [
+        ir.scene,
+        ...(ir.scenes ?? []).filter((entry) => entry.id !== sceneId),
+      ];
+      ir.scene = selected;
+    }
+    if (
+      saved &&
+      (saved.format !== "threecat.save" ||
+        saved.version !== 1 ||
+        saved.engineVersion !== SDK_VERSION ||
+        saved.gameId !== ir.gameId ||
+        JSON.stringify(saved.assets) !==
+          JSON.stringify(
+            Object.fromEntries(ir.assets.map((a) => [a.id, a.hash])),
+          ))
+    )
       throw new Error(
-        "TC_TEXTURE_STAGE: Texture rendering is delivered in M2; this M1 adapter rejects unsupported content explicitly.",
+        "TC_SAVE_VERSION: Save does not match this game version and asset set.",
       );
-    candidate = new RuntimeHost(ir);
+    if (
+      ir.input ||
+      ir.ui ||
+      ir.sounds ||
+      ir.scene.follow ||
+      ir.scene.environment.lighting === "studio" ||
+      [...ir.scene.entities, ...ir.prefabs].some(
+        (entity) => entity.model || entity.rigidBody || entity.character,
+      ) ||
+      ir.materials.some((material) => material.texture)
+    )
+      nextGameplay = await prepareGameplay(
+        ir,
+        new URL(import.meta.env.BASE_URL + "generated/", document.baseURI).href,
+        renderer,
+      );
+    candidate = new RuntimeHost(ir, { plugins: nextGameplay?.plugins });
     const gameURL = new URL(
       `${import.meta.env.BASE_URL}generated/game.js`,
       document.baseURI,
@@ -534,15 +643,13 @@ async function loadGame() {
     );
     nextRoot.add(ambient);
     for (const definition of ir.materials) {
-      if (definition.texture)
-        throw new Error(
-          "TC_M0_TEXTURE_UNSUPPORTED: Texture import is compiled, but this M0 render adapter does not yet display textures.",
-        );
       const material = new THREE.MeshStandardNodeMaterial({
         color: definition.color,
         roughness: definition.roughness,
         metalness: definition.metalness,
       });
+      if (definition.texture)
+        material.map = nextGameplay!.textures.get(definition.texture)!;
       nextMaterials.set(definition.id, material);
       if (definition.graph) {
         material.colorNode = graphToTSL(definition.graph, graphTime);
@@ -551,24 +658,35 @@ async function loadGame() {
     }
     for (const entity of ir.scene.entities) {
       const node = createEntityView(entity, nextMaterials);
+      node.userData.threecatPrefab = entity.prefab;
+      if (entity.model)
+        nextGameplay!.models.instantiate(entity.id, entity.model, node);
       node.position.fromArray(entity.transform.position);
       node.rotation.set(...entity.transform.rotation);
       node.scale.fromArray(entity.transform.scale);
       nextRoot.add(node);
+      if (node.userData.lightTarget) nextRoot.add(node.userData.lightTarget);
       nextObjects.set(entity.id, node);
     }
     for (const entity of ir.scene.entities)
       if (entity.parent)
         nextObjects.get(entity.parent)!.add(nextObjects.get(entity.id)!);
+    if (saved) {
+      if (loadSlot)
+        nextGameplay?.services.adoptStorageRequest("load", loadSlot);
+      candidate.restore(saved.runtime);
+    }
     if (disposed) throw new Error("TC_BROWSER_DISPOSED");
     // No await in commit: a complete host/view/scope replaces the previous content together.
     const previous = runtime,
       previousScope = contentScope,
-      previousMaterials = gameMaterials;
+      previousMaterials = gameMaterials,
+      previousGameplay = gameplay;
     const previousRoot = new THREE.Group();
     if (gameRoot.children.length) previousRoot.add(...gameRoot.children);
     compiledIR = ir;
     runtime = candidate;
+    gameplay = nextGameplay;
     contentScope = nextScope;
     gameMaterials = nextMaterials;
     committed = true;
@@ -578,21 +696,33 @@ async function loadGame() {
     materialGraphs.splice(0, materialGraphs.length, ...nextGraphs);
     authoredCamera = nextCamera;
     scene.background = nextBackground;
+    scene.environment = nextGameplay?.environment ?? null;
     camera.fov = ir.scene.camera.fov;
     camera.near = ir.scene.camera.near;
     camera.far = ir.scene.camera.far;
     camera.updateProjectionMatrix();
-    tick = 0;
+    tick = candidate.inspect().scheduler.tick;
     frameAccumulator = 0;
     lastFrameTime = undefined;
     inputLog.length = 0;
     terminalFault = false;
     syncRuntime();
+    nextGameplay?.mount(
+      (key, pressed) => {
+        if (!loadingContent && !restoring && !disposed)
+          runtime?.input(key, pressed);
+      },
+      (type, payload) => {
+        if (!loadingContent && !restoring && !disposed)
+          runtime?.emitExternal(type, payload);
+      },
+    );
     try {
       previous?.dispose();
     } catch (error) {
       errors.push(`TC_CONTENT_CLEANUP: ${String(error)}`);
     }
+    await previousGameplay?.dispose();
     releaseObject(previousRoot);
     for (const material of previousMaterials.values()) material.dispose();
     await previousScope?.release();
@@ -611,6 +741,7 @@ async function loadGame() {
       } catch (cleanupError) {
         errors.push(`TC_CONTENT_CLEANUP: ${String(cleanupError)}`);
       }
+      await nextGameplay?.dispose();
       releaseObject(nextRoot);
       for (const material of nextMaterials.values()) material.dispose();
       await nextScope?.release();
@@ -618,6 +749,47 @@ async function loadGame() {
     throw error;
   } finally {
     loadingContent = false;
+  }
+}
+/** Only completed fixed ticks may request browser persistence or scene transactions. */
+async function processGameRequests() {
+  if (!gameplay || !compiledIR || !runtime) return;
+  const requests = gameplay.services.takeRequests();
+  for (const request of requests) {
+    if (request.type === "scene") {
+      await loadGame(request.id);
+      continue;
+    }
+    const slot = request.id;
+    const key = "threecat:" + compiledIR.gameId + ":" + slot;
+    try {
+      if (request.type === "save") {
+        syncRuntime();
+        const saved: GameSave = {
+          format: "threecat.save",
+          version: 1,
+          engineVersion: SDK_VERSION,
+          gameId: compiledIR.gameId,
+          sceneId: compiledIR.scene.id,
+          assets: Object.fromEntries(
+            compiledIR.assets.map((a) => [a.id, a.hash]),
+          ),
+          runtime: runtime.snapshot(),
+        };
+        localStorage.setItem(key, JSON.stringify(saved));
+        gameplay.services.storageComplete("save", slot);
+      } else {
+        const text = localStorage.getItem(key);
+        if (text === null) throw new Error("TC_SAVE_MISSING: " + slot);
+        const saved = JSON.parse(text) as GameSave;
+        if (!saved || typeof saved.sceneId !== "string")
+          throw new Error("TC_SAVE_FORMAT");
+        await loadGame(saved.sceneId, saved, slot);
+        gameplay!.services.storageComplete("load", slot);
+      }
+    } catch (error) {
+      gameplay?.services.storageComplete(request.type, slot, String(error));
+    }
   }
 }
 function animate() {
@@ -638,9 +810,12 @@ function animate() {
   const offset = base
     .sub(target)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraPhase);
-  camera.position.copy(target).add(offset);
-  camera.lookAt(target);
+  if (!gameplay?.services.inspect().camera) {
+    camera.position.copy(target).add(offset);
+    camera.lookAt(target);
+  }
   camera.updateMatrixWorld();
+  gameplay?.present(camera, gameObjects, playing ? 1 / 60 : 0, tick);
 }
 function updateTraceGeometry() {
   const start = performance.now();
@@ -699,7 +874,21 @@ async function draw(accumulate = false, changed = true) {
   const start = performance.now();
   syncRuntime();
   animate();
-  if (changed) updateTraceGeometry();
+  if (changed) {
+    if (gameplay && mode === "raster") {
+      // Raster does not consume a CPU BVH. Count authored triangles without rebuilding/uploading tracing buffers.
+      triangleCount = 0;
+      scene.traverseVisible((object) => {
+        if (object instanceof THREE.Mesh && !object.userData.noTrace)
+          triangleCount +=
+            (object.geometry.index?.count ??
+              object.geometry.getAttribute("position").count) / 3;
+      });
+      nodeCount = 0;
+      bvhMs = 0;
+      uploadMs = 0;
+    } else updateTraceGeometry();
+  }
   if (mode !== "path") renderer.render(scene, camera);
   if (mode !== "raster")
     submitMs = tracer.renderFrame(cameraFrame(), mode, accumulate);
@@ -710,8 +899,10 @@ async function draw(accumulate = false, changed = true) {
     uploadMs: changed ? uploadMs : 0,
     submitMs,
     wallMs: performance.now() - start,
+    simulationMs: lastStepCpuMs,
   });
   if (metrics.length > 2000) metrics.shift();
+  status.hidden = Boolean(gameplay);
   status.textContent = runtimeStatus({
     mode,
     playing,
@@ -743,9 +934,16 @@ function applyInput(key: string) {
     });
 }
 function onKeyDown(event: KeyboardEvent) {
+  if (gameplay?.consumesKeyboard(event)) return;
   if (disposed || terminalFault || loadingContent || restoring || !runtime)
     return;
   try {
+    if (
+      compiledIR?.input &&
+      Object.values(compiledIR.input).some((keys) => keys.includes(event.key))
+    )
+      event.preventDefault();
+    gameplay?.unlockAudio();
     inputLog.push({ tick, key: event.key });
     applyInput(event.key);
     void draw(false, true).catch(reportFailure);
@@ -754,6 +952,7 @@ function onKeyDown(event: KeyboardEvent) {
   }
 }
 function onKeyUp(event: KeyboardEvent) {
+  if (gameplay?.consumesKeyboard(event)) return;
   if (
     disposed ||
     terminalFault ||
@@ -772,6 +971,7 @@ function onKeyUp(event: KeyboardEvent) {
 window.addEventListener("keydown", onKeyDown);
 window.addEventListener("keyup", onKeyUp);
 function stepRuntime() {
+  const started = performance.now();
   const host = requireRuntime();
   if (terminalFault)
     throw new Error(
@@ -785,9 +985,15 @@ function stepRuntime() {
     tick = host.inspect().scheduler.tick;
     reportFailure(error);
     throw error;
+  } finally {
+    lastStepCpuMs = performance.now() - started;
   }
 }
 function setMode(next: typeof mode) {
+  if (next !== "raster" && gameplay)
+    throw new Error(
+      "TC_TRACE_STAGE: Textured GLB game rendering currently requires raster; full material path tracing is planned for M3.",
+    );
   mode = next;
   rasterCanvas.style.display = next === "path" ? "none" : "block";
   traceCanvas.style.display = next === "raster" ? "none" : "block";
@@ -842,6 +1048,7 @@ function inspect(options?: InspectPage) {
       maxStepsPerFrame: 8,
     },
     resources: resourceManager.inspect(),
+    gameplay: gameplay?.inspect(),
     game: {
       transforms: selected
         ? Object.fromEntries(
@@ -865,7 +1072,9 @@ function inspect(options?: InspectPage) {
       pathBounces: 5,
       tracedLights:
         "first authored light only; raster also contains private probe lights",
-      textures: "unsupported in M0 render adapter",
+      textures: gameplay
+        ? "GLB PBR and base-color textures in raster"
+        : "no authored texture assets",
       experimentalProbes:
         "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules",
     },
@@ -893,6 +1102,7 @@ async function disposeBrowser() {
     }
   };
   clean(() => runtime?.dispose());
+  clean(() => gameplay?.dispose());
   clean(() => simulation?.dispose());
   clean(() => world?.dispose());
   clean(() => resourceManager.dispose());
@@ -988,11 +1198,6 @@ async function boot() {
   status.textContent = "Drawing compiled game";
   setMode("raster");
   await draw();
-  status.textContent = "Waiting GPU";
-  await boundedOperation(
-    device.queue.onSubmittedWorkDone(),
-    "initial GPU submission",
-  );
   const api = {
     inspect,
     mode: async (next: typeof mode) => {
@@ -1011,6 +1216,7 @@ async function boot() {
         throw new Error("TC_PROTOCOL_STEPS: count must be in [1,10000].");
       for (let i = 0; i < count; i++) {
         stepRuntime();
+        await processGameRequests();
         syncSimulation();
         await draw(false, true);
       }
@@ -1379,6 +1585,7 @@ async function boot() {
         while (frameAccumulator >= 1 / 60 && steps < 8) {
           stepRuntime();
           frameAccumulator -= 1 / 60;
+          await processGameRequests();
           steps++;
         }
         if (steps) syncSimulation();

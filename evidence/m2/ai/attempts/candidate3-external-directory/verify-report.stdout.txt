@@ -1,0 +1,1 @@
+PASS final report schema, >=10 real command exits, expected negative, artifacts, integrity, gameplay, GPU and production evidence

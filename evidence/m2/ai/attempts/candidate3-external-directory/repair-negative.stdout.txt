@@ -1,0 +1,17 @@
+{
+  "repaired": "Survey",
+  "diagnostics": [
+    {
+      "code": "TC_MODEL_CLIP",
+      "severity": "error",
+      "message": "Model courier-fox has no animation clip MissingCargoDance. Available: Survey, Walk, Run",
+      "suggestion": "Choose a clip from the asset metadata or re-export the animation.",
+      "source": {
+        "file": "game.ts",
+        "line": 96,
+        "column": 134,
+        "length": 19
+      }
+    }
+  ]
+}

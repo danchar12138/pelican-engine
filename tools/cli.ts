@@ -12,6 +12,8 @@ import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
 import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import { generateApiIndex } from "./api-index.ts";
+import { optimizeModel } from "../packages/assets/src/optimize.ts";
+import { compressDist } from "./compress-dist.ts";
 import { doctor } from "./doctor.ts";
 import { setup } from "./setup.ts";
 import { attachControl } from "./control-server.ts";
@@ -35,7 +37,7 @@ const option = (name: string, fallback?: string) => {
   return index >= 0 ? args[index + 1] : fallback;
 };
 const projectRoot = path.resolve(
-  option("project", path.join(engineRoot, "examples/m1"))!,
+  option("project", path.join(engineRoot, "examples/m2"))!,
 );
 const taskId = `${command}-${Date.now()}`;
 const envelope = (
@@ -73,6 +75,7 @@ async function main() {
           "compile --project <directory>",
           "dev --project <directory> [--port 4173]",
           "build --project <directory>",
+          "optimize --project <directory> --asset <id> [--output <new-project-relative.glb>]",
           "capture [--mode raster|hybrid|path] [--output file.png]",
           "inspect | step --count <n> | pause | resume [--port <dev-port>]",
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
@@ -80,7 +83,8 @@ async function main() {
           "record --action start|stop|cancel | replay --file <trace.json>",
           "status | cancel --task <id> | reset-session | api",
         ],
-        stage: "M1 runtime foundation; incomplete first-release feature set",
+        stage:
+          "M2 playable game slice in development; incomplete first-release feature set",
       }),
     );
     return;
@@ -246,7 +250,7 @@ async function main() {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    await cp(path.join(engineRoot, "examples/m1"), projectRoot, {
+    await cp(path.join(engineRoot, "examples/m2"), projectRoot, {
       recursive: true,
       filter: (source) =>
         !source.split(path.sep).includes(".threecat") &&
@@ -274,7 +278,11 @@ async function main() {
     );
     return;
   }
-  if (["check", "compile", "build", "dev", "capture"].includes(command)) {
+  if (
+    ["check", "compile", "build", "dev", "capture", "optimize"].includes(
+      command,
+    )
+  ) {
     const result = await compile();
     if (!result.success) {
       emit(
@@ -283,6 +291,30 @@ async function main() {
         ]),
       );
       process.exitCode = 1;
+      return;
+    }
+    if (command === "optimize") {
+      const asset = result.ir?.assets.find(
+        (item) => item.id === option("asset"),
+      );
+      if (!asset || asset.type !== "model")
+        throw new Error(
+          "TC_ASSET_OPTIMIZE_ID: --asset must reference a model asset.",
+        );
+      const output = path.resolve(
+        projectRoot,
+        option("output", path.join(".threecat/optimized", asset.id + ".glb"))!,
+      );
+      const relative = path.relative(projectRoot, output);
+      if (relative.startsWith("..") || path.isAbsolute(relative))
+        throw new Error(
+          "TC_ASSET_OPTIMIZE_PATH: Output must stay inside the game project.",
+        );
+      const report = await optimizeModel(
+        path.join(projectRoot, asset.sourcePath),
+        output,
+      );
+      emit(envelope("succeeded", report, [], [output]));
       return;
     }
     if (command === "compile" || command === "check") {
@@ -298,7 +330,7 @@ async function main() {
     }
     if (command === "build") {
       const output =
-        projectRoot === path.join(engineRoot, "examples/m1")
+        projectRoot === path.join(engineRoot, "examples/m2")
           ? path.join(engineRoot, "dist")
           : path.join(projectRoot, "dist");
       try {
@@ -327,23 +359,31 @@ async function main() {
       await cp(path.join(engineRoot, "LICENSE"), path.join(output, "LICENSE"));
       await writeFile(
         path.join(output, "THIRDPARTY-NOTICES.txt"),
-        "threecat M0 runtime uses Three.js (MIT). Copyright 2010-2026 three.js authors.\nSee the Three.js source LICENSE distributed with the source release.\n",
+        "threecat runtime uses Three.js 0.187.0 (MIT, three.js authors) and @dimforge/rapier3d-compat 0.21.0 (Apache-2.0, Dimforge). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
+          JSON.stringify(result.ir?.assetNotices ?? [], null, 2) +
+          "\n",
       );
       await cp(
         path.join(engineRoot, "node_modules/three/LICENSE"),
         path.join(output, "THREE-LICENSE.txt"),
+      );
+      await cp(
+        path.join(engineRoot, "node_modules/@dimforge/rapier3d-compat/LICENSE"),
+        path.join(output, "RAPIER-LICENSE.txt"),
       );
       await writeFile(
         path.join(output, "threecat-build.json"),
         JSON.stringify(
           {
             engineVersion: SDK_VERSION,
-            stage: "runtime-foundation",
+            stage: "playable-game-slice",
             game: result.ir?.gameId,
             entry: "index.html",
             renderer: "webgpu-only",
             limitations: [
-              "M1 runtime foundation, not the complete engine",
+              "M2 game slice prerelease, not the complete engine",
+              "Textured GLB scenes currently use raster; full material tracing is M3 work",
+              "Physics snapshots replay operation history and are bounded to 100000 operations",
               "Compute BVH path tracer, no hardware ray tracing",
               "No production denoiser; hybrid is image-compositing prototype",
             ],
@@ -352,6 +392,7 @@ async function main() {
           2,
         ) + "\n",
       );
+      await compressDist(output);
       emit(
         envelope(
           "succeeded",

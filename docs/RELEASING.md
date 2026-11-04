@@ -10,7 +10,7 @@
 
 | 输入           | 规则                                                                            |
 | -------------- | ------------------------------------------------------------------------------- |
-| `milestone`    | 识别 M0–M8；当前已实现 M0、M1 两个发布 profile                                  |
+| `milestone`    | 识别 M0–M8；当前已实现 M0、M1、M2 三个发布 profile                              |
 | `version`      | 合法版本号，匹配 package.json、package-lock.json 顶层和 packages[""] 的版本     |
 | `releaseScope` | M1 起必须显式声明；已实现 profile 要求精确匹配                                  |
 | 验收路径       | `evidence/<milestone 小写>/acceptance.json`，例如 `evidence/m1/acceptance.json` |
@@ -18,14 +18,21 @@
 
 当前 profile：
 
-| 阶段 | scope                | 必需检查 ID                                                                                                        | 发布状态   |
-| ---- | -------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------- |
-| M0   | `risk-prototypes`    | environment、compiler、render、simulation、ai-workflow、typecheck、unit-tests、deploy                              | prerelease |
-| M1   | `runtime-foundation` | environment、typecheck、unit-tests、compiler、runtime、resources、scheduler、protocol、unattended、render、deploy、ai-workflow | prerelease |
+| 阶段 | scope                 | 必需检查 ID                                                                                                                                                        | 发布状态   |
+| ---- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| M0   | `risk-prototypes`     | environment、compiler、render、simulation、ai-workflow、typecheck、unit-tests、deploy                                                                              | prerelease |
+| M1   | `runtime-foundation`  | environment、typecheck、unit-tests、compiler、runtime、resources、scheduler、protocol、unattended、render、deploy、ai-workflow                                     | prerelease |
+| M2   | `playable-game-slice` | environment、typecheck、unit-tests、compiler、assets、physics、runtime、ui-prototype、dev-server、protocol、unattended、render、deploy、ai-workflow、source-freeze | prerelease |
 
-M0 manifest 可省略 `releaseScope`，兼容已有源码包；提供时必须为 `risk-prototypes`。旧导出 `REQUIRED_CHECKS` 仍只表示 M0 的八项门禁，`M0_VERSION` 仍是独立 legacy fixture 常量 `0.0.1-m0.0`，不控制当前仓库版本。M1 检查由 `M1_REQUIRED_CHECKS` 定义，`RELEASE_PROFILES` 集中记录已实现阶段的规则。所有阶段都使用 manifest 的实际版本生成文件名。
+M0 manifest 可省略 `releaseScope`，兼容已有源码包；提供时必须为 `risk-prototypes`。旧导出 `REQUIRED_CHECKS` 仍只表示 M0 的八项门禁，`M0_VERSION` 仍是独立 legacy fixture 常量 `0.0.1-m0.0`，不控制当前仓库版本。M1、M2 检查分别由 `M1_REQUIRED_CHECKS`、`M2_REQUIRED_CHECKS` 定义，`RELEASE_PROFILES` 集中记录已实现阶段的规则。M2 的 15 项检查来自 `tools/verify-m2.ts`，测试核对两者一致。所有阶段都使用 manifest 的实际版本生成文件名。
 
-M2–M8 必须显式声明 `releaseScope`，但当前没有对应验收 profile，返回 `TCREL_PROFILE`，不能复用 M0/M1 门禁通过。以后随阶段 verifier 和测试一起实现 profile，再启用该阶段。未知阶段返回 `TCREL_MILESTONE`。当前 manifest 为 M1 时，即使 M0 的验收完全通过，也不能替代缺失的 M1 验收。
+M3–M8 必须显式声明 `releaseScope`，但当前没有对应验收 profile，返回 `TCREL_PROFILE`，不能复用 M0/M1/M2 门禁通过。以后随阶段 verifier 和测试一起实现 profile，再启用该阶段。未知阶段返回 `TCREL_MILESTONE`。当前 manifest 为 M2 时，即使 M0/M1 的验收完全通过，也不能替代缺失的 M2 验收。
+
+M2 是可玩游戏切片和资产管线 prerelease，不是 M1 runtime foundation，也不是完整引擎。带纹理 GLB 当前走 raster；完整 glTF 材质 hybrid/path tracing 属于 M3，M3–M8 尚未完成。发布说明明确这些边界，并逐条保留当前 acceptance 的 `limitations`，不把已通过的切片门禁扩写为完整能力或普遍性能承诺。
+
+M2 构建可生成 `.br/.gz` 传输压缩文件。dist ZIP 保留这些已声明的运行资源；若存在 `compression-manifest.json`，发布检查核对原始文件与压缩文件的字节数、哈希，并验证解压内容相同。缺失、损坏或陈旧压缩文件均拒绝打包。源码归档继续排除无关压缩归档和缓存。
+
+旧候选的缺失报告与 kinematic 接触失败记录保留在 `evidence/m2/attempts/`。最终候选经过修复、重新冻结和独立 AI 复验后，695 项测试与 15 项门禁全部通过。修改源码或资产后仍须重做受影响验证，不能手动改为 passed 或刷新生产证据哈希绕过门禁。
 
 ## 命令与库接口
 
@@ -131,7 +138,27 @@ await packRelease({ projectRoot: engineDirectory });
 
 M0 兼容既有最小结构：milestone、scope、status、checks 和非空 limitations；engineVersion、protocolVersion、sourceIdentity 可省略。存在时必须有效且匹配，不能忽略旧报告中已经记录的过期指纹。M0 完整八项门禁和 GPU 检查不降低。
 
-M1 必须显式记录匹配的 `engineVersion` 和有效的 `sourceIdentity.sha256`。若同时存在 `version`，也必须匹配。engine 或 acceptance 提供 `protocolVersion` 时必须为 `0.1.0`。所有阶段要求 MIT LICENSE、匹配的许可声明、第三方许可通知、README.md、AGENTS.md 及非空根 `dist/index.html`。
+M1、M2 必须显式记录匹配的 `engineVersion` 和有效的 `sourceIdentity.sha256`。若同时存在 `version`，也必须匹配。engine 或 acceptance 提供 `protocolVersion` 时必须为 `0.1.0`。所有阶段要求 MIT LICENSE、匹配的许可声明、第三方许可通知、README.md、AGENTS.md 及非空根 `dist/index.html`。
+
+M2 使用 `milestone: "M2"`、`scope: "playable-game-slice"` 和 manifest 的实际版本；证据路径遵循 `verify-m2.ts` 的真实输出，不要求每个 gate 都有同名 JSON：
+
+| gate                       | 实际引用                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| environment                | `evidence/m2/environment.json`                                                      |
+| typecheck / unit-tests     | `typecheck.txt` / `unit-tests.txt`                                                  |
+| compiler                   | `compiler.json` 及 `docs/api/index.json`                                            |
+| assets                     | `assets.json`、`asset-tests.txt`                                                    |
+| physics / runtime          | `physics-tests.txt` / `runtime-tests.txt`                                           |
+| dev-server / source-freeze | 两者均引用 `compiler.json`，不是独立同名报告                                        |
+| protocol                   | `protocol.json`、`control.png`                                                      |
+| unattended                 | `unattended.json`                                                                   |
+| render                     | `render.json`、`journey.json`、`first-relic.png`、`all-relics.png`、`sanctuary.png` |
+| deploy                     | `deploy.json`、`dist.png`                                                           |
+| ai-workflow                | `ai-workflow.json` 以及各 flow 的 artifacts                                         |
+
+表中未写前缀的文件均位于 `evidence/m2/`。render 的 GPU 信息可嵌套在 `initial.backend`、`initial.adapter`；部署报告使用 `passed/base/hooks/score/errors`，编译报告使用 `success/engineVersion`，不虚构统一的 `status: passed` 报告结构。发布检查继续校验证据存在、非空和 GPU 信息，不替代 verifier 对报告内容和真实流程的断言。
+
+M2 的根 dist 还必须已有非空的 `THREE-LICENSE.txt`、`RAPIER-LICENSE.txt`、`THIRDPARTY-NOTICES.txt` 和 `generated/asset-notices.json`。前两者由构建器复制依赖完整许可，后两者保存运行时及资产声明；发布工具不补造缺失文件。资产 JSON 必须采用编译器的 `{ format: "threecat.asset-notices", version: 1, assets: [...] }`，每项保留字符串 `id/path`、非空字符串或 null 的 `license`，以及可选字符串 `source/attribution`；null 与编译器对未声明许可的警告语义兼容，不被改写为 MIT。无资产项目允许空数组。此校验确认文件和声明结构，不认证用户资产权属，也不证明许可证文本完整合法；主线须审查完整许可及归属。M0/M1 不新增这些 dist 要求。
 
 检查记录规则：
 
@@ -146,9 +173,9 @@ M1 必须显式记录匹配的 `engineVersion` 和有效的 `sourceIdentity.sha2
 
 继续复用 `tools/source-fingerprint.ts` 的 `sourceFingerprint(root)`，不修改其算法、排序、文本处理或 source-map 行为。该函数覆盖可执行源码、锁定配置与 packages 下的共享包，按自身排除规则处理文档、报告和生成产物。
 
-M1 对验收记录中的 SHA-256 与当前源码指纹进行比较。共享包、工具、测试、项目配置或锁文件变化后，需要重新完成受影响的真实验证并生成新的验收记录；工具不会替主线刷新哈希。源码身份用于避免错误复用旧证据，不是防篡改措施。发布摘要保留已验证的 `sourceIdentity.sha256`。
+M1、M2 对验收记录中的 SHA-256 与当前源码指纹进行比较。共享包、工具、测试、项目配置或锁文件变化后，需要重新完成受影响的真实验证并生成新的验收记录；工具不会替主线刷新哈希。当前指纹也纳入 GLB、WAV 等二进制资产，M2 的测试逐字节改动 GLB/WAV 后必须报 `TCREL_EVIDENCE_STALE`。源码身份用于避免错误复用旧证据，不是防篡改措施。发布摘要保留已验证的 `sourceIdentity.sha256`。
 
-M0 和 M1 的 render 检查都需要引用 JSON 报告；至少同一份报告中包含：
+M0、M1、M2 的 render 检查都需要引用 JSON 报告；至少同一份报告中包含：
 
 - `backend: "WebGPUBackend"` 或 `backend: "webgpu"`，可嵌套。
 - 非空 adapter 身份，例如 vendor、description、device、architecture。
@@ -179,7 +206,7 @@ M0 和 M1 的 render 检查都需要引用 JSON 报告；至少同一份报告�
 | ---- | ------------ | ---------------------------------------- |
 | M0   | `0.0.1-m0.0` | 已实现 profile；风险原型 prerelease      |
 | M1   | `0.1.0-m1.0` | 已实现 profile；运行时基础 prerelease    |
-| M2   | `0.2.0-m2.0` | 待本阶段 verifier、scope 和 profile 实现 |
+| M2   | `0.2.0-m2.0` | 已实现 profile；可玩游戏切片 prerelease  |
 | M3   | `0.3.0-m3.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M4   | `0.4.0-m4.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M5   | `0.5.0-m5.0` | 待本阶段 verifier、scope 和 profile 实现 |
@@ -187,7 +214,7 @@ M0 和 M1 的 render 检查都需要引用 JSON 报告；至少同一份报告�
 | M7   | `0.7.0-m7.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M8   | `1.0.0`      | 尚未启用，不接受正式版成功声明           |
 
-M0、M1 始终返回 `prerelease: true`；manifest 自行写入 `prerelease: false` 不会改变它。M2–M8 当前连打包也不会通过。
+M0、M1、M2 始终返回 `prerelease: true`；manifest 自行写入 `prerelease: false` 不会改变它。M3–M8 当前连打包也不会通过。
 
 未来启用 M8 正式版时，必须同时实现完整 capability gate：明确的必需能力清单、逐项通过状态、证据引用、与当前源码一致的身份，以及整套首发退出条件；只有全部验证通过才可设置 `prerelease: false`。不能仅凭 milestone=M8、version=1.0.0、status=passed 或单个 `allCapabilitiesPassed` 布尔字段推断完成。当前没有接受这些字段即可解锁正式版的协议，具体结构须随 M8 verifier 和完整负例测试一起确定；不提前制造 M8 成功分支。
 
@@ -209,6 +236,6 @@ CI 统一执行 Windows 下的依赖准备、类型检查、CPU 单元测试及�
 node --import tsx --test tests/release.test.ts
 ```
 
-测试使用临时目录中的合成 M0/M1 记录，仅验证工具行为：兼容 M0、当前阶段选择、错误 scope/版本、旧源码指纹（含共享包）、缺失或重复 ID、GPU 证据拒绝、缺失证据、根 dist、无 Git、中文空格路径、ZIP 与逐文件哈希、不可覆盖，以及未来阶段不能误通过。测试结果不得充当真实 GPU 或 M1 验收。
+测试使用临时目录中的合成 M0/M1/M2 记录，仅验证工具行为：兼容 M0/M1、当前阶段选择、错误 scope/版本、旧源码指纹（含共享包及 GLB/WAV 二进制资产）、逐项缺失/失败门禁、重复 ID、软件 adapter 拒绝、缺失或空证据、M2 dist 许可及资产 notices、根 dist、无 Git、中文空格路径、ZIP 与逐文件哈希、不可覆盖，以及 M3–M8 不能误通过。fixture 打包只写临时目录，不运行主仓库 pack。测试结果不得充当真实 GPU 或里程碑验收；本工具开发不生成生产 acceptance、不提交、不推送、不发布。
 
 主要诊断包括：`TCREL_MILESTONE`、`TCREL_RELEASE_SCOPE`、`TCREL_PROFILE`、`TCREL_SOURCE_IDENTITY`、`TCREL_EVIDENCE_STALE`、`TCREL_ACCEPTANCE_MISSING`、`TCREL_ACCEPTANCE_SCOPE`、`TCREL_ACCEPTANCE_STATUS`、`TCREL_CHECKS`、`TCREL_CHECK_STATUS`、`TCREL_EVIDENCE_FILES`、`TCREL_EVIDENCE_MISSING`、`TCREL_GPU_EVIDENCE`、`TCREL_GPU_SOFTWARE`、`TCREL_VERSION`、`TCREL_PROTOCOL`、`TCREL_LICENSE`、`TCREL_NOTICE`、`TCREL_DIST`、`TCREL_PATH`、`TCREL_OUTPUT_LINK`、`TCREL_OUTPUT_EXISTS`、`TCREL_SECRET`、`TCREL_SIZE`。

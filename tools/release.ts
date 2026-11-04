@@ -13,7 +13,7 @@ import {
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { deflateRawSync } from "node:zlib";
+import { deflateRawSync, brotliDecompressSync, gunzipSync } from "node:zlib";
 
 import { sourceFingerprint } from "./source-fingerprint.ts";
 
@@ -54,6 +54,24 @@ export const M1_REQUIRED_CHECKS = [
   "deploy",
   "ai-workflow",
 ] as const;
+/** Gate IDs emitted by tools/verify-m2.ts, including its final source freeze. */
+export const M2_REQUIRED_CHECKS = [
+  "environment",
+  "typecheck",
+  "unit-tests",
+  "compiler",
+  "assets",
+  "physics",
+  "runtime",
+  "ui-prototype",
+  "dev-server",
+  "protocol",
+  "unattended",
+  "render",
+  "deploy",
+  "ai-workflow",
+  "source-freeze",
+] as const;
 interface ReleaseProfile {
   scope: string;
   requiredChecks: readonly string[];
@@ -71,6 +89,11 @@ export const RELEASE_PROFILES: Readonly<
   M1: Object.freeze({
     scope: "runtime-foundation",
     requiredChecks: M1_REQUIRED_CHECKS,
+    requireSourceIdentity: true,
+  }),
+  M2: Object.freeze({
+    scope: "playable-game-slice",
+    requiredChecks: M2_REQUIRED_CHECKS,
     requireSourceIdentity: true,
   }),
 });
@@ -329,7 +352,13 @@ async function collect(
     for (const name of names) {
       const lower = name.toLowerCase();
       // Prune before lstat/readdir: never traverse dependencies, caches, credentials or output.
-      if (OMIT_DIRS.has(lower) || OMIT_FILES.test(name) || lower === "dist")
+      const runtimeEncoding =
+        dist && /\.(html|js|json|css|wasm|glb|wav)\.gz$/i.test(name);
+      if (
+        OMIT_DIRS.has(lower) ||
+        (OMIT_FILES.test(name) && !runtimeEncoding) ||
+        lower === "dist"
+      )
         continue;
       const relative = relativeName(prefix ? `${prefix}/${name}` : name);
       if (!dist && relative === "public/generated") continue;
@@ -447,6 +476,109 @@ function validateGpuEvidence(entries: Entry[]): void {
     "TCREL_GPU_EVIDENCE",
     "render.evidence must include a JSON report with a WebGPU backend, adapter identity, and isFallbackAdapter: false.",
   );
+}
+function validateM2DistNotices(entries: Entry[]): void {
+  const dist = new Map(entries.map((entry) => [entry.path, entry]));
+  for (const [name, code] of [
+    ["THREE-LICENSE.txt", "TCREL_LICENSE"],
+    ["RAPIER-LICENSE.txt", "TCREL_LICENSE"],
+    ["THIRDPARTY-NOTICES.txt", "TCREL_NOTICE"],
+    ["generated/asset-notices.json", "TCREL_NOTICE"],
+  ] as const)
+    ensure(
+      dist.get(name)?.content.toString("utf8").trim(),
+      code,
+      `M2 dist/${name} must contain the existing distribution license or notice.`,
+    );
+  const notices = parseJson(
+    dist.get("generated/asset-notices.json"),
+    "dist/generated/asset-notices.json",
+  );
+  // This is the compiler's notice envelope, not an invented acceptance artifact.
+  ensure(
+    notices.format === "threecat.asset-notices" &&
+      notices.version === 1 &&
+      Array.isArray(notices.assets) &&
+      notices.assets.every(
+        (asset) =>
+          object(asset) &&
+          typeof asset.id === "string" &&
+          asset.id.trim() &&
+          typeof asset.path === "string" &&
+          asset.path.trim() &&
+          (asset.license === null ||
+            (typeof asset.license === "string" && asset.license.trim())) &&
+          ["source", "attribution"].every(
+            (key) => asset[key] === undefined || typeof asset[key] === "string",
+          ),
+      ),
+    "TCREL_NOTICE",
+    "M2 asset notices must retain the compiler's format, version and asset declarations (including null for undeclared licenses).",
+  );
+  const compressed = dist.get("compression-manifest.json");
+  if (compressed) {
+    const report = parseJson(compressed, "dist/compression-manifest.json");
+    ensure(
+      report.format === "threecat.dist-compression" &&
+        report.version === 1 &&
+        Array.isArray(report.entries),
+      "TCREL_DIST_COMPRESSION",
+      "Invalid compression manifest.",
+    );
+    for (const record of report.entries as unknown[]) {
+      ensure(
+        object(record) &&
+          typeof record.path === "string" &&
+          object(record.encodings),
+        "TCREL_DIST_COMPRESSION",
+        "Invalid compression record.",
+      );
+      const source = dist.get(relativeName(record.path));
+      ensure(
+        source &&
+          digest(source).sha256 === record.sha256 &&
+          source.content.length === record.bytes,
+        "TCREL_DIST_COMPRESSION",
+        "Compression source does not match its content hash.",
+      );
+      for (const [encoding, raw] of Object.entries(record.encodings)) {
+        ensure(
+          ["br", "gz"].includes(encoding) &&
+            object(raw) &&
+            raw.path === record.path + "." + encoding,
+          "TCREL_DIST_COMPRESSION",
+          "Invalid compression encoding/path.",
+        );
+        const encoded = dist.get(relativeName(raw.path));
+        ensure(
+          encoded &&
+            digest(encoded).sha256 === raw.sha256 &&
+            encoded.content.length === raw.bytes,
+          "TCREL_DIST_COMPRESSION",
+          "Compressed file is absent or stale.",
+        );
+        let decoded: Buffer;
+        try {
+          decoded =
+            encoding === "br"
+              ? brotliDecompressSync(encoded.content, {
+                  maxOutputLength: MAX_FILE,
+                })
+              : gunzipSync(encoded.content, { maxOutputLength: MAX_FILE });
+        } catch {
+          fail(
+            "TCREL_DIST_COMPRESSION",
+            "Compressed file cannot be decoded within the release budget.",
+          );
+        }
+        ensure(
+          decoded!.equals(source.content),
+          "TCREL_DIST_COMPRESSION",
+          "Compressed runtime differs from the original.",
+        );
+      }
+    }
+  }
 }
 async function inspect(options: ReleaseOptions): Promise<Inventory> {
   const root = await realpath(
@@ -708,6 +840,7 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
       .find((c) => c.id === "render")!
       .evidence.map((file) => all.get(file)!),
   );
+  if (milestone === "M2") validateM2DistNotices(dist);
   return {
     root,
     source,
@@ -886,7 +1019,9 @@ export async function packRelease(
     const releaseDescription =
       info.milestone === "M0"
         ? "Prerelease: this is a risk-prototype milestone, not a complete game engine.\n\nIncludes compiler, dynamic WebGPU rendering, interactive simulation and external AI workflow evidence."
-        : `Prerelease: ${info.milestone} ${info.scope} delivers only the accepted phase gates below, not a complete game engine.`;
+        : info.milestone === "M2"
+          ? "Prerelease: M2 playable-game-slice is a playable game slice and asset pipeline, not a complete game engine. Textured GLB content currently uses raster; full glTF material hybrid/path tracing belongs to M3. M3-M8 capabilities are not complete. The acceptance-recorded scope limitations follow below."
+          : `Prerelease: ${info.milestone} ${info.scope} delivers only the accepted phase gates below, not a complete game engine.`;
     const notes: Entry = {
       path: "RELEASE_NOTES.md",
       content: Buffer.from(

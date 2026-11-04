@@ -21,6 +21,7 @@ import {
 import { createSimulation } from "../experiments/simulation/index.ts";
 import { createWorldProbe } from "../experiments/world/index.ts";
 import { runtimeStatus } from "../packages/renderer/src/startup.ts";
+import { resolveEntityDefinition } from "../packages/runtime/src/prefabs.ts";
 
 // Execute the actual browser function bodies with real CPU World/resources/Three objects.
 // No fake adapter result is used, and none of these tests constitutes GPU evidence.
@@ -55,9 +56,13 @@ function harness(names: string[], context: Record<string, unknown>) {
   }).outputText;
   const scope = vm.createContext({
     structuredClone,
+    gameplay: undefined,
+    lastStepCpuMs: 0,
+    performance,
     startup: { automation: true, playing: false },
     playing: false,
     runtimeStatus,
+    resolveEntityDefinition,
     URL,
     document: { baseURI: "http://localhost/" },
     ...context,
@@ -73,6 +78,7 @@ function ir(): SceneIR {
     engineVersion: SDK_VERSION,
     gameId: "browser-contract",
     scene: {
+      gravity: [0, -9.81, 0],
       id: "scene",
       camera: {
         position: [0, 1, 5],
@@ -203,6 +209,44 @@ test("browser views: runtime-only spawn is a Group; display maps are derived fro
     assert.equal(
       view.gameObjects.get("spawned").getWorldPosition(new THREE.Vector3()).x,
       3,
+    );
+  } finally {
+    view.releaseObject(view.gameRoot);
+    for (const material of view.gameMaterials.values()) material.dispose();
+    host.dispose();
+  }
+});
+
+test("browser views: spawned prefab creates real geometry and retains content identity across restore", () => {
+  const { host, definition } = hostRig();
+  definition.prefabs.push({
+    ...structuredClone(definition.scene.entities[0]),
+    id: "crate",
+  });
+  const view = viewHarness(host, definition);
+  try {
+    host.world.queue({
+      type: "spawn",
+      entity: {
+        id: "copy",
+        prefab: "crate",
+        transform: { position: [3, 0, 0] },
+      },
+    });
+    host.world.flush();
+    view.syncRuntime();
+    const copy = view.gameObjects.get("copy");
+    assert.ok(copy.children[0] instanceof THREE.Mesh);
+    assert.equal(copy.position.x, 3);
+    const saved = host.world.snapshot();
+    host.world.destroy("copy");
+    view.syncRuntime();
+    host.world.restore(saved);
+    view.syncRuntime();
+    assert.ok(view.gameObjects.get("copy").children[0] instanceof THREE.Mesh);
+    assert.equal(
+      host.world.records().find((r) => r.id === "copy")?.prefab,
+      "crate",
     );
   } finally {
     view.releaseObject(view.gameRoot);
@@ -640,6 +684,11 @@ test("browser source contracts: restore preflights probes, Host retains ownershi
     /if \(import\.meta\.env\.DEV\)\s*\(window[\s\S]*?\.__threecat = api/,
   );
   assert.match(source, /playing = startup.playing/);
+  assert.doesNotMatch(
+    source,
+    /status\.textContent = "Waiting GPU";\s*await boundedOperation\(\s*device\.queue\.onSubmittedWorkDone\(\)/,
+    "initial queue completion must not block exposing the runtime",
+  );
   let capture: ts.CaseClause | undefined;
   const visit = (node: ts.Node): void => {
     if (

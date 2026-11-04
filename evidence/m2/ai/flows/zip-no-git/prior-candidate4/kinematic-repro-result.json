@@ -1,0 +1,64 @@
+{
+  "engineSourceSHA": "310d38ff51f423ec4d567191b118f47b83d8d3bd586852e8984169f2bd5f3c58",
+  "cases": [
+    {
+      "kind": "kinematic",
+      "port": 4323,
+      "contact": [
+        -0.00021846633171662688,
+        0.7094889879226685,
+        6.490097999572754
+      ],
+      "away": [
+        -0.00021846633171662688,
+        0.7094889879226685,
+        6.490097999572754
+      ],
+      "input": {
+        "held": [
+          "forward"
+        ],
+        "pressed": [],
+        "released": []
+      },
+      "errors": [],
+      "movedAway": false,
+      "checkExitCode": 0,
+      "cleanup": {
+        "exitCode": 0,
+        "stdout": "SUCCESS: The process with PID 43860 (child process of PID 35428) has been terminated.\r\nSUCCESS: The process with PID 35428 (child process of PID 41620) has been terminated.\r\nSUCCESS: The process with PID 41620 (child process of PID 26856) has been terminated.\r\n",
+        "stderr": ""
+      }
+    },
+    {
+      "kind": "fixed",
+      "port": 4324,
+      "contact": [
+        -0.000007251493116200436,
+        0.7095765471458435,
+        6.490109443664551
+      ],
+      "away": [
+        -0.0009864112362265587,
+        0.7100145220756531,
+        0.784954309463501
+      ],
+      "input": {
+        "held": [
+          "forward"
+        ],
+        "pressed": [],
+        "released": []
+      },
+      "errors": [],
+      "movedAway": true,
+      "checkExitCode": 0,
+      "cleanup": {
+        "exitCode": 0,
+        "stdout": "SUCCESS: The process with PID 27080 (child process of PID 34772) has been terminated.\r\nSUCCESS: The process with PID 34772 (child process of PID 23084) has been terminated.\r\nSUCCESS: The process with PID 23084 (child process of PID 26856) has been terminated.\r\n",
+        "stderr": ""
+      }
+    }
+  ],
+  "kinematicBugReproduced": true
+}

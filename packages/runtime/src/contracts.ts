@@ -24,6 +24,7 @@ export interface RuntimeComponentDefinition {
 export type RuntimeEntityInput = SpawnInput;
 export interface EntityRecord {
   id: string;
+  prefab?: string;
   parent?: string;
   transform: Transform;
   components: Record<string, ComponentData>;

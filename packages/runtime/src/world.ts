@@ -36,6 +36,7 @@ interface State {
   length: number;
   free: number[];
   ids: (string | undefined)[];
+  prefabs: Map<number, string>;
   byId: Map<string, number>;
   alive: Uint8Array;
   generations: Float64Array;
@@ -63,6 +64,7 @@ function empty(capacity: number): State {
     length: 0,
     free: [],
     ids: new Array(capacity),
+    prefabs: new Map(),
     byId: new Map(),
     alive: new Uint8Array(capacity),
     generations: new Float64Array(capacity),
@@ -99,6 +101,7 @@ function copyState(source: State): State {
     ...source,
     free: [...source.free],
     ids: [...source.ids],
+    prefabs: new Map(source.prefabs),
     byId: new Map(source.byId),
     alive: source.alive.slice(),
     generations: source.generations.slice(),
@@ -153,6 +156,7 @@ function normalize(
 ): EntityRecord {
   record(input, "Entity");
   identifier(input.id, "Entity id");
+  if (input.prefab !== undefined) identifier(input.prefab, "Prefab id");
   if (input.parent !== undefined) identifier(input.parent, "Parent id");
   if (
     strict &&
@@ -177,6 +181,7 @@ function normalize(
   });
   return {
     id: input.id,
+    ...(input.prefab === undefined ? {} : { prefab: input.prefab }),
     ...(input.parent === undefined ? {} : { parent: input.parent }),
     transform,
     components: Object.fromEntries(entries),
@@ -194,6 +199,7 @@ function put(
   if (state.free.length === 0 && state.length === state.capacity) grow(state);
   const index = state.free.pop() ?? state.length++;
   state.ids[index] = entity.id;
+  if (entity.prefab !== undefined) state.prefabs.set(index, entity.prefab);
   state.byId.set(entity.id, index);
   state.alive[index] = 1;
   state.generations[index] = generation;
@@ -226,6 +232,7 @@ function erase(state: State, indices: number[]): void {
     if (parent !== -1) state.children[parent].delete(index);
     state.byId.delete(state.ids[index]!);
     state.ids[index] = undefined;
+    state.prefabs.delete(index);
     state.alive[index] = 0;
     state.parents[index] = -1;
     state.children[index].clear();
@@ -428,6 +435,9 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
       const parent = state.parents[index];
       result.push({
         id: state.ids[index]!,
+        ...(state.prefabs.has(index)
+          ? { prefab: state.prefabs.get(index)! }
+          : {}),
         ...(parent === -1 ? {} : { parent: state.ids[parent]! }),
         transform: state.transforms.read(index) as unknown as Transform,
         components: Object.fromEntries(

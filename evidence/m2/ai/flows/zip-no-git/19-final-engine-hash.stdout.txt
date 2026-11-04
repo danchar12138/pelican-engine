@@ -1,0 +1,12 @@
+{
+  "mode": "after",
+  "fileCount": 195,
+  "engineFilesModified": false,
+  "noGit": true,
+  "excluded": [
+    "node_modules",
+    ".threecat",
+    "games",
+    "dist"
+  ]
+}

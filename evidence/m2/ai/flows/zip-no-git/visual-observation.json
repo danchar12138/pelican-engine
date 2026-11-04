@@ -1,0 +1,12 @@
+{
+  "observedBy": "Independent game development AI via local image view",
+  "images": [
+    "game-complete.png",
+    "static-cold-restored.png"
+  ],
+  "findings": [
+    "Completed frame shows three restored stretched cores, three physical gold rewards, raised pink gate and Fox beyond the exit. UI shows CORES 3 / 3, EXIT ONLINE and Expedition complete.",
+    "Production cold restore frame shows Fox at repaired west core, one restored core and reward, closed gate, CORES 1 / 3 and loaded status."
+  ],
+  "consistentWithStateAssertions": true
+}

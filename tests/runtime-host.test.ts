@@ -7,6 +7,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { RuntimeHost, type HostOptions } from "../packages/runtime/src/host.ts";
 import { compileProject } from "../packages/compiler/src/index.ts";
 import type { SceneIR } from "../packages/compiler/src/types.ts";
+import type {
+  RuntimePlugin,
+  RuntimePluginFactory,
+} from "../packages/runtime/src/plugins.ts";
 import {
   SDK_VERSION,
   defineComponent,
@@ -32,6 +36,119 @@ const Flag = defineComponent({
   schema: { on: { type: "boolean", default: false } },
 });
 const source = { file: "game.ts", line: 1, column: 1, length: 1 };
+
+test("Host plugin World validation rejects inconsistent sidecars before changing live state", () => {
+  let calls = 0;
+  const ir = sceneIR(),
+    plugin: RuntimePluginFactory = () => ({
+      id: "linked",
+      snapshot: () => ({ entities: ["root"] }),
+      validateSnapshot() {},
+      validateWorld(value, world) {
+        calls++;
+        if (
+          JSON.stringify((value as any).entities) !==
+          JSON.stringify(world.entities.map((entity) => entity.id))
+        )
+          throw new Error("TC_PLUGIN_WORLD_MISMATCH");
+      },
+      restore() {},
+      dispose() {},
+    });
+  const host = new RuntimeHost(ir, { plugins: [plugin] });
+  host.attach(
+    instantiateGame(
+      defineGame({
+        id: ir.gameId,
+        scene: defineScene({ id: "scene", entities: [] }),
+      }),
+      host.facade,
+    ),
+  );
+  try {
+    const before = host.snapshot(),
+      invalid = structuredClone(before);
+    (invalid.plugins!.linked.payload as any).entities = [];
+    assert.throws(() => host.restore(invalid), /TC_PLUGIN_WORLD_MISMATCH/);
+    assert.equal(calls, 1);
+    assert.deepEqual(host.snapshot(), before);
+  } finally {
+    host.dispose();
+  }
+});
+
+test("Host prefab spawn merges compiler defaults and overrides, enforces permissions and restores content identity", () => {
+  const definition = sceneIR();
+  definition.prefabs = [
+    {
+      id: "crate",
+      transform: {
+        position: [1, 2, 3],
+        rotation: [0, 0.5, 0],
+        scale: [2, 2, 2],
+      },
+      components: { Counter: { value: 7, vector: [1, 2, 3] } },
+    },
+  ];
+  const host = new RuntimeHost(definition);
+  host.attach(
+    instantiateGame(
+      defineGame({
+        id: definition.gameId,
+        scene: defineScene({ id: "scene", entities: [] }),
+      }),
+      host.facade,
+    ),
+  );
+  try {
+    host.facade.entities.spawn({
+      id: "spawned",
+      prefab: "crate",
+      transform: { position: [8, 1, 0] },
+      components: { Counter: { value: 9 } },
+    });
+    host.world.flush();
+    assert.deepEqual(host.world.getTransform("spawned"), {
+      position: [8, 1, 0],
+      rotation: [0, 0.5, 0],
+      scale: [2, 2, 2],
+    });
+    assert.deepEqual(host.world.getComponent("spawned", "Counter"), {
+      value: 9,
+      vector: [1, 2, 3],
+    });
+    const saved = host.snapshot();
+    host.facade.entities.destroy("spawned");
+    host.world.flush();
+    host.restore(saved);
+    assert.equal(
+      host.world.records().find((r) => r.id === "spawned")?.prefab,
+      "crate",
+    );
+    assert.throws(
+      () => host.facade.entities.spawn({ id: "bad", prefab: "missing" }),
+      /TC_PREFAB_MISSING/,
+    );
+    assert.equal(host.world.inspect().pendingCommands, 0);
+    const invalid = structuredClone(saved);
+    invalid.world.entities.find((r) => r.id === "spawned")!.prefab = "missing";
+    invalid.scheduler.world = structuredClone(invalid.world);
+    assert.throws(() => host.restore(invalid), /TC_PREFAB_MISSING/);
+    assert.deepEqual(host.snapshot(), saved);
+    assert.throws(
+      () =>
+        host.world.runSystem(
+          "denied",
+          { structural: true, writes: ["Transform"] },
+          () => host.facade.entities.spawn({ id: "denied", prefab: "crate" }),
+        ),
+      /TC_WORLD_ACCESS/,
+    );
+    assert.equal(host.world.inspect().pendingCommands, 0);
+  } finally {
+    host.dispose();
+  }
+});
 const transform = () => ({
   position: [0, 0, 0] as const,
   rotation: [0, 0, 0] as const,
@@ -55,6 +172,7 @@ function sceneIR(systems: readonly SystemDefinition[] = []): SceneIR {
         far: 100,
       },
       environment: { background: "#000000", ambientIntensity: 1 },
+      gravity: [0, -9.81, 0],
       entities: [
         {
           id: "root",
@@ -955,4 +1073,232 @@ test("host: async systems and returned promises are rejected rather than losing 
   } finally {
     promiseHost.dispose();
   }
+});
+
+function pluginHost(pluginFactories: readonly RuntimePluginFactory[] = []) {
+  const host = new RuntimeHost(sceneIR(), {
+    seed: 91,
+    plugins: pluginFactories,
+  });
+  const systems: SystemDefinition[] = [];
+  const game = instantiateGame(
+    defineGame({
+      id: "host-test",
+      scene: defineScene({ id: "scene", entities: [] }),
+      systems,
+    }),
+    host.facade,
+  );
+  host.attach(game);
+  return host;
+}
+
+function statePlugin(
+  options: { failRestoreOnce?: boolean; dispose?: () => void } = {},
+) {
+  let state = 0;
+  let fail = options.failRestoreOnce ?? false;
+  const plugin: RuntimePlugin = {
+    id: "counter-plugin",
+    version: "1",
+    systems: [
+      {
+        id: "$engine.counter",
+        phase: "input",
+        reads: [],
+        writes: [],
+        structural: false,
+        run() {
+          state++;
+        },
+      },
+    ],
+    inspect: () => ({ state }),
+    snapshot: () => ({ state }),
+    validateSnapshot(value) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        typeof (value as { state?: unknown }).state !== "number"
+      )
+        throw new Error("invalid counter snapshot");
+    },
+    restore(value) {
+      state = (value as { state: number }).state;
+      if (fail && state === 9) {
+        fail = false;
+        throw new Error("injected restore failure");
+      }
+    },
+    dispose() {
+      options.dispose?.();
+    },
+  };
+  return {
+    plugin,
+    get state() {
+      return state;
+    },
+  };
+}
+
+test("host plugins: services resolve through facade and absent services fail explicitly", () => {
+  const input = {
+    held: (action: string) => action === "move",
+    pressed: () => false,
+    released: () => false,
+    axis: () => 0,
+  };
+  const host = pluginHost([
+    () => ({
+      id: "input-plugin",
+      services: { input },
+      snapshot: () => ({}),
+      validateSnapshot() {},
+      restore() {},
+      dispose() {},
+    }),
+  ]);
+  try {
+    assert.equal(host.facade.input.held("move"), true);
+    assert.throws(() => host.facade.physics, /TC_SERVICE_UNAVAILABLE.*physics/);
+    assert.deepEqual(host.inspect().plugins.services, ["input"]);
+  } finally {
+    host.dispose();
+  }
+});
+
+test("host plugins: engine systems run before same-phase game systems", () => {
+  const order: string[] = [];
+  const plugin: RuntimePlugin = {
+    id: "ordering-plugin",
+    systems: [
+      { id: "$engine.input", phase: "input", run: () => order.push("engine") },
+    ],
+    snapshot: () => ({}),
+    validateSnapshot() {},
+    restore() {},
+    dispose() {},
+  };
+  const systems = [
+    defineSystem({
+      id: "game-input",
+      phase: "input",
+      run: () => order.push("game"),
+    }),
+  ];
+  const host = new RuntimeHost(sceneIR(systems), { plugins: [() => plugin] });
+  try {
+    const game = instantiateGame(
+      defineGame({
+        id: "host-test",
+        scene: defineScene({ id: "scene", entities: [] }),
+        systems,
+      }),
+      host.facade,
+    );
+    host.attach(game);
+    host.step();
+    assert.deepEqual(order, ["engine", "game"]);
+  } finally {
+    host.dispose();
+  }
+});
+
+test("host plugins: snapshots restore plugin state, reject incompatible sets, and roll back failed restore", () => {
+  const instance = statePlugin({ failRestoreOnce: true });
+  const host = pluginHost([() => instance.plugin]);
+  try {
+    const checkpoint = host.snapshot();
+    assert.deepEqual(checkpoint.plugins, {
+      "counter-plugin": { version: "1", payload: { state: 0 } },
+    });
+    host.step(3);
+    assert.equal(instance.state, 3);
+    host.restore(checkpoint);
+    assert.equal(instance.state, 0);
+    host.step(2);
+    const before = host.snapshot();
+    const invalid = structuredClone(before);
+    invalid.plugins!["counter-plugin"]!.payload = { state: 9 };
+    assert.throws(
+      () => host.restore(invalid),
+      /TC_PLUGIN_RESTORE.*previous state restored/,
+    );
+    assert.equal(instance.state, 2);
+    assert.deepEqual(host.snapshot(), before);
+    const missing = structuredClone(before);
+    delete missing.plugins;
+    assert.throws(() => host.restore(missing), /TC_PLUGIN_SNAPSHOT_SET/);
+  } finally {
+    host.dispose();
+  }
+});
+
+test("host plugins: recording/replay restores initial plugin state and reproduces plugin final state", () => {
+  const instance = statePlugin();
+  const host = pluginHost([() => instance.plugin]);
+  try {
+    host.startRecording();
+    host.input("x", true);
+    host.step(4);
+    const trace = host.stopRecording();
+    assert.deepEqual(trace.plugins?.initial["counter-plugin"]?.payload, {
+      state: 0,
+    });
+    assert.deepEqual(trace.plugins?.final["counter-plugin"]?.payload, {
+      state: 4,
+    });
+    assert.equal(host.replay(trace).status, "passed");
+    assert.equal(instance.state, 4);
+    assert.equal(
+      host.replay({ ...trace, plugins: undefined }).status,
+      "failed",
+    );
+  } finally {
+    host.dispose();
+  }
+});
+
+test("host plugins: constructor failure and dispose failures still release all created plugins and world", () => {
+  let disposed = 0;
+  assert.throws(
+    () =>
+      new RuntimeHost(sceneIR(), {
+        plugins: [
+          () => ({
+            id: "first",
+            snapshot: () => ({}),
+            validateSnapshot() {},
+            restore() {},
+            dispose() {
+              disposed++;
+            },
+          }),
+          () => {
+            throw new Error("factory failure");
+          },
+        ],
+      }),
+    /factory failure/,
+  );
+  assert.equal(disposed, 1);
+
+  const disposable = (id: string, throws: boolean): RuntimePlugin => ({
+    id,
+    snapshot: () => ({}),
+    validateSnapshot() {},
+    restore() {},
+    dispose() {
+      disposed++;
+      if (throws) throw new Error("dispose failure");
+    },
+  });
+  const host = pluginHost([
+    () => disposable("a", true),
+    () => disposable("b", false),
+  ]);
+  assert.throws(() => host.dispose(), /TC_RUNTIME_DISPOSE/);
+  assert.equal(disposed, 3);
+  assert.equal(host.inspect().disposed, true);
 });

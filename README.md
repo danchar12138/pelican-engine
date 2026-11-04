@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**M1 基础运行时已通过验收。** 当前实现了正式编译器包、SoA 实体组件存储、阶段调度与权限、资源生命周期、快照录放以及可操作当前画面的开发控制桥。它不是完整首发引擎；472 项测试、12 项门禁和两条冻结 ZIP 独立 AI 流程通过，结果见 `evidence/m1/acceptance.json`，实际使用见 [M1 指引](docs/M1-USAGE.md)。M0 的历史证据与发布版保持可查。
+**M2 游戏切片已通过验收。** 695 项测试、15 项门禁及两条冻结 ZIP 独立 AI 流程全部通过。当前版本包含真实 GLB/PBR/骨骼动画、Rapier 角色与刚体、公开游戏服务、三物品收集与通关、跨场景及冷启动存档恢复。它不是完整首发引擎；实际状态见 `evidence/m2/acceptance.json`，使用见 [M2 指引](docs/M2-USAGE.md)。M0/M1 历史证据和 Release 保持可查。
 
 方案依据：2026-11-04 的需求访谈。已确认的产品决策与待技术验证的实现方案分开记录。没有未经实测的性能、工期或完成度承诺。
 
@@ -27,25 +27,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\threecat.ps1 setup --insta
 powershell -NoProfile -ExecutionPolicy Bypass -File .\threecat.ps1 dev
 ```
 
-在仓库目录也可使用 `npm run typecheck`、`npm test`、`npm run build`。当前默认 M1 样板构建到根目录 `dist/`；外部游戏输出其自身的 `dist/`。`npm run verify:m1` 包含真实 GPU 浏览器验收，不应在没有硬件的环境伪造通过。M0 验收从其历史版本执行，避免覆盖历史证据。
+在仓库目录也可使用 `npm run typecheck`、`npm test`、`npm run build`。当前默认 M2 样板构建到根目录 `dist/`；外部游戏输出其自身的 `dist/`。`npm run verify:m2` 包含真实 GPU 浏览器验收，不应在没有硬件的环境伪造通过。M0/M1 验收从对应历史版本执行，避免覆盖历史证据。
 
 源码 ZIP 无需 Git 即可使用。创建外部游戏、捕获画面和部署方法见使用指引；引擎整体计划与当前实现状态分别记录。
 
 ## 方案入口
 
-| 文档 | 用途 |
-| --- | --- |
-| [M1 使用指引](docs/M1-USAGE.md) | 当前 SDK、单步、检查、输入、录放与当前帧截图 |
-| [M0 使用指引](docs/M0-USAGE.md) | 当前实际可运行命令与原型限制 |
-| [M0 实测报告](docs/M0-REPORT.md) | 本里程碑证据、性能边界与后续风险 |
-| [发布规范](docs/RELEASING.md) | 同一节点提交、推送和 Release，中文标准提交消息 |
-| [AGENTS.md](AGENTS.md) | 外部 AI 的工作入口、职责边界和当前阶段 |
-| [需求决策](docs/DECISIONS.md) | 40 项确认结果、纠正后的边界、待验证事项 |
-| [总体架构](docs/ARCHITECTURE.md) | 编译器、SDK、运行时、渲染、模拟和目录设计 |
-| [能力与验收矩阵](docs/CAPABILITIES.md) | 全部首发能力、交互关系和交付证据 |
-| [AI 工作流](docs/AI-WORKFLOW.md) | 初始化、命令契约、调试、自动测试与协作 |
-| [研发计划](docs/ROADMAP.md) | 里程碑、任务依赖、风险、质量门禁和下一步 |
-| [技术核查](docs/RESEARCH.md) | 一手资料、候选依赖、已知限制和原型问题 |
+| 文档                                   | 用途                                               |
+| -------------------------------------- | -------------------------------------------------- |
+| [M2 使用指引](docs/M2-USAGE.md)        | 当前开发工作树、资产/角色/玩法服务、存档与场景切换 |
+| [M1 使用指引](docs/M1-USAGE.md)        | 当前 SDK、单步、检查、输入、录放与当前帧截图       |
+| [M0 使用指引](docs/M0-USAGE.md)        | 当前实际可运行命令与原型限制                       |
+| [M0 实测报告](docs/M0-REPORT.md)       | 本里程碑证据、性能边界与后续风险                   |
+| [发布规范](docs/RELEASING.md)          | 同一节点提交、推送和 Release，中文标准提交消息     |
+| [AGENTS.md](AGENTS.md)                 | 外部 AI 的工作入口、职责边界和当前阶段             |
+| [需求决策](docs/DECISIONS.md)          | 40 项确认结果、纠正后的边界、待验证事项            |
+| [总体架构](docs/ARCHITECTURE.md)       | 编译器、SDK、运行时、渲染、模拟和目录设计          |
+| [能力与验收矩阵](docs/CAPABILITIES.md) | 全部首发能力、交互关系和交付证据                   |
+| [AI 工作流](docs/AI-WORKFLOW.md)       | 初始化、命令契约、调试、自动测试与协作             |
+| [研发计划](docs/ROADMAP.md)            | 里程碑、任务依赖、风险、质量门禁和下一步           |
+| [技术核查](docs/RESEARCH.md)           | 一手资料、候选依赖、已知限制和原型问题             |
 
 首次阅读推荐顺序：`AGENTS.md → DECISIONS.md → ROADMAP.md`，再按任务查阅专题文档。
 

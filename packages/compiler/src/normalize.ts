@@ -1,6 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import {
+  inspectAsset,
+  AssetInspectionError,
+  type AssetType,
+} from "../../assets/src/index.ts";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
 import type {
   ComponentSchema,
@@ -24,6 +29,7 @@ export const hash = (data: string | Uint8Array) =>
 export interface AssetCopy {
   source: string;
   output: string;
+  expectedHash: string;
 }
 export async function normalize(
   game: ObjectValue,
@@ -337,21 +343,76 @@ export async function normalize(
       );
       continue;
     }
-    if (!["texture", "binary"].includes(String(def.type)))
+    if (!["texture", "binary", "model", "audio"].includes(String(def.type))) {
       error("TC_ASSET_TYPE", "Unsupported asset type.", def, "type");
+      continue;
+    }
     try {
       const content = await fs.readFile(absolute);
+      const metadata = await inspectAsset(absolute, def.type as AssetType);
+      if (metadata.sha256 !== hash(content)) {
+        error(
+          "TC_ASSET_CHANGED",
+          "Asset changed during inspection: " + sourcePath,
+          def,
+          "path",
+          "Wait for the asset producer to finish writing and rebuild.",
+        );
+        continue;
+      }
       const output = "assets/" + name + "-" + path.basename(absolute);
       assets.push({
         id: name,
-        type: def.type as "texture" | "binary",
+        type: def.type as "texture" | "binary" | "model" | "audio",
         path: output,
         sourcePath: rel.replaceAll("\\", "/"),
         hash: hash(content),
+        metadata,
+        sourceInfo: {
+          ...(typeof def.source === "string" ? { source: def.source } : {}),
+          ...(typeof def.license === "string" ? { license: def.license } : {}),
+          ...(typeof def.attribution === "string"
+            ? { attribution: def.attribution }
+            : {}),
+        },
         source: located(def),
       });
-      assetCopies.push({ source: absolute, output });
-    } catch {
+      for (const field of ["source", "license", "attribution"] as const)
+        if (def[field] !== undefined && typeof def[field] !== "string")
+          error(
+            "TC_ASSET_PROVENANCE",
+            "Asset " + field + " must be a string.",
+            def,
+            field,
+          );
+      if (typeof def.license !== "string" || !def.license.trim())
+        diagnostics.push({
+          code: "TC_ASSET_LICENSE_UNDECLARED",
+          severity: "warning",
+          message:
+            "No asset license was declared for " +
+            name +
+            "; ownership and usage rights were not inferred.",
+          suggestion:
+            "Declare the actual license and required attribution in defineAsset metadata after checking the asset's terms.",
+          source: source(def, "license") ?? located(def),
+        });
+      assetCopies.push({
+        source: absolute,
+        output,
+        expectedHash: hash(content),
+      });
+    } catch (cause) {
+      if (cause instanceof AssetInspectionError) {
+        error(
+          cause.code,
+          cause.message.replaceAll(absolute, sourcePath),
+          def,
+          "path",
+          cause.suggestion,
+        );
+        continue;
+      }
       error(
         "TC_ASSET_MISSING",
         "Asset file not found or unreadable: " + sourcePath,
@@ -504,7 +565,196 @@ export async function normalize(
         color: text(l.color, l, "color", "#ffffff"),
         intensity: num(l.intensity, l, "intensity", 1, 0),
         castShadow: l.castShadow !== false,
+        ...(l.target !== undefined
+          ? { target: vector(l.target, l, "target", [0, 0, 0]) }
+          : {}),
       };
+      if (l.shadow !== undefined) {
+        const shadow = obj(l.shadow, l, "shadow");
+        const mapSize = num(shadow.mapSize, shadow, "mapSize", 2048, 128, 8192);
+        if (!Number.isInteger(mapSize) || !Number.isInteger(Math.log2(mapSize)))
+          error(
+            "TC_LIGHT_SHADOW",
+            "Shadow mapSize must be a power of two.",
+            shadow,
+            "mapSize",
+          );
+        const near = num(shadow.near, shadow, "near", 0.1, Number.EPSILON);
+        result.light.shadow = {
+          mapSize,
+          extent: num(shadow.extent, shadow, "extent", 20, Number.EPSILON),
+          bias: num(shadow.bias, shadow, "bias", -0.0001),
+          normalBias: num(shadow.normalBias, shadow, "normalBias", 0.04, 0),
+          near,
+          far: num(shadow.far, shadow, "far", 100, near + Number.EPSILON),
+        };
+      }
+    }
+    if (def.model !== undefined) {
+      const model = obj(def.model, def, "model");
+      const asset = ref(model.asset, model, "asset");
+      requireRef("asset", asset, model, "asset");
+      if (registry("asset").get(asset)?.type !== "model")
+        error(
+          "TC_ASSET_TYPE",
+          "Entity models must reference model assets.",
+          model,
+          "asset",
+        );
+      for (const field of ["castShadow", "receiveShadow"] as const)
+        if (model[field] !== undefined && typeof model[field] !== "boolean")
+          error("TC_MODEL_VALUE", field + " must be a boolean.", model, field);
+      result.model = {
+        castShadow: model.castShadow !== false,
+        receiveShadow: model.receiveShadow !== false,
+        asset,
+        scale: num(model.scale, model, "scale", 1, Number.EPSILON),
+        ...(model.offset !== undefined
+          ? { offset: vector(model.offset, model, "offset", [0, 0, 0]) }
+          : {}),
+        ...(model.rotation !== undefined
+          ? { rotation: vector(model.rotation, model, "rotation", [0, 0, 0]) }
+          : {}),
+      };
+      if (model.animation !== undefined) {
+        const animation = obj(model.animation, model, "animation");
+        if (animation.loop !== undefined && typeof animation.loop !== "boolean")
+          error(
+            "TC_MODEL_ANIMATION",
+            "Animation loop must be a boolean.",
+            animation,
+            "loop",
+          );
+        const clips = assets.find((entry) => entry.id === asset)?.metadata
+          ?.animations as { name: string }[] | undefined;
+        if (clips && !clips.some((clip) => clip.name === animation.clip))
+          error(
+            "TC_MODEL_CLIP",
+            "Model " +
+              asset +
+              " has no animation clip " +
+              String(animation.clip) +
+              ". Available: " +
+              clips.map((clip) => clip.name).join(", "),
+            animation,
+            "clip",
+            "Choose a clip from the asset metadata or re-export the animation.",
+          );
+        result.model.animation = {
+          clip: text(animation.clip, animation, "clip"),
+          speed: num(animation.speed, animation, "speed", 1, Number.EPSILON),
+          loop: animation.loop === undefined ? true : animation.loop === true,
+        };
+      }
+    }
+    if (def.rigidBody !== undefined) {
+      const body = obj(def.rigidBody, def, "rigidBody");
+      const collider = obj(body.collider, body, "collider");
+      const shape = collider.shape;
+      if (!["box", "sphere", "capsule"].includes(String(shape)))
+        error(
+          "TC_PHYSICS_COLLIDER",
+          "Collider shape must be box, sphere, or capsule.",
+          collider,
+          "shape",
+        );
+      const resolved: EntityIR["rigidBody"] = {
+        type: (body.type ?? "fixed") as "fixed" | "dynamic" | "kinematic",
+        collider: {
+          shape: (shape ?? "box") as "box" | "sphere" | "capsule",
+          ...(shape === "box"
+            ? { size: vector(collider.size, collider, "size", [1, 1, 1]) }
+            : {}),
+          ...(shape === "sphere"
+            ? {
+                radius: num(
+                  collider.radius,
+                  collider,
+                  "radius",
+                  0.5,
+                  Number.EPSILON,
+                ),
+              }
+            : {}),
+          ...(shape === "capsule"
+            ? {
+                radius: num(
+                  collider.radius,
+                  collider,
+                  "radius",
+                  0.5,
+                  Number.EPSILON,
+                ),
+                halfHeight: num(
+                  collider.halfHeight,
+                  collider,
+                  "halfHeight",
+                  0.5,
+                  Number.EPSILON,
+                ),
+              }
+            : {}),
+          ...(collider.offset !== undefined
+            ? { offset: vector(collider.offset, collider, "offset", [0, 0, 0]) }
+            : {}),
+        },
+        mass: num(body.mass, body, "mass", 1, Number.EPSILON),
+        friction: num(body.friction, body, "friction", 0.5, 0, 1),
+        restitution: num(body.restitution, body, "restitution", 0, 0, 1),
+        trigger: body.trigger === true,
+      };
+      if (
+        !["fixed", "dynamic", "kinematic"].includes(
+          String(body.type ?? "fixed"),
+        )
+      )
+        error(
+          "TC_PHYSICS_BODY",
+          "Rigid body type must be fixed, dynamic, or kinematic.",
+          body,
+          "type",
+        );
+      if (body.trigger !== undefined && typeof body.trigger !== "boolean")
+        error(
+          "TC_PHYSICS_BODY",
+          "Rigid body trigger must be a boolean.",
+          body,
+          "trigger",
+        );
+      if (
+        resolved.collider.shape === "box" &&
+        resolved.collider.size?.some((x) => x <= 0)
+      )
+        error(
+          "TC_PHYSICS_COLLIDER",
+          "Box collider dimensions must be positive.",
+          collider,
+          "size",
+        );
+      result.rigidBody = resolved;
+    }
+    if (def.character !== undefined) {
+      const character = obj(def.character, def, "character");
+      result.character = {
+        radius: num(
+          character.radius,
+          character,
+          "radius",
+          0.35,
+          Number.EPSILON,
+        ),
+        height: num(character.height, character, "height", 1.8, Number.EPSILON),
+        speed: num(character.speed, character, "speed", 4, 0),
+        jumpSpeed: num(character.jumpSpeed, character, "jumpSpeed", 5, 0),
+        gravity: num(character.gravity, character, "gravity", 9.81, 0),
+      };
+      if (result.character.height < result.character.radius * 2)
+        error(
+          "TC_CHARACTER_CAPSULE",
+          "Character height must be at least its capsule diameter (2 * radius).",
+          character,
+          "height",
+        );
     }
     for (const raw of list(def.components, def, "components")) {
       const c = obj(raw, def, "components");
@@ -576,57 +826,149 @@ export async function normalize(
     return result;
   };
   for (const [name, def] of registry("prefab")) prefab(name, def);
-  const scene = obj(game.scene, game, "scene");
-  if (scene.kind !== "scene")
-    error(
-      "TC_SCENE_KIND",
-      "Game scene must reference defineScene.",
-      game,
-      "scene",
-    );
-  const entities: EntityIR[] = [];
-  const entityLookup = new Map<string, EntityIR>();
-  for (const raw of list(scene.entities, scene, "entities")) {
-    const def = obj(raw, scene, "entities");
-    const base =
-      def.prefab !== undefined
-        ? prefab(ref(def.prefab, def, "prefab"), def)
-        : undefined;
-    const result = entity(def, base);
-    if (entityLookup.has(result.id))
-      error("TC_DUPLICATE_ID", "Duplicate entity ID: " + result.id, def, "id");
-    entityLookup.set(result.id, result);
-    entities.push(result);
-  }
-  const visited = new Set<string>();
-  const activeParents = new Set<string>();
-  const checkParent = (e: EntityIR) => {
-    if (visited.has(e.id)) return;
-    if (activeParents.has(e.id)) {
+  const resolveScene = (rawScene: unknown, owner: object, key: string) => {
+    const scene = obj(rawScene, owner, key);
+    if (scene.kind !== "scene")
       error(
-        "TC_SCENE_CYCLE",
-        "Entity parent cycle: " + e.id,
-        scene,
-        "entities",
+        "TC_SCENE_KIND",
+        "Game scenes must reference defineScene.",
+        owner,
+        key,
       );
-      return;
-    }
-    activeParents.add(e.id);
-    if (e.parent) {
-      const p = entityLookup.get(e.parent);
-      if (!p)
+    const entities: EntityIR[] = [];
+    const entityLookup = new Map<string, EntityIR>();
+    for (const raw of list(scene.entities, scene, "entities")) {
+      const def = obj(raw, scene, "entities");
+      const base =
+        def.prefab !== undefined
+          ? prefab(ref(def.prefab, def, "prefab"), def)
+          : undefined;
+      const result = entity(def, base);
+      if (entityLookup.has(result.id))
         error(
-          "TC_RESOURCE_MISSING",
-          "Missing parent entity: " + e.parent,
+          "TC_DUPLICATE_ID",
+          "Duplicate entity ID: " + result.id,
+          def,
+          "id",
+        );
+      entityLookup.set(result.id, result);
+      entities.push(result);
+    }
+    const visited = new Set<string>();
+    const activeParents = new Set<string>();
+    const checkParent = (e: EntityIR) => {
+      if (visited.has(e.id)) return;
+      if (activeParents.has(e.id)) {
+        error(
+          "TC_SCENE_CYCLE",
+          "Entity parent cycle: " + e.id,
           scene,
           "entities",
         );
-      else checkParent(p);
+        return;
+      }
+      activeParents.add(e.id);
+      if (e.parent) {
+        const parent = entityLookup.get(e.parent);
+        if (!parent)
+          error(
+            "TC_RESOURCE_MISSING",
+            "Missing parent entity: " + e.parent,
+            scene,
+            "entities",
+          );
+        else checkParent(parent);
+      }
+      activeParents.delete(e.id);
+      visited.add(e.id);
+    };
+    for (const e of entities) checkParent(e);
+    const camera =
+      scene.camera === undefined ? {} : obj(scene.camera, scene, "camera");
+    const environment =
+      scene.environment === undefined
+        ? {}
+        : obj(scene.environment, scene, "environment");
+    if (
+      environment.lighting !== undefined &&
+      !["none", "studio"].includes(String(environment.lighting))
+    )
+      error(
+        "TC_ENVIRONMENT_LIGHTING",
+        "Supported environment lighting presets are none and studio.",
+        environment,
+        "lighting",
+      );
+    const near = num(camera.near, camera, "near", 0.1, Number.EPSILON);
+    const far = num(camera.far, camera, "far", 1000, near + Number.EPSILON);
+    let follow: SceneIR["scene"]["follow"];
+    if (scene.follow !== undefined) {
+      const f = obj(scene.follow, scene, "follow");
+      const target = text(f.entity, f, "entity");
+      if (!entityLookup.has(target))
+        error(
+          "TC_CAMERA_FOLLOW_ENTITY",
+          "Camera follow target must exist in the same scene: " + target,
+          f,
+          "entity",
+        );
+      follow = {
+        entity: target,
+        distance: num(f.distance, f, "distance", 5, Number.EPSILON),
+        height: num(f.height, f, "height", 2, 0),
+        lookHeight: num(f.lookHeight, f, "lookHeight", 1, 0),
+        yaw: num(f.yaw, f, "yaw", 0),
+        smoothing: num(f.smoothing, f, "smoothing", 0.1, 0, 1),
+      };
     }
-    activeParents.delete(e.id);
-    visited.add(e.id);
+    return {
+      id: id(scene),
+      camera: {
+        position: vector(camera.position, camera, "position", [5, 4, 7]),
+        target: vector(camera.target, camera, "target", [0, 0, 0]),
+        fov: num(camera.fov, camera, "fov", 50, 1, 179),
+        near,
+        far,
+      },
+      environment: {
+        ...(environment.lighting !== undefined
+          ? { lighting: environment.lighting as "none" | "studio" }
+          : {}),
+        background: text(
+          environment.background,
+          environment,
+          "background",
+          "#151c2b",
+        ),
+        ambientIntensity: num(
+          environment.ambientIntensity,
+          environment,
+          "ambientIntensity",
+          0.4,
+          0,
+        ),
+      },
+      ...(follow ? { follow } : {}),
+      gravity: vector(scene.gravity, scene, "gravity", [0, -9.81, 0]),
+      entities,
+    };
   };
-  for (const e of entities) checkParent(e);
+  const primaryScene = resolveScene(game.scene, game, "scene");
+  const additionalScenes = list(game.scenes, game, "scenes").map((value) =>
+    resolveScene(value, game, "scenes"),
+  );
+  const allScenes = [primaryScene, ...additionalScenes];
+  const sceneIds = new Set<string>();
+  for (const scene of allScenes) {
+    if (sceneIds.has(scene.id))
+      error(
+        "TC_DUPLICATE_ID",
+        "Duplicate scene ID: " + scene.id,
+        game,
+        "scenes",
+      );
+    sceneIds.add(scene.id);
+  }
   const systems: SceneIR["systems"] = [];
   const systemOwners: Obj[] = [];
   const systemIds = new Set<string>();
@@ -784,51 +1126,233 @@ export async function normalize(
     done.add(name);
   };
   for (const s of systems) visitSystem(s.id);
-  const camera =
-    scene.camera === undefined ? {} : obj(scene.camera, scene, "camera");
-  const environment =
-    scene.environment === undefined
-      ? {}
-      : obj(scene.environment, scene, "environment");
-  const near = num(camera.near, camera, "near", 0.1, Number.EPSILON);
-  const far = num(camera.far, camera, "far", 1000, near + Number.EPSILON);
+  const input: Record<string, string[]> = {};
+  if (game.input !== undefined) {
+    const bindings = obj(game.input, game, "input");
+    for (const [action, raw] of Object.entries(bindings)) {
+      if (
+        !action.trim() ||
+        action.length > 64 ||
+        /[\x00-\x1f\x7f]/.test(action)
+      )
+        error(
+          "TC_INPUT_ACTION",
+          "Input action names must be 1-64 printable characters.",
+          bindings,
+          action,
+        );
+      const values = list(raw, bindings, action);
+      if (!values.length || values.length > 16)
+        error(
+          "TC_INPUT_BINDINGS",
+          "Each action must have between 1 and 16 key bindings.",
+          bindings,
+          action,
+        );
+      const keys: string[] = [];
+      for (const key of values) {
+        if (
+          typeof key !== "string" ||
+          !key.length ||
+          key.length > 64 ||
+          /[\x00-\x1f\x7f]/.test(key)
+        ) {
+          error(
+            "TC_INPUT_BINDINGS",
+            "Key names must be 1-64 printable characters.",
+            bindings,
+            action,
+          );
+          continue;
+        }
+        if (keys.includes(key))
+          error(
+            "TC_INPUT_BINDINGS",
+            "Duplicate key binding: " + key,
+            bindings,
+            action,
+          );
+        keys.push(key);
+      }
+      input[action] = keys;
+    }
+  }
+  const ui: NonNullable<SceneIR["ui"]> = [];
+  const uiIds = new Set<string>();
+  for (const raw of list(game.ui, game, "ui")) {
+    const element = obj(raw, game, "ui");
+    const name = id(element);
+    if (uiIds.has(name))
+      error(
+        "TC_DUPLICATE_ID",
+        "Duplicate UI element ID: " + name,
+        element,
+        "id",
+      );
+    uiIds.add(name);
+    const kind = element.kind;
+    if (!["text", "bar", "button", "input"].includes(String(kind)))
+      error(
+        "TC_UI_KIND",
+        "UI kind must be text, bar, button or input.",
+        element,
+        "kind",
+      );
+    const color = text(element.color, element, "color", "#ffffff");
+    const namedColors = new Set([
+      "black",
+      "white",
+      "red",
+      "green",
+      "blue",
+      "yellow",
+      "orange",
+      "purple",
+      "pink",
+      "gray",
+      "grey",
+      "cyan",
+      "magenta",
+      "lime",
+      "navy",
+      "teal",
+      "silver",
+      "maroon",
+      "olive",
+      "aqua",
+      "fuchsia",
+      "rebeccapurple",
+      "transparent",
+    ]);
+    if (
+      !/^(#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})|(?:rgb|rgba|hsl|hsla)\([\d.% ,+-]+\))$/i.test(
+        color,
+      ) &&
+      !namedColors.has(color.toLowerCase())
+    )
+      error(
+        "TC_UI_COLOR",
+        "UI color must be a CSS hex color or named color.",
+        element,
+        "color",
+      );
+    const anchor = element.anchor ?? "top-left";
+    if (
+      ![
+        "top-left",
+        "top-right",
+        "bottom-left",
+        "bottom-right",
+        "center",
+      ].includes(String(anchor))
+    )
+      error("TC_UI_ANCHOR", "Unknown UI anchor.", element, "anchor");
+    if (element.visible !== undefined && typeof element.visible !== "boolean")
+      error("TC_UI_VALUE", "UI visible must be a boolean.", element, "visible");
+    ui.push({
+      id: name,
+      kind: (kind ?? "text") as "text" | "bar" | "button" | "input",
+      text: text(element.text, element, "text", ""),
+      value: num(element.value, element, "value", 0, 0, 1),
+      visible: element.visible !== false,
+      anchor: anchor as NonNullable<SceneIR["ui"]>[number]["anchor"],
+      x: num(element.x, element, "x", 0),
+      y: num(element.y, element, "y", 0),
+      width: num(element.width, element, "width", 160, Number.EPSILON),
+      color,
+      ...(element.world !== undefined
+        ? {
+            world: (() => {
+              const world = obj(element.world, element, "world"),
+                entity = text(world.entity, world, "entity");
+              if (
+                !allScenes.some((scene) =>
+                  scene.entities.some((item) => item.id === entity),
+                )
+              )
+                error(
+                  "TC_UI_WORLD_ENTITY",
+                  "World UI entity must be declared in at least one scene.",
+                  world,
+                  "entity",
+                );
+              if (
+                world.occlude !== undefined &&
+                typeof world.occlude !== "boolean"
+              )
+                error(
+                  "TC_UI_WORLD_VALUE",
+                  "occlude must be a boolean.",
+                  world,
+                  "occlude",
+                );
+              return {
+                entity,
+                offset: vector(world.offset, world, "offset", [0, 0, 0]),
+                occlude: world.occlude !== false,
+              };
+            })(),
+          }
+        : {}),
+    });
+  }
+  const sounds: NonNullable<SceneIR["sounds"]> = [];
+  const soundIds = new Set<string>();
+  for (const raw of list(game.sounds, game, "sounds")) {
+    const sound = obj(raw, game, "sounds");
+    const name = id(sound);
+    if (soundIds.has(name))
+      error("TC_DUPLICATE_ID", "Duplicate sound ID: " + name, sound, "id");
+    soundIds.add(name);
+    const asset = ref(sound.asset, sound, "asset");
+    requireRef("asset", asset, sound, "asset");
+    if (registry("asset").get(asset)?.type !== "audio")
+      error(
+        "TC_ASSET_TYPE",
+        "Sound definitions must reference audio assets.",
+        sound,
+        "asset",
+      );
+    if (sound.loop !== undefined && typeof sound.loop !== "boolean")
+      error("TC_SOUND_VALUE", "Sound loop must be a boolean.", sound, "loop");
+    sounds.push({
+      id: name,
+      asset,
+      volume: num(sound.volume, sound, "volume", 1, 0, 1),
+      loop: sound.loop === true,
+    });
+  }
   const ir: SceneIR = {
     format: "threecat.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: id(game),
-    scene: {
-      id: id(scene),
-      camera: {
-        position: vector(camera.position, camera, "position", [5, 4, 7]),
-        target: vector(camera.target, camera, "target", [0, 0, 0]),
-        fov: num(camera.fov, camera, "fov", 50, 1, 179),
-        near,
-        far,
-      },
-      environment: {
-        background: text(
-          environment.background,
-          environment,
-          "background",
-          "#151c2b",
-        ),
-        ambientIntensity: num(
-          environment.ambientIntensity,
-          environment,
-          "ambientIntensity",
-          0.4,
-          0,
-        ),
-      },
-      entities,
-    },
+    scene: primaryScene,
+    ...(additionalScenes.length ? { scenes: additionalScenes } : {}),
+    ...(game.input !== undefined ? { input } : {}),
+    ...(game.ui !== undefined ? { ui } : {}),
+    ...(game.sounds !== undefined ? { sounds } : {}),
     components,
     prefabs: [...resolvedPrefabs.values()],
     materials,
     computes,
     systems,
     assets,
+    assetNotices: assets.map((asset) => ({
+      id: asset.id,
+      path: asset.path,
+      license: asset.sourceInfo?.license ?? null,
+      ...(asset.sourceInfo?.attribution
+        ? { attribution: asset.sourceInfo.attribution }
+        : {}),
+      ...(asset.sourceInfo?.source ? { source: asset.sourceInfo.source } : {}),
+    })),
   };
-  return { ir: diagnostics.length ? undefined : ir, diagnostics, assetCopies };
+  return {
+    ir: diagnostics.some((diagnostic) => diagnostic.severity === "error")
+      ? undefined
+      : ir,
+    diagnostics,
+    assetCopies,
+  };
 }

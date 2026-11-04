@@ -1,0 +1,16 @@
+const fs=require("node:fs"), path=require("node:path"), cp=require("node:child_process");
+const root=path.resolve(__dirname,".."), args=process.argv.slice(2);
+const label=args.shift(), expected=args[0]==="--expected-failure"; if(expected) args.shift();
+const log=path.join(__dirname,"raw-command-log","commands.json");
+fs.mkdirSync(path.dirname(log),{recursive:true});
+const env={...process.env,npm_config_cache:path.join(root,"cache","npm"),PLAYWRIGHT_BROWSERS_PATH:'C:/Users/60459/AppData/Local/ms-playwright',TEMP:path.join(root,"cache","tmp"),TMP:path.join(root,"cache","tmp")};
+fs.mkdirSync(env.TEMP,{recursive:true});
+const command=args.shift();
+const stdoutPath=path.join(__dirname,label+".stdout.txt"),stderrPath=path.join(__dirname,label+".stderr.txt");
+const outFd=fs.openSync(stdoutPath,'w'),errFd=fs.openSync(stderrPath,'w');
+const r=cp.spawnSync(command,args,{cwd:root,env,stdio:['ignore',outFd,errFd],windowsHide:true});
+fs.closeSync(outFd);fs.closeSync(errFd);
+if(r.error)fs.appendFileSync(stderrPath,String(r.error));
+const stdout=fs.readFileSync(stdoutPath,'utf8'),stderr=fs.readFileSync(stderrPath,'utf8');
+const rows=fs.existsSync(log)?JSON.parse(fs.readFileSync(log,"utf8")):[]; rows.push({command:[command,...args].map(x=>/\s/.test(x)?'"'+x+'"':x).join(" "),argv:[command,...args],exitCode:r.status,expectedFailure:expected,stdout:label+".stdout.txt",stderr:label+".stderr.txt"}); fs.writeFileSync(log,JSON.stringify(rows,null,2));
+process.stdout.write(stdout); process.stderr.write(stderr); process.exit(r.status??1);

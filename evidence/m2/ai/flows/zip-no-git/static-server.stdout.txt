@@ -1,0 +1,20 @@
+{"ready":true,"root":"C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5\\deployment","pid":32500,"engineImported":false}
+{"url":"/relay/","status":200,"bytes":611}
+{"url":"/relay/","status":200,"bytes":611}
+{"url":"/relay/assets/index-ddZDeuEm.js","status":200,"bytes":5331241}
+{"url":"/relay/generated/scene.ir.json?v=1","status":200,"bytes":43805}
+{"url":"/relay/generated/assets/fox-Fox.glb","status":200,"bytes":162852}
+{"url":"/relay/generated/assets/chime-chime.wav","status":200,"bytes":39734}
+{"url":"/relay/generated/game.js?v=1","status":200,"bytes":15559}
+{"url":"/relay/generated/scene.ir.json","status":200,"bytes":43805}
+{"url":"/relay/","status":200,"bytes":611}
+{"url":"/relay/assets/index-ddZDeuEm.js","status":200,"bytes":5331241}
+{"url":"/relay/generated/scene.ir.json?v=1","status":200,"bytes":43805}
+{"url":"/relay/generated/assets/fox-Fox.glb","status":200,"bytes":162852}
+{"url":"/relay/generated/assets/chime-chime.wav","status":200,"bytes":39734}
+{"url":"/relay/generated/game.js?v=1","status":200,"bytes":15559}
+{"url":"/relay/generated/scene.ir.json?v=2","status":200,"bytes":43805}
+{"url":"/relay/generated/assets/fox-Fox.glb","status":200,"bytes":162852}
+{"url":"/relay/generated/assets/chime-chime.wav","status":200,"bytes":39734}
+{"url":"/relay/generated/game.js?v=2","status":200,"bytes":15559}
+{"url":"/__threecat/control","status":404}

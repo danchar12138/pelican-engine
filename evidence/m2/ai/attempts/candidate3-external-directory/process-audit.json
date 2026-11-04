@@ -1,0 +1,7 @@
+﻿{
+    "passed":  true,
+    "browserPolicy":  "Playwright browser.close executed in finally in each browser script; no flow browser profile processes remain",
+    "remainingFlowProcesses":  [
+
+                               ]
+}

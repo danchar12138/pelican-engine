@@ -1,0 +1,470 @@
+import * as THREE from "three/webgpu";
+import { createUIRenderer } from "./ui.ts";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import type { PhysicsService } from "../../sdk/src/index.ts";
+import type { SceneIR } from "../../compiler/src/types.ts";
+import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
+import { createGameServices } from "../../runtime/src/game-services.ts";
+import { createPhysicsFactory } from "../../physics/index.ts";
+import { createModelLibrary } from "./models.ts";
+import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
+import type { EntityRecord } from "../../runtime/src/contracts.ts";
+
+/** Private presentation ownership. Games receive only SDK services, never browser/library objects. */
+export async function prepareGameplay(
+  ir: SceneIR,
+  baseURL: string,
+  renderer: THREE.Renderer,
+) {
+  const assetURL = (id: string) => {
+    const asset = ir.assets.find((entry) => entry.id === id);
+    if (!asset) throw new Error("TC_ASSET_MISSING: " + id);
+    return new URL(asset.path, baseURL).href;
+  };
+  const models = createModelLibrary(
+    ir.assets
+      .filter((a) => a.type === "model")
+      .map((a) => ({ id: a.id, url: assetURL(a.id) })),
+  );
+  const textures = new Map<string, THREE.Texture>();
+  let physics: PhysicsService | undefined;
+  let environmentTarget: THREE.RenderTarget | undefined;
+  const audio = (ir.sounds?.length ?? 0) > 0 ? new AudioContext() : undefined;
+  const buffers = new Map<string, AudioBuffer>();
+  const voices = new Map<
+    string,
+    { source: AudioBufferSourceNode; gain: GainNode; panner?: PannerNode }
+  >();
+  let ui: ReturnType<typeof createUIRenderer> | undefined;
+  let uiInput: ((key: string, pressed: boolean) => void) | undefined;
+  let uiEmit: ((type: string, payload: unknown) => void) | undefined;
+  let services: ReturnType<typeof createGameServices>;
+  let closed = false;
+  const diagnostics: string[] = [];
+  const stopVoice = (id: string) => {
+    const voice = voices.get(id);
+    if (!voice) return;
+    try {
+      voice.source.stop();
+    } catch {
+      /* A completed buffer source is already stopped. */
+    }
+    voice.source.disconnect();
+    voice.gain.disconnect();
+    voice.panner?.disconnect();
+    voices.delete(id);
+  };
+  const dispose = async () => {
+    if (closed) return;
+    closed = true;
+    ui?.dispose();
+    for (const id of [...voices.keys()]) stopVoice(id);
+    environmentTarget?.dispose();
+    for (const texture of textures.values()) texture.dispose();
+    textures.clear();
+    buffers.clear();
+    await Promise.all([models.dispose(), audio?.close()]);
+  };
+  try {
+    await models.prepare();
+    if (ir.scene.environment.lighting === "studio") {
+      const room = new RoomEnvironment(),
+        pmrem = new THREE.PMREMGenerator(renderer);
+      try {
+        environmentTarget = pmrem.fromScene(room, 0.04);
+      } finally {
+        pmrem.dispose();
+        room.dispose();
+      }
+    }
+    for (const asset of ir.assets.filter((a) => a.type === "texture")) {
+      const texture = await new THREE.TextureLoader().loadAsync(
+        assetURL(asset.id),
+      );
+      texture.colorSpace = THREE.SRGBColorSpace;
+      textures.set(asset.id, texture);
+    }
+    if (audio)
+      for (const sound of ir.sounds ?? []) {
+        if (buffers.has(sound.asset)) continue;
+        const response = await fetch(assetURL(sound.asset));
+        if (!response.ok)
+          throw new Error(
+            "TC_AUDIO_LOAD: " + sound.asset + " HTTP " + response.status,
+          );
+        const buffer = await audio.decodeAudioData(
+          await response.arrayBuffer(),
+        );
+        buffers.set(sound.asset, buffer);
+      }
+    services = createGameServices(ir, models.animation);
+    const modelBindings = (records: Pick<EntityRecord, "id" | "prefab">[]) =>
+      records.filter((record) => resolveEntityDefinition(ir, record)?.model);
+    const registerModels = (records: Pick<EntityRecord, "id" | "prefab">[]) => {
+      for (const record of modelBindings(records))
+        models.register(record.id, resolveEntityDefinition(ir, record)!.model!);
+    };
+    const validateModels = (value: unknown) => {
+      const saved = structuredClone(value) as {
+        version: number;
+        bindings: Pick<EntityRecord, "id" | "prefab">[];
+        animation: unknown;
+      };
+      if (
+        !saved ||
+        saved.version !== 1 ||
+        !Array.isArray(saved.bindings) ||
+        saved.bindings.some(
+          (record) =>
+            !record ||
+            typeof record.id !== "string" ||
+            (record.prefab !== undefined && typeof record.prefab !== "string"),
+        ) ||
+        new Set(saved.bindings.map((record) => record.id)).size !==
+          saved.bindings.length
+      )
+        throw new Error(
+          "TC_MODEL_BINDINGS_SNAPSHOT: Invalid model content identity.",
+        );
+      if (modelBindings(saved.bindings).length !== saved.bindings.length)
+        throw new Error("TC_MODEL_BINDINGS_SNAPSHOT: Unknown model content.");
+      registerModels(saved.bindings);
+      const animation = models.validateSnapshot(saved.animation);
+      if (
+        JSON.stringify(
+          animation.animations.map((item) => item.entity).sort(),
+        ) !== JSON.stringify(saved.bindings.map((record) => record.id).sort())
+      )
+        throw new Error(
+          "TC_MODEL_BINDINGS_SNAPSHOT: Active model bindings differ from animation state.",
+        );
+      return animation;
+    };
+    const plugins: RuntimePluginFactory[] = [
+      services.factory,
+      (context) => ({
+        id: "$engine.models",
+        version: "2",
+        snapshot: () => {
+          const bindings = modelBindings(context.world.records()).map(
+            ({ id, prefab }) => ({
+              id,
+              ...(prefab === undefined ? {} : { prefab }),
+            }),
+          );
+          registerModels(bindings);
+          models.reconcile(bindings.map((record) => record.id));
+          return { version: 1, bindings, animation: models.snapshot() };
+        },
+        validateSnapshot: (value) => {
+          validateModels(value);
+        },
+        validateWorld: (value, world) => {
+          const bindings = (
+            value as { bindings: Pick<EntityRecord, "id" | "prefab">[] }
+          ).bindings;
+          const expected = modelBindings(world.entities)
+            .map(({ id, prefab }) =>
+              JSON.stringify({
+                id,
+                ...(prefab === undefined ? {} : { prefab }),
+              }),
+            )
+            .sort();
+          if (
+            JSON.stringify(expected) !==
+            JSON.stringify(
+              bindings
+                .map(({ id, prefab }) =>
+                  JSON.stringify({
+                    id,
+                    ...(prefab === undefined ? {} : { prefab }),
+                  }),
+                )
+                .sort(),
+            )
+          )
+            throw new Error(
+              "TC_MODEL_BINDINGS_WORLD: Model identities must match the restored World.",
+            );
+        },
+        restore: (value) => models.restore(validateModels(value)),
+        dispose() {
+          /* Content owns async GPU/asset disposal. */
+        },
+        inspect: () => models.inspect(),
+        systems: [
+          {
+            id: "$engine.models",
+            phase: "presentation",
+            run: (dt) => {
+              const records = context.world.records();
+              registerModels(records);
+              models.reconcile(
+                modelBindings(records).map((record) => record.id),
+              );
+              models.tick(dt);
+            },
+          },
+        ],
+      }),
+    ];
+    if (
+      [...ir.scene.entities, ...ir.prefabs].some(
+        (entity) => entity.rigidBody || entity.character,
+      )
+    ) {
+      const factory = await createPhysicsFactory();
+      plugins.push((context) => {
+        const plugin = factory(context);
+        physics = plugin.services?.physics;
+        return plugin;
+      });
+    }
+    ui = createUIRenderer(ir.ui ?? [], {
+      input: (key, pressed) => {
+        uiInput?.(key, pressed);
+        void audio
+          ?.resume()
+          .catch((error) =>
+            diagnostics.push("TC_AUDIO_RESUME: " + String(error)),
+          );
+      },
+      emit: (type, payload) => {
+        if (
+          type === "ui.focus" &&
+          payload &&
+          typeof payload === "object" &&
+          ir.ui?.some(
+            (element) =>
+              element.id === (payload as { id?: unknown }).id &&
+              element.kind === "input",
+          )
+        )
+          for (const key of new Set(Object.values(ir.input ?? {}).flat()))
+            uiInput?.(key, false);
+        uiEmit?.(type, payload);
+      },
+    });
+    return {
+      models,
+      environment: environmentTarget?.texture,
+      textures,
+      plugins,
+      services,
+      dispose,
+      mount(
+        input: (key: string, pressed: boolean) => void,
+        emit: (type: string, payload: unknown) => void,
+      ) {
+        uiInput = input;
+        uiEmit = emit;
+        ui!.mount();
+      },
+      consumesKeyboard(event: KeyboardEvent) {
+        return ui?.consumesKeyboard(event) ?? false;
+      },
+      unlockAudio() {
+        void audio
+          ?.resume()
+          .catch((error) =>
+            diagnostics.push("TC_AUDIO_RESUME: " + String(error)),
+          );
+      },
+      present(
+        camera: THREE.PerspectiveCamera,
+        objects: ReadonlyMap<string, THREE.Object3D>,
+        dt: number,
+        tick: number,
+      ) {
+        const state = services.inspect();
+        if (state.camera) {
+          const follow = state.camera,
+            object = objects.get(follow.entity);
+          if (object) {
+            const at = object.getWorldPosition(new THREE.Vector3());
+            const target = at
+              .clone()
+              .add(new THREE.Vector3(0, follow.lookHeight, 0));
+            const position = at.add(
+              new THREE.Vector3(
+                Math.sin(follow.yaw) * follow.distance,
+                follow.height,
+                Math.cos(follow.yaw) * follow.distance,
+              ),
+            );
+            if (physics) {
+              const direction = position.clone().sub(target),
+                distance = direction.length();
+              const hit = physics.raycast(
+                target.toArray(),
+                direction.toArray(),
+                distance,
+                { exclude: [follow.entity], includeTriggers: false },
+              );
+              if (hit && hit.distance < distance)
+                position
+                  .copy(target)
+                  .addScaledVector(
+                    direction.normalize(),
+                    Math.max(0.2, hit.distance - 0.25),
+                  );
+            }
+            camera.position.lerp(
+              position,
+              dt > 0 && follow.smoothing > 0
+                ? 1 - Math.pow(1 - follow.smoothing, dt * 60)
+                : 1,
+            );
+            if (physics) {
+              const actual = camera.position.clone().sub(target),
+                length = actual.length();
+              if (length > 0) {
+                const hit = physics.raycast(
+                  target.toArray(),
+                  actual.toArray(),
+                  length,
+                  { exclude: [follow.entity] },
+                );
+                if (hit && hit.distance < length)
+                  camera.position
+                    .copy(target)
+                    .addScaledVector(
+                      actual.normalize(),
+                      Math.max(0.2, hit.distance - 0.25),
+                    );
+              }
+            }
+            camera.lookAt(target);
+            camera.updateMatrixWorld();
+          }
+        }
+        const size = renderer.getSize(new THREE.Vector2());
+        const positions = new Map<
+          string,
+          { x: number; y: number; visible: boolean; occluded: boolean }
+        >();
+        for (const definition of state.ui ?? []) {
+          if (!definition.world) continue;
+          const object = objects.get(definition.world.entity);
+          if (!object) {
+            positions.set(definition.id, {
+              x: 0,
+              y: 0,
+              visible: false,
+              occluded: false,
+            });
+            continue;
+          }
+          object.updateWorldMatrix(true, false);
+          const point = object
+            .getWorldPosition(new THREE.Vector3())
+            .add(new THREE.Vector3().fromArray(definition.world.offset));
+          const delta = point.clone().sub(camera.position),
+            distance = delta.length(),
+            projected = point.clone().project(camera),
+            forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          let occluded = false;
+          if (definition.world.occlude && distance > 0) {
+            const raycaster = new THREE.Raycaster(
+              camera.position,
+              delta.clone().normalize(),
+              0.01,
+              distance - 0.01,
+            );
+            occluded = raycaster
+              .intersectObjects([...objects.values()], true)
+              .some((hit) => {
+                for (
+                  let parent: THREE.Object3D | null = hit.object;
+                  parent;
+                  parent = parent.parent
+                )
+                  if (parent === object) return false;
+                return hit.object.visible;
+              });
+          }
+          positions.set(definition.id, {
+            x: ((projected.x + 1) * size.x) / 2,
+            y: ((1 - projected.y) * size.y) / 2,
+            visible:
+              forward.dot(delta) > 0 &&
+              projected.z >= -1 &&
+              projected.z <= 1 &&
+              Math.abs(projected.x) <= 1 &&
+              Math.abs(projected.y) <= 1,
+            occluded,
+          });
+        }
+        ui?.present(state.ui ?? [], positions);
+        const wanted = new Set(state.audio.voices.map((voice) => voice.id));
+        for (const id of [...voices.keys()]) if (!wanted.has(id)) stopVoice(id);
+        if (audio) {
+          audio.listener.positionX.value = camera.position.x;
+          audio.listener.positionY.value = camera.position.y;
+          audio.listener.positionZ.value = camera.position.z;
+          const forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          audio.listener.forwardX.value = forward.x;
+          audio.listener.forwardY.value = forward.y;
+          audio.listener.forwardZ.value = forward.z;
+          for (const voice of state.audio.voices) {
+            let active = voices.get(voice.id);
+            if (!active && audio.state === "running") {
+              const definition = ir.sounds!.find(
+                (sound) => sound.id === voice.sound,
+              )!;
+              const buffer = buffers.get(definition.asset)!;
+              const age = Math.max(0, (tick - voice.startedAt) / 60);
+              if (!voice.loop && age >= buffer.duration) continue;
+              const source = audio.createBufferSource(),
+                gain = audio.createGain();
+              source.buffer = buffer;
+              source.loop = voice.loop;
+              let panner: PannerNode | undefined;
+              if (voice.entity) {
+                panner = audio.createPanner();
+                panner.panningModel = "HRTF";
+                panner.distanceModel = "inverse";
+                source.connect(panner);
+                panner.connect(gain);
+              } else source.connect(gain);
+              gain.connect(audio.destination);
+              active = { source, gain, panner };
+              voices.set(voice.id, active);
+              source.start(0, age % buffer.duration);
+            }
+            if (active) {
+              active.gain.gain.value = state.audio.volume * voice.volume;
+              const position = voice.entity
+                ? objects
+                    .get(voice.entity)
+                    ?.getWorldPosition(new THREE.Vector3())
+                : undefined;
+              if (active.panner && position) {
+                active.panner.positionX.value = position.x;
+                active.panner.positionY.value = position.y;
+                active.panner.positionZ.value = position.z;
+              }
+            }
+          }
+        }
+      },
+      inspect() {
+        return {
+          ...services.inspect(),
+          models: models.inspect(),
+          audioDevice: audio?.state ?? "unused",
+          decodedSounds: buffers.size,
+          uiPlatform: ui?.inspect(),
+          diagnostics: [...diagnostics],
+        };
+      },
+    };
+  } catch (error) {
+    await dispose();
+    throw error;
+  }
+}
+export type GameplayContent = Awaited<ReturnType<typeof prepareGameplay>>;
