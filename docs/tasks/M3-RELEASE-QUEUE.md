@@ -2,9 +2,9 @@
 
 ## 2026-11-06 单线收敛接续
 
-用户要求收敛所有分支和工作树、发布里程碑后仅保留主线。当前 `main` 仍有大量未提交改动，`git ls-files --others --exclude-standard` 列出约 4960 个未跟踪文件，含 M3 证据及后续阶段成果，不能未经归类直接提交或发布。已确认 `m3-release-d50-unverified-20261106`、`m3-backend-fixture-20261106` 和 `m4JointRegistryIntegration` 的改动文件与主线一致，且没有其他忽略文件，已移除这三个工作树；后两者的 `node_modules` junction 已在确认目标后单独解除。其他候选仍须逐项处理，不能批量强制移除。
+用户要求发布 M3 后只保留单线串行开发。GitHub 已创建 `v0.3.0-m3.0` compile-only/unverified 预发布，提交 `629e880a9ab4664ee799e94293ab4dea1df11645`；这不是 M3 正式验收或完整首发。npm Actions 工作流 `42230390535` 两次发布均失败：首次因 2FA 权限，重试时因令牌仅允许 staging 而返回 `E_STAGE_REQUIRED`。npm 发布未成功，须更换具有首次直接发布权限的受保护令牌后处理，不能假称完成或公开令牌。
 
-本地命名分支除 `main` 外有 `m4-public-joints`，其提交及该工作树内额外的未提交物理改动尚未合入；其他 detached HEAD 也有独有提交。多个工作树包含独有文件、忽略证据或 `node_modules` junction。删除前须记录提交、未提交和未跟踪文件、忽略文件与 junction，确认成果已安全保留；不得跟随 junction 删除或丢弃独有成果。后续以主线串行完成归类、构建和明确标记未验证的交付。
+现仅登记 `main` 主工作树和开发分支。原有工作树已移除或作为本机快照注销，独有提交以 `refs/pelican-archive/worktrees/` 保留；未合入差异及原始快照保存在 `.pelican/consolidated-worktrees/` 和 `.pelican/worktree-snapshots/`。它们未全部归类或合入，不代表功能完成；不得跟随 junction 删除或丢弃独有成果。主树中历史 `evidence/m3/` 至 `evidence/m6/` 仍未跟踪，保留在本机，未随本次提交上传。归档路径是本机辅助记录，其他环境可能不存在。
 
 本轮 `npm run typecheck`、M3 示例构建和 npm 分发构建打包成功；未运行测试、浏览器、GPU、性能、smoke 或其他行为验证。本记录不表明 npm 或 GitHub Release 已发布，实际状态以远端结果为准。D50 覆盖下文任何要求执行验证的历史步骤；仅允许运行编译/构建及其必要步骤。
 
@@ -12,9 +12,9 @@
 
 ## 当前优先顺序
 
-收敛约束：M3 是当前最早未发布阶段；M4/M5 独立工作不得改变 M3 冻结候选或延迟其已完成验收后的发布。不要增加与现有真实执行重复的类型检查包装或仅罗列缺项的审核层；集中完成 M3 核心能力、真实 WebGPU/WebGL2、分发与发布 profile 的必要闭环。后续阶段成果先留在隔离工作树，待 M3 交付节点后合入。
+收敛约束：M3 GitHub 预发布已创建，但 npm 发布和完整 M3 能力仍有缺口；当前按 D50 只编译/构建，按 D51 在主线串行推进。历史候选保留在本机归档，按依赖逐项整合，不创建新的隔离工作树。
 
-并行候选：`../threecat-worktrees/m4-rope-public-codex` 已有真实 Rapier 双向法向冲量及实验固定 tick，但尚未接入 Host 和事务；`../threecat-worktrees/m5-world-sdk-codex-20261106` 的受限 CPU terrain 已有 Host 服务与快照候选，但未接入实际渲染、物理或导航，命令批次也非原子事务；`../threecat-worktrees/m5-nav-batch-codex-20261106` 有导航批量更新候选。它们均不是完整里程碑，也未合入当前 M3；合入前核对独有文件与当前主树。
+历史候选：`m4-rope-public-codex` 的双向法向冲量候选尚未接入 Host 和事务；`m5-world-sdk-codex-20261106` 的受限 CPU terrain 尚未接入实际渲染、物理或导航，命令批次也非原子事务；`m5-nav-batch-codex-20261106` 有导航批量更新候选。三者位于本机原样快照，不是活动工作树；合入前核对独有文件与当前主树。M5 world 原始 `.git` 指向另一候选，恢复时须参考归档说明。
 
 1. **候选修复**：当前零底座 sparse GLB 已通过 CPU、优化器、WebGL2 软件浏览器及真实 WebGPU 光栅开发验证（`evidence/m3/development/sparse-raster-05824294635f/`）。同机临时项目的 `dist` 在静态子路径完成真实 WebGPU 冷启动、刷新和开发控制剔除检查，见 `evidence/m3/development/sparse-static-1793937726355/`；其截图无法单独证明外观相同的两模型已通过按键切换，且探针指纹不是构建输入证明。交错底座和 sparse 矩阵在 Three.js 加载器正确处理前明确拒绝。完成 M3 当前已知阻塞，避免继续增加与发布无关的特性。
 2. **冻结前检查**：整理当前未提交改动及来源，确认许可证、版本、公开 API、包内容与仓库/ZIP/npm 行为一致。执行 `npm run typecheck`、`npm test` 及默认跳过的硬件项；记录跳过、失败、命令、版本和源码指纹。局部修改只重跑受影响部分；冻结时再完整复验。
