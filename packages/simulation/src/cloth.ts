@@ -219,10 +219,20 @@ export class ClothSolver {
         if (this.config.surfaceCollisions) for (let triangleIndex = 0; triangleIndex < this.config.triangles.length; triangleIndex++) {
           const triangle = this.config.triangles[triangleIndex], a = positions[triangle[0]], b = positions[triangle[1]], c = positions[triangle[2]];
           for (const collider of this.colliders) {
-            if (collider.kind !== "sphere") continue;
-            const closest = closestTriangle(collider.center, a, b, c), delta: Vec3 = [closest.point[0] - collider.center[0], closest.point[1] - collider.center[1], closest.point[2] - collider.center[2]], length = Math.hypot(...delta), depth = collider.radius + radius - length;
+            let closest: { point: Vec3; barycentric: [number, number, number] }, normal: Vec3, depth: number;
+            if (collider.kind === "sphere") {
+              closest = closestTriangle(collider.center, a, b, c);
+              const delta: Vec3 = [closest.point[0] - collider.center[0], closest.point[1] - collider.center[1], closest.point[2] - collider.center[2]], length = Math.hypot(...delta);
+              depth = collider.radius + radius - length;
+              normal = length < 1e-12 ? [0, 1, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
+            } else {
+              const centroid: Vec3 = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+              normal = collider.normal;
+              depth = collider.offset + radius - (centroid[0] * normal[0] + centroid[1] * normal[1] + centroid[2] * normal[2]);
+              closest = { point: centroid, barycentric: [1 / 3, 1 / 3, 1 / 3] };
+            }
             if (depth <= 0) continue;
-            const normal: Vec3 = length < 1e-12 ? [0, 1, 0] : [delta[0] / length, delta[1] / length, delta[2] / length], weights = [this.anchors.has(triangle[0]) ? 0 : closest.barycentric[0], this.anchors.has(triangle[1]) ? 0 : closest.barycentric[1], this.anchors.has(triangle[2]) ? 0 : closest.barycentric[2]], denominator = weights.reduce((sum, value) => sum + value * value, 0);
+            const weights = [this.anchors.has(triangle[0]) ? 0 : closest.barycentric[0], this.anchors.has(triangle[1]) ? 0 : closest.barycentric[1], this.anchors.has(triangle[2]) ? 0 : closest.barycentric[2]], denominator = weights.reduce((sum, value) => sum + value * value, 0);
             if (denominator === 0) continue;
             const correction = depth / denominator;
             for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++) positions[triangle[vertex]][axis] += normal[axis] * correction * weights[vertex];
@@ -303,7 +313,7 @@ export class ClothSolver {
     const surfaceKeys = new Set<string>();
     if (!Array.isArray(surfaceContacts) || surfaceContacts.length > this.config.triangles.length * colliders.length || (!this.config.surfaceCollisions && surfaceContacts.length > 0) ||
         surfaceContacts.some(contact => !contact || contact.tick !== input.tick || !Number.isSafeInteger(contact.triangle) || contact.triangle < 0 || contact.triangle >= this.config.triangles.length ||
-          !colliders.some(collider => collider.id === contact.colliderId && collider.kind === "sphere") || typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 ||
+          !colliders.some(collider => collider.id === contact.colliderId) || typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 ||
           !Array.isArray(contact.barycentric) || contact.barycentric.length !== 3 || !contact.barycentric.every(value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1) ||
           Math.abs(contact.barycentric[0] + contact.barycentric[1] + contact.barycentric[2] - 1) > 1e-5 || (contact.reactionImpulse === undefined) !== (contact.reactionAngularImpulse === undefined) || (contact.reactionImpulse !== undefined && (!vec(contact.reactionImpulse) || !vec(contact.reactionAngularImpulse)))))
       fail("CLOTH_SNAPSHOT", "invalid surface contact state");

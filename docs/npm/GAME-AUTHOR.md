@@ -240,6 +240,8 @@ not mass-coupled with cloth velocity. The body receives no reaction when the
 option is omitted. Destroyed bodies are removed on the next automatic step.
 This is not complete cloth-rigid-body coupling.
 
+Sampled planes use the triangle centroid for discrete surface projection; this is not continuous triangle-plane collision.
+
 New cloth also resolves detected sphere overlaps against triangle surface interiors
 using closest-point barycentric projection. `inspect(id).surfaceContacts` reports
 the triangle and barycentric position. `surfaceCollisions` defaults to true for new
