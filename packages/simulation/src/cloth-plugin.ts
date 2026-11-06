@@ -34,7 +34,6 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
     }
   }
   if (definition.selfCollisions !== undefined && typeof definition.selfCollisions !== "boolean") return fail("SELF_COLLISION", "selfCollisions must be boolean.");
-  if (definition.bodyReactions !== undefined && typeof definition.bodyReactions !== "boolean") return fail("BODY_REACTION", "bodyReactions must be boolean.");
   if (definition.surfaceCollisions !== undefined && typeof definition.surfaceCollisions !== "boolean") return fail("SURFACE_COLLISION", "surfaceCollisions must be boolean.");
   if (restoredSurfaceMode !== undefined && definition.surfaceCollisions !== undefined && definition.surfaceCollisions !== restoredSurfaceMode)
     return fail("SNAPSHOT", "Surface collision configuration does not match the saved solver.");
@@ -127,12 +126,12 @@ export const createClothPlugin: RuntimePluginFactory = context => {
   return {
     id: "$engine.cloth", version: "1", services: { cloth: service },
     afterPhysics() {
-      alive(); const committed: { solver: ClothSolver; snapshot: ClothSnapshot }[] = [];
+      alive(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition }[] = [];
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
         for (const entry of automatic) {
-          const snapshot = entry.solver.snapshot(); committed.push({ solver: entry.solver, snapshot });
+          const snapshot = entry.solver.snapshot(); committed.push({ entry, solver: entry.solver, snapshot, definition: cloneSerializable(entry.definition) });
           const bindings = entry.definition.bodyColliders ?? [];
           if (bindings.length) {
             const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
@@ -164,7 +163,10 @@ export const createClothPlugin: RuntimePluginFactory = context => {
         }
       } catch (error) {
         const failures: string[] = [];
-        for (const { solver, snapshot } of committed.reverse()) try { solver.restore(snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
+        for (const item of committed.reverse()) {
+          item.entry.definition = item.definition;
+          try { item.solver.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
+        }
         if (failures.length) throw new Error(`TC_CLOTH_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`);
         throw error;
       }

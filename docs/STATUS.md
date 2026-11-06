@@ -2,7 +2,7 @@
 
 ## Version and Release
 
-- Current standard version: 0.3.29. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
+- Current standard version: 0.3.30. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
 
@@ -25,3 +25,5 @@ Each change area contains one feature, fix, or next standard version. Changes ar
 ## Release Boundary
 
 Every main push attempts npm latest publication. Published versions are never overwritten. Unverified behavior is explicitly marked and is not replaced by historical reports.
+
+- Cloth automatic-step rollback now restores pruned body binding definitions together with solver state; this lifecycle fix is unverified.

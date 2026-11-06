@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.30 - 2026-11-06
+
+- Restored cloth binding definitions together with solver state when an automatic cloth tick fails, preventing destroyed-body pruning from surviving rollback.
+- Build-only release; runtime and snapshot behavior were not verified.
+
 ## 0.3.29 - 2026-11-06
 
 - Rewrote the public release and status documents as clean standard-version documentation.
