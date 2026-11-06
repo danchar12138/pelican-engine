@@ -4,8 +4,9 @@ This development example explicitly binds a rope collider to a dynamic sphere.
 The host samples the sphere's velocity and effective mass after its physics step,
 then advances the rope with a virtual body and applies the opposite normal impulse.
 Its visual is a set of capped cylindrical segments following the simulated
-particles, not a continuous deforming tube. Actual body displacement responds on
-its next physics step. Virtual transform changes are first-order; ropes
+particles, not a continuous deforming tube. The small sphere begins beneath a
+segment between particles to illustrate segment contact. Actual body displacement
+responds on its next physics step. Virtual transform changes are first-order; ropes
 are processed sequentially without shared substeps. Friction, restitution and
 continuous collision are not implemented; only detected overlaps are resolved. This is not a complete or validated
 solver; a native failure may leave partial host state and requires restoring a

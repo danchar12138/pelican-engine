@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.15";
+export const SDK_VERSION = "0.3.16";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -119,7 +119,7 @@ export interface SystemContext extends EngineFacade {
   readonly ropes: RopeService;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
- * contact impulses to dynamic spheres; there is no full rigid-body coupling or segment/self collision. */
+ * contact impulses to dynamic spheres; there is no full rigid-body coupling or self collision. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
@@ -155,6 +155,8 @@ export interface RopeDefinition {
   autoStep?: boolean;
   /** Automatically sample and react to existing dynamic, non-trigger sphere bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
+  /** Resolve sphere contacts on segment interiors; defaults to true for new ropes. */
+  segmentCollisions?: boolean;
   /** Optional segmented presentation using an already-declared material id. */
   visual?: RopeVisualOptions;
   substeps?: number;
@@ -171,11 +173,25 @@ export interface RopeContact {
   /** Angular impulse about the world origin; absent in older snapshots. */
   reactionAngularImpulse?: Vec3;
 }
+/** Contact between an interior rope segment and a sampled sphere. */
+export interface RopeSegmentContact {
+  tick: number;
+  /** Zero-based index of the first endpoint; the second is segment + 1. */
+  segment: number;
+  colliderId: string;
+  /** Last closest-point fraction from the first endpoint toward the second. */
+  fraction: number;
+  penetration: number;
+  reactionImpulse?: Vec3;
+  reactionAngularImpulse?: Vec3;
+}
 export interface RopeState {
   tick: number; simulatedSeconds: number; disposed: boolean;
+  segmentCollisions: boolean;
   positions: Vec3[]; velocities: Vec3[];
   anchors: { index: number; position: Vec3 }[];
   contacts: RopeContact[];
+  segmentContacts: RopeSegmentContact[];
   maxDistanceError: number;
   resources: { particles: number; constraints: number; anchors: number; colliders: number };
 }

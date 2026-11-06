@@ -137,6 +137,19 @@ all earlier automatic ropes from that phase; the host tick may still have other
 partial changes and must be recovered from a known-good checkpoint. The source
 checkout includes `examples/rope-particles`.
 
+New ropes resolve discrete sphere overlaps along segment interiors as well as at
+particles. Corrections are distributed to movable endpoints; a segment with two
+fixed anchors cannot move. `ctx.ropes.inspect(id).segmentContacts` reports the
+segment index, closest-point fraction and reaction impulses. Set
+`segmentCollisions: false` to retain particle-only behavior. Historical rope
+solver snapshots without this field retain particle-only behavior when migrated;
+`inspect(id).segmentCollisions` reports the active mode. Normal Host snapshot
+engine-version restrictions still apply. Plane contacts use particle endpoints.
+The segment index names its first particle; `fraction` runs toward the next.
+Work increases with segment, sphere, substep and iteration counts. This does not
+provide continuous collision detection or self collision, and the segment solver
+and snapshot migration have not been runtime validated.
+
 For optional visual presentation, declare a material in `defineGame({ materials:
 [...] })` and create the rope with `visual: { material: "your-material-id" }`.
 The renderer draws capped cylindrical instances between consecutive simulated
@@ -181,8 +194,8 @@ automatically act on a rigid body.
 For an explicitly mapped dynamic body, game code can read its actual world center
 of mass via `ctx.physics.centerOfMass(id)`, apply the linear impulse, and apply
 `reactionAngularImpulse - centerOfMass × reactionImpulse` as torque impulse.
-Apply each contact at most once for its `tick`; repeated `inspect` calls return
-the same contacts. The source checkout's `examples/rope-reaction` uses the
+For manual coupling, include both `contacts` and `segmentContacts` and apply each
+contact at most once for its `tick`; repeated `inspect` calls return the same contacts. The source checkout's `examples/rope-reaction` uses the
 automatic binding instead.
 
 This sampled, manually applied reaction is delayed and uses positional correction,
@@ -193,7 +206,7 @@ checkpoint. It must not be represented as complete two-way rigid-body interactio
 
 This is an unverified development-stage increment, not complete rope physics:
 the optional segmented visual does not provide a continuous deformable rope mesh,
-general rigid-body coupling, segment or self collision, or tearing. Plane normals must be unit length; `offset` is the signed
+general rigid-body coupling, self collision, or tearing. Plane normals must be unit length; `offset` is the signed
 normal distance from the origin. Host intervals must be between 1/1000 and
 1/30 seconds inclusive.
 
