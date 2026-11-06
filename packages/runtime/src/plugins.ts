@@ -10,6 +10,7 @@ import type {
   RenderService,
   ComputeService,
   NavigationService,
+  RopeService,
 } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import type {
@@ -30,8 +31,11 @@ export interface RuntimeServices {
   render: RenderService;
   compute: ComputeService;
   navigation: NavigationService;
+  ropes: RopeService;
 }
 export interface RuntimePluginContext {
+  /** Host interval; supplied by RuntimeHost to engine plugins. */
+  readonly fixedDt?: number;
   world: RuntimeWorld;
   scene: SceneIR;
   events(type?: string): RuntimeEvent[];

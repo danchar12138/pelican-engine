@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.9";
+export const SDK_VERSION = "0.3.10";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -116,6 +116,46 @@ export interface SystemContext extends EngineFacade {
   readonly render: RenderService;
   readonly compute: ComputeService;
   readonly navigation: NavigationService;
+  readonly ropes: RopeService;
+}
+/** CPU particles with sampled sphere/plane collisions. Collision only moves rope particles;
+ * no rigid-body reaction, segment/self collision, rendering or complete M4 physics. */
+export type RopeCollider =
+  | { kind: "sphere"; id: string; center: Vec3; radius: number }
+  | { kind: "plane"; id: string; normal: Vec3; offset: number };
+export interface RopeDefinition {
+  id: string;
+  points: readonly Vec3[];
+  /** Kilograms per particle, positive and at most 1e6. */
+  mass: number;
+  radius?: number;
+  /** Defaults to the host interval; an explicit value must exactly match it. */
+  fixedDt?: number;
+  substeps?: number;
+  iterations?: number;
+  damping?: number;
+  gravity?: Vec3;
+  anchors?: readonly { index: number; position: Vec3 }[];
+}
+export interface RopeState {
+  tick: number; simulatedSeconds: number; disposed: boolean;
+  positions: Vec3[]; velocities: Vec3[];
+  anchors: { index: number; position: Vec3 }[];
+  contacts: { tick: number; particle: number; colliderId: string; penetration: number }[];
+  maxDistanceError: number;
+  resources: { particles: number; constraints: number; anchors: number; colliders: number };
+}
+export interface RopeService {
+  create(definition: RopeDefinition): void;
+  /** Explicit fixed solver ticks; not automatically advanced with the host. A failed batch leaves the rope unchanged. */
+  step(id: string, ticks?: number): RopeState;
+  inspect(id: string): RopeState;
+  setColliders(id: string, colliders: readonly RopeCollider[]): void;
+  setAnchor(id: string, index: number, position: Vec3): void;
+  releaseAnchor(id: string, index: number): void;
+  applyForce(id: string, index: number, force: Vec3): void;
+  applyImpulse(id: string, index: number, impulse: Vec3): void;
+  destroy(id: string): void;
 }
 /** Integer cells on a finite 2D orthogonal grid; not continuous, flying or underwater navigation.
  * Searches allocate sparse state and depend on available memory. At most 2^32-1 cells may be defined.

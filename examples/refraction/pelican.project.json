@@ -1,1 +1,1 @@
-{ "entry": "game.ts", "engine": { "path": "../..", "version": "0.3.9" } }
+{ "entry": "game.ts", "engine": { "path": "../..", "version": "0.3.10" } }

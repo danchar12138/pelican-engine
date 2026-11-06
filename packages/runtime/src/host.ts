@@ -163,6 +163,7 @@ export class RuntimeHost {
       this.scheduler = createdScheduler;
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
+          fixedDt: this.fixedDt,
           world: this.world,
           scene: this.scene,
           events: (type) => this.scheduler.events(type),
@@ -267,6 +268,9 @@ export class RuntimeHost {
       },
       get navigation() {
         return host.service("navigation");
+      },
+      get ropes() {
+        return host.service("ropes");
       },
       entities: {
         resolve: (entity) => this.world.resolve(entity),
