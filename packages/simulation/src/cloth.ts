@@ -253,8 +253,16 @@ export class ClothSolver {
         !Number.isSafeInteger(contact.particle) || contact.particle < 0 || contact.particle >= count || !colliders.some(collider => collider.id === contact.colliderId) ||
         typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0)) fail("CLOTH_SNAPSHOT", "invalid contact state");
     for (const contact of input.contacts) { const key = `${contact.particle}:${contact.colliderId}`; if (keys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate contact"); keys.add(key); }
+    const selfContacts = input.selfContacts ?? [];
+    const selfKeys = new Set<string>();
+    if (!Array.isArray(selfContacts) || selfContacts.length > count * Math.max(0, count - 1) / 2 || (!this.config.selfCollisions && selfContacts.length > 0) ||
+        selfContacts.some(contact => !contact || contact.tick !== input.tick || !Number.isSafeInteger(contact.firstParticle) || !Number.isSafeInteger(contact.secondParticle) ||
+          contact.firstParticle < 0 || contact.secondParticle >= count || contact.firstParticle >= contact.secondParticle ||
+          this.adjacent.has(`${contact.firstParticle}:${contact.secondParticle}`) || typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0))
+      fail("CLOTH_SNAPSHOT", "invalid self contact state");
+    for (const contact of selfContacts) { const key = `${contact.firstParticle}:${contact.secondParticle}`; if (selfKeys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate self contact"); selfKeys.add(key); }
     this.positions = input.positions.map(copy); this.velocities = input.velocities.map(copy); this.forces = input.forces.map(copy);
-    this.anchors = anchors; this.colliders = colliders; this.contacts = input.contacts.map(contact => ({ ...contact })); this.selfContacts = (input.selfContacts ?? []).map(contact => ({ ...contact })); this.tickValue = input.tick;
+    this.anchors = anchors; this.colliders = colliders; this.contacts = input.contacts.map(contact => ({ ...contact })); this.selfContacts = selfContacts.map(contact => ({ ...contact })); this.tickValue = input.tick;
   }
   dispose(): void { if (this.disposed) return; this.disposed = true; this.positions = []; this.velocities = []; this.forces = []; this.colliders = []; this.contacts = []; this.selfContacts = []; this.anchors.clear(); }
 }

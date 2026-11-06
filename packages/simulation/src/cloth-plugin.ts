@@ -16,10 +16,13 @@ function planarUvs(points: readonly (readonly [number, number, number])[]): Vec2
   if (!(width > 0) || !(height > 0)) return fail("VISUAL_UV", "Initial points need two nonzero projection axes or explicit UVs.");
   return points.map(point => [(point[first] - min[first]) / width, (point[second] - min[second]) / height]);
 }
-function createEntry(input: ClothDefinition, fixedDt: number, materials: ReadonlySet<string>): Entry {
+function createEntry(input: ClothDefinition, fixedDt: number, materials: ReadonlySet<string>, restoredSelfMode?: boolean): Entry {
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty id of at most 128 characters.");
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be boolean.");
+  if (definition.selfCollisions !== undefined && typeof definition.selfCollisions !== "boolean") return fail("SELF_COLLISION", "selfCollisions must be boolean.");
+  if (restoredSelfMode !== undefined && definition.selfCollisions !== undefined && definition.selfCollisions !== restoredSelfMode)
+    return fail("SNAPSHOT", "Self collision configuration does not match the saved solver.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Cloth fixedDt must match the host fixedDt.");
   if (fixedDt < 1 / 1000 || fixedDt > 1 / 30) return fail("FIXED_DT", "Host fixedDt must be in [1/1000,1/30].");
   if (definition.visual !== undefined) {
@@ -32,7 +35,7 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
       visual.uvs.some(uv => !Array.isArray(uv) || uv.length !== 2 || !uv.every(value => typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 1e6))))
       return fail("VISUAL_UV", "UVs must contain one finite 2D coordinate per particle.");
   }
-  const solver = createCloth({ ...definition, fixedDt } as unknown as ClothOptions);
+  const solver = createCloth({ ...definition, fixedDt, ...(restoredSelfMode === undefined ? {} : { selfCollisions: restoredSelfMode }) } as unknown as ClothOptions);
   try {
     const uvs: Vec2[] = definition.visual ? (definition.visual.uvs ? definition.visual.uvs.map(uv => [uv[0], uv[1]]) : planarUvs(definition.points)) : [];
     return { definition, solver, uvs };
@@ -46,7 +49,9 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
   try {
     for (const item of (value as { cloths: Saved[] }).cloths) {
       if (!item || typeof item !== "object") fail("SNAPSHOT", "Invalid cloth entry.");
-      const entry = createEntry(item.definition, fixedDt, materials);
+      const savedSelfMode = item.state?.config?.selfCollisions;
+      if (savedSelfMode !== undefined && typeof savedSelfMode !== "boolean") fail("SNAPSHOT", "Invalid self collision configuration.");
+      const entry = createEntry(item.definition, fixedDt, materials, savedSelfMode ?? false);
       if (entries.has(entry.definition.id)) { entry.solver.dispose(); fail("SNAPSHOT", "Duplicate cloth id."); }
       entries.set(entry.definition.id, entry); entry.solver.restore(item.state);
     }

@@ -157,8 +157,8 @@ reports the active mode. Set `selfCollisions: false` to disable it. Adjacent
 segments and collisions between separate ropes are not handled. Immovable anchored
 endpoints stay fixed, and contacts introduced by corrections can wait until the
 next iteration. Dense overlap can approach quadratic work. Snapshots from before
-this feature retain the disabled mode when migrated; Host engine-version rules
-still apply. This is unverified discrete contact, not a guarantee against
+this feature retain the disabled mode when migrated; invalid or duplicate self
+contacts are rejected atomically; Host engine-version rules still apply. This is unverified discrete contact, not a guarantee against
 penetration, continuous collision, friction or full rope physics. The source
 checkout includes `examples/rope-self`.
 
