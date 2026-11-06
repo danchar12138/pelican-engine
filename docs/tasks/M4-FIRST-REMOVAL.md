@@ -80,10 +80,10 @@
 
 ### Compat 发布形态实验
 
-独立目录 `../threecat-worktrees/m4-compat-release-lab-20261105-1793940353/` 中，以锁定 Rapier 源码、补丁、wasm-bindgen 和 Rollup 手工构建接近 npm compat 的 3D 子集，并记录构建输入、许可证、哈希及子进程输出。有限对照中原版首步删除陷阱、候选完成，两份旧 v3 快照及后续 native 状态哈希两版一致；同一恶意 history 重复 1000 次时，候选稳定拒绝并保留活动世界，原版出现所有权错误与后续陷阱。WASM 容量不是活跃内存，不能以此证明无泄漏。
+历史实验目录 `m4-compat-release-lab-20261105-1793940353` 曾以锁定 Rapier 源码、补丁、wasm-bindgen 和 Rollup 手工构建接近 npm compat 的 3D 子集，并记录构建输入、许可证、哈希及子进程输出。有限对照中原版首步删除陷阱、候选完成，两份旧 v3 快照及后续 native 状态哈希两版一致；同一恶意 history 重复 1000 次时，候选稳定拒绝并保留活动世界，原版出现所有权错误与后续陷阱。WASM 容量不是活跃内存，不能以此证明无泄漏。原始实验树已在单线收敛时移除；本段保留历史结论，不表示实验可复跑或候选可合入。
 
 此实验并非完整上游发布流水线，候选仍有四条编译警告；浏览器、完整引擎及游戏集成、原生内存分配和跨机器二进制复现尚未通过。该目录包含独有构建与日志，在成果迁移并核对前不得清理；生产 Rapier 依赖仍未更换。
 
 随后在该实验目录 `browser-e2e/runs/2026-11-06T05-13-38.959Z/` 执行真实 headless Chromium 插件对照，校验了两种 bundle 实际实例化的 WASM 哈希。original 首步删除后陷阱，且插件 dispose 报 Rust 借用错误；candidate 完成首步、快照验证/恢复和 dispose。浏览器恶意快照拒绝、内存回收及正式引擎/游戏集成仍未覆盖；context 关闭不证明 native 资源完全释放。该对照不能授权替换正式依赖。
 
-在另一隔离目录 `../threecat-worktrees/m4-browser-malicious-v3-20261105/` 的真实 Chromium 对照中，一个恶意 v3 history 分别用于 `validateSnapshot` 和 `restore`：candidate 均返回 `TC_PHYSICS_SNAPSHOT`，检查的活动快照与状态不变，随后步进、验证和释放调用返回；original 返回 Rust 借用所有权错误。每个场景使用新 context 和活动 world，并核对实际 WASM 哈希。该结果只覆盖一个变造历史；未覆盖浏览器重复调用、原生内存回收、其他浏览器或完整游戏，不能据此替换生产依赖。报告和原始结果保留在该独立目录，迁移核对前不得清理。
+历史隔离目录 `m4-browser-malicious-v3-20261105` 曾在真实 Chromium 中对照恶意 v3 history：candidate 返回 `TC_PHYSICS_SNAPSHOT`，活动快照与状态不变，随后步进、验证和释放调用返回；original 返回 Rust 借用所有权错误。该结果只覆盖一个变造历史；未覆盖浏览器重复调用、原生内存回收、其他浏览器或完整游戏，不能据此替换生产依赖。实验树已在单线收敛时移除；本段保留历史结论，不表示当前源码通过。
