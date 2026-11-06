@@ -18,7 +18,7 @@ node --import tsx tools/release.ts pack --compile-only-unverified
 
 ## npm 同节点分发
 
-D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同；不另行提前发布版本。当前 `.github/workflows/npm-publish.yml` 响应已发布的 GitHub Release，检出对应标签、安装依赖、构建并打包，然后使用 `NPM_TOKEN` 发布；它不执行验收或安装复测。普通 push、PR、CI 构建成功和本地 tarball 生成都不等于验收通过。
+D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同；不另行提前发布版本。按 D52，`.github/workflows/npm-publish.yml` 响应已发布的 GitHub Release，也可手动指定已有标签；检出该标签、安装依赖、构建并打包后，使用受保护的 `NPM_TOKEN` 执行 `npm stage publish`。预发布提交到 `next` 标签；用户须在 npm 使用 2FA 审核，staged 不代表已公开发布。工作流不执行验收或安装复测。普通 push、PR、CI 构建成功和本地 tarball 生成都不等于验收通过。
 
 npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部署与源码 ZIP 使用方式保持不变。编译包不含源码映射、证据、示例或游戏资产，随包分发 MIT、第三方许可、API 索引和统一游戏开发 AI 指引。安装后无需源码与在线服务，首次依赖和浏览器准备除外。
 
@@ -26,7 +26,7 @@ npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部�
 
 按照 D50，当前 CI 不执行发布后 registry 对照、安装复测或 smoke；因此工作流成功也不证明公开包的运行行为。发布失败时须如实记录实际结果，不能假定已经发布或盲目重复发布同一版本。
 
-M3 没有完整正式验收 profile；D50 仅允许上文所述未验证预发布路径，不复用历史 M2 证据。当前 npm 工作流只安装依赖、构建、打包和发布，不运行验收或发布后复测；实际发布状态以对应操作结果为准。
+M3 没有完整正式验收 profile；D50 仅允许上文所述未验证预发布路径，不复用历史 M2 证据。当前 npm 工作流安装依赖、构建、打包并提交 staged 审核，不运行验收或发布后复测；实际状态以 staging 操作和用户审批结果为准。
 
 ## 当前阶段选择
 
