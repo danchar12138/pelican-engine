@@ -6,20 +6,21 @@ export type ClothCollider =
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
 export interface ClothOptions {
   points: Vec3[]; triangles: Triangle[]; mass: number; radius?: number; fixedDt?: number;
-  substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean;
+  substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean; selfCollisions?: boolean;
   anchors?: { index: number; position: Vec3 }[];
 }
 export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
+export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }
 type Constraint = [number, number, number];
-type Config = { mass: number; radius: number; fixedDt: number; substeps: number; iterations: number; damping: number; gravity: Vec3; bending: boolean; triangles: Triangle[]; constraints: Constraint[] };
+type Config = { mass: number; radius: number; fixedDt: number; substeps: number; iterations: number; damping: number; gravity: Vec3; bending: boolean; selfCollisions: boolean; triangles: Triangle[]; constraints: Constraint[] };
 export interface ClothState {
-  tick: number; simulatedSeconds: number; disposed: boolean; positions: Vec3[]; velocities: Vec3[]; triangles: Triangle[];
-  anchors: { index: number; position: Vec3 }[]; contacts: ClothContact[]; maxDistanceError: number;
+  tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; positions: Vec3[]; velocities: Vec3[]; triangles: Triangle[];
+  anchors: { index: number; position: Vec3 }[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[]; maxDistanceError: number;
   resources: { particles: number; triangles: number; constraints: number; anchors: number; colliders: number };
 }
 export interface ClothSnapshot {
   format: "pelican-cloth-cpu"; version: 1; tick: number; config: Config; positions: Vec3[]; velocities: Vec3[];
-  forces: Vec3[]; anchors: { index: number; position: Vec3 }[]; colliders: ClothCollider[]; contacts: ClothContact[];
+  forces: Vec3[]; anchors: { index: number; position: Vec3 }[]; colliders: ClothCollider[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[];
 }
 export class ClothError extends Error {
   constructor(readonly code: string, message: string) { super(`${code}: ${message}`); this.name = "ClothError"; }
@@ -106,11 +107,12 @@ export function createCloth(input: ClothOptions): ClothSolver {
     fail("CLOTH_INPUT", "substeps and iterations are outside their supported bounds");
   if (typeof damping !== "number" || !Number.isFinite(damping) || damping < 0 || damping > 100) fail("CLOTH_INPUT", "damping must be in [0,100]");
   if (input.bending !== undefined && typeof input.bending !== "boolean") fail("CLOTH_INPUT", "bending must be boolean");
-  const bending = input.bending ?? true, gravity = readVec(input.gravity ?? [0, -9.81, 0], "gravity");
+  const bending = input.bending ?? true, selfCollisions = input.selfCollisions ?? true, gravity = readVec(input.gravity ?? [0, -9.81, 0], "gravity");
+  if (typeof selfCollisions !== "boolean") fail("CLOTH_INPUT", "selfCollisions must be boolean");
   const { triangles, constraints } = topology(positions, input.triangles, bending);
   const anchors = readAnchors(input.anchors ?? [], positions.length);
   for (const [index, point] of anchors) positions[index] = copy(point);
-  return new ClothSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, bending, triangles, constraints }, positions, anchors);
+  return new ClothSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, bending, selfCollisions, triangles, constraints }, positions, anchors);
 }
 export class ClothSolver {
   private tickValue = 0;
@@ -119,8 +121,11 @@ export class ClothSolver {
   private forces: Vec3[];
   private colliders: ClothCollider[] = [];
   private contacts: ClothContact[] = [];
+  private selfContacts: ClothSelfContact[] = [];
+  private readonly adjacent: ReadonlySet<string>;
   constructor(private readonly config: Config, private positions: Vec3[], private anchors: Map<number, Vec3>) {
     this.velocities = positions.map(() => [0, 0, 0]); this.forces = positions.map(() => [0, 0, 0]);
+    this.adjacent = new Set(config.triangles.flatMap(([a, b, c]) => [`${Math.min(a,b)}:${Math.max(a,b)}`, `${Math.min(b,c)}:${Math.max(b,c)}`, `${Math.min(c,a)}:${Math.max(c,a)}`]));
   }
   private alive() { if (this.disposed) fail("CLOTH_DISPOSED", "cloth has been disposed"); }
   setColliders(input: ClothCollider[]): void { this.alive(); this.colliders = readColliders(input); this.contacts = []; }
@@ -146,15 +151,15 @@ export class ClothSolver {
     this.alive();
     if (!Number.isSafeInteger(steps) || steps < 1 || steps > 1000 || this.tickValue + steps > Number.MAX_SAFE_INTEGER)
       fail("CLOTH_INPUT", "steps must be in [1,1000] without tick overflow");
-    const before = { positions: this.positions, velocities: this.velocities, forces: this.forces, contacts: this.contacts, tick: this.tickValue };
+    const before = { positions: this.positions, velocities: this.velocities, forces: this.forces, contacts: this.contacts, selfContacts: this.selfContacts, tick: this.tickValue };
     try { for (let i = 0; i < steps; i++) this.stepOne(); }
-    catch (error) { this.positions = before.positions; this.velocities = before.velocities; this.forces = before.forces; this.contacts = before.contacts; this.tickValue = before.tick; throw error; }
+    catch (error) { this.positions = before.positions; this.velocities = before.velocities; this.forces = before.forces; this.contacts = before.contacts; this.selfContacts = before.selfContacts; this.tickValue = before.tick; throw error; }
     return this.inspect();
   }
   private stepOne(): void {
     const { fixedDt, substeps, iterations, mass, gravity, damping, constraints, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
-    const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>();
+    const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>(), selfContacts = new Map<string, ClothSelfContact>();
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
@@ -189,6 +194,18 @@ export class ClothSolver {
             else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: collider.id, penetration: depth });
           }
         }
+        if (this.config.selfCollisions) for (let i = 0; i < positions.length; i++) for (let j = i + 1; j < positions.length; j++) {
+          if (this.adjacent.has(`${i}:${j}`)) continue;
+          const a = positions[i], b = positions[j], dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2], length = Math.hypot(dx, dy, dz), depth = 2 * radius - length;
+          if (depth <= 0) continue;
+          const normal: Vec3 = length < 1e-12 ? [1, 0, 0] : [dx / length, dy / length, dz / length];
+          const wa = this.anchors.has(i) ? 0 : 1, wb = this.anchors.has(j) ? 0 : 1;
+          if (wa + wb === 0) continue;
+          const correction = depth / (wa + wb);
+          for (let axis = 0; axis < 3; axis++) { a[axis] += normal[axis] * correction * wa; b[axis] -= normal[axis] * correction * wb; }
+          const key = `${i}:${j}`, old = selfContacts.get(key);
+          if (old) old.penetration = Math.max(old.penetration, depth); else selfContacts.set(key, { tick: this.tickValue + 1, firstParticle: i, secondParticle: j, penetration: depth });
+        }
       }
       for (let i = 0; i < positions.length; i++) {
         if (this.anchors.has(i)) continue;
@@ -196,23 +213,23 @@ export class ClothSolver {
         if (!vec(positions[i]) || !vec(velocities[i])) fail("CLOTH_NUMERIC", "solver exceeded finite state bounds");
       }
     }
-    this.positions = positions; this.velocities = velocities; this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.tickValue++;
+    this.positions = positions; this.velocities = velocities; this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.selfContacts = [...selfContacts.values()]; this.tickValue++;
   }
   inspect(): ClothState {
-    if (this.disposed) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, positions: [], velocities: [], triangles: [], anchors: [], contacts: [], maxDistanceError: 0, resources: { particles: 0, triangles: 0, constraints: 0, anchors: 0, colliders: 0 } };
+    if (this.disposed) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, selfCollisions: this.config.selfCollisions, positions: [], velocities: [], triangles: [], anchors: [], contacts: [], selfContacts: [], maxDistanceError: 0, resources: { particles: 0, triangles: 0, constraints: 0, anchors: 0, colliders: 0 } };
     let maxDistanceError = 0;
     for (const [a, b, rest] of this.config.constraints) maxDistanceError = Math.max(maxDistanceError, Math.abs(distance(this.positions[a], this.positions[b]) - rest));
-    return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false,
+    return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, selfCollisions: this.config.selfCollisions,
       positions: this.positions.map(copy), velocities: this.velocities.map(copy), triangles: this.config.triangles.map(tuple),
       anchors: [...this.anchors].map(([index, position]) => ({ index, position: copy(position) })).sort((a, b) => a.index - b.index),
-      contacts: this.contacts.map(contact => ({ ...contact })), maxDistanceError,
+      contacts: this.contacts.map(contact => ({ ...contact })), selfContacts: this.selfContacts.map(contact => ({ ...contact })), maxDistanceError,
       resources: { particles: this.positions.length, triangles: this.config.triangles.length, constraints: this.config.constraints.length, anchors: this.anchors.size, colliders: this.colliders.length } };
   }
   snapshot(): ClothSnapshot {
     this.alive(); const state = this.inspect();
     return { format: "pelican-cloth-cpu", version: 1, tick: this.tickValue,
       config: { ...this.config, gravity: copy(this.config.gravity), triangles: this.config.triangles.map(tuple), constraints: this.config.constraints.map(tuple) },
-      positions: state.positions, velocities: state.velocities, forces: this.forces.map(copy), anchors: state.anchors, colliders: readColliders(this.colliders), contacts: state.contacts };
+      positions: state.positions, velocities: state.velocities, forces: this.forces.map(copy), anchors: state.anchors, colliders: readColliders(this.colliders), contacts: state.contacts, selfContacts: state.selfContacts };
   }
   restore(input: ClothSnapshot): void {
     this.alive();
@@ -220,7 +237,7 @@ export class ClothSolver {
       fail("CLOTH_SNAPSHOT", "unsupported snapshot format or tick");
     const config = input.config, expected = this.config;
     if (!config || config.mass !== expected.mass || config.radius !== expected.radius || config.fixedDt !== expected.fixedDt || config.substeps !== expected.substeps ||
-        config.iterations !== expected.iterations || config.damping !== expected.damping || config.bending !== expected.bending ||
+        config.iterations !== expected.iterations || config.damping !== expected.damping || config.bending !== expected.bending || (config.selfCollisions ?? false) !== expected.selfCollisions ||
         !vec(config.gravity) || config.gravity.some((value, i) => value !== expected.gravity[i]) ||
         !Array.isArray(config.triangles) || JSON.stringify(config.triangles) !== JSON.stringify(expected.triangles) ||
         !Array.isArray(config.constraints) || JSON.stringify(config.constraints) !== JSON.stringify(expected.constraints))
@@ -237,7 +254,7 @@ export class ClothSolver {
         typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0)) fail("CLOTH_SNAPSHOT", "invalid contact state");
     for (const contact of input.contacts) { const key = `${contact.particle}:${contact.colliderId}`; if (keys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate contact"); keys.add(key); }
     this.positions = input.positions.map(copy); this.velocities = input.velocities.map(copy); this.forces = input.forces.map(copy);
-    this.anchors = anchors; this.colliders = colliders; this.contacts = input.contacts.map(contact => ({ ...contact })); this.tickValue = input.tick;
+    this.anchors = anchors; this.colliders = colliders; this.contacts = input.contacts.map(contact => ({ ...contact })); this.selfContacts = (input.selfContacts ?? []).map(contact => ({ ...contact })); this.tickValue = input.tick;
   }
-  dispose(): void { if (this.disposed) return; this.disposed = true; this.positions = []; this.velocities = []; this.forces = []; this.colliders = []; this.contacts = []; this.anchors.clear(); }
+  dispose(): void { if (this.disposed) return; this.disposed = true; this.positions = []; this.velocities = []; this.forces = []; this.colliders = []; this.contacts = []; this.selfContacts = []; this.anchors.clear(); }
 }

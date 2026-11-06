@@ -233,6 +233,14 @@ manual cloth uses `ctx.cloth.step`. Use `setAnchor`, `releaseAnchor`, `applyForc
 (next tick), `applyImpulse`, `setColliders`, `inspect`, and `destroy` to manage it.
 The source checkout includes `examples/cloth-sheet`.
 
+New cloth also resolves discrete self-contact between non-adjacent particles by
+projecting movable particles apart; shared triangle edges are excluded.
+`selfCollisions` defaults to true for new cloth and is reported by
+`ctx.cloth.inspect(id)`. Set it to false for particle-only cloth. Self-contact
+state is included in snapshots. This is particle self-contact, not triangle
+interior/edge collision, continuous collision, friction or a guarantee against
+penetration. It has not been runtime or stability validated.
+
 The CPU solver uses edge distance constraints and an optional distance-based
 bending approximation (`bending: true` by default). Sampled planes and spheres
 only move cloth particles; they do not receive reactions. Contacts do not cover
