@@ -111,6 +111,13 @@ exhaustion returns `TC_NAVIGATION_CAPACITY`, not an unreachable result. Owners
 are explicit strings, not entities. This is a development-stage grid service,
 not continuous-world, flying or underwater navigation.
 
+Use `ctx.navigation.setBlockedBatch(id, updates)` to change multiple cells in
+one grid. Each update has `{ cell: { x, y }, blocked: boolean }`. The service
+validates every entry before changing the grid; a bad entry rejects the whole
+batch, and the last update wins if a cell appears more than once. Entity and
+transform changes are separate from this grid-only batch. This API is new and
+has not been runtime or browser validated under the current project policy.
+
 Keyboard bindings use the browser's `KeyboardEvent.key` values, not physical
 `KeyboardEvent.code` values. For example, use `input: { up: ["w", "W", "ArrowUp"],
 restart: ["r", "R"] }`, not `"KeyW"` or `"KeyR"`. Letter case depends on the

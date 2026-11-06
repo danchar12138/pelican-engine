@@ -29,6 +29,40 @@ function host(system = false, withNavigation = true) {
   return h;
 }
 
+test("obstacle batches validate before committing and retain last update for a cell", () => {
+  const h = host(), n = h.facade.navigation;
+  try {
+    n.createGrid({ id: "batch", owner: "level", width: 3, height: 2 });
+    const before = h.snapshot();
+    n.setBlockedBatch("batch", [
+      { cell: { x: 1, y: 0 }, blocked: true },
+      { cell: { x: 1, y: 1 }, blocked: true },
+      { cell: { x: 1, y: 1 }, blocked: false },
+    ]);
+    assert.equal(n.findPath("batch", start, end).length, 5);
+    const saved = h.snapshot();
+    assert.throws(() => n.setBlockedBatch("batch", [
+      { cell: { x: 1, y: 0 }, blocked: false },
+      { cell: { x: 3, y: 0 }, blocked: true },
+    ]), /TC_NAVIGATION_CELL/);
+    assert.equal(n.isBlocked("batch", { x: 1, y: 0 }), true);
+    assert.throws(() => n.setBlockedBatch("batch", [
+      { cell: { x: 1, y: 0 }, blocked: false },
+      { cell: { x: 0, y: 0 }, blocked: 1 as unknown as boolean },
+    ]), /TC_NAVIGATION_BLOCKED/);
+    assert.equal(n.isBlocked("batch", { x: 1, y: 0 }), true);
+    n.setBlockedBatch("batch", [{ cell: { x: 1, y: 0 }, blocked: false }]);
+    assert.equal(n.findPath("batch", start, end).length, 3);
+    h.restore(saved);
+    assert.equal(n.findPath("batch", start, end).length, 5);
+    h.restore(before);
+    assert.equal(n.findPath("batch", start, end).length, 3);
+    n.destroyOwner("level");
+    assert.throws(() => n.setBlockedBatch("batch", []), /TC_NAVIGATION_MISSING/);
+  } finally { h.dispose(); }
+  assert.throws(() => n.setBlockedBatch("batch", []), /TC_RUNTIME_DISPOSED|TC_NAVIGATION_DISPOSED/);
+});
+
 test("grid inspection is detached and tracks obstacle updates, restore and disposal", () => {
   const h = host(), n = h.facade.navigation;
   try {

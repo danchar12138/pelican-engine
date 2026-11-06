@@ -1,5 +1,5 @@
 import { defineComponent, defineGame, defineMaterial, defineScene, defineSystem } from "pelican-engine";
-import type { NavigationCell, SystemContext } from "pelican-engine";
+import type { NavigationCell, NavigationObstacleUpdate, SystemContext } from "pelican-engine";
 
 // A route is stored as JSON because component fields are scalar or vec3. No
 // mutable game-module state is needed to resume after a runtime snapshot.
@@ -60,9 +60,13 @@ const navigate = defineSystem({ id: "navigate", phase: "update", reads: ["Naviga
         return;
       }
       const height = ctx.navigation.getGrid("board").height;
+      const updates: NavigationObstacleUpdate[] = [];
       for (let y = 0; y < height; y++) {
         const blocked = mode === 2 || (mode === 1 && y === 1);
-        ctx.navigation.setBlocked("board", { x: 3, y }, blocked);
+        updates.push({ cell: { x: 3, y }, blocked });
+      }
+      ctx.navigation.setBlockedBatch("board", updates);
+      for (let y = 0; y < height; y++) {
         ctx.setTransform(`block-${y}`, { position: world({ x: 3, y }, ctx.navigation.isBlocked("board", { x: 3, y }) ? 0.4 : -5) });
       }
       ctx.setComponent("state", State, { obstacles: mode });

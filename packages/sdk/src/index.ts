@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.7";
+export const SDK_VERSION = "0.3.8";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -121,6 +121,8 @@ export interface SystemContext extends EngineFacade {
  * Searches allocate sparse state and depend on available memory. At most 2^32-1 cells may be defined.
  * Owners are explicit strings and are not automatically tied to entities. */
 export interface NavigationCell { readonly x: number; readonly y: number }
+/** One obstacle change for an orthogonal navigation grid. */
+export interface NavigationObstacleUpdate { readonly cell: NavigationCell; readonly blocked: boolean }
 export interface NavigationGrid {
   readonly id: string;
   readonly owner: string;
@@ -136,6 +138,8 @@ export interface NavigationService {
   getGrid(id: string): NavigationGrid;
   isBlocked(id: string, cell: NavigationCell): boolean;
   setBlocked(id: string, cell: NavigationCell, blocked: boolean): void;
+  /** Validates the entire batch before committing; the last change for a repeated cell wins. */
+  setBlockedBatch(id: string, updates: readonly NavigationObstacleUpdate[]): void;
   findPath(id: string, start: NavigationCell, end: NavigationCell): readonly NavigationCell[];
   destroyGrid(id: string): void;
   destroyOwner(owner: string): void;

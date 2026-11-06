@@ -83,6 +83,25 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
       if (blocked && !exists) grid.blocked.splice(lower, 0, index);
       else if (!blocked && exists) grid.blocked.splice(lower, 1);
     },
+    setBlockedBatch(id, updates) {
+      const grid = get(id);
+      if (!Array.isArray(updates))
+        fail("BLOCKED", `Updates for grid '${id}' must be an array of cells and boolean blocked values.`);
+      if (updates.length === 0) return;
+      // Validate every entry before modifying the grid. Repeated cells use the last value.
+      const changes = new Map<number, boolean>();
+      for (const update of updates) {
+        if (!update || typeof update !== "object" || typeof update.blocked !== "boolean")
+          fail("BLOCKED", `Each update for grid '${id}' requires a cell and a boolean blocked value.`);
+        changes.set(cell(grid, update.cell), update.blocked);
+      }
+      const blocked = new Set(grid.blocked);
+      for (const [index, value] of changes) {
+        if (value) blocked.add(index);
+        else blocked.delete(index);
+      }
+      grid.blocked = [...blocked].sort((a, b) => a - b);
+    },
     findPath(id, start, end) {
       const grid = get(id), from = cell(grid, start), to = cell(grid, end);
       const blocked = new Set(grid.blocked);
