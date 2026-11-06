@@ -43,4 +43,4 @@ jobs:
         run: |
           $version = (Get-Content .pelican/npm/package/package.json -Raw | ConvertFrom-Json).version
           $distTag = if ($version.Contains('-')) { 'next' } else { 'latest' }
-          npm stage publish './.pelican/npm/artifacts/pelican-engine-$version.tgz' --access public --tag $distTag
+          npm stage publish "./.pelican/npm/artifacts/pelican-engine-$version.tgz" --access public --tag $distTag
