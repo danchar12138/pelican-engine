@@ -177,7 +177,7 @@ npm run dev -- --project examples/refraction
 
 `ctx.physics.angularVelocity(entity)` 查询世界坐标弧度／秒；`setAngularVelocity(entity, vec3)` 设置动态刚体角速度，`torqueImpulse(entity, vec3)` 施加世界空间力矩冲量，`impulseAtPoint(entity, impulse, worldPoint)` 在指定世界坐标施加冲量，同时影响平动和转动。后三者只支持动态刚体；固定、运动学或角色体返回 `TC_PHYSICS_BODY_TYPE`。写操作参与物理历史、快照和回放，旧快照仍兼容。
 
-示例 `examples/angular-physics` 只使用公开 SDK；源码渠道运行 `npm run dev -- --project examples/angular-physics`。首次正常物理步前移除刚体存在已知生命周期缺陷，详见[物理生命周期缺陷记录](tasks/M4-ANGULAR-PHYSICS.md)；完整模拟交互仍需后续实现和验证。npm 渠道使用相同 SDK。
+示例 `examples/angular-physics` 只使用公开 SDK；源码渠道运行 `npm run dev -- --project examples/angular-physics`。首次正常物理步前移除刚体存在已知生命周期缺陷，详见[物理生命周期缺陷记录](PHYSICS-LIFECYCLE-ISSUE.md)；完整模拟交互仍需后续实现和验证。npm 渠道使用相同 SDK。
 
 ```sh
 npm run typecheck
