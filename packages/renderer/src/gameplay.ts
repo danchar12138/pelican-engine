@@ -8,6 +8,7 @@ import { createGameServices } from "../../runtime/src/game-services.ts";
 import { createPhysicsFactory } from "../../physics/index.ts";
 import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createRopePlugin } from "../../simulation/src/rope-plugin.ts";
+import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
 import { createModelLibrary } from "./models.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import type { EntityRecord } from "../../runtime/src/contracts.ts";
@@ -166,6 +167,7 @@ export async function prepareGameplay(
       services.factory,
       createNavigationPlugin,
       createRopePlugin,
+      createClothPlugin,
       (context) => ({
         id: "$engine.models",
         version: "2",

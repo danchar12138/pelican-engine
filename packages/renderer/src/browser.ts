@@ -1,6 +1,7 @@
 import * as THREE from "three/webgpu";
 import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
 import { createRopeVisualOwner } from "./rope-visuals.ts";
+import { createClothVisualOwner } from "./cloth-visuals.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
 import { SurfaceTracer } from "./surface-tracer.ts";
@@ -211,9 +212,13 @@ const gameObjects = new Map<string, THREE.Object3D>();
 const gameRoot = new THREE.Group();
 scene.add(gameRoot);
 const ropeVisuals = createRopeVisualOwner();
-scene.add(ropeVisuals.root);
-let ropeVisualRevision = 0, renderedRopeVisualRevision = 0;
-const clearRopeVisuals = () => { if (ropeVisuals.clear()) ropeVisualRevision++; };
+const clothVisuals = createClothVisualOwner();
+scene.add(ropeVisuals.root, clothVisuals.root);
+let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
+const clearDynamicVisuals = () => {
+  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear();
+  if (ropesChanged || clothChanged) dynamicVisualRevision++;
+};
 let authoredCamera = { position: [0, 3.4, 7], target: [0, 0.9, 0] };
 let authoredLights: {
   definition: SceneIR["scene"]["entities"][number]["light"];
@@ -456,7 +461,7 @@ function createEntityView(
   return node;
 }
 function syncRuntime(): boolean {
-  if (!runtime) { clearRopeVisuals(); return ropeVisualRevision !== renderedRopeVisualRevision; }
+  if (!runtime) { clearDynamicVisuals(); return dynamicVisualRevision !== renderedDynamicVisualRevision; }
   transforms.clear();
   componentState.clear();
   const records = runtime.world.records();
@@ -536,9 +541,10 @@ function syncRuntime(): boolean {
         authoredLights.push({ definition: entity.light, object: light });
     }
   if (gameplay) {
-    if (ropeVisuals.sync(runtime.facade.ropes.visuals(), gameMaterials)) ropeVisualRevision++;
-  } else clearRopeVisuals();
-  return ropeVisualRevision !== renderedRopeVisualRevision;
+    if (ropeVisuals.sync(runtime.facade.ropes.visuals(), gameMaterials)) dynamicVisualRevision++;
+    if (clothVisuals.sync(runtime.facade.cloth.visuals(), gameMaterials)) dynamicVisualRevision++;
+  } else clearDynamicVisuals();
+  return dynamicVisualRevision !== renderedDynamicVisualRevision;
 }
 let simulation: Simulation | undefined;
 const simulationGroup = new THREE.Group();
@@ -890,7 +896,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     contentScope = nextScope;
     gameMaterials = nextMaterials;
     committed = true;
-    clearRopeVisuals();
+    clearDynamicVisuals();
     if (nextRoot.children.length) gameRoot.add(...nextRoot.children);
     gameObjects.clear();
     for (const [id, node] of nextObjects) gameObjects.set(id, node);
@@ -1112,7 +1118,7 @@ async function drawFrame(accumulate = false, changed = true) {
   await computeControl?.flush();
   const start = performance.now();
   const ropeChanged = syncRuntime();
-  const ropeRevision = ropeVisualRevision;
+  const ropeRevision = dynamicVisualRevision;
   changed = changed || ropeChanged;
   animate();
   renderBufferBridge?.update();
@@ -1206,7 +1212,7 @@ async function drawFrame(accumulate = false, changed = true) {
       triangles: triangleCount,
       faulted: terminalFault,
     });
-    renderedRopeVisualRevision = ropeRevision;
+    renderedDynamicVisualRevision = ropeRevision;
     return;
   }
   if (changed) {
@@ -1253,7 +1259,7 @@ async function drawFrame(accumulate = false, changed = true) {
     triangles: triangleCount,
     faulted: terminalFault,
   });
-  renderedRopeVisualRevision = ropeRevision;
+  renderedDynamicVisualRevision = ropeRevision;
 }
 async function applyInput(key: string) {
   if (!probeEnabled) {
@@ -1492,6 +1498,7 @@ async function disposeBrowser() {
   clean(() => world?.dispose());
   clean(() => resourceManager.dispose());
   clean(() => ropeVisuals.dispose());
+  clean(() => clothVisuals.dispose());
   clean(() => releaseObject(scene, true, gameMaterials.values()));
   clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());

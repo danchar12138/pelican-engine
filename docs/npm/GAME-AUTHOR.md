@@ -222,6 +222,28 @@ general rigid-body coupling, continuous collision, cross-rope collision, or tear
 normal distance from the origin. Host intervals must be between 1/1000 and
 1/30 seconds inclusive.
 
+### Development-stage triangular cloth
+
+Declare a material in `defineGame({ materials: [...] })`, then use
+`ctx.cloth.create({ id, points, triangles, mass, autoStep: true, visual: {
+material: "material-id" } })`. Triangles reference particle indices and shared
+edges must be manifold with consistent winding. Anchors are explicit; no particles
+are pinned by default. Automatic cloth advances after the physics phase;
+manual cloth uses `ctx.cloth.step`. Use `setAnchor`, `releaseAnchor`, `applyForce`
+(next tick), `applyImpulse`, `setColliders`, `inspect`, and `destroy` to manage it.
+The source checkout includes `examples/cloth-sheet`.
+
+The CPU solver uses edge distance constraints and an optional distance-based
+bending approximation (`bending: true` by default). Sampled planes and spheres
+only move cloth particles; they do not receive reactions. Contacts do not cover
+triangle interiors or edges. There is no self-contact, cloth–rope interaction,
+rigid-body coupling, tearing, friction or continuous collision. The optional
+visual deforms the actual triangle mesh; UVs may be provided per particle or use a
+planar projection. Use a double-sided material when both sides must be visible.
+Collapsed or unrepresentable triangles return `TC_CLOTH_VISUAL_DEGENERATE` rather
+than being silently replaced. Runtime, GPU, performance, stability and snapshot
+compatibility have not been validated; this is not complete cloth physics.
+
 Keyboard bindings use the browser's `KeyboardEvent.key` values, not physical
 `KeyboardEvent.code` values. For example, use `input: { up: ["w", "W", "ArrowUp"],
 restart: ["r", "R"] }`, not `"KeyW"` or `"KeyR"`. Letter case depends on the

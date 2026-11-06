@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.17";
+export const SDK_VERSION = "0.3.18";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -117,6 +117,7 @@ export interface SystemContext extends EngineFacade {
   readonly compute: ComputeService;
   readonly navigation: NavigationService;
   readonly ropes: RopeService;
+  readonly cloth: ClothService;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
  * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
@@ -217,6 +218,60 @@ export interface RopeService {
   /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */
   visuals(): readonly RopeVisualState[];
   setColliders(id: string, colliders: readonly RopeCollider[]): void;
+  setAnchor(id: string, index: number, position: Vec3): void;
+  releaseAnchor(id: string, index: number): void;
+  applyForce(id: string, index: number, force: Vec3): void;
+  applyImpulse(id: string, index: number, impulse: Vec3): void;
+  destroy(id: string): void;
+}
+/** CPU triangulated cloth with particle contacts against sampled spheres and planes. */
+export type ClothCollider = RopeCollider;
+export type ClothTriangle = readonly [number, number, number];
+export interface ClothVisualOptions {
+  material: string;
+  /** Optional per-particle UV coordinates; defaults to a planar projection. */
+  uvs?: readonly Vec2[];
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+}
+export interface ClothDefinition {
+  id: string;
+  points: readonly Vec3[];
+  triangles: readonly ClothTriangle[];
+  /** Kilograms per movable particle. */
+  mass: number;
+  radius?: number;
+  fixedDt?: number;
+  autoStep?: boolean;
+  substeps?: number;
+  iterations?: number;
+  damping?: number;
+  gravity?: Vec3;
+  /** Distance-based bending approximation across shared triangle edges; defaults to true. */
+  bending?: boolean;
+  anchors?: readonly { index: number; position: Vec3 }[];
+  visual?: ClothVisualOptions;
+}
+export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
+export interface ClothState {
+  tick: number; simulatedSeconds: number; disposed: boolean;
+  positions: Vec3[]; velocities: Vec3[]; triangles: ClothTriangle[];
+  anchors: { index: number; position: Vec3 }[];
+  contacts: ClothContact[];
+  maxDistanceError: number;
+  resources: { particles: number; triangles: number; constraints: number; anchors: number; colliders: number };
+}
+export interface ClothVisualState {
+  id: string; material: string; positions: Vec3[]; triangles: ClothTriangle[];
+  uvs: Vec2[]; castShadow: boolean; receiveShadow: boolean;
+}
+export interface ClothService {
+  create(definition: ClothDefinition): void;
+  /** Explicit ticks for manual cloth only; automatic cloth rejects this call. */
+  step(id: string, ticks?: number): ClothState;
+  inspect(id: string): ClothState;
+  visuals(): readonly ClothVisualState[];
+  setColliders(id: string, colliders: readonly ClothCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
   releaseAnchor(id: string, index: number): void;
   applyForce(id: string, index: number, force: Vec3): void;

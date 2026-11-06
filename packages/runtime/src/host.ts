@@ -274,6 +274,9 @@ export class RuntimeHost {
       get ropes() {
         return host.service("ropes");
       },
+      get cloth() {
+        return host.service("cloth");
+      },
       entities: {
         resolve: (entity) => this.world.resolve(entity),
         isAlive: (entity) => this.world.isAlive(entity),
