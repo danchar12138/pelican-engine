@@ -264,6 +264,7 @@ export async function buildDistribution() {
     "docs/ARCHITECTURE.md",
     "docs/DECISIONS.md",
     "docs/ROADMAP.md",
+    "docs/STATUS.md",
     "docs/RENDER-BACKENDS.md",
     "docs/PELICAN-MIGRATION.md",
     "docs/M3-USAGE.md",

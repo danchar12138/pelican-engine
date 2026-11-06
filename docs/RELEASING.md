@@ -2,17 +2,17 @@
 
 本文描述仓库内已实现的发布检查与打包工具，以及由主线执行的发布流程。工具本身不执行 Git、gh、网络上传或云端构建，不生成验收结论，也不启动 GPU 测试。
 
-最新 D50 禁止一切验证，仅允许编译/构建，并要求各里程碑按约发布。提交、推送、标签与 Release 必须位于同一个里程碑交付节点，不提前零散推送；提交消息采用 Conventional Commits 结构和中文描述。M3 只能如实标为 compile-only/unverified 预发布，不能声称测试、GPU 或完整验收通过。工具开发任务不自行发布。
+最新 D50 禁止一切验证，仅允许编译/构建。版本按 D54 使用标准版本号；无预发布后缀不代表运行、GPU 或完整验收通过，发布说明必须明确 compile-only/unverified。提交消息采用中文 Conventional Commits；里程碑 Release 与普通推送的 npm 发布按 D54 分开处理。
 
-## M3 D50 打包
+## 未验证打包
 
-主线完成允许的构建后，在同一交付节点准备 `0.3.x` 预发布版本并执行：
+主线完成允许的构建后，使用当前标准版本号执行：
 
 ```powershell
 node --import tsx tools/release.ts pack --compile-only-unverified
 ```
 
-也可添加 `--root <project-directory>`；库接口为 `packRelease({ compileOnlyUnverified: true, projectRoot })`。必须显式选择该模式；`check` 不支持该模式，M3 无 opt-in 时拒绝打包。只接受 `releaseScope: dynamic-raytracing` 和不含 build metadata 的 `0.3.x` prerelease 版本。此模式不读取 acceptance 或任何历史 evidence，源码 ZIP 排除整个 evidence 目录。输出的 JSON、manifest 与发布说明标记 `compile-only-unverified` 和 prerelease，checks 为空，生成 packaging 元数据而非验收证据。哈希仅作清单，不代表验证。
+也可添加 `--root <project-directory>`；库接口为 `packRelease({ compileOnlyUnverified: true, projectRoot })`。必须显式选择该模式；`check` 不支持该模式。当前和后续研发阶段接受无预发布后缀、无 build metadata 的标准版本号，清单须包含合法的 `releaseScope`。此模式不读取 acceptance 或任何历史 evidence，源码 ZIP 排除整个 evidence 目录。JSON、manifest 与发布说明标记 `compile-only-unverified`，`prerelease` 为 false、checks 为空，生成的是打包元数据而非验收证据。哈希仅作清单，不代表验证。
 
 打包器不运行编译，也不能证明已有 dist 构建成功、dist 与源码一致、版本文件一致或运行正确；未执行的测试、GPU 和完整验收均未知。文件操作仍限制路径、链接、大小和已有输出，必要的 LICENSE 与第三方声明必须存在；此模式不扫描文件内容中的凭据，文件名排除规则也不完整。打包不触发 Git、网络或发布。历史 M0–M2 打包逻辑不变。
 
@@ -52,7 +52,7 @@ M3 没有完整正式验收 profile；D50 下发布必须明确未验证，不�
 
 M0 manifest 可省略 `releaseScope`，兼容已有源码包；提供时必须为 `risk-prototypes`。旧导出 `REQUIRED_CHECKS` 仍只表示 M0 的八项门禁，`M0_VERSION` 仍是独立 legacy fixture 常量 `0.0.1-m0.0`，不控制当前仓库版本。M1、M2 检查分别由 `M1_REQUIRED_CHECKS`、`M2_REQUIRED_CHECKS` 定义，`RELEASE_PROFILES` 集中记录已实现阶段的规则。M2 的 15 项检查来自 `tools/verify-m2.ts`，测试核对两者一致。所有阶段都使用 manifest 的实际版本生成文件名。
 
-M3 使用上文独立的显式未验证打包模式，不是验收 profile。M4–M8 当前没有对应 profile，返回 `TCREL_PROFILE`，不能复用 M0/M1/M2 门禁通过。未知阶段返回 `TCREL_MILESTONE`。当前 manifest 为 M2 时，即使 M0/M1 的验收完全通过，也不能替代缺失的 M2 验收。
+当前和后续研发阶段使用上文独立的显式未验证打包模式，不是验收 profile，也不能复用历史门禁。未知阶段返回 `TCREL_MILESTONE`。历史发布逻辑不变。
 
 M2 是可玩游戏切片和资产管线 prerelease，不是 M1 runtime foundation，也不是完整引擎。带纹理 GLB 当前走 raster；完整 glTF 材质 hybrid/path tracing 属于 M3，M3–M8 尚未完成。发布说明明确这些边界，并逐条保留当前 acceptance 的 `limitations`，不把已通过的切片门禁扩写为完整能力或普遍性能承诺。
 
@@ -85,7 +85,7 @@ await packRelease({ projectRoot: engineDirectory });
 - `status`、`diagnostics`、`artifacts`、`data`；失败时 data 为 null。
 - 每条诊断包含稳定的 code、severity、message 和 remediation，不回显原始系统异常或本机绝对路径。
 
-历史 M0–M2 的 `check` 只读；其 `pack` 重新执行同一套检查，通过后才创建发布目录。M3 使用上文单独的未验证打包模式，不执行这套验收检查。工具不自动构建、不补造缺失证据。
+历史 M0–M2 的 `check` 只读；其 `pack` 重新执行同一套检查，通过后才创建发布目录。当前和后续阶段使用上文未验证打包模式，不执行这套验收检查。工具不自动构建、不补造缺失证据。
 
 ## 验收输入契约
 
@@ -233,21 +233,21 @@ M0、M1、M2 的 render 检查都需要引用 JSON 报告；至少同一份报�
 | M0   | `0.0.1-m0.0` | 已实现 profile；风险原型 prerelease      |
 | M1   | `0.1.0-m1.0` | 已实现 profile；运行时基础 prerelease    |
 | M2   | `0.2.0-m2.0` | 已实现 profile；可玩游戏切片 prerelease  |
-| M3   | `0.3.0-m3.0` | 仅显式 compile-only/unverified 预发布打包 |
+| 历史渲染阶段   | `0.3.0-m3.0` | 历史预发布标签，仅保留原样 |
 | M4   | `0.4.0-m4.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M5   | `0.5.0-m5.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M6   | `0.6.0-m6.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M7   | `0.7.0-m7.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M8   | `1.0.0`      | 尚未启用，不接受正式版成功声明           |
 
-M0、M1、M2 始终返回 `prerelease: true`；manifest 自行写入 `prerelease: false` 不会改变它。M3 显式模式也始终为 prerelease；M4–M8 当前不能打包。
+历史 M0、M1、M2 始终返回 `prerelease: true`；当前及后续阶段显式未验证模式使用普通版本并返回 `prerelease: false`，但不代表任何运行或硬件验收。
 
-未来启用 M8 正式版时，必须同时实现完整 capability gate：明确的必需能力清单、逐项通过状态、证据引用、与当前源码一致的身份，以及整套首发退出条件；只有全部验证通过才可设置 `prerelease: false`。不能仅凭 milestone=M8、version=1.0.0、status=passed 或单个 `allCapabilitiesPassed` 布尔字段推断完成。当前没有接受这些字段即可解锁正式版的协议，具体结构须随 M8 verifier 和完整负例测试一起确定；不提前制造 M8 成功分支。
+普通版本号和 GitHub 的非预发布状态不代表完整首发已完成。完整能力仍须按需求实现；在用户恢复验证授权之前，不执行验收，也不能声称完整能力已验收。
 
 ## 主线交付节点
 
 1. 按 D50 仅编译/构建，保留真实限制，不运行验证或生成验收通过记录。
-2. 对 M3 使用上述显式未验证模式打包，在同一交付节点提交、推送、打标签和发布 prerelease；不提前零散推送、不覆盖已有标签或附件。
+2. 使用上述显式未验证模式打包；里程碑发布使用与仓库一致的普通版本，明确未验证，不覆盖已有标签或附件。普通推送的 npm 发布按 D54 处理。
 
 以上网络操作由主线在已授权范围执行，不是此工具的 API。本工具任务不提交、不推送、不发布。
 

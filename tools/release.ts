@@ -597,16 +597,16 @@ function validateM2DistNotices(entries: Entry[]): void {
     }
   }
 }
-async function inspectUnverifiedM3(root: string, engine: Record<string, unknown>): Promise<Inventory> {
+async function inspectUnverified(root: string, engine: Record<string, unknown>, milestone: Milestone): Promise<Inventory> {
   ensure(
     typeof engine.version === "string" &&
       VERSION_PATTERN.test(engine.version) &&
-      /^0\.3\.\d+-/.test(engine.version) &&
+      !engine.version.includes("-") &&
       !engine.version.includes("+"),
     "TCREL_VERSION",
-    "M3 compile-only packaging requires a 0.3 prerelease version without build metadata.",
+    "Compile-only packaging requires a stable version without prerelease or build metadata.",
   );
-  ensure(engine.releaseScope === "dynamic-raytracing", "TCREL_RELEASE_SCOPE", "M3 releaseScope must be dynamic-raytracing.");
+  ensure(typeof engine.releaseScope === "string" && /^[a-z][a-z0-9-]*$/.test(engine.releaseScope), "TCREL_RELEASE_SCOPE", "A valid releaseScope is required.");
   const budget = { bytes: 0, files: 0 };
   const source = await collect(root, false, budget, true);
   const dist = await collect(root, true, budget, true);
@@ -616,13 +616,13 @@ async function inspectUnverifiedM3(root: string, engine: Record<string, unknown>
     root, source, dist,
     info: {
       engineVersion: engine.version,
-      milestone: "M3",
-      scope: "dynamic-raytracing",
-      prerelease: true,
+      milestone,
+      scope: engine.releaseScope,
+      prerelease: false,
       verification: "compile-only-unverified",
       checks: [],
       limitations: [
-        "Compile-only prerelease; packaging does not establish that compilation succeeded or that dist matches the source.",
+        "Compile-only release; packaging does not establish that compilation succeeded or that dist matches the source.",
         "Tests, GPU behavior, runtime behavior and complete milestone acceptance are unverified.",
         "Historical evidence is excluded and no acceptance record is read or asserted.",
         "Credential content is not scanned; filename exclusions are not comprehensive.",
@@ -661,11 +661,11 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
     "engine.manifest.json must declare a milestone from M0 through M8.",
   );
   const milestone = initialEngine.milestone as Milestone;
-  if (milestone === "M3") {
-    ensure(options.compileOnlyUnverified === true, "TCREL_UNVERIFIED_OPT_IN", "M3 packaging requires explicit compile-only-unverified opt-in.");
-    return inspectUnverifiedM3(root, initialEngine);
+  if (milestone === "M3" || milestone === "M4" || milestone === "M5" || milestone === "M6" || milestone === "M7" || milestone === "M8") {
+    ensure(options.compileOnlyUnverified === true, "TCREL_UNVERIFIED_OPT_IN", "Packaging requires explicit compile-only-unverified opt-in.");
+    return inspectUnverified(root, initialEngine, milestone);
   }
-  ensure(!options.compileOnlyUnverified, "TCREL_UNVERIFIED_OPT_IN", "Compile-only-unverified mode is available only for M3.");
+  ensure(!options.compileOnlyUnverified, "TCREL_UNVERIFIED_OPT_IN", "Compile-only-unverified mode is unavailable for historical releases.");
   const acceptanceName = `evidence/${milestone.toLowerCase()}/acceptance.json`;
   const evidenceDirectory = `evidence/${milestone.toLowerCase()}/`;
   ensure(
@@ -1097,7 +1097,7 @@ export async function packRelease(
       path: "RELEASE_NOTES.md",
       content: Buffer.from(
         info.verification
-          ? `# pelican ${info.engineVersion} — M3 compile-only / unverified prerelease\n\nNo tests, GPU execution, runtime validation or complete milestone acceptance are claimed. The packer does not establish build success or source/dist correspondence.\n\n## Limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\nSource ZIP excludes historical evidence; dist ZIP contains the supplied build output. Packaging metadata, file manifest and SHA256SUMS are inventory only, not verification results.\n`
+          ? `# Pelican Engine ${info.engineVersion} — compile-only / unverified\n\nNo tests, GPU execution, runtime validation or complete milestone acceptance are claimed. The packer does not establish build success or source/dist correspondence.\n\n## Limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\nSource ZIP excludes historical evidence; dist ZIP contains the supplied build output. Packaging metadata, file manifest and SHA256SUMS are inventory only, not verification results.\n`
           : `# pelican ${info.engineVersion} — ${info.milestone} ${info.scope}\n\n${releaseDescription} Software BVH tracing on a real GPU does not imply hardware ray-tracing unit support. No 1080p/60 or complete M1–M8 capability claim is made.\n\n## Accepted checks\n\n${info.checks.map((c) => `- ${c.id}: ${c.status}`).join("\n")}\n\n## Known limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\n## Assets\n\n- Source ZIP: includes evidence/${info.milestone.toLowerCase()}, lockfile, MIT license and third-party notices; excludes dependencies, local secrets and caches.\n- Dist ZIP: deploy its extracted contents to a Web server.\n- Evidence summary, file-level manifest and SHA256SUMS: verify before use.\n\nSee docs/RELEASING.md in the source archive for reproduction and publishing rules.\n`,
         "utf8",
       ),
