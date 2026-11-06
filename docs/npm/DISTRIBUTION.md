@@ -30,8 +30,8 @@ npx --no-install pelican capture --port 4174 --output capture.png
 npx --no-install pelican build
 ```
 
-For an exact-version install use `npm --prefix . i -D --save-exact pelican-engine@0.3.2`,
-or substitute the local `pelican-engine-0.3.2.tgz` tarball before registry
+For an exact-version install use `npm --prefix . i -D --save-exact pelican-engine@0.3.3`,
+or substitute the local `pelican-engine-0.3.3.tgz` tarball before registry
 publication. `pelican create --template minimal` remains available explicitly.
 
 Without `--prefix .`, npm may select an ancestor `package.json` or `node_modules`
