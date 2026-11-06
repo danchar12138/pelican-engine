@@ -2,7 +2,7 @@
 
 ## 当前命名与分发约束
 
-用户已确定更名，不再讨论名称。npm 唯一单包为 `pelican-engine`，CLI/bin 为 `pelican`，GitHub 保留当前所有者，仅仓库改名为 `danchar12138/pelican-engine`，不创建或迁移组织。游戏侧唯一公开导入为 `pelican-engine`，禁止维护旧名 SDK 或第二套接口。单包包含 SDK/runtime/renderer/编译器/CLI；目标入口为 `npm i -D pelican-engine` 后直接 `npx pelican dev`。先按 DECISIONS D12/D16/D47 统一活跃项目命名，再完成包化，不中断 M3。历史标签和证据保留原始哈希并明确历史属性；远端改名、npm 所有权或发布权限未落实时必须如实报告，不冒称完成。npm CI 使用授权 Automation Token 的 NPM_TOKEN secret，不回显或写入源码/证据。
+用户已确定更名，不再讨论名称。npm 唯一单包为 `pelican-engine`，CLI/bin 为 `pelican`，GitHub 保留当前所有者，仅仓库改名为 `danchar12138/pelican-engine`，不创建或迁移组织。游戏侧唯一公开导入为 `pelican-engine`，禁止维护旧名 SDK 或第二套接口。单包包含 SDK/runtime/renderer/编译器/CLI；目标入口为 `npm i -D pelican-engine` 后直接 `npx pelican dev`。历史标签和证据保留原始哈希并明确历史属性；发布权限或操作失败必须如实报告。按 D54，推送主线后以 OIDC 发布仓库的实际版本，不自动生成版本号，不使用长期 npm 令牌。
 
 ## 先读状态
 

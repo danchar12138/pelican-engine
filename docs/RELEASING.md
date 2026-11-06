@@ -18,9 +18,9 @@ node --import tsx tools/release.ts pack --compile-only-unverified
 
 ## npm 同节点分发
 
-**当前规则（D53）：** `main` 每次推送触发 `.github/workflows/npm-publish.yml`，CI 基于 GitHub 运行 ID 生成 `主版本.次版本.运行ID` 格式的无后缀版本，在构建副本中同步清单、SDK 和 M3 示例版本锁，然后通过 npm OIDC 可信发布直接发布到 `latest`。手动触发也生成新版本。构建副本的版本与 Git 提交中的版本字面值可能不同；失败、排队和重跑须以实际 Actions 结果为准，npm 不允许覆盖已发布版本。GitHub 队列有容量限制，且排队顺序不保证与提交顺序一致，因此不能保证每次推送即时成功或 `latest` 永远指向最新提交。D50 下只构建，不运行测试或其他验证；无后缀不意味着完整里程碑或运行行为已验收。下文 D52 staged 方案为历史记录。
+**当前规则（D54）：** 每次推送 `main` 触发 `.github/workflows/npm-publish.yml`，使用仓库中明确维护的无后缀版本构建，通过 npm OIDC 可信发布到 `latest`；GitHub Release 单独标记里程碑，不额外触发 npm 发布。开发者按变更更新包、引擎、SDK 和示例的版本，CI 不生成或修改版本。npm 不允许复用已发布版本；重复推送同一版本会失败，等待后续版本，不重写或覆盖历史包。工作流提供手动移除 `next` 别名的操作，不删除历史版本。之前误发布的长版本仍存在，并可能影响使用 semver 范围的依赖选择。D50 下只构建，不运行测试或其他验证；无后缀不意味着完整里程碑或运行行为已验收。下文 D52 staged 方案为历史记录。
 
-D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同；不另行提前发布版本。按 D52，`.github/workflows/npm-publish.yml` 响应已发布的 GitHub Release，也可手动指定已有标签；检出该标签、安装依赖、构建并打包后，使用受保护的 `NPM_TOKEN` 执行 `npm stage publish`。预发布提交到 `next` 标签；用户须在 npm 使用 2FA 审核，staged 不代表已公开发布。工作流不执行验收或安装复测。普通 push、PR、CI 构建成功和本地 tarball 生成都不等于验收通过。
+D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同。D52 的 staged 方案是历史记录，已由上述 D54 直接发布方案取代；CI 构建成功和本地 tarball 生成都不等于验收通过。
 
 npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部署与源码 ZIP 使用方式保持不变。编译包不含源码映射、证据、示例或游戏资产，随包分发 MIT、第三方许可、API 索引和统一游戏开发 AI 指引。安装后无需源码与在线服务，首次依赖和浏览器准备除外。
 
@@ -28,7 +28,7 @@ npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部�
 
 按照 D50，当前 CI 不执行发布后 registry 对照、安装复测或 smoke；因此工作流成功也不证明公开包的运行行为。发布失败时须如实记录实际结果，不能假定已经发布或盲目重复发布同一版本。
 
-M3 没有完整正式验收 profile；D50 仅允许上文所述未验证预发布路径，不复用历史 M2 证据。当前 npm 工作流安装依赖、构建、打包并提交 staged 审核，不运行验收或发布后复测；实际状态以 staging 操作和用户审批结果为准。
+M3 没有完整正式验收 profile；D50 下发布必须明确未验证，不复用历史 M2 证据。当前 npm 工作流直接发布，不运行验收或发布后复测；实际状态以发布操作结果为准。
 
 ## 当前阶段选择
 
