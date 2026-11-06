@@ -147,8 +147,20 @@ solver snapshots without this field retain particle-only behavior when migrated;
 engine-version restrictions still apply. Plane contacts use particle endpoints.
 The segment index names its first particle; `fraction` runs toward the next.
 Work increases with segment, sphere, substep and iteration counts. This does not
-provide continuous collision detection or self collision, and the segment solver
-and snapshot migration have not been runtime validated.
+provide continuous collision detection; the segment solver and snapshot migration
+have not been runtime validated.
+
+New ropes also resolve discrete self-contact between non-adjacent segments using
+sweep-and-prune and endpoint projection. `inspect(id).selfContacts` reports
+segment indices, closest-point fractions and maximum overlap; `selfCollisions`
+reports the active mode. Set `selfCollisions: false` to disable it. Adjacent
+segments and collisions between separate ropes are not handled. Immovable anchored
+endpoints stay fixed, and contacts introduced by corrections can wait until the
+next iteration. Dense overlap can approach quadratic work. Snapshots from before
+this feature retain the disabled mode when migrated; Host engine-version rules
+still apply. This is unverified discrete contact, not a guarantee against
+penetration, continuous collision, friction or full rope physics. The source
+checkout includes `examples/rope-self`.
 
 For optional visual presentation, declare a material in `defineGame({ materials:
 [...] })` and create the rope with `visual: { material: "your-material-id" }`.
@@ -206,7 +218,7 @@ checkpoint. It must not be represented as complete two-way rigid-body interactio
 
 This is an unverified development-stage increment, not complete rope physics:
 the optional segmented visual does not provide a continuous deformable rope mesh,
-general rigid-body coupling, self collision, or tearing. Plane normals must be unit length; `offset` is the signed
+general rigid-body coupling, continuous collision, cross-rope collision, or tearing. Plane normals must be unit length; `offset` is the signed
 normal distance from the origin. Host intervals must be between 1/1000 and
 1/30 seconds inclusive.
 

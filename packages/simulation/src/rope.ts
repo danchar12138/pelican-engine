@@ -1,6 +1,8 @@
+import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
+
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
- * only. Optional host coupling can react on dynamic spheres. No self collision or tearing.
+ * only. Optional host coupling can react on dynamic spheres. No tearing.
  */
 export type Vec3 = [number, number, number];
 export type RopeCollider =
@@ -22,6 +24,8 @@ export interface RopeOptions {
   radius?: number;
   /** New ropes resolve sphere contacts on segment interiors by default. */
   segmentCollisions?: boolean;
+  /** New ropes resolve non-adjacent self contacts by default. */
+  selfCollisions?: boolean;
   fixedDt?: number;
   substeps?: number;
   iterations?: number;
@@ -52,16 +56,26 @@ export interface RopeSegmentContact {
   reactionImpulse?: Vec3;
   reactionAngularImpulse?: Vec3;
 }
+export interface RopeSelfContact {
+  tick: number;
+  firstSegment: number;
+  secondSegment: number;
+  firstFraction: number;
+  secondFraction: number;
+  penetration: number;
+}
 export interface RopeState {
   tick: number;
   simulatedSeconds: number;
   disposed: boolean;
   segmentCollisions: boolean;
+  selfCollisions: boolean;
   positions: Vec3[];
   velocities: Vec3[];
   anchors: { index: number; position: Vec3 }[];
   contacts: RopeContact[];
   segmentContacts: RopeSegmentContact[];
+  selfContacts: RopeSelfContact[];
   maxDistanceError: number;
   resources: { particles: number; constraints: number; anchors: number; colliders: number };
 }
@@ -74,6 +88,8 @@ export interface RopeSnapshot {
     iterations: number; damping: number; gravity: Vec3; restLengths: number[];
     /** Absent in historical particle-only snapshots. */
     segmentCollisions?: boolean;
+    /** Absent in historical snapshots without self collision. */
+    selfCollisions?: boolean;
   };
   positions: Vec3[];
   velocities: Vec3[];
@@ -84,6 +100,8 @@ export interface RopeSnapshot {
   contacts: RopeContact[];
   /** Absent in historical particle-only snapshots. */
   segmentContacts?: RopeSegmentContact[];
+  /** Absent in historical snapshots without self collision. */
+  selfContacts?: RopeSelfContact[];
 }
 
 export class RopeError extends Error {
@@ -156,6 +174,8 @@ export function createRope(options: RopeOptions): RopeSolver {
   const radius = positive(options.radius ?? 0.025, "radius");
   if (options.segmentCollisions !== undefined && typeof options.segmentCollisions !== "boolean") fail("ROPE_INPUT", "segmentCollisions must be boolean");
   const segmentCollisions = options.segmentCollisions ?? true;
+  if (options.selfCollisions !== undefined && typeof options.selfCollisions !== "boolean") fail("ROPE_INPUT", "selfCollisions must be boolean");
+  const selfCollisions = options.selfCollisions ?? true;
   const fixedDt = positive(options.fixedDt ?? 1 / 60, "fixedDt");
   if (fixedDt < 1 / 1000 || fixedDt > 1 / 30) fail("ROPE_INPUT", "fixedDt must be in [1/1000, 1/30]");
   const substeps = options.substeps ?? 4, iterations = options.iterations ?? 12;
@@ -166,10 +186,10 @@ export function createRope(options: RopeOptions): RopeSolver {
   if (restLengths.some(d => !Number.isFinite(d) || d <= 1e-8)) fail("ROPE_INPUT", "adjacent particles must have distinct positions");
   const anchors = readAnchors(options.anchors ?? [{ index: 0, position: positions[0] }], positions.length);
   for (const [i, p] of anchors) positions[i] = copy(p);
-  return new RopeSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, restLengths, segmentCollisions }, positions, anchors);
+  return new RopeSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, restLengths, segmentCollisions, selfCollisions }, positions, anchors);
 }
 
-type Config = RopeSnapshot["config"] & { segmentCollisions: boolean };
+type Config = RopeSnapshot["config"] & { segmentCollisions: boolean; selfCollisions: boolean };
 export class RopeSolver {
   private tickValue = 0;
   private disposedValue = false;
@@ -178,6 +198,7 @@ export class RopeSolver {
   private colliders: RopeCollider[] = [];
   private contacts: RopeContact[] = [];
   private segmentContacts: RopeSegmentContact[] = [];
+  private selfContacts: RopeSelfContact[] = [];
   constructor(private readonly config: Config, private positions: Vec3[], private anchors: Map<number, Vec3>) {
     this.velocities = positions.map(() => [0, 0, 0]);
     this.forces = positions.map(() => [0, 0, 0]);
@@ -221,6 +242,7 @@ export class RopeSolver {
       forces: this.forces,
       contacts: this.contacts,
       segmentContacts: this.segmentContacts,
+      selfContacts: this.selfContacts,
       tick: this.tickValue,
     };
     try {
@@ -231,6 +253,7 @@ export class RopeSolver {
       this.forces = before.forces;
       this.contacts = before.contacts;
       this.segmentContacts = before.segmentContacts;
+      this.selfContacts = before.selfContacts;
       this.tickValue = before.tick;
       throw error;
     }
@@ -243,6 +266,7 @@ export class RopeSolver {
     const positions = this.positions.map(copy), velocities = this.velocities.map(copy);
     const contacts = new Map<string, RopeContact>();
     const segmentContacts = new Map<string, RopeSegmentContact>();
+    const selfContacts = new Map<string, RopeSelfContact>();
     const spheres = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "sphere" }> => collider.kind === "sphere") : [];
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
@@ -373,6 +397,7 @@ export class RopeSolver {
             } else segmentContacts.set(key, { tick: this.tickValue + 1, segment: j, colliderId: collider.id, fraction, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
           }
         }
+        if (this.config.selfCollisions && positions.length >= 4) resolveRopeSelfCollisions(positions, this.anchors, radius, this.tickValue + 1, selfContacts);
       }
       for (let i = 0; i < positions.length; i++) {
         if (this.anchors.has(i)) continue;
@@ -382,21 +407,21 @@ export class RopeSolver {
     }
     this.positions = positions; this.velocities = velocities;
     this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()];
-    this.segmentContacts = [...segmentContacts.values()]; this.tickValue++;
+    this.segmentContacts = [...segmentContacts.values()]; this.selfContacts = [...selfContacts.values()]; this.tickValue++;
   }
   /** Detached positions for renderer synchronization without copying contact state. */
   particlePositions(): Vec3[] { this.alive(); return this.positions.map(copy); }
   inspect(): RopeState {
-    if (this.disposedValue) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, segmentCollisions: this.config.segmentCollisions, positions: [], velocities: [], anchors: [], contacts: [], segmentContacts: [], maxDistanceError: 0, resources: { particles: 0, constraints: 0, anchors: 0, colliders: 0 } };
+    if (this.disposedValue) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, segmentCollisions: this.config.segmentCollisions, selfCollisions: this.config.selfCollisions, positions: [], velocities: [], anchors: [], contacts: [], segmentContacts: [], selfContacts: [], maxDistanceError: 0, resources: { particles: 0, constraints: 0, anchors: 0, colliders: 0 } };
     const maxDistanceError = Math.max(0, ...this.config.restLengths.map((d, i) => {
       const a = this.positions[i], b = this.positions[i + 1];
       return Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) - d);
     }));
     return {
-      tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, segmentCollisions: this.config.segmentCollisions,
+      tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, segmentCollisions: this.config.segmentCollisions, selfCollisions: this.config.selfCollisions,
       positions: this.positions.map(copy), velocities: this.velocities.map(copy),
       anchors: [...this.anchors].map(([index, position]) => ({ index, position: copy(position) })).sort((a, b) => a.index - b.index),
-      contacts: this.contacts.map(copyContact), segmentContacts: this.segmentContacts.map(copySegmentContact), maxDistanceError,
+      contacts: this.contacts.map(copyContact), segmentContacts: this.segmentContacts.map(copySegmentContact), selfContacts: this.selfContacts.map(contact => ({ ...contact })), maxDistanceError,
       resources: { particles: this.positions.length, constraints: this.config.restLengths.length, anchors: this.anchors.size, colliders: this.colliders.length },
     };
   }
@@ -406,7 +431,7 @@ export class RopeSolver {
       format: "pelican-rope-cpu", version: 1, tick: this.tickValue,
       config: { ...this.config, gravity: copy(this.config.gravity), restLengths: [...this.config.restLengths] },
       positions: state.positions, velocities: state.velocities, anchors: state.anchors,
-      forces: this.forces.map(copy), colliders: readColliders(this.colliders), contacts: state.contacts, segmentContacts: state.segmentContacts,
+      forces: this.forces.map(copy), colliders: readColliders(this.colliders), contacts: state.contacts, segmentContacts: state.segmentContacts, selfContacts: state.selfContacts,
     };
   }
   /** Accepts a JSON-round-tripped snapshot only from the same rope configuration. Atomic on failure. */
@@ -418,6 +443,7 @@ export class RopeSolver {
     if (!c || c.mass !== this.config.mass || c.radius !== this.config.radius || c.fixedDt !== this.config.fixedDt ||
         c.substeps !== this.config.substeps || c.iterations !== this.config.iterations || c.damping !== this.config.damping ||
         (c.segmentCollisions !== undefined && typeof c.segmentCollisions !== "boolean") || (c.segmentCollisions ?? false) !== this.config.segmentCollisions ||
+        (c.selfCollisions !== undefined && typeof c.selfCollisions !== "boolean") || (c.selfCollisions ?? false) !== this.config.selfCollisions ||
         !vec(c.gravity) || c.gravity.some((v, i) => v !== this.config.gravity[i]) ||
         !Array.isArray(c.restLengths) || c.restLengths.length !== this.config.restLengths.length ||
         c.restLengths.some((v, i) => v !== this.config.restLengths[i])) fail("ROPE_SNAPSHOT", "rope configuration/topology mismatch");
@@ -450,13 +476,29 @@ export class RopeSolver {
       if (segmentKeys.has(key)) fail("ROPE_SNAPSHOT", "duplicate segment contact");
       segmentKeys.add(key);
     }
+    const self = input.selfContacts === undefined ? [] : input.selfContacts;
+    const maxSelfContacts = Math.max(0, (count - 2) * (count - 3) / 2);
+    if (!Array.isArray(self) || self.length > maxSelfContacts || (!this.config.selfCollisions && self.length > 0) ||
+        self.some(contact => !contact || contact.tick !== input.tick ||
+          !Number.isSafeInteger(contact.firstSegment) || !Number.isSafeInteger(contact.secondSegment) ||
+          contact.firstSegment < 0 || contact.secondSegment >= count - 1 || contact.secondSegment - contact.firstSegment <= 1 ||
+          typeof contact.firstFraction !== "number" || !Number.isFinite(contact.firstFraction) || contact.firstFraction < 0 || contact.firstFraction > 1 ||
+          typeof contact.secondFraction !== "number" || !Number.isFinite(contact.secondFraction) || contact.secondFraction < 0 || contact.secondFraction > 1 ||
+          typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0))
+      fail("ROPE_SNAPSHOT", "invalid self contact state");
+    const selfKeys = new Set<string>();
+    for (const contact of self) {
+      const key = `${contact.firstSegment}:${contact.secondSegment}`;
+      if (selfKeys.has(key)) fail("ROPE_SNAPSHOT", "duplicate self contact");
+      selfKeys.add(key);
+    }
     this.positions = input.positions.map(copy); this.velocities = input.velocities.map(copy);
     this.forces = input.forces.map(copy); this.anchors = anchors; this.colliders = colliders;
-    this.contacts = input.contacts.map(copyContact); this.segmentContacts = segments.map(copySegmentContact); this.tickValue = input.tick;
+    this.contacts = input.contacts.map(copyContact); this.segmentContacts = segments.map(copySegmentContact); this.selfContacts = self.map(contact => ({ ...contact })); this.tickValue = input.tick;
   }
   dispose(): void {
     if (this.disposedValue) return;
     this.disposedValue = true; this.positions = []; this.velocities = []; this.forces = [];
-    this.colliders = []; this.contacts = []; this.segmentContacts = []; this.anchors.clear();
+    this.colliders = []; this.contacts = []; this.segmentContacts = []; this.selfContacts = []; this.anchors.clear();
   }
 }

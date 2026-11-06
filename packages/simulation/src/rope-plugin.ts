@@ -11,11 +11,14 @@ type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyCollide
 const fail = (code: string, detail: string): never => { throw new Error(`TC_ROPE_${code}: ${detail}`); };
 const validId = (id: unknown): id is string => typeof id === "string" && id.trim() === id && id.length > 0 && id.length <= 128;
 
-function createEntry(input: RopeDefinition, fixedDt: number, materials: ReadonlySet<string>, restoredSegmentMode?: boolean): Entry {
+function createEntry(input: RopeDefinition, fixedDt: number, materials: ReadonlySet<string>, restoredSegmentMode?: boolean, restoredSelfMode?: boolean): Entry {
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty id of at most 128 characters.");
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be a boolean.");
   if (definition.segmentCollisions !== undefined && typeof definition.segmentCollisions !== "boolean") return fail("SEGMENT_COLLISION", "segmentCollisions must be a boolean.");
+  if (definition.selfCollisions !== undefined && typeof definition.selfCollisions !== "boolean") return fail("SELF_COLLISION", "selfCollisions must be a boolean.");
+  if (restoredSelfMode !== undefined && definition.selfCollisions !== undefined && definition.selfCollisions !== restoredSelfMode)
+    return fail("SNAPSHOT", "Self collision configuration does not match the saved solver.");
   if (restoredSegmentMode !== undefined && definition.segmentCollisions !== undefined && definition.segmentCollisions !== restoredSegmentMode)
     return fail("SNAPSHOT", "Segment collision configuration does not match the saved solver.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Rope fixedDt must exactly match the host fixedDt.");
@@ -45,7 +48,8 @@ function createEntry(input: RopeDefinition, fixedDt: number, materials: Readonly
       ids.add(binding.id); entities.add(binding.entity);
     }
   }
-  const solver = createRope({ ...definition, fixedDt, ...(restoredSegmentMode === undefined ? {} : { segmentCollisions: restoredSegmentMode }) } as unknown as RopeOptions);
+  const solver = createRope({ ...definition, fixedDt, ...(restoredSegmentMode === undefined ? {} : { segmentCollisions: restoredSegmentMode }),
+    ...(restoredSelfMode === undefined ? {} : { selfCollisions: restoredSelfMode }) } as unknown as RopeOptions);
   return { definition, solver, bodyRefs: new Map(), staleBodies: new Set() };
 }
 function disposeEntries(entries: Map<string, Entry>): void {
@@ -61,8 +65,10 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       if (!item || typeof item !== "object") fail("SNAPSHOT", "Invalid rope entry.");
       const savedSegmentMode = item.state?.config?.segmentCollisions;
       if (savedSegmentMode !== undefined && typeof savedSegmentMode !== "boolean") fail("SNAPSHOT", "Invalid segment collision configuration.");
-      // Snapshots made before segment contacts represent particle-only behavior.
-      const entry = createEntry(item.definition, fixedDt, materials, savedSegmentMode ?? false);
+      const savedSelfMode = item.state?.config?.selfCollisions;
+      if (savedSelfMode !== undefined && typeof savedSelfMode !== "boolean") fail("SNAPSHOT", "Invalid self collision configuration.");
+      // Missing flags in historical snapshots preserve their original disabled modes.
+      const entry = createEntry(item.definition, fixedDt, materials, savedSegmentMode ?? false, savedSelfMode ?? false);
       if (entries.has(entry.definition.id)) { entry.solver.dispose(); fail("SNAPSHOT", "Duplicate rope id."); }
       entries.set(entry.definition.id, entry);
       const stale = item.staleBodyColliders === undefined ? [] : item.staleBodyColliders;

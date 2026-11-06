@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.16";
+export const SDK_VERSION = "0.3.17";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -119,7 +119,7 @@ export interface SystemContext extends EngineFacade {
   readonly ropes: RopeService;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
- * contact impulses to dynamic spheres; there is no full rigid-body coupling or self collision. */
+ * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
@@ -157,6 +157,8 @@ export interface RopeDefinition {
   bodyColliders?: readonly RopeBodyCollider[];
   /** Resolve sphere contacts on segment interiors; defaults to true for new ropes. */
   segmentCollisions?: boolean;
+  /** Resolve discrete non-adjacent segment self contacts; defaults to true for new ropes. */
+  selfCollisions?: boolean;
   /** Optional segmented presentation using an already-declared material id. */
   visual?: RopeVisualOptions;
   substeps?: number;
@@ -185,13 +187,25 @@ export interface RopeSegmentContact {
   reactionImpulse?: Vec3;
   reactionAngularImpulse?: Vec3;
 }
+/** Discrete self-contact between two non-adjacent rope segments. */
+export interface RopeSelfContact {
+  tick: number;
+  /** Zero-based first endpoint of each non-adjacent segment, ordered ascending. */
+  firstSegment: number; secondSegment: number;
+  /** Last closest-point fractions along the respective segments. */
+  firstFraction: number; secondFraction: number;
+  /** Maximum observed overlap in metres during this tick. */
+  penetration: number;
+}
 export interface RopeState {
   tick: number; simulatedSeconds: number; disposed: boolean;
   segmentCollisions: boolean;
+  selfCollisions: boolean;
   positions: Vec3[]; velocities: Vec3[];
   anchors: { index: number; position: Vec3 }[];
   contacts: RopeContact[];
   segmentContacts: RopeSegmentContact[];
+  selfContacts: RopeSelfContact[];
   maxDistanceError: number;
   resources: { particles: number; constraints: number; anchors: number; colliders: number };
 }
