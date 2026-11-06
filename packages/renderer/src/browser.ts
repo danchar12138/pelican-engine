@@ -1,5 +1,6 @@
 import * as THREE from "three/webgpu";
 import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
+import { createRopeVisualOwner } from "./rope-visuals.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
 import { SurfaceTracer } from "./surface-tracer.ts";
@@ -209,6 +210,10 @@ const recoveryEvents: { phase: string; reason: string; tick: number }[] = [];
 const gameObjects = new Map<string, THREE.Object3D>();
 const gameRoot = new THREE.Group();
 scene.add(gameRoot);
+const ropeVisuals = createRopeVisualOwner();
+scene.add(ropeVisuals.root);
+let ropeVisualRevision = 0, renderedRopeVisualRevision = 0;
+const clearRopeVisuals = () => { if (ropeVisuals.clear()) ropeVisualRevision++; };
 let authoredCamera = { position: [0, 3.4, 7], target: [0, 0.9, 0] };
 let authoredLights: {
   definition: SceneIR["scene"]["entities"][number]["light"];
@@ -450,8 +455,8 @@ function createEntityView(
   }
   return node;
 }
-function syncRuntime() {
-  if (!runtime) return;
+function syncRuntime(): boolean {
+  if (!runtime) { clearRopeVisuals(); return ropeVisualRevision !== renderedRopeVisualRevision; }
   transforms.clear();
   componentState.clear();
   const records = runtime.world.records();
@@ -530,6 +535,10 @@ function syncRuntime() {
       if (light)
         authoredLights.push({ definition: entity.light, object: light });
     }
+  if (gameplay) {
+    if (ropeVisuals.sync(runtime.facade.ropes.visuals(), gameMaterials)) ropeVisualRevision++;
+  } else clearRopeVisuals();
+  return ropeVisualRevision !== renderedRopeVisualRevision;
 }
 let simulation: Simulation | undefined;
 const simulationGroup = new THREE.Group();
@@ -881,6 +890,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     contentScope = nextScope;
     gameMaterials = nextMaterials;
     committed = true;
+    clearRopeVisuals();
     if (nextRoot.children.length) gameRoot.add(...nextRoot.children);
     gameObjects.clear();
     for (const [id, node] of nextObjects) gameObjects.set(id, node);
@@ -1101,7 +1111,9 @@ async function drawFrame(accumulate = false, changed = true) {
   if (disposed) throw new Error("TC_BROWSER_DISPOSED");
   await computeControl?.flush();
   const start = performance.now();
-  syncRuntime();
+  const ropeChanged = syncRuntime();
+  const ropeRevision = ropeVisualRevision;
+  changed = changed || ropeChanged;
   animate();
   renderBufferBridge?.update();
   renderTextureBridge?.update();
@@ -1194,6 +1206,7 @@ async function drawFrame(accumulate = false, changed = true) {
       triangles: triangleCount,
       faulted: terminalFault,
     });
+    renderedRopeVisualRevision = ropeRevision;
     return;
   }
   if (changed) {
@@ -1240,6 +1253,7 @@ async function drawFrame(accumulate = false, changed = true) {
     triangles: triangleCount,
     faulted: terminalFault,
   });
+  renderedRopeVisualRevision = ropeRevision;
 }
 async function applyInput(key: string) {
   if (!probeEnabled) {
@@ -1477,6 +1491,7 @@ async function disposeBrowser() {
   clean(() => simulation?.dispose());
   clean(() => world?.dispose());
   clean(() => resourceManager.dispose());
+  clean(() => ropeVisuals.dispose());
   clean(() => releaseObject(scene, true, gameMaterials.values()));
   clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());

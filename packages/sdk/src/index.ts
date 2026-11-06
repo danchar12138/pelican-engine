@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.14";
+export const SDK_VERSION = "0.3.15";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -118,13 +118,31 @@ export interface SystemContext extends EngineFacade {
   readonly navigation: NavigationService;
   readonly ropes: RopeService;
 }
-/** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply a delayed
- * projection reaction to dynamic spheres; no full rigid-body coupling, segment/self collision or rope rendering. */
+/** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
+ * contact impulses to dynamic spheres; there is no full rigid-body coupling or segment/self collision. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
 /** Explicit connection between a sampled rope collider id and a dynamic sphere body. */
 export interface RopeBodyCollider { readonly id: string; readonly entity: string }
+/** Optional renderer-owned cylindrical segments following simulated particle positions. */
+export interface RopeVisualOptions {
+  material: string;
+  radius?: number;
+  radialSegments?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+}
+/** Detached presentation state; native renderer objects are not exposed. */
+export interface RopeVisualState {
+  id: string;
+  material: string;
+  radius: number;
+  radialSegments: number;
+  castShadow: boolean;
+  receiveShadow: boolean;
+  positions: Vec3[];
+}
 export interface RopeDefinition {
   id: string;
   points: readonly Vec3[];
@@ -137,6 +155,8 @@ export interface RopeDefinition {
   autoStep?: boolean;
   /** Automatically sample and react to existing dynamic, non-trigger sphere bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
+  /** Optional segmented presentation using an already-declared material id. */
+  visual?: RopeVisualOptions;
   substeps?: number;
   iterations?: number;
   damping?: number;
@@ -164,6 +184,8 @@ export interface RopeService {
   /** Explicit ticks for manual ropes only. Auto-stepped ropes reject this call. A failed batch leaves the rope unchanged. */
   step(id: string, ticks?: number): RopeState;
   inspect(id: string): RopeState;
+  /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */
+  visuals(): readonly RopeVisualState[];
   setColliders(id: string, colliders: readonly RopeCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
   releaseAnchor(id: string, index: number): void;

@@ -296,6 +296,8 @@ export class RopeSolver {
     this.positions = positions; this.velocities = velocities;
     this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.tickValue++;
   }
+  /** Detached positions for renderer synchronization without copying contact state. */
+  particlePositions(): Vec3[] { this.alive(); return this.positions.map(copy); }
   inspect(): RopeState {
     if (this.disposedValue) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, positions: [], velocities: [], anchors: [], contacts: [], maxDistanceError: 0, resources: { particles: 0, constraints: 0, anchors: 0, colliders: 0 } };
     const maxDistanceError = Math.max(0, ...this.config.restLengths.map((d, i) => {

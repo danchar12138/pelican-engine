@@ -1,6 +1,6 @@
 import { defineComponent, defineGame, defineMaterial, defineScene, defineSystem } from "pelican-engine";
 
-// The cubes show particle positions only; there is no built-in rope mesh yet.
+// This example deliberately shows particle positions as cubes instead of enabling the rope visual.
 const State = defineComponent({ id: "RopeExampleState", schema: {
   initialized: { type: "boolean", default: false },
 } });

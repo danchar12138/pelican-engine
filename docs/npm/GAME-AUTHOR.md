@@ -137,6 +137,20 @@ all earlier automatic ropes from that phase; the host tick may still have other
 partial changes and must be recovered from a known-good checkpoint. The source
 checkout includes `examples/rope-particles`.
 
+For optional visual presentation, declare a material in `defineGame({ materials:
+[...] })` and create the rope with `visual: { material: "your-material-id" }`.
+The renderer draws capped cylindrical instances between consecutive simulated
+particles and updates their transforms as the rope moves. `radius` defaults to
+the particle collision radius (or 0.025); `radialSegments` defaults to 8 and
+accepts 3–32. `castShadow` and `receiveShadow` default to true. A collapsed
+zero-length segment has no visible surface. `ctx.ropes.visuals()` returns
+detached descriptions, not renderer objects. Visual configuration is included
+in the rope snapshot and is disposed with the owning content.
+
+This is segmented geometry with overlapping caps, not a continuous deformable
+tube. Large ropes may be expensive. Raster, ray-traced modes, GPU resource
+lifecycle and snapshot restoration have not been runtime validated.
+
 To bind a rope to existing dynamic sphere bodies, create it with `autoStep: true`
 and `bodyColliders: [{ id: "rope-collider-id", entity: "body-id" }]`. After the
 rigid-body physics phase, the host samples each bound sphere's actual collider
@@ -178,9 +192,8 @@ operations and is not transactional if a tick fails; recover from a known-good
 checkpoint. It must not be represented as complete two-way rigid-body interaction.
 
 This is an unverified development-stage increment, not complete rope physics:
-there is no built-in rope mesh, general rigid-body coupling, segment or self collision,
-or tearing. Moving entities to particle positions is not a rope renderer or
-coupled physics. Plane normals must be unit length; `offset` is the signed
+the optional segmented visual does not provide a continuous deformable rope mesh,
+general rigid-body coupling, segment or self collision, or tearing. Plane normals must be unit length; `offset` is the signed
 normal distance from the origin. Host intervals must be between 1/1000 and
 1/30 seconds inclusive.
 

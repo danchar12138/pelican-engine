@@ -11,12 +11,25 @@ type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyCollide
 const fail = (code: string, detail: string): never => { throw new Error(`TC_ROPE_${code}: ${detail}`); };
 const validId = (id: unknown): id is string => typeof id === "string" && id.trim() === id && id.length > 0 && id.length <= 128;
 
-function createEntry(input: RopeDefinition, fixedDt: number): Entry {
+function createEntry(input: RopeDefinition, fixedDt: number, materials: ReadonlySet<string>): Entry {
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty id of at most 128 characters.");
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be a boolean.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Rope fixedDt must exactly match the host fixedDt.");
   if (fixedDt < 1 / 1000 || fixedDt > 1 / 30) return fail("FIXED_DT", "Host fixedDt must be within [1/1000, 1/30] seconds for ropes.");
+  if (definition.visual !== undefined) {
+    const visual = definition.visual;
+    if (!visual || typeof visual !== "object" || Array.isArray(visual) || !validId(visual.material) || !materials.has(visual.material))
+      return fail("VISUAL_MATERIAL", "visual.material must name a declared engine material.");
+    const radius = visual.radius ?? definition.radius ?? 0.025;
+    if (typeof radius !== "number" || !Number.isFinite(radius) || radius <= 0 || radius > 1e6 || Math.fround(radius) === 0)
+      return fail("VISUAL_RADIUS", "visual radius must be positive, finite, representable and at most 1e6.");
+    const sides = visual.radialSegments ?? 8;
+    if (!Number.isSafeInteger(sides) || sides < 3 || sides > 32)
+      return fail("VISUAL_SEGMENTS", "radialSegments must be an integer in [3,32].");
+    if ((visual.castShadow !== undefined && typeof visual.castShadow !== "boolean") || (visual.receiveShadow !== undefined && typeof visual.receiveShadow !== "boolean"))
+      return fail("VISUAL_SHADOW", "Visual shadow options must be boolean.");
+  }
   if (definition.bodyColliders !== undefined) {
     if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > 64)
       return fail("BODY_COLLIDER", "bodyColliders must contain at most 64 bindings.");
@@ -36,14 +49,14 @@ function disposeEntries(entries: Map<string, Entry>): void {
   for (const { solver } of entries.values()) solver.dispose();
   entries.clear();
 }
-function parseSnapshot(value: unknown, fixedDt: number): Map<string, Entry> {
+function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<string>): Map<string, Entry> {
   if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1 || !Array.isArray((value as { ropes?: unknown }).ropes) || (value as { ropes: unknown[] }).ropes.length > 256)
     return fail("SNAPSHOT", "Expected a version 1 rope snapshot with at most 256 ropes.");
   const entries = new Map<string, Entry>();
   try {
     for (const item of (value as { ropes: Saved[] }).ropes) {
       if (!item || typeof item !== "object") fail("SNAPSHOT", "Invalid rope entry.");
-      const entry = createEntry(item.definition, fixedDt);
+      const entry = createEntry(item.definition, fixedDt, materials);
       if (entries.has(entry.definition.id)) { entry.solver.dispose(); fail("SNAPSHOT", "Duplicate rope id."); }
       entries.set(entry.definition.id, entry);
       const stale = item.staleBodyColliders === undefined ? [] : item.staleBodyColliders;
@@ -88,6 +101,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
   const { fixedDt } = context;
   if (typeof fixedDt !== "number" || !Number.isFinite(fixedDt)) return fail("FIXED_DT", "RuntimeHost must provide a finite fixed interval.");
   const hostDt = fixedDt;
+  const materials = new Set(context.scene.materials.map(material => material.id));
   let entries = new Map<string, Entry>();
   let disposed = false, pendingRefs = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Rope service is disposed."); };
@@ -110,7 +124,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty rope id.");
       if (entries.has(definition.id)) return fail("DUPLICATE", `Rope '${definition.id}' already exists.`);
       if (entries.size >= 256) return fail("CAPACITY", "At most 256 ropes per host.");
-      const entry = createEntry(definition, hostDt);
+      const entry = createEntry(definition, hostDt, materials);
       try { entry.bodyRefs = resolveRefs(entry, context, true); entries.set(entry.definition.id, entry); }
       catch (error) { entry.solver.dispose(); throw error; }
     },
@@ -120,6 +134,17 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       return entry.solver.step(ticks);
     },
     inspect(id) { return get(id).solver.inspect(); },
+    visuals() {
+      alive(); ensureRefs();
+      return [...entries.values()].filter(entry => entry.definition.visual !== undefined)
+        .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0)
+        .map(entry => {
+          const visual = entry.definition.visual!;
+          return { id: entry.definition.id, material: visual.material, radius: visual.radius ?? entry.definition.radius ?? 0.025,
+            radialSegments: visual.radialSegments ?? 8, castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true,
+            positions: entry.solver.particlePositions() };
+        });
+    },
     setColliders(id, colliders) {
       const entry = get(id);
       if (Array.isArray(colliders)) {
@@ -202,13 +227,13 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       }).map(binding => binding.id);
       return { definition: cloneSerializable(entry.definition), state: entry.solver.snapshot(), ...(stale.length ? { staleBodyColliders: stale } : {}) };
     }) }; },
-    validateSnapshot(value) { const staged = parseSnapshot(value, hostDt); disposeEntries(staged); },
+    validateSnapshot(value) { const staged = parseSnapshot(value, hostDt, materials); disposeEntries(staged); },
     validateWorld(value, world) {
-      const staged = parseSnapshot(value, hostDt);
+      const staged = parseSnapshot(value, hostDt, materials);
       try { validateWorldBindings(staged, context, world); } finally { disposeEntries(staged); }
     },
     validatePeers(value, peers) {
-      const staged = parseSnapshot(value, hostDt);
+      const staged = parseSnapshot(value, hostDt, materials);
       try {
         const bindings = [...staged.values()].flatMap(entry => (entry.definition.bodyColliders ?? []).filter(binding => !entry.staleBodies.has(binding.id)));
         if (!bindings.length) return;
@@ -223,7 +248,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       } finally { disposeEntries(staged); }
     },
     restore(value) {
-      alive(); const staged = parseSnapshot(value, hostDt);
+      alive(); const staged = parseSnapshot(value, hostDt, materials);
       disposeEntries(entries); entries = staged; pendingRefs = true;
     },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },

@@ -39,23 +39,31 @@ export function extractTriangles(scene: THREE.Scene): Triangle[] {
       new THREE.Vector3(),
       new THREE.Vector3(),
     ];
-    for (let i = 0; i < count; i += 3) {
-      for (let k = 0; k < 3; k++)
-        object
-          .getVertexPosition(geometry.index?.getX(i + k) ?? i + k, points[k])
-          .applyMatrix4(object.matrixWorld);
-      const color = material.color ?? new THREE.Color(0.6, 0.6, 0.6);
-      triangles.push({
-        a: points[0].toArray(),
-        b: points[1].toArray(),
-        c: points[2].toArray(),
-        color: color.toArray(),
-        emission:
-          material.emissiveIntensity && material.emissive?.getHex()
-            ? material.emissiveIntensity
-            : 0,
-        roughness: material.roughness ?? 0.8,
-      });
+    const instanced = object instanceof THREE.InstancedMesh ? object : undefined;
+    const instance = new THREE.Matrix4(), transform = new THREE.Matrix4();
+    for (let slot = 0; slot < (instanced?.count ?? 1); slot++) {
+      if (instanced) {
+        instanced.getMatrixAt(slot, instance);
+        transform.multiplyMatrices(object.matrixWorld, instance);
+      } else transform.copy(object.matrixWorld);
+      for (let i = 0; i < count; i += 3) {
+        for (let k = 0; k < 3; k++)
+          object
+            .getVertexPosition(geometry.index?.getX(i + k) ?? i + k, points[k])
+            .applyMatrix4(transform);
+        const color = material.color ?? new THREE.Color(0.6, 0.6, 0.6);
+        triangles.push({
+          a: points[0].toArray(),
+          b: points[1].toArray(),
+          c: points[2].toArray(),
+          color: color.toArray(),
+          emission:
+            material.emissiveIntensity && material.emissive?.getHex()
+              ? material.emissiveIntensity
+              : 0,
+          roughness: material.roughness ?? 0.8,
+        });
+      }
     }
   });
   return triangles;
