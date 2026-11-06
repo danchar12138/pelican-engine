@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">Pelican Engine mark</title>
+  <rect x="4" y="4" width="152" height="152" rx="40" fill="#12334a"/>
+  <path d="M32 104c13 21 51 30 76 10 9-7 15-18 17-31-12 11-27 13-42 9-19-4-32-19-38-33-12 13-17 29-13 45z" fill="#edf8f6"/>
+  <path d="M45 59c7-21 24-33 44-30 15 2 24 12 28 25-9 1-18 4-26 11-12 10-19 21-20 31C57 88 48 75 45 59z" fill="#58cfb8"/>
+  <path d="M98 60c11-8 27-11 43-6l-30 17-26 13c1-9 5-18 13-24z" fill="#ffbd69"/>
+  <circle cx="94" cy="48" r="3.5" fill="#12334a"/>
+  <path d="M31 119c21 11 47 15 74 5" fill="none" stroke="#58cfb8" stroke-width="4" stroke-linecap="round"/>
+</svg>

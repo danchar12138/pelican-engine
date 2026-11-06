@@ -3,14 +3,6 @@ name: Publish npm package
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      operation:
-        description: Remove the obsolete next dist-tag
-        required: true
-        type: choice
-        options:
-          - remove-next
 
 permissions:
   contents: read
@@ -41,15 +33,3 @@ jobs:
         run: |
           $version = (Get-Content .pelican/npm/package/package.json -Raw | ConvertFrom-Json).version
           npm publish (Join-Path .pelican/npm/artifacts ('pelican-engine-' + $version + '.tgz')) --access public --tag latest
-  remove-next:
-    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'remove-next'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          registry-url: https://registry.npmjs.org
-      - run: npm install --global npm@11.21.2
-      - name: Remove obsolete next tag using OIDC
-        run: npm dist-tag rm pelican-engine next

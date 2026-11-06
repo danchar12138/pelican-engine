@@ -1,6 +1,6 @@
 # Pelican Engine 命名与迁移
 
-本次名称由用户确定：**Pelican Engine（鹈鹕游戏引擎）**。引擎仍处于 M3 开发，不因更名重启里程碑，也不把已有开发探针提升为正式验收。
+产品名称为 **Pelican Engine（鹈鹕游戏引擎）**。本文件保留更名与迁移背景；当前版本、能力缺口及发布状态见 [研发状态](STATUS.md)，历史开发探针不是当前源码的正式验收。
 
 | 对象 | 唯一正式名称 |
 | --- | --- |
@@ -9,7 +9,7 @@
 | npm 单包 | `pelican-engine` |
 | 命令 / bin | `pelican` |
 | 游戏侧公开导入 | `pelican-engine` |
-| 源码目录启动脚本 | `pelican.ps1` |
+| 源码命令入口 | `npm run dev` 或 `node --import tsx tools/cli.ts` |
 | 项目清单 | `pelican.project.json` |
 | 本地缓存 / 开发控制路由 | `.pelican/` / `/__pelican/` |
 | 部署版本清单 | `pelican-build.json` |
@@ -18,8 +18,8 @@ SDK、runtime、renderer、编译器和 CLI 位于同一个 npm 包中。内部�
 
 目标最短使用流程为：
 
-```powershell
-npm i -D pelican-engine
+```sh
+npm --prefix . install --save-dev --save-exact pelican-engine
 npx pelican dev
 ```
 
@@ -35,4 +35,4 @@ M0–M2 的原名称、标签、提交、Release 附件与 `evidence/` 是历史
 
 ## 远端实际状态
 
-用户后续明确 GitHub 只改仓库名，不改组织。远端现已改名为 `danchar12138/pelican-engine`，本地 origin 同步更新，公开仓库、历史标签与 Release 保留。npm 身份已通过授权 Automation Token 验证，令牌仅配置为该仓库 Actions 的 `NPM_TOKEN` secret，未写源码或证据。npm `pelican-engine` 查询仍返回 404；本轮只完成更名和开发分发验证，不在里程碑验收前提前推送、创建标签或发布包。
+GitHub 仓库为 `danchar12138/pelican-engine`，所有者保持不变。npm 使用 Trusted Publisher OIDC；当前稳定版本见 `package.json` 与 [npm package](https://www.npmjs.com/package/pelican-engine)。历史标签和历史发布记录保留原样，不更名、不重写。

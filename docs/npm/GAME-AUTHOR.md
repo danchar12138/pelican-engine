@@ -1,5 +1,12 @@
 # Pelican Engine Game Author
 
+For an installed game, start in an empty directory with `npm --prefix . install
+--save-dev --save-exact pelican-engine`, then run `npx pelican dev`. The CLI
+generates the minimal starter when the directory is eligible and preserves existing
+game files. See `docs/GETTING-STARTED.md` in the package for npm and source
+workflows. Commands use common Node/npm syntax; the currently supported development
+environment is Windows, while player support depends on actual browser capabilities.
+
 Your workspace is the game project. Use the public `pelican-engine` API and local
 game modules. Do not modify engine internals or `node_modules`, import Three.js,
 TSL, GPU devices, physics-library objects, compiler internals or Node APIs into
@@ -15,8 +22,8 @@ lists the JSON CLI protocol. `docs/CAPABILITIES.md` records implemented scope an
 limitations. The longer `docs/AI-WORKFLOW.md` is shared design context, not an
 instruction to run source-only engine acceptance tasks.
 
-The shared `docs/M3-USAGE.md` describes the current rendering and compute
-contracts. Its `examples/`, engine `packages/`, and `npm run probe:*` references
+The source checkout's `docs/STATUS.md` summarizes current engine capabilities
+and gaps. Its `examples/`, engine `packages/`, and `npm run probe:*` references
 are maintainer references available only in a source checkout; the npm package
 intentionally contains no example projects, game assets, or engine source. Use
 the same public declarations in your own game project and validate them with the
@@ -107,19 +114,25 @@ Keyboard bindings use the browser's `KeyboardEvent.key` values, not physical
 `KeyboardEvent.code` values. For example, use `input: { up: ["w", "W", "ArrowUp"],
 restart: ["r", "R"] }`, not `"KeyW"` or `"KeyR"`. Letter case depends on the
 actual keyboard event; Space is `" "`. Actions are read inside systems through
-`ctx.input.held`, `pressed`, `released`, or `axis`. Always exercise real keyboard
-input in the browser; a mocked system test does not establish browser bindings.
+`ctx.input.held`, `pressed`, `released`, or `axis`. A mocked system test does not
+establish browser bindings; real input requires separate verification when permitted.
 
 ## Work Loop
 
 1. Inspect `pelican.project.json`, `game.ts`, asset declarations and the public API.
 2. Make small game-only edits. Keep the exact engine version lock.
-3. Run `pelican check`, then `pelican dev` and exercise actual gameplay.
+3. Follow the active project policy for running the game or checking gameplay.
 4. Use `inspect`, `input`, `step`, `pause`, `resume`, `snapshot`, `restore`,
-   `record`, `replay`, `status`, `cancel` and `reset-session` against the dev port.
-5. Run `capture --live` against the dev port or a standalone `capture`, inspect
-   the actual screenshot, and preserve explicit failures rather than claiming success.
+  `record`, `replay`, `status`, `cancel` and `reset-session` against the dev port
+   when verification is permitted.
+5. When verification is permitted, use capture and inspect results; preserve
+   explicit failures rather than claiming success.
 6. Run `build` and serve `dist/` over HTTP(S). Keep notices and license files.
+
+The current engine project decision permits compilation and builds only, not
+tests, browser/GPU runs, smoke or other validation. Historical instructions and
+reports do not authorize those activities or establish that they passed for the
+current source.
 
 Installed package commands use `npx --no-install pelican <command>` from the game
 directory. Repository commands use `node --import tsx <engine>/tools/cli.ts

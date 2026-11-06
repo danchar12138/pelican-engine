@@ -223,6 +223,7 @@ export async function buildDistribution() {
           "docs",
           "licenses",
           "AGENTS.md",
+          "CONTRIBUTING.md",
           "README.md",
           "LICENSE",
           "engine.manifest.json",
@@ -258,7 +259,10 @@ export async function buildDistribution() {
     ),
   );
   await cp(path.join(root, "LICENSE"), path.join(staging, "LICENSE"));
+  await cp(path.join(root, "CONTRIBUTING.md"), path.join(staging, "CONTRIBUTING.md"));
   for (const name of [
+    "docs/GETTING-STARTED.md",
+    "docs/assets/pelican-mark.svg",
     "docs/AI-WORKFLOW.md",
     "docs/CAPABILITIES.md",
     "docs/ARCHITECTURE.md",
@@ -267,7 +271,6 @@ export async function buildDistribution() {
     "docs/STATUS.md",
     "docs/RENDER-BACKENDS.md",
     "docs/PELICAN-MIGRATION.md",
-    "docs/M3-USAGE.md",
     "docs/THIRD-PARTY-NOTICES.md",
     "docs/npm/DISTRIBUTION.md",
     "docs/npm/GAME-AUTHOR.md",

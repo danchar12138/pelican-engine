@@ -1,6 +1,6 @@
 # pelican 里程碑发布规范
 
-本文描述仓库内已实现的发布检查与打包工具，以及由主线执行的发布流程。工具本身不执行 Git、gh、网络上传或云端构建，不生成验收结论，也不启动 GPU 测试。
+本文介绍 npm 连续发布方式和可选的源码归档工具。功能与修复通过推送 `main` 发布 npm；GitHub Release 用于记录里程碑，不是 npm 发布触发器。源码 ZIP 是额外维护工具，不替代推送发布。
 
 最新 D50 禁止一切验证，仅允许编译/构建。版本按 D54 使用标准版本号；无预发布后缀不代表运行、GPU 或完整验收通过，发布说明必须明确 compile-only/unverified。提交消息采用中文 Conventional Commits；里程碑 Release 与普通推送的 npm 发布按 D54 分开处理。
 
@@ -8,7 +8,7 @@
 
 主线完成允许的构建后，使用当前标准版本号执行：
 
-```powershell
+```sh
 node --import tsx tools/release.ts pack --compile-only-unverified
 ```
 
@@ -18,7 +18,7 @@ node --import tsx tools/release.ts pack --compile-only-unverified
 
 ## npm 同节点分发
 
-**当前规则（D54）：** 每次推送 `main` 触发 `.github/workflows/npm-publish.yml`，使用仓库中明确维护的无后缀版本构建，通过 npm OIDC 可信发布到 `latest`；GitHub Release 单独标记里程碑，不额外触发 npm 发布。开发者按变更更新包、引擎、SDK 和示例的版本，CI 不生成或修改版本。npm 不允许复用已发布版本；重复推送同一版本会失败，等待后续版本，不重写或覆盖历史包。工作流提供手动移除 `next` 别名的操作，不删除历史版本。之前误发布的长版本仍存在，并可能影响使用 semver 范围的依赖选择。D50 下只构建，不运行测试或其他验证；无后缀不意味着完整里程碑或运行行为已验收。下文 D52 staged 方案为历史记录。
+**当前规则（D54）：** 每次推送 `main` 触发 `.github/workflows/npm-publish.yml`，使用仓库中明确维护的无后缀版本构建，通过 npm OIDC 可信发布到唯一的 `latest` 标签；GitHub Release 单独标记里程碑，不额外触发 npm 发布。开发者按变更更新包、引擎、SDK 和示例的版本，CI 不生成或修改版本。npm 不允许复用已发布版本；重复推送同一版本会失败，等待后续版本，不重写或覆盖历史包。旧 `next` 别名已移除；之前误发布的长版本仍存在，并可能影响使用 semver 范围的依赖选择。D50 下只构建，不运行测试或其他验证；无后缀不意味着完整里程碑或运行行为已验收。下文 D52 staged 方案为历史记录。
 
 D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同。D52 的 staged 方案是历史记录，已由上述 D54 直接发布方案取代；CI 构建成功和本地 tarball 生成都不等于验收通过。
 
@@ -28,7 +28,7 @@ npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部�
 
 按照 D50，当前 CI 不执行发布后 registry 对照、安装复测或 smoke；因此工作流成功也不证明公开包的运行行为。发布失败时须如实记录实际结果，不能假定已经发布或盲目重复发布同一版本。
 
-M3 没有完整正式验收 profile；D50 下发布必须明确未验证，不复用历史 M2 证据。当前 npm 工作流直接发布，不运行验收或发布后复测；实际状态以发布操作结果为准。
+当前标准版本为 `0.3.5`，下一次功能或修复发布应统一递增包、锁文件、引擎、SDK、编译器和示例项目版本，再提交并推送。重复发布已存在版本会失败，不自动换号。当前能力和未解决缺口见 `docs/STATUS.md`；npm 发布不表示运行或完整图形能力已验证。
 
 ## 当前阶段选择
 
@@ -62,11 +62,11 @@ M2 构建可生成 `.br/.gz` 传输压缩文件。dist ZIP 保留这些已声明
 
 ## 命令与库接口
 
-```powershell
+```sh
 npm run release:check
 npm run release:pack
-node --import tsx tools/release.ts check --root "D:\游戏开发\pelican"
-node --import tsx tools/release.ts pack --root "D:\游戏开发\pelican"
+node --import tsx tools/release.ts check --root "<engine-directory>"
+node --import tsx tools/release.ts pack --root "<engine-directory>"
 ```
 
 ```ts
@@ -230,14 +230,14 @@ M0、M1、M2 的 render 检查都需要引用 JSON 报告；至少同一份报�
 
 | 阶段 | 建议首版     | 当前发布工具支持                         |
 | ---- | ------------ | ---------------------------------------- |
-| M0   | `0.0.1-m0.0` | 已实现 profile；风险原型 prerelease      |
-| M1   | `0.1.0-m1.0` | 已实现 profile；运行时基础 prerelease    |
-| M2   | `0.2.0-m2.0` | 已实现 profile；可玩游戏切片 prerelease  |
-| 历史渲染阶段   | `0.3.0-m3.0` | 历史预发布标签，仅保留原样 |
-| M4   | `0.4.0-m4.0` | 待本阶段 verifier、scope 和 profile 实现 |
-| M5   | `0.5.0-m5.0` | 待本阶段 verifier、scope 和 profile 实现 |
-| M6   | `0.6.0-m6.0` | 待本阶段 verifier、scope 和 profile 实现 |
-| M7   | `0.7.0-m7.0` | 待本阶段 verifier、scope 和 profile 实现 |
+| M0   | `0.0.1` | 历史标准版本；旧标签保留在历史记录 |
+| M1   | `0.1.0` | 历史标准版本；旧标签保留在历史记录 |
+| M2   | `0.2.0` | 历史标准版本；旧标签保留在历史记录 |
+| 历史图形阶段   | `0.3.0` | 历史标准版本；旧标签保留在历史记录 |
+| M4   | `0.4.0` | 待本阶段 verifier、scope 和 profile 实现 |
+| M5   | `0.5.0` | 待本阶段 verifier、scope 和 profile 实现 |
+| M6   | `0.6.0` | 待本阶段 verifier、scope 和 profile 实现 |
+| M7   | `0.7.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M8   | `1.0.0`      | 尚未启用，不接受正式版成功声明           |
 
 历史 M0、M1、M2 始终返回 `prerelease: true`；当前及后续阶段显式未验证模式使用普通版本并返回 `prerelease: false`，但不代表任何运行或硬件验收。
@@ -255,7 +255,7 @@ M0、M1、M2 的 render 检查都需要引用 JSON 报告；至少同一份报�
 
 以下是历史测试说明，不是 D50 下的执行指令。D50 禁止测试和其他验证；CI 脚本由主线负责调整，此工具任务不修改 `.github/`。
 
-```powershell
+```sh
 node --import tsx --test tests/release.test.ts
 ```
 

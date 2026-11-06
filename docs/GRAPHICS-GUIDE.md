@@ -1,6 +1,6 @@
-# M3 开发候选使用指引
+# 图形与运行时使用指引
 
-当前 `0.3.0-m3.0` **尚未正式验收或发布**。稳定 M2 为 `v0.2.0-m2.0`，不能用当前源码更新历史 M2 验收指纹。本文说明已有开发候选的实际操作，不宣称完整高级渲染完成。
+本文说明当前源码中的图形与运行时接口，不宣称完整高级渲染已完成或验收。实际版本见项目清单，当前状态见 [研发状态](STATUS.md)。历史阶段名称、实验结果和旧标签仅适用于各自记录的源码，不代表当前版本通过。按当前 D50，仅允许编译/构建；下文历史探针、浏览器或测试命令在恢复授权之前不得运行。
 
 ## 模型材质槽
 
@@ -12,11 +12,11 @@
 
 `defineMaterial({ id, ior, transmission: 0, ... })` 可为不透射的物理材质指定有限正数折射率，默认值为 1.5。介质法线入射反射率由 `((ior - 1) / (ior + 1))²` 决定；光栅、hybrid 和 path 共享该输入，路径采样与 PDF 也使用对应反射率。金属部分仍使用 baseColor 的 F0。`attenuationColor` 和 `attenuationDistance` 仍要求正的 transmission，不能用不透射 IOR 伪装体积吸收。
 
-仓库中的 `examples/opaque-ior` 以三个黑色平面展示差异；`npm run probe:opaque-ior` 是需要独占 GPU 的小型三模式开发验证。该例不代表完整物理材质扩展或正式 M3 验收；npm 渠道使用同一公开接口，当前源码增量的新包安装验收仍待稳定候选。
+仓库中的 `examples/opaque-ior` 以三个黑色平面展示差异；相关 probe 是历史开发验证入口。该例不代表完整物理材质扩展或当前版本验收；npm 渠道使用同一公开接口。
 
 不透射物理材质还可设置 `specularIntensity`（0 到 1，默认 1）和 `specularColor`（sRGB `#rgb`、`#rrggbb` 或颜色名称，默认白色）。这两个因子参与介质高光、掠射和 path/hybrid 采样；金属部分仍由 baseColor 决定。非默认高光与正 `transmission` 的组合目前返回 `TC_MATERIAL_SPECULAR_TRANSMISSION`，不会悄悄使用默认值。
 
-自包含 GLB 可使用 `KHR_materials_specular`／`KHR_materials_ior` 的常数材质因子；不透射材质还支持 specular 强度纹理 alpha 与 sRGB 颜色纹理 RGB，资产仅接受 TEXCOORD_0，`optimize` 保留并复核因子、图像和采样配置。高光颜色 PNG 支持 1/2/4-bit 灰度和调色板 Adam7、无色彩元数据的 16-bit，以及 gAMA 45455/100000、标准 sRGB cHRM、sRGB intent 0、cICP [1,13,0,1]；其他 16-bit 色彩块值和 ICC 仍明确拒绝。正透射结合高光纹理及其他未实现扩展仍不支持。示例 `examples/specular-material`、`examples/specular-textures` 和 `examples/specular-textures-16` 对照导入材质；探针需串行独占 GPU。完整 M3 和全新系统或公开注册表验收尚未完成。
+自包含 GLB 可使用 `KHR_materials_specular`／`KHR_materials_ior` 的常数材质因子；不透射材质还支持 specular 强度纹理 alpha 与 sRGB 颜色纹理 RGB，资产仅接受 TEXCOORD_0，`optimize` 保留并复核因子、图像和采样配置。高光颜色 PNG 支持 1/2/4-bit 灰度和调色板 Adam7、无色彩元数据的 16-bit，以及 gAMA 45455/100000、标准 sRGB cHRM、sRGB intent 0、cICP [1,13,0,1]；其他 16-bit 色彩块值和 ICC 仍明确拒绝。正透射结合高光纹理及其他未实现扩展仍不支持。示例 `examples/specular-material`、`examples/specular-textures` 和 `examples/specular-textures-16` 对照导入材质；探针属于历史开发记录。完整材质矩阵和公开注册表安装验收尚未完成。
 
 ## 计算到渲染的缓冲绑定
 
@@ -42,9 +42,9 @@ path/hybrid 将常驻 GPU 数据复制进原生材料表的附加 vec4 区域；
 
 使用 `model: { asset, material }` 可显式整模替换导入材质，把顶点图用于带骨骼/morph 的模型；不传 material 保留原资产材质。覆盖材质由游戏内容所有者持有，模型实例与模板不会销毁借用材质。当前是整模替换，不是按源材质槽合并。
 
-引擎从同一变形几何维护对象包围体和渲染射线查询，剔除保持开启，路径/混合 BVH 会更新或 refit。Transform 和显式物理 collider 不被 shader 改写；本功能不等于自动 Rapier 形变或 M4 耦合。
+引擎从同一变形几何维护对象包围体和渲染射线查询，剔除保持开启，路径/混合 BVH 会更新或 refit。Transform 和显式物理 collider 不被 shader 改写；本功能不等于自动 Rapier 形变或物理系统耦合。
 
-最小例子：`npm run dev -- --project examples/vertex`。数据纹理和小型带骨骼/morph GLB 是可离线重建的 MIT 夹具；`node --import tsx tools/prepare-vertex-assets.ts` 可重新生成。高收益实测入口为 `npm run probe:vertex`，内部 MRT 遮挡回归为 `npm run probe:postprocess:occlusion`；两者都应独占 GPU，不是完整 M3 验收。
+最小例子：`npm run dev -- --project examples/vertex`。数据纹理和小型带骨骼/morph GLB 是可离线重建的 MIT 夹具；`node --import tsx tools/prepare-vertex-assets.ts` 可重新生成。历史开发入口为 `npm run probe:vertex` 和 `npm run probe:postprocess:occlusion`；它们不构成当前版本完整验收。
 
 ## 受控 HDR 后处理
 
@@ -56,7 +56,7 @@ pass 输出为全尺寸 rgba16float，捕获保持场景原 MSAA，最终曝光/
 
 效果开关及参数参与 CPU 检查点；反馈纹理不序列化，恢复/内容/模式/设备变化明确重置历史。开关变化会防御性重置所有历史；关闭的 pass 不再推进历史，当前帧输出为上游直通。参数改变默认保留历史，需要时显式 `resetHistory(id?)`。反馈按呈现帧推进，不是游戏物理时间或存档状态。
 
-最小三段例子在 `examples/postprocess`：`npm run dev -- --project examples/postprocess`。小规模独占 GPU 验证为 `npm run probe:postprocess`，覆盖三模式像素、通道、反馈/恢复、4× MSAA、方向标记及一条 WebGL2 路径；它不是完整 M3、画质或性能验收。
+最小三段例子在 `examples/postprocess`：`npm run dev -- --project examples/postprocess`。`npm run probe:postprocess` 是历史开发验证入口；它不构成当前版本完整画质或性能验收。
 
 ## 受管理计算
 
@@ -64,7 +64,7 @@ pass 输出为全尺寸 rgba16float，捕获保持场景原 MSAA，最终曝光/
 
 引擎在每个固定 tick 后等待 GPU 任务结算；`readBuffer` 返回上次完整成功结果的 CPU 镜像，失败或取消不覆盖输出。输出可同时作为输入，读取的是派发前快照。枚举 `tasks()` 并释放终态任务，避免无限保留历史；恢复后按缓冲名称 `resolve()`，不复用旧句柄。快照/回放/设备重建已接入，WebGL2 不执行计算。
 
-仓库最小反馈游戏：`npm run dev -- --project examples/compute`。受影响功能复测使用 `npm run probe:compute:numeric`，完成后再串行执行 `npm run probe:compute`；前者为小规模真实 GPU 数值与释放检查，后者为游戏反馈、输入、快照/回放、恢复和一条 WebGL2 能力分支。不要并行争用同一 GPU，也不需要为每次局部修改运行整个 M3 矩阵。
+仓库最小反馈游戏：`npm run dev -- --project examples/compute`。`npm run probe:compute:numeric` 和 `npm run probe:compute` 是历史 GPU 开发验证入口，不构成当前源码的完整能力验收。
 
 显式依赖使用 `bindings: { name: { task: predecessor } }`：读取该任务的确切成功输出，即使同一源缓冲已经被后续任务覆盖。`after: [predecessor]` 只约束执行顺序，普通缓冲句柄绑定仍读取派发时快照；参数与 time 也在派发时固定。只能引用同一运行时已有的未释放任务，不支持前向/跨 owner 引用。
 
@@ -72,7 +72,7 @@ pass 输出为全尺寸 rgba16float，捕获保持场景原 MSAA，最终曝光/
 
 任务不序列化进快照。游戏不要把临时任务句柄作为持久状态：恢复或设备重建后重新派发链路；源缓冲按名称 resolve。公开示例 `examples/compute-dependencies` 演示分支、覆盖、纯顺序依赖及失败隔离；小型串行硬件验证为 `npm run probe:compute-dependencies`。
 
-当前任务仍顺序执行且每节点读回 CPU 镜像，不是一次批量 GPU-only DAG。GPU 常驻顶点/片元/后处理的缓冲和纹理绑定、顶点图、HDR 后处理及计算纹理核心已接入；完整高级矩阵仍待完成。现有链路不等于 CAP-17 或完整 M3 已验收。
+当前任务仍顺序执行且每节点读回 CPU 镜像，不是一次批量 GPU-only DAG。GPU 常驻顶点/片元/后处理的缓冲和纹理绑定、顶点图、HDR 后处理及计算纹理核心已接入；完整高级图形矩阵仍待完成。现有链路不等于完整能力已验收。
 
 ## 计算纹理
 
@@ -100,7 +100,7 @@ Three 路径将常驻纹理以 GPU→GPU 复制到自身资源；path/hybrid 将
 
 ## 场景与公开设置
 
-```powershell
+```sh
 npm run dev
 ```
 
@@ -149,11 +149,11 @@ const glass = defineMaterial({
 
 path/hybrid 将正透射对象的闭合几何边界编入介质目录，支持平滑/粗糙折射、反射、嵌套介质和相机内部初始状态。每个对象或实例必须是单个闭合、连续、非自交壳体；相交/接触体积、开口和部分不透明边界有明确诊断。目录不是通用自交证明；复杂重叠介质、空腔、多壳体、光谱色散尚未实现。完整规则见 `packages/renderer/MEDIUM.md`。
 
-```powershell
+```sh
 npm run dev -- --project examples/refraction
 ```
 
-该项目仅使用公开 SDK，包含吸收平板、内外相机、嵌套边界、折射/粗糙度、尺度/平移和介质内点光源对照。线性图像、边界错误计数与解析 Beer 断言由独立开发探针检查；不能把可见玻璃球当成完整 M3 画质验收。光栅使用物理材质实现，但其屏幕空间透射/厚度与路径体积的一致性仍需补验。
+该项目仅使用公开 SDK，包含吸收平板、内外相机、嵌套边界、折射/粗糙度、尺度/平移和介质内点光源对照。线性图像、边界错误计数与解析 Beer 断言由历史开发探针检查；不能把可见玻璃球当成完整画质验收。光栅使用物理材质实现，但其屏幕空间透射/厚度与路径体积的一致性仍需补验。
 
 ## 已有链路
 
@@ -173,20 +173,20 @@ npm run dev -- --project examples/refraction
 
 ## 开发复验
 
-### 刚体角运动（M4 并行增量）
+### 刚体角运动
 
 `ctx.physics.angularVelocity(entity)` 查询世界坐标弧度／秒；`setAngularVelocity(entity, vec3)` 设置动态刚体角速度，`torqueImpulse(entity, vec3)` 施加世界空间力矩冲量，`impulseAtPoint(entity, impulse, worldPoint)` 在指定世界坐标施加冲量，同时影响平动和转动。后三者只支持动态刚体；固定、运动学或角色体返回 `TC_PHYSICS_BODY_TYPE`。写操作参与物理历史、快照和回放，旧快照仍兼容。
 
-示例 `examples/angular-physics` 只使用公开 SDK；源码渠道运行 `npm run dev -- --project examples/angular-physics`，独占 GPU 的小型验证为 `npm run probe:angular-physics`。当前 M4 非正式完成，首次正常物理步前移除刚体存在已复现的底层生命周期缺陷，见 `docs/tasks/M4-ANGULAR-PHYSICS.md`；完整模拟交互仍需后续验收。npm 渠道使用相同 SDK，更新包安装验收留待稳定节点。
+示例 `examples/angular-physics` 只使用公开 SDK；源码渠道运行 `npm run dev -- --project examples/angular-physics`。首次正常物理步前移除刚体存在已知生命周期缺陷，详见[物理生命周期缺陷记录](tasks/M4-ANGULAR-PHYSICS.md)；完整模拟交互仍需后续实现和验证。npm 渠道使用相同 SDK。
 
-```powershell
+```sh
 npm run typecheck
 npm run probe:m3
 npm run build
 ```
 
-`probe:m3` 必须在真实硬件 WebGPU 环境运行，生成带源码指纹的开发记录和图像。失败不覆盖成成功；`formalMilestoneAccepted` 明确为 false。全量测试的硬件 opt-in 见 `docs/tasks/M3.md`；未启用时的跳过不算通过 GPU 验证。
+历史开发 probe 会生成带源码指纹的记录和图像；失败不覆盖成成功。当前 D50 禁止运行这些 probe，也不能把旧记录当作当前源码验证。
 
 构建仍为 `dist/`，可在普通静态服务器子路径部署；默认生产不暴露开发控制 hook。`tools/m3-static-probe.ts` 使用真实按键测试模式切换和冷启动。直接浏览器自动化是外部测试职责，游戏源码不得调用内部开发 hook。
 
-当前公开图语言仍是有限子集。后处理、多通道、变形和计算接口的完整表达矩阵、完整物理材质图像矩阵、时域重建、原生性能及独立 AI 使用门禁未完成前，不发布 M3。已确认的 M1–M8 总范围保持不变。
+当前公开图语言仍是有限子集。后处理、多通道、变形和计算接口的完整表达矩阵、完整物理材质图像矩阵、时域重建、性能及独立使用验收仍有缺口。普通版本发布不代表这些能力已验证或完整首发已完成。

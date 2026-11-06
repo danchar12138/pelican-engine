@@ -1,130 +1,85 @@
-# Pelican Engine npm development distribution
+<div align="center">
+  <img src="https://raw.githubusercontent.com/danchar12138/pelican-engine/main/docs/assets/pelican-mark.svg" alt="Pelican Engine" width="110" height="110">
+  <h1>Pelican Engine</h1>
+  <p><strong>Build games for the web with TypeScript.</strong></p>
+  <p>Code-first · WebGPU-first · Designed for human and external AI workflows</p>
+  <p>
+    <a href="https://www.npmjs.com/package/pelican-engine"><img src="https://img.shields.io/npm/v/pelican-engine?label=npm&amp;color=168b80" alt="npm version"></a>
+    <img src="https://img.shields.io/badge/license-MIT-24536b" alt="MIT license">
+    <img src="https://img.shields.io/badge/TypeScript-SDK-3178c6" alt="TypeScript SDK">
+  </p>
+</div>
 
-The installed package is `pelican-engine`. Its root export is the same compiled
-public SDK used by repository games, not a wrapper or a separate SDK. The package
-also provides the `pelican` executable. This is an M3 development distribution,
-not accepted M3 hardware evidence or a complete engine release.
+Pelican Engine provides a TypeScript SDK, compiler, runtime, renderer and CLI in one package. Define game content and behavior in code, run a local development server and build a static web distribution. AI tools may assist development, but the game runtime does not include an LLM or AI agent.
 
-## Windows project workflow
+> **Development status:** this is an evolving engine, not a complete first release. Current source behavior, hardware compatibility, performance and the full feature set have not been fully validated. A normal version number is not an acceptance claim. See the [development status](https://github.com/danchar12138/pelican-engine/blob/main/docs/STATUS.md) for known gaps.
 
-Use Node 24 and npm in an empty project directory. The explicit prefix keeps npm
-in this directory even when a parent directory is also an npm project:
+## Quick start
 
-```powershell
-npm --prefix . i -D pelican-engine
+Install Node.js **24.x** and npm, then create a new empty game directory:
+
+```sh
+mkdir my-pelican-game
+cd my-pelican-game
+npm --prefix . install --save-dev --save-exact pelican-engine
 npx pelican dev
 ```
 
-The first installed `dev` creates the minimal `game.ts`, `pelican.project.json`
-version lock, and game-author `AGENTS.md` when the directory contains only npm
-installation metadata. An existing game or manifest is used as supplied; other
-project files or author instructions prevent automatic scaffolding. Files are
-never overwritten. Stop dev with Ctrl+C, then use the same local CLI:
+The first `dev` creates `game.ts`, `pelican.project.json` and `AGENTS.md` in an eligible empty project. Existing game files and author instructions are not overwritten. The explicit `--prefix .` prevents npm from choosing a parent project; `--save-exact` pins the installed version. Stop the development server before building:
 
-```powershell
-npx --no-install pelican api
-npx --no-install pelican setup --install-browser
-npx --no-install pelican check
-npx --no-install pelican dev --port 4173
-npx --no-install pelican capture --port 4174 --output capture.png
+```sh
 npx --no-install pelican build
 ```
 
-For an exact-version install use `npm --prefix . i -D --save-exact pelican-engine@0.3.3`,
-or substitute the local `pelican-engine-0.3.3.tgz` tarball before registry
-publication. `pelican create --template minimal` remains available explicitly.
+Deploy the resulting `dist/` directory, including its generated assets and notices, to an HTTP(S) static host. For a nested deployment, use `npx --no-install pelican build --base /game/`.
 
-Without `--prefix .`, npm may select an ancestor `package.json` or `node_modules`
-as the install root and modify that parent. The shorter `npm i -D pelican-engine`
-works when npm selects the intended directory; verify `npm prefix` before using
-it. The smoke harness uses an explicit prefix and does not require `npm init`.
+Commands use common Node/npm syntax rather than a particular shell. **Engine and game development currently support Windows only**; Linux and macOS development workflows have not been promised or validated. Player platforms are not restricted by brand or OS: actual rendering availability depends on browser and graphics capabilities.
 
-`create --template minimal` uses the same primitive starter in npm and repository
-workflows. npm defaults to `minimal` and reports the selected template; repository
-default `m2` is preserved with its historical sample assets. Samples are not engine
-capabilities. Identical authored game/asset inputs use the same API/compiler/runtime
-in either channel. npm does not bundle the `m2` sample or any sample/game assets.
+## Your game
 
-`create` writes `game.ts`, `AGENTS.md` and an exact `pelican.project.json` lock in the current
-directory. Existing project files are never overwritten. Author TypeScript with
-named imports from `pelican-engine` and project-local imports only. The compiler
-reports `TC_PUBLIC_API` for renderer, Three.js, TSL, physics, Node and internal
-package imports, including type-only and unused imports. Package subpaths are not
-public exports. Project lock mismatches report `TC_ENGINE_VERSION_MISMATCH`;
-mixed package/API versions report `TC_ENGINE_SDK_VERSION`. Reinstall a matching
-exact version, or migrate through the public API before explicitly changing a lock.
+The generated starter defines a scene and a rotating box. Game code imports only the public package, for example:
 
-After npm dependencies and Playwright Chromium have been installed, authoring,
-API inspection, checks, builds, dev/control commands and capture need no network
-service. `setup --offline` never installs dependencies or downloads a browser in
-an installed package. Keep the game package-lock for repeatable future installs;
-an offline _reinstall_ additionally requires the npm cache or a dependency mirror.
-`TC_DISTRIBUTION_DEPENDENCY_MISSING` and
-`TC_DISTRIBUTION_DEPENDENCY_VERSION` identify broken tool dependencies.
+```ts
+import { defineGame, defineMaterial, defineScene } from "pelican-engine";
 
-Serve the generated `dist/` directory over HTTP(S), including its `generated/`
-files, license files, notices and compression manifests. No Node process, engine
-repository, SDK installation, external AI service or development control server
-is needed by players. Use `build --base /game/` for a nested deployment URL.
-Capture requires installed Chromium and actual supported graphics capability.
-No software renderer result establishes hardware acceptance.
-
-## AI entry points
-
-Read the game-author `AGENTS.md`, `docs/npm/GAME-AUTHOR.md`, `docs/CAPABILITIES.md` and
-`docs/api/REFERENCE.md` inside `node_modules/pelican-engine`. The machine-readable
-API is `docs/api/index.json`, also discoverable through `pelican api`.
-`lib/sdk/index.d.ts` is the authoritative installed declaration surface.
-`docs/PELICAN-MIGRATION.md` explains current names and historical provenance.
-Repository paths and release instructions in copied documents are historical
-context; the installed workflow above replaces source-checkout commands.
-The JSON CLI protocol and dev control operations are shared with the repository.
-
-## Maintainer validation and publishing
-
-```powershell
-npm run distribution:test
-npm run distribution:pack
-npm run distribution:smoke
-npm run distribution:smoke -- --gpu
+const material = defineMaterial({ id: "paint", color: "#38b8a4", roughness: 0.45 });
+const scene = defineScene({
+  id: "main",
+  camera: { position: [4, 3, 6], target: [0, 0, 0], fov: 50 },
+  entities: [
+    { id: "box", mesh: { geometry: { kind: "box" }, material } },
+    { id: "light", light: { kind: "directional", intensity: 4 },
+      transform: { position: [3, 6, 4] } },
+  ],
+});
+export default defineGame({ id: "my-game", scene });
 ```
 
-Build output is regenerated from current sources into ignored
-`.pelican/npm/package/`; tarballs and smoke reports go in `.pelican/npm/artifacts/`.
-Neither staging nor tarballs are inside the deployable game `dist/`.
-Pack that staging directory, not the private repository root. Compiled relative
-imports use `lib/` modules and `.js`, never the TypeScript source layout. The
-tarball allowlist excludes source maps, evidence, examples and game assets;
-SDK declarations, engine runtime code, MIT, copied AI docs, and dependency
-license texts are included. `distribution.json` records version and file hashes.
-Dependencies are normal pinned npm dependencies, not vendored engine sources.
+Save it as `game.ts` in a project created by the CLI. The exact engine version is recorded in `pelican.project.json`: migrate the game and update its lock explicitly when changing engine versions. Do not edit `node_modules` or import engine internals.
 
-The npm workflow runs only for a published GitHub milestone release. Its gate
-requires tag/version/SDK/manifest identity and the existing milestone acceptance
-and source-fingerprint checks. An ordinary push or CPU-green build cannot publish.
-M3 is deliberately blocked until its release profile and real acceptance exist.
-The default smoke install uses npm cache only; `--online-install` allows network
-for initial dependency installation, then runs every operation offline with a
-disabled registry. CI uses this flag because `npm ci` alone need not populate
-registry metadata for a fresh external install. `--gpu` additionally measures
-the installed WebGPU backend, renders path/hybrid/raster, checks a nonblank canvas,
-captures through both CLI routes, verifies WebGL2 fallback rejection, and loads
-the nested-base static build without a development hook. It is not M3 acceptance.
+Useful commands:
 
-The single unscoped package is `pelican-engine`, its only public import is
-`pelican-engine`, and its executable is `pelican`. The GitHub target is
-`danchar12138/pelican-engine`; main completed the public repository rename and
-verified the updated origin. No new organization is required. The authorized
-npm Automation Token was authenticated as `danchar12138`, and main confirmed
-the repository Actions secret `NPM_TOKEN` is configured. `npm view pelican-engine`
-returned `E404` before publication. The package remains unpublished pending
-genuine M3 acceptance; this is not an authentication or organization blocker.
-`setup-node` configures the registry;
-only the final publication step receives `NODE_AUTH_TOKEN`. A missing secret
-fails with `TC_NPM_AUTH_MISSING`, without printing the value. The token must have
-permission to publish the fixed unscoped package. No OIDC/trusted-publisher setup
-or provenance flag is required by this workflow. Prereleases use `next`; stable
-versions use `latest`. These credentials do not bypass milestone acceptance.
-No token value is stored in source, documentation, or probe output. No publication
-is performed by this packaging task. See
-`tools/npm/publish-gate.ts` in the source distribution.
+```sh
+npx --no-install pelican help
+npx --no-install pelican api
+npx --no-install pelican api --symbol defineGame
+npx --no-install pelican dev --port 4173
+npx --no-install pelican build
+```
+
+The renderer prioritizes WebGPU and can use Three.js's built-in WebGL2 raster fallback. Compute-dependent hybrid/path tracing and compute features are not available on WebGL2; unsupported requests return diagnostics rather than silently claiming equivalent rendering. See the [backend guide](https://github.com/danchar12138/pelican-engine/blob/main/docs/RENDER-BACKENDS.md).
+
+## Documentation
+
+- [Getting started: npm and source checkout](https://github.com/danchar12138/pelican-engine/blob/main/docs/GETTING-STARTED.md)
+- [Game author guide](https://github.com/danchar12138/pelican-engine/blob/main/docs/npm/GAME-AUTHOR.md)
+- [API reference](https://github.com/danchar12138/pelican-engine/blob/main/docs/api/REFERENCE.md) and [capabilities](https://github.com/danchar12138/pelican-engine/blob/main/docs/CAPABILITIES.md)
+- [Source repository and contribution guide](https://github.com/danchar12138/pelican-engine)
+
+The installed package also includes `docs/npm/GAME-AUTHOR.md`, `docs/api/REFERENCE.md`, `docs/api/index.json` and `lib/sdk/index.d.ts`. The installed declarations and `pelican api` describe the API of the actual installed version. Repository examples and assets are not shipped in the npm package.
+
+Playwright Chromium is optional for capture and browser automation. If needed, prepare it while online with `npx --no-install pelican setup --install-browser`. With required dependencies and assets already available, everyday operations need no engine account or hosted development service. An offline reinstall additionally requires cached packages.
+
+## License
+
+Pelican Engine's own code is MIT licensed. Dependency licenses and third-party notices are included in the package under `licenses/` and in the [repository notices](https://github.com/danchar12138/pelican-engine/blob/main/docs/THIRD-PARTY-NOTICES.md).
