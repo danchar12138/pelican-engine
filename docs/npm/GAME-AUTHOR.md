@@ -233,6 +233,14 @@ manual cloth uses `ctx.cloth.step`. Use `setAnchor`, `releaseAnchor`, `applyForc
 (next tick), `applyImpulse`, `setColliders`, `inspect`, and `destroy` to manage it.
 The source checkout includes `examples/cloth-sheet`.
 
+New cloth also resolves detected sphere overlaps against triangle surface interiors
+using closest-point barycentric projection. `inspect(id).surfaceContacts` reports
+the triangle and barycentric position. `surfaceCollisions` defaults to true for new
+cloth and can be disabled. This is sphere-only discrete surface contact; planes
+remain particle-only, and there is no edge/face continuous collision or rigid-body
+reaction. Surface contact state is included in snapshots and invalid state is
+rejected atomically. It has not been runtime or stability validated.
+
 New cloth also resolves discrete self-contact between non-adjacent particles by
 projecting movable particles apart; shared triangle edges are excluded.
 `selfCollisions` defaults to true for new cloth and is reported by

@@ -6,21 +6,22 @@ export type ClothCollider =
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
 export interface ClothOptions {
   points: Vec3[]; triangles: Triangle[]; mass: number; radius?: number; fixedDt?: number;
-  substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean; selfCollisions?: boolean;
+  substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean; selfCollisions?: boolean; surfaceCollisions?: boolean;
   anchors?: { index: number; position: Vec3 }[];
 }
 export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
 export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }
+export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number] }
 type Constraint = [number, number, number];
-type Config = { mass: number; radius: number; fixedDt: number; substeps: number; iterations: number; damping: number; gravity: Vec3; bending: boolean; selfCollisions: boolean; triangles: Triangle[]; constraints: Constraint[] };
+type Config = { mass: number; radius: number; fixedDt: number; substeps: number; iterations: number; damping: number; gravity: Vec3; bending: boolean; selfCollisions: boolean; surfaceCollisions: boolean; triangles: Triangle[]; constraints: Constraint[] };
 export interface ClothState {
-  tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; positions: Vec3[]; velocities: Vec3[]; triangles: Triangle[];
-  anchors: { index: number; position: Vec3 }[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[]; maxDistanceError: number;
+  tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; surfaceCollisions: boolean; positions: Vec3[]; velocities: Vec3[]; triangles: Triangle[];
+  anchors: { index: number; position: Vec3 }[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[]; surfaceContacts: ClothSurfaceContact[]; maxDistanceError: number;
   resources: { particles: number; triangles: number; constraints: number; anchors: number; colliders: number };
 }
 export interface ClothSnapshot {
   format: "pelican-cloth-cpu"; version: 1; tick: number; config: Config; positions: Vec3[]; velocities: Vec3[];
-  forces: Vec3[]; anchors: { index: number; position: Vec3 }[]; colliders: ClothCollider[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[];
+  forces: Vec3[]; anchors: { index: number; position: Vec3 }[]; colliders: ClothCollider[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[]; surfaceContacts: ClothSurfaceContact[];
 }
 export class ClothError extends Error {
   constructor(readonly code: string, message: string) { super(`${code}: ${message}`); this.name = "ClothError"; }
@@ -96,6 +97,23 @@ function topology(points: Vec3[], input: unknown, bending: boolean): { triangles
   if (bending) for (const edge of edges.values()) if (edge.opposite.length === 2) add(edge.opposite[0], edge.opposite[1]);
   return { triangles, constraints };
 }
+function closestTriangle(point: Vec3, a: Vec3, b: Vec3, c: Vec3): { point: Vec3; barycentric: [number, number, number] } {
+  const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac: Vec3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]], ap: Vec3 = [point[0] - a[0], point[1] - a[1], point[2] - a[2]];
+  const d1 = ab[0] * ap[0] + ab[1] * ap[1] + ab[2] * ap[2], d2 = ac[0] * ap[0] + ac[1] * ap[1] + ac[2] * ap[2];
+  if (d1 <= 0 && d2 <= 0) return { point: copy(a), barycentric: [1, 0, 0] };
+  const bp: Vec3 = [point[0] - b[0], point[1] - b[1], point[2] - b[2]], d3 = ab[0] * bp[0] + ab[1] * bp[1] + ab[2] * bp[2], d4 = ac[0] * bp[0] + ac[1] * bp[1] + ac[2] * bp[2];
+  if (d3 >= 0 && d4 <= d3) return { point: copy(b), barycentric: [0, 1, 0] };
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const t = d1 / (d1 - d3); return { point: [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t], barycentric: [1 - t, t, 0] }; }
+  const cp: Vec3 = [point[0] - c[0], point[1] - c[1], point[2] - c[2]], d5 = ab[0] * cp[0] + ab[1] * cp[1] + ab[2] * cp[2], d6 = ac[0] * cp[0] + ac[1] * cp[1] + ac[2] * cp[2];
+  if (d6 >= 0 && d5 <= d6) return { point: copy(c), barycentric: [0, 0, 1] };
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const t = d2 / (d2 - d6); return { point: [a[0] + ac[0] * t, a[1] + ac[1] * t, a[2] + ac[2] * t], barycentric: [1 - t, 0, t] }; }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) { const edge: Vec3 = [c[0] - b[0], c[1] - b[1], c[2] - b[2]], t = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return { point: [b[0] + edge[0] * t, b[1] + edge[1] * t, b[2] + edge[2] * t], barycentric: [0, 1 - t, t] }; }
+  const denominator = 1 / (va + vb + vc), v = vb * denominator, w = vc * denominator;
+  return { point: [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w], barycentric: [1 - v - w, v, w] };
+}
 export function createCloth(input: ClothOptions): ClothSolver {
   if (!input || typeof input !== "object" || !Array.isArray(input.points) || input.points.length < 3 || input.points.length > 4096)
     fail("CLOTH_INPUT", "points must contain 3..4096 particles");
@@ -107,12 +125,12 @@ export function createCloth(input: ClothOptions): ClothSolver {
     fail("CLOTH_INPUT", "substeps and iterations are outside their supported bounds");
   if (typeof damping !== "number" || !Number.isFinite(damping) || damping < 0 || damping > 100) fail("CLOTH_INPUT", "damping must be in [0,100]");
   if (input.bending !== undefined && typeof input.bending !== "boolean") fail("CLOTH_INPUT", "bending must be boolean");
-  const bending = input.bending ?? true, selfCollisions = input.selfCollisions ?? true, gravity = readVec(input.gravity ?? [0, -9.81, 0], "gravity");
-  if (typeof selfCollisions !== "boolean") fail("CLOTH_INPUT", "selfCollisions must be boolean");
+  const bending = input.bending ?? true, selfCollisions = input.selfCollisions ?? true, surfaceCollisions = input.surfaceCollisions ?? true, gravity = readVec(input.gravity ?? [0, -9.81, 0], "gravity");
+  if (typeof selfCollisions !== "boolean" || typeof surfaceCollisions !== "boolean") fail("CLOTH_INPUT", "collision options must be boolean");
   const { triangles, constraints } = topology(positions, input.triangles, bending);
   const anchors = readAnchors(input.anchors ?? [], positions.length);
   for (const [index, point] of anchors) positions[index] = copy(point);
-  return new ClothSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, bending, selfCollisions, triangles, constraints }, positions, anchors);
+  return new ClothSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, bending, selfCollisions, surfaceCollisions, triangles, constraints }, positions, anchors);
 }
 export class ClothSolver {
   private tickValue = 0;
@@ -122,6 +140,7 @@ export class ClothSolver {
   private colliders: ClothCollider[] = [];
   private contacts: ClothContact[] = [];
   private selfContacts: ClothSelfContact[] = [];
+  private surfaceContacts: ClothSurfaceContact[] = [];
   private readonly adjacent: ReadonlySet<string>;
   constructor(private readonly config: Config, private positions: Vec3[], private anchors: Map<number, Vec3>) {
     this.velocities = positions.map(() => [0, 0, 0]); this.forces = positions.map(() => [0, 0, 0]);
@@ -151,15 +170,15 @@ export class ClothSolver {
     this.alive();
     if (!Number.isSafeInteger(steps) || steps < 1 || steps > 1000 || this.tickValue + steps > Number.MAX_SAFE_INTEGER)
       fail("CLOTH_INPUT", "steps must be in [1,1000] without tick overflow");
-    const before = { positions: this.positions, velocities: this.velocities, forces: this.forces, contacts: this.contacts, selfContacts: this.selfContacts, tick: this.tickValue };
+    const before = { positions: this.positions, velocities: this.velocities, forces: this.forces, contacts: this.contacts, selfContacts: this.selfContacts, surfaceContacts: this.surfaceContacts, tick: this.tickValue };
     try { for (let i = 0; i < steps; i++) this.stepOne(); }
-    catch (error) { this.positions = before.positions; this.velocities = before.velocities; this.forces = before.forces; this.contacts = before.contacts; this.selfContacts = before.selfContacts; this.tickValue = before.tick; throw error; }
+    catch (error) { this.positions = before.positions; this.velocities = before.velocities; this.forces = before.forces; this.contacts = before.contacts; this.selfContacts = before.selfContacts; this.surfaceContacts = before.surfaceContacts; this.tickValue = before.tick; throw error; }
     return this.inspect();
   }
   private stepOne(): void {
     const { fixedDt, substeps, iterations, mass, gravity, damping, constraints, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
-    const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>(), selfContacts = new Map<string, ClothSelfContact>();
+    const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>(), selfContacts = new Map<string, ClothSelfContact>(), surfaceContacts = new Map<string, ClothSurfaceContact>();
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
@@ -194,6 +213,20 @@ export class ClothSolver {
             else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: collider.id, penetration: depth });
           }
         }
+        if (this.config.surfaceCollisions) for (let triangleIndex = 0; triangleIndex < this.config.triangles.length; triangleIndex++) {
+          const triangle = this.config.triangles[triangleIndex], a = positions[triangle[0]], b = positions[triangle[1]], c = positions[triangle[2]];
+          for (const collider of this.colliders) {
+            if (collider.kind !== "sphere") continue;
+            const closest = closestTriangle(collider.center, a, b, c), delta: Vec3 = [closest.point[0] - collider.center[0], closest.point[1] - collider.center[1], closest.point[2] - collider.center[2]], length = Math.hypot(...delta), depth = collider.radius + radius - length;
+            if (depth <= 0) continue;
+            const normal: Vec3 = length < 1e-12 ? [0, 1, 0] : [delta[0] / length, delta[1] / length, delta[2] / length], weights = [this.anchors.has(triangle[0]) ? 0 : closest.barycentric[0], this.anchors.has(triangle[1]) ? 0 : closest.barycentric[1], this.anchors.has(triangle[2]) ? 0 : closest.barycentric[2]], denominator = weights.reduce((sum, value) => sum + value * value, 0);
+            if (denominator === 0) continue;
+            const correction = depth / denominator;
+            for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++) positions[triangle[vertex]][axis] += normal[axis] * correction * weights[vertex];
+            const key = `${triangleIndex}:${collider.id}`, old = surfaceContacts.get(key);
+            if (old) old.penetration = Math.max(old.penetration, depth); else surfaceContacts.set(key, { tick: this.tickValue + 1, triangle: triangleIndex, colliderId: collider.id, penetration: depth, barycentric: closest.barycentric });
+          }
+        }
         if (this.config.selfCollisions) for (let i = 0; i < positions.length; i++) for (let j = i + 1; j < positions.length; j++) {
           if (this.adjacent.has(`${i}:${j}`)) continue;
           const a = positions[i], b = positions[j], dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2], length = Math.hypot(dx, dy, dz), depth = 2 * radius - length;
@@ -213,23 +246,23 @@ export class ClothSolver {
         if (!vec(positions[i]) || !vec(velocities[i])) fail("CLOTH_NUMERIC", "solver exceeded finite state bounds");
       }
     }
-    this.positions = positions; this.velocities = velocities; this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.selfContacts = [...selfContacts.values()]; this.tickValue++;
+    this.positions = positions; this.velocities = velocities; this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.selfContacts = [...selfContacts.values()]; this.surfaceContacts = [...surfaceContacts.values()]; this.tickValue++;
   }
   inspect(): ClothState {
-    if (this.disposed) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, selfCollisions: this.config.selfCollisions, positions: [], velocities: [], triangles: [], anchors: [], contacts: [], selfContacts: [], maxDistanceError: 0, resources: { particles: 0, triangles: 0, constraints: 0, anchors: 0, colliders: 0 } };
+    if (this.disposed) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, selfCollisions: this.config.selfCollisions, surfaceCollisions: this.config.surfaceCollisions, positions: [], velocities: [], triangles: [], anchors: [], contacts: [], selfContacts: [], surfaceContacts: [], maxDistanceError: 0, resources: { particles: 0, triangles: 0, constraints: 0, anchors: 0, colliders: 0 } };
     let maxDistanceError = 0;
     for (const [a, b, rest] of this.config.constraints) maxDistanceError = Math.max(maxDistanceError, Math.abs(distance(this.positions[a], this.positions[b]) - rest));
-    return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, selfCollisions: this.config.selfCollisions,
+    return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, selfCollisions: this.config.selfCollisions, surfaceCollisions: this.config.surfaceCollisions,
       positions: this.positions.map(copy), velocities: this.velocities.map(copy), triangles: this.config.triangles.map(tuple),
       anchors: [...this.anchors].map(([index, position]) => ({ index, position: copy(position) })).sort((a, b) => a.index - b.index),
-      contacts: this.contacts.map(contact => ({ ...contact })), selfContacts: this.selfContacts.map(contact => ({ ...contact })), maxDistanceError,
+      contacts: this.contacts.map(contact => ({ ...contact })), selfContacts: this.selfContacts.map(contact => ({ ...contact })), surfaceContacts: this.surfaceContacts.map(contact => ({ ...contact })), maxDistanceError,
       resources: { particles: this.positions.length, triangles: this.config.triangles.length, constraints: this.config.constraints.length, anchors: this.anchors.size, colliders: this.colliders.length } };
   }
   snapshot(): ClothSnapshot {
     this.alive(); const state = this.inspect();
     return { format: "pelican-cloth-cpu", version: 1, tick: this.tickValue,
       config: { ...this.config, gravity: copy(this.config.gravity), triangles: this.config.triangles.map(tuple), constraints: this.config.constraints.map(tuple) },
-      positions: state.positions, velocities: state.velocities, forces: this.forces.map(copy), anchors: state.anchors, colliders: readColliders(this.colliders), contacts: state.contacts, selfContacts: state.selfContacts };
+      positions: state.positions, velocities: state.velocities, forces: this.forces.map(copy), anchors: state.anchors, colliders: readColliders(this.colliders), contacts: state.contacts, selfContacts: state.selfContacts, surfaceContacts: state.surfaceContacts };
   }
   restore(input: ClothSnapshot): void {
     this.alive();
@@ -237,7 +270,7 @@ export class ClothSolver {
       fail("CLOTH_SNAPSHOT", "unsupported snapshot format or tick");
     const config = input.config, expected = this.config;
     if (!config || config.mass !== expected.mass || config.radius !== expected.radius || config.fixedDt !== expected.fixedDt || config.substeps !== expected.substeps ||
-        config.iterations !== expected.iterations || config.damping !== expected.damping || config.bending !== expected.bending || (config.selfCollisions ?? false) !== expected.selfCollisions ||
+        config.iterations !== expected.iterations || config.damping !== expected.damping || config.bending !== expected.bending || (config.selfCollisions ?? false) !== expected.selfCollisions || (config.surfaceCollisions ?? false) !== expected.surfaceCollisions ||
         !vec(config.gravity) || config.gravity.some((value, i) => value !== expected.gravity[i]) ||
         !Array.isArray(config.triangles) || JSON.stringify(config.triangles) !== JSON.stringify(expected.triangles) ||
         !Array.isArray(config.constraints) || JSON.stringify(config.constraints) !== JSON.stringify(expected.constraints))
@@ -261,8 +294,17 @@ export class ClothSolver {
           this.adjacent.has(`${contact.firstParticle}:${contact.secondParticle}`) || typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0))
       fail("CLOTH_SNAPSHOT", "invalid self contact state");
     for (const contact of selfContacts) { const key = `${contact.firstParticle}:${contact.secondParticle}`; if (selfKeys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate self contact"); selfKeys.add(key); }
+    const surfaceContacts = input.surfaceContacts ?? [];
+    const surfaceKeys = new Set<string>();
+    if (!Array.isArray(surfaceContacts) || surfaceContacts.length > this.config.triangles.length * colliders.length || (!this.config.surfaceCollisions && surfaceContacts.length > 0) ||
+        surfaceContacts.some(contact => !contact || contact.tick !== input.tick || !Number.isSafeInteger(contact.triangle) || contact.triangle < 0 || contact.triangle >= this.config.triangles.length ||
+          !colliders.some(collider => collider.id === contact.colliderId && collider.kind === "sphere") || typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 ||
+          !Array.isArray(contact.barycentric) || contact.barycentric.length !== 3 || !contact.barycentric.every(value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1) ||
+          Math.abs(contact.barycentric[0] + contact.barycentric[1] + contact.barycentric[2] - 1) > 1e-5))
+      fail("CLOTH_SNAPSHOT", "invalid surface contact state");
+    for (const contact of surfaceContacts) { const key = `${contact.triangle}:${contact.colliderId}`; if (surfaceKeys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate surface contact"); surfaceKeys.add(key); }
     this.positions = input.positions.map(copy); this.velocities = input.velocities.map(copy); this.forces = input.forces.map(copy);
-    this.anchors = anchors; this.colliders = colliders; this.contacts = input.contacts.map(contact => ({ ...contact })); this.selfContacts = selfContacts.map(contact => ({ ...contact })); this.tickValue = input.tick;
+    this.anchors = anchors; this.colliders = colliders; this.contacts = input.contacts.map(contact => ({ ...contact })); this.selfContacts = selfContacts.map(contact => ({ ...contact })); this.surfaceContacts = surfaceContacts.map(contact => ({ ...contact, barycentric: [...contact.barycentric] as [number, number, number] })); this.tickValue = input.tick;
   }
-  dispose(): void { if (this.disposed) return; this.disposed = true; this.positions = []; this.velocities = []; this.forces = []; this.colliders = []; this.contacts = []; this.selfContacts = []; this.anchors.clear(); }
+  dispose(): void { if (this.disposed) return; this.disposed = true; this.positions = []; this.velocities = []; this.forces = []; this.colliders = []; this.contacts = []; this.selfContacts = []; this.surfaceContacts = []; this.anchors.clear(); }
 }

@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.21";
+export const SDK_VERSION = "0.3.22";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -253,14 +253,17 @@ export interface ClothDefinition {
   visual?: ClothVisualOptions;
   /** Discrete non-adjacent particle self-contact; defaults to true for new cloth. */
   selfCollisions?: boolean;
+  /** Sphere triangle-surface contacts; defaults to true for new cloth. */
+  surfaceCollisions?: boolean;
 }
 export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
 export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }
+export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number] }
 export interface ClothState {
-  tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean;
+  tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; surfaceCollisions: boolean;
   positions: Vec3[]; velocities: Vec3[]; triangles: ClothTriangle[];
   anchors: { index: number; position: Vec3 }[];
-  contacts: ClothContact[]; selfContacts: ClothSelfContact[];
+  contacts: ClothContact[]; selfContacts: ClothSelfContact[]; surfaceContacts: ClothSurfaceContact[];
   maxDistanceError: number;
   resources: { particles: number; triangles: number; constraints: number; anchors: number; colliders: number };
 }
