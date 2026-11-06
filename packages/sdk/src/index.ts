@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.11";
+export const SDK_VERSION = "0.3.12";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -119,7 +119,7 @@ export interface SystemContext extends EngineFacade {
   readonly ropes: RopeService;
 }
 /** CPU particles with sampled sphere/plane collisions. Collision only moves rope particles;
- * no rigid-body reaction, segment/self collision, rendering or complete M4 physics. */
+ * no automatic rigid-body reaction, segment/self collision, rendering or complete physics. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
@@ -139,11 +139,19 @@ export interface RopeDefinition {
   gravity?: Vec3;
   anchors?: readonly { index: number; position: Vec3 }[];
 }
+/** Sampled-collider contact from the most recently completed rope tick. */
+export interface RopeContact {
+  tick: number; particle: number; colliderId: string; penetration: number;
+  /** Opposite of particle projection impulses, N·s; absent in older snapshots. */
+  reactionImpulse?: Vec3;
+  /** Angular impulse about the world origin; absent in older snapshots. */
+  reactionAngularImpulse?: Vec3;
+}
 export interface RopeState {
   tick: number; simulatedSeconds: number; disposed: boolean;
   positions: Vec3[]; velocities: Vec3[];
   anchors: { index: number; position: Vec3 }[];
-  contacts: { tick: number; particle: number; colliderId: string; penetration: number }[];
+  contacts: RopeContact[];
   maxDistanceError: number;
   resources: { particles: number; constraints: number; anchors: number; colliders: number };
 }
@@ -353,6 +361,8 @@ export interface PhysicsService {
   moveCharacter(entity: string, displacement: Vec3): void;
   grounded(entity: string): boolean;
   velocity(entity: string): Vec3;
+  /** World-space rigid-body center of mass, including collider offsets. */
+  centerOfMass(entity: string): Vec3;
   setVelocity(entity: string, velocity: Vec3): void;
   impulse(entity: string, impulse: Vec3): void;
   /** Angular velocity in world-space radians per second. */

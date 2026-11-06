@@ -28,6 +28,10 @@ export interface RopeContact {
   colliderId: string;
   /** Maximum overlap observed during this tick before positional correction, metres. */
   penetration: number;
+  /** Opposite impulse from particle contact projections, in world-space N·s. */
+  reactionImpulse?: Vec3;
+  /** Moment of those impulses about the world origin, in angular-momentum units. */
+  reactionAngularImpulse?: Vec3;
 }
 export interface RopeState {
   tick: number;
@@ -67,6 +71,15 @@ const fail = (code: string, reason: string): never => { throw new RopeError(code
 const vec = (v: unknown): v is Vec3 =>
   Array.isArray(v) && v.length === 3 && v.every(x => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 1e6);
 const copy = (v: Vec3): Vec3 => [v[0], v[1], v[2]];
+const finiteVector = (v: unknown): v is Vec3 => Array.isArray(v) && v.length === 3 && v.every(x => typeof x === "number" && Number.isFinite(x));
+const copyContact = (contact: RopeContact): RopeContact => {
+  const { reactionImpulse, reactionAngularImpulse, ...rest } = contact;
+  return {
+    ...rest,
+    ...(reactionImpulse === undefined ? {} : { reactionImpulse: copy(reactionImpulse) }),
+    ...(reactionAngularImpulse === undefined ? {} : { reactionAngularImpulse: copy(reactionAngularImpulse) }),
+  };
+};
 const length = (v: Vec3): number => Math.hypot(v[0], v[1], v[2]);
 const validVec = (v: unknown, name: string): Vec3 => vec(v) ? copy(v) : fail("ROPE_INPUT", `${name} must be a finite 3D vector (|component| <= 1e6)`);
 const positive = (v: unknown, name: string): number =>
@@ -234,10 +247,26 @@ export class RopeSolver {
             }
             if (depth <= 0) continue;
             for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
+            // Each positional projection changes the particle's velocity by depth / h.
+            // Report its equal-and-opposite impulse and moment on the sampled surface;
+            // the collider itself remains an immutable input and is not moved here.
+            const magnitude = -mass * depth / h;
+            const reaction: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+            const point: Vec3 = c.kind === "sphere"
+              ? [c.center[0] + normal[0] * c.radius, c.center[1] + normal[1] * c.radius, c.center[2] + normal[2] * c.radius]
+              : [p[0] - normal[0] * radius, p[1] - normal[1] * radius, p[2] - normal[2] * radius];
+            const moment: Vec3 = [point[1] * reaction[2] - point[2] * reaction[1], point[2] * reaction[0] - point[0] * reaction[2], point[0] * reaction[1] - point[1] * reaction[0]];
+            if (!finiteVector(reaction) || !finiteVector(moment)) fail("ROPE_NUMERIC", "contact reaction exceeded finite numeric bounds");
             const key = `${i}:${c.id}`;
             const existing = contacts.get(key);
-            if (existing) existing.penetration = Math.max(existing.penetration, depth);
-            else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: c.id, penetration: depth });
+            if (existing) {
+              existing.penetration = Math.max(existing.penetration, depth);
+              for (let k = 0; k < 3; k++) {
+                existing.reactionImpulse![k] += reaction[k];
+                existing.reactionAngularImpulse![k] += moment[k];
+              }
+              if (!finiteVector(existing.reactionImpulse) || !finiteVector(existing.reactionAngularImpulse)) fail("ROPE_NUMERIC", "contact reaction accumulation exceeded finite numeric bounds");
+            } else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: c.id, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
           }
         }
       }
@@ -260,7 +289,7 @@ export class RopeSolver {
       tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false,
       positions: this.positions.map(copy), velocities: this.velocities.map(copy),
       anchors: [...this.anchors].map(([index, position]) => ({ index, position: copy(position) })).sort((a, b) => a.index - b.index),
-      contacts: this.contacts.map(c => ({ ...c })), maxDistanceError,
+      contacts: this.contacts.map(copyContact), maxDistanceError,
       resources: { particles: this.positions.length, constraints: this.config.restLengths.length, anchors: this.anchors.size, colliders: this.colliders.length },
     };
   }
@@ -294,10 +323,12 @@ export class RopeSolver {
         input.contacts.some(contact => !contact || contact.tick !== input.tick ||
           !Number.isSafeInteger(contact.particle) || contact.particle < 0 || contact.particle >= count ||
           !colliders.some(collider => collider.id === contact.colliderId) ||
-          typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0)) fail("ROPE_SNAPSHOT", "invalid contact state");
+          typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 ||
+          (contact.reactionImpulse === undefined) !== (contact.reactionAngularImpulse === undefined) ||
+          (contact.reactionImpulse !== undefined && (!finiteVector(contact.reactionImpulse) || !finiteVector(contact.reactionAngularImpulse))))) fail("ROPE_SNAPSHOT", "invalid contact state");
     this.positions = input.positions.map(copy); this.velocities = input.velocities.map(copy);
     this.forces = input.forces.map(copy); this.anchors = anchors; this.colliders = colliders;
-    this.contacts = input.contacts.map(c => ({ ...c })); this.tickValue = input.tick;
+    this.contacts = input.contacts.map(copyContact); this.tickValue = input.tick;
   }
   dispose(): void {
     if (this.disposedValue) return;

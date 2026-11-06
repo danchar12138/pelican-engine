@@ -958,6 +958,9 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           ]
         : tuple(b.body.linvel());
     },
+    centerOfMass(id) {
+      return tuple(get(id).body.worldCom());
+    },
     setVelocity(id, value) {
       get(id);
       record({ kind: "velocity", id, value });

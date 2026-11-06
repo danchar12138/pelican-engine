@@ -137,8 +137,24 @@ all earlier automatic ropes from that phase; the host tick may still have other
 partial changes and must be recovered from a known-good checkpoint. The source
 checkout includes `examples/rope-particles`.
 
+For each latest-tick contact, `reactionImpulse` and `reactionAngularImpulse`
+report the opposite impulse produced by the particle's position projections,
+and its moment about the world origin. These optional fields are absent when
+restoring older contact snapshots. They do not automatically act on a rigid body.
+For an explicitly mapped dynamic body, game code can read its actual world center
+of mass via `ctx.physics.centerOfMass(id)`, apply the linear impulse, and apply
+`reactionAngularImpulse - centerOfMass × reactionImpulse` as torque impulse.
+Apply each contact at most once for its `tick`; repeated `inspect` calls return
+the same contacts. The source checkout has an illustrative `examples/rope-reaction`.
+
+This sampled, manually applied reaction is delayed and uses positional correction,
+not a coupled contact solver: it omits body velocity/effective mass, friction and
+continuous collision. Applying the linear and angular impulses uses separate
+operations and is not transactional if a tick fails; recover from a known-good
+checkpoint. It must not be represented as complete two-way rigid-body interaction.
+
 This is an unverified development-stage increment, not complete rope physics:
-there is no built-in rope mesh, rigid-body reaction, segment or self collision,
+there is no built-in rope mesh, automatic rigid-body reaction, segment or self collision,
 or tearing. Moving entities to particle positions is not a rope renderer or
 coupled physics. Plane normals must be unit length; `offset` is the signed
 normal distance from the origin. Host intervals must be between 1/1000 and
