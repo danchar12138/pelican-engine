@@ -159,6 +159,7 @@ export class RuntimeHost {
         world: this.world,
         fixedDt: this.fixedDt,
         seed: this.seed,
+        afterPhysics: () => this.afterPhysics(),
       });
       this.scheduler = createdScheduler;
       for (const factory of options.plugins ?? []) {
@@ -333,6 +334,16 @@ export class RuntimeHost {
     };
   }
 
+  private afterPhysics(): void {
+    for (const plugin of this.plugins) {
+      const result: unknown = plugin.afterPhysics?.();
+      if (result && (typeof result === "object" || typeof result === "function") && "then" in result) {
+        void Promise.resolve(result).catch(() => {});
+        throw new Error(`TC_PLUGIN_ASYNC: afterPhysics for ${plugin.id} must complete synchronously.`);
+      }
+    }
+  }
+
   private registerPlugin(plugin: RuntimePlugin): void {
     if (!plugin || typeof plugin !== "object")
       throw new Error("TC_PLUGIN_ID: Plugin must have a stable non-empty id.");
@@ -346,7 +357,8 @@ export class RuntimeHost {
       typeof plugin.validateSnapshot !== "function" ||
       typeof plugin.restore !== "function" ||
       typeof plugin.dispose !== "function" ||
-      (plugin.settle !== undefined && typeof plugin.settle !== "function")
+      (plugin.settle !== undefined && typeof plugin.settle !== "function") ||
+      (plugin.afterPhysics !== undefined && typeof plugin.afterPhysics !== "function")
     )
       throw new Error(
         `TC_PLUGIN_CONTRACT: Plugin ${plugin.id} is missing lifecycle methods.`,
@@ -537,6 +549,7 @@ export class RuntimeHost {
       world: this.world,
       fixedDt: this.fixedDt,
       seed: this.seed,
+      afterPhysics: () => this.afterPhysics(),
       systems: [
         ...engineSystems.map((system) => ({
           ...system,

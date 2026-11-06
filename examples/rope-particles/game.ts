@@ -6,17 +6,19 @@ const State = defineComponent({ id: "RopeExampleState", schema: {
 } });
 const particle = defineMaterial({ id: "particle", color: "#e99b37", roughness: 0.6 });
 const floor = defineMaterial({ id: "floor", color: "#456575", roughness: 0.8 });
-const simulate = defineSystem({ id: "rope-example", phase: "prePhysics", reads: ["RopeExampleState"], writes: ["RopeExampleState"], run(ctx) {
+const initialize = defineSystem({ id: "rope-initialize", phase: "prePhysics", reads: ["RopeExampleState"], writes: ["RopeExampleState"], run(ctx) {
   if (!ctx.getComponent("state", State).initialized) {
-    ctx.ropes.create({ id: "example", mass: 0.2, points: [[-1, 2, 0], [-0.5, 2, 0], [0, 2, 0], [0.5, 2, 0]] });
+    ctx.ropes.create({ id: "example", autoStep: true, mass: 0.2, points: [[-1, 2, 0], [-0.5, 2, 0], [0, 2, 0], [0.5, 2, 0]] });
     ctx.ropes.setColliders("example", [{ id: "floor", kind: "plane", normal: [0, 1, 0], offset: 0 }]);
     ctx.setComponent("state", State, { initialized: true });
   }
-  const state = ctx.ropes.step("example");
+} });
+const display = defineSystem({ id: "rope-display", phase: "postPhysics", run(ctx) {
+  const state = ctx.ropes.inspect("example");
   for (let index = 0; index < state.positions.length; index++)
     ctx.setTransform(`particle-${index}`, { position: state.positions[index] });
 } });
-export default defineGame({ id: "rope-particles", components: [State], systems: [simulate],
+export default defineGame({ id: "rope-particles", components: [State], systems: [initialize, display],
   scene: defineScene({ id: "rope-scene", camera: { position: [0, 2, 6], target: [0, 1, 0], fov: 45 },
     environment: { background: "#17252a", ambientIntensity: 1 }, entities: [
       { id: "state", components: [{ component: State }] },

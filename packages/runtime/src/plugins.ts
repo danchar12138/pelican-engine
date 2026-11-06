@@ -54,6 +54,8 @@ export interface RuntimePlugin {
   /** Cross-owner snapshot preflight before any plugin or World mutation. */
   validatePeers?(value: unknown, peers: Readonly<Record<string, { version?: string; payload: unknown }>>): void;
   restore(value: unknown): void;
+  /** Synchronous engine-owned work after the physics phase and before postPhysics systems. */
+  afterPhysics?(): void;
   /** Engine boundary after each fixed tick; never awaited inside a game system. */
   settle?(): Promise<void>;
   dispose(): void;

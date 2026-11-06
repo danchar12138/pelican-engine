@@ -32,6 +32,8 @@ export interface SchedulerOptions {
   fixedDt?: number;
   maxSubsteps?: number;
   seed?: number;
+  /** Host-owned synchronous callback after the physics phase; not a game system. */
+  afterPhysics?: () => void;
 }
 export interface SystemDescriptor {
   id: string;
@@ -278,10 +280,13 @@ export function createScheduler({
   fixedDt = 1 / 60,
   maxSubsteps = 8,
   seed = 0,
+  afterPhysics,
 }: SchedulerOptions) {
   if (!Number.isFinite(fixedDt) || fixedDt <= 0)
     throw new Error("TC_SCHEDULER_DT: fixedDt must be positive and finite.");
   integer(maxSubsteps, "maxSubsteps", 1);
+  if (afterPhysics !== undefined && typeof afterPhysics !== "function")
+    throw new Error("TC_SCHEDULER_AFTER_PHYSICS: Expected a synchronous callback.");
   const random = createRandom(seed);
   let plan = schedule(systems);
   let completedTick = 0,
@@ -450,6 +455,14 @@ export function createScheduler({
         }
         stage = `flush:${phase}`;
         world.flush();
+        if (phase === "physics" && afterPhysics) {
+          stage = "engine:afterPhysics";
+          const result: unknown = afterPhysics();
+          if (result && (typeof result === "object" || typeof result === "function") && "then" in result) {
+            void Promise.resolve(result).catch(() => {});
+            throw new Error("TC_SCHEDULER_ASYNC: Engine callbacks must complete synchronously.");
+          }
+        }
       }
       completedTick++;
       return true;

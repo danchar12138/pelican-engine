@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.10";
+export const SDK_VERSION = "0.3.11";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -131,6 +131,8 @@ export interface RopeDefinition {
   radius?: number;
   /** Defaults to the host interval; an explicit value must exactly match it. */
   fixedDt?: number;
+  /** When true, step once after each physics phase; defaults to false (manual stepping). */
+  autoStep?: boolean;
   substeps?: number;
   iterations?: number;
   damping?: number;
@@ -147,7 +149,7 @@ export interface RopeState {
 }
 export interface RopeService {
   create(definition: RopeDefinition): void;
-  /** Explicit fixed solver ticks; not automatically advanced with the host. A failed batch leaves the rope unchanged. */
+  /** Explicit ticks for manual ropes only. Auto-stepped ropes reject this call. A failed batch leaves the rope unchanged. */
   step(id: string, ticks?: number): RopeState;
   inspect(id: string): RopeState;
   setColliders(id: string, colliders: readonly RopeCollider[]): void;

@@ -11,6 +11,7 @@ const validId = (id: unknown): id is string => typeof id === "string" && id.trim
 function createEntry(input: RopeDefinition, fixedDt: number): Entry {
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty id of at most 128 characters.");
+  if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be a boolean.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Rope fixedDt must exactly match the host fixedDt.");
   if (fixedDt < 1 / 1000 || fixedDt > 1 / 30) return fail("FIXED_DT", "Host fixedDt must be within [1/1000, 1/30] seconds for ropes.");
   const solver = createRope({ ...definition, fixedDt } as unknown as RopeOptions);
@@ -36,7 +37,7 @@ function parseSnapshot(value: unknown, fixedDt: number): Map<string, Entry> {
   } catch (error) { disposeEntries(entries); throw error; }
 }
 
-/** Explicitly stepped CPU rope ownership; independent from the Rapier physics plugin. */
+/** CPU rope ownership; optional host-scheduled stepping remains independent from Rapier. */
 export const createRopePlugin: RuntimePluginFactory = ({ fixedDt }) => {
   if (typeof fixedDt !== "number" || !Number.isFinite(fixedDt)) return fail("FIXED_DT", "RuntimeHost must provide a finite fixed interval.");
   const hostDt = fixedDt;
@@ -57,7 +58,11 @@ export const createRopePlugin: RuntimePluginFactory = ({ fixedDt }) => {
       const entry = createEntry(definition, hostDt);
       entries.set(entry.definition.id, entry);
     },
-    step(id, ticks) { return get(id).solver.step(ticks); },
+    step(id, ticks) {
+      const entry = get(id);
+      if (entry.definition.autoStep) return fail("AUTO_STEP", `Rope '${id}' is automatically stepped; omit autoStep for manual stepping.`);
+      return entry.solver.step(ticks);
+    },
     inspect(id) { return get(id).solver.inspect(); },
     setColliders(id, colliders) { get(id).solver.setColliders(cloneSerializable(colliders) as RopeCollider[]); },
     setAnchor(id, index, position) { get(id).solver.setAnchor(index, cloneSerializable(position) as Vec3); },
@@ -68,6 +73,27 @@ export const createRopePlugin: RuntimePluginFactory = ({ fixedDt }) => {
   };
   return {
     id: "$engine.ropes", version: "1", services: { ropes: service },
+    afterPhysics() {
+      alive();
+      const committed: { solver: RopeSolver; snapshot: RopeSnapshot }[] = [];
+      try {
+        // Stable ordering also makes failure and recording behavior independent of insertion order.
+        const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
+          .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
+        for (const { solver } of automatic) {
+          const snapshot = solver.snapshot();
+          solver.step(); // A failed solver step rolls itself back.
+          committed.push({ solver, snapshot });
+        }
+      } catch (error) {
+        const failures: string[] = [];
+        for (const { solver, snapshot } of committed.reverse()) {
+          try { solver.restore(snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
+        }
+        if (failures.length) throw new Error(`TC_ROPE_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`);
+        throw error;
+      }
+    },
     legacySnapshot: () => ({ version: 1, ropes: [] }),
     snapshot: () => ({ version: 1, ropes: [...entries.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(({ definition, solver }) => ({ definition: cloneSerializable(definition), state: solver.snapshot() })) }),
     validateSnapshot(value) { const staged = parseSnapshot(value, hostDt); disposeEntries(staged); },

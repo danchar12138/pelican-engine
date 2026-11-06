@@ -120,21 +120,29 @@ has not been runtime or browser validated under the current project policy.
 
 ### Development-stage rope particles
 
-`ctx.ropes.create({ id, points, mass })` creates a CPU particle rope. Call
-`ctx.ropes.step(id)` **once per game fixed tick** when movement is desired;
-the host does not advance it automatically. The first particle is pinned by
-default; `anchors: []` creates a free rope. `setAnchor`, `releaseAnchor`,
-`applyForce` (next tick only), `applyImpulse`, `inspect`, and `destroy` manage
-it. `setColliders` accepts sampled planes and spheres; contacts affect only
-particles, not rigid bodies. Host snapshots include rope state. An example in
-the source checkout is `examples/rope-particles`.
+`ctx.ropes.create({ id, points, mass, autoStep: true })` creates a CPU particle
+rope that advances once after each physics phase, before `postPhysics` systems.
+Set anchors, forces and sampled colliders in `prePhysics`; read positions in
+`postPhysics`. Without `autoStep`, the rope remains manually stepped with
+`ctx.ropes.step(id)`; calling `step` for an automatic rope returns
+`TC_ROPE_AUTO_STEP` instead of advancing twice. An automatic rope created during
+`prePhysics` advances in that tick. The first particle is pinned by default;
+`anchors: []` creates a free rope. `setAnchor`, `releaseAnchor`, `applyForce`
+(next tick only), `applyImpulse`, `inspect`, and `destroy` manage it.
+
+`setColliders` accepts sampled planes and spheres; contacts affect only rope
+particles, not rigid bodies. Host snapshots include the rope definition, mode
+and state. If advancing an automatic rope fails, the engine attempts to restore
+all earlier automatic ropes from that phase; the host tick may still have other
+partial changes and must be recovered from a known-good checkpoint. The source
+checkout includes `examples/rope-particles`.
 
 This is an unverified development-stage increment, not complete rope physics:
-there is no built-in rope mesh, automatic fixed-tick scheduling, rigid-body
-reaction, segment or self collision, or tearing. Game code may use `positions`
-to move entities but this is not a substitute for a rope renderer or coupled
-physics. Plane normals must be unit length; `offset` is the plane's signed
-normal distance from the origin. The host interval must be 1/1000?1/30 seconds.
+there is no built-in rope mesh, rigid-body reaction, segment or self collision,
+or tearing. Moving entities to particle positions is not a rope renderer or
+coupled physics. Plane normals must be unit length; `offset` is the signed
+normal distance from the origin. Host intervals must be between 1/1000 and
+1/30 seconds inclusive.
 
 Keyboard bindings use the browser's `KeyboardEvent.key` values, not physical
 `KeyboardEvent.code` values. For example, use `input: { up: ["w", "W", "ArrowUp"],
