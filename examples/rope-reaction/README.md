@@ -1,12 +1,13 @@
-# Rope contact reaction example
+# Rope and dynamic sphere example
 
-This development example samples a dynamic sphere before each physics step,
-then applies rope projection reaction impulses after the rope step. The boxes
-mark particle positions; there is no rope mesh. The sampled sphere can lag the
-actual rigid body, and the particle solver does not use the body's velocity,
-rotational inertia, friction or continuous collision detection. This is not a
-fully coupled or validated physics solver; applying the linear and angular
-impulses is not atomic if a host tick fails.
+This development example explicitly binds a rope collider to a dynamic sphere.
+The host samples the real sphere after its physics step, advances the rope, and
+applies the particle projection's opposite normal impulse to the body. The boxes
+mark particle positions; there is no rope mesh. The body's displacement responds
+on its next physics step. The rope solver does not include the body's effective
+mass or velocity, friction, continuous collision or fully coupled substeps. This
+is not a complete or validated two-way physics solver; a native failure may leave
+partial host state and requires restoring a known-good checkpoint.
 
 From the engine checkout, build with:
 

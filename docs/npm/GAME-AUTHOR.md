@@ -137,15 +137,35 @@ all earlier automatic ropes from that phase; the host tick may still have other
 partial changes and must be recovered from a known-good checkpoint. The source
 checkout includes `examples/rope-particles`.
 
+To bind a rope to existing dynamic sphere bodies, create it with `autoStep: true`
+and `bodyColliders: [{ id: "rope-collider-id", entity: "body-id" }]`. After the
+rigid-body physics phase, the host samples each bound sphere's actual collider
+center and radius, steps the rope, and applies the resulting normal projection
+impulse to the body. That impulse changes body velocity; displacement responds on
+the next body step. Bindings require live dynamic non-trigger spheres and unique
+collider ids and body entities within each rope. Do not use a bound collider id
+in `setColliders`; its manual planes and spheres remain separate. A destroyed body
+is unbound at the next automatic step, and a new entity with the same id is not
+implicitly rebound. Bindings are saved with Host snapshots.
+
+Do not manually apply the same contact's reaction when using a body binding: the
+host already applies it. A native failure can still leave the host tick partially
+changed, so restore a known-good checkpoint. This is delayed sampled coupling and
+is not a complete physics solver: body velocity/effective mass, friction,
+continuous collision and coupled substeps are not included. It has not been
+runtime or snapshot validated.
+
 For each latest-tick contact, `reactionImpulse` and `reactionAngularImpulse`
 report the opposite impulse produced by the particle's position projections,
 and its moment about the world origin. These optional fields are absent when
-restoring older contact snapshots. They do not automatically act on a rigid body.
+restoring older contact snapshots. Contacts from unbound manual colliders do not
+automatically act on a rigid body.
 For an explicitly mapped dynamic body, game code can read its actual world center
 of mass via `ctx.physics.centerOfMass(id)`, apply the linear impulse, and apply
 `reactionAngularImpulse - centerOfMass × reactionImpulse` as torque impulse.
 Apply each contact at most once for its `tick`; repeated `inspect` calls return
-the same contacts. The source checkout has an illustrative `examples/rope-reaction`.
+the same contacts. The source checkout's `examples/rope-reaction` uses the
+automatic binding instead.
 
 This sampled, manually applied reaction is delayed and uses positional correction,
 not a coupled contact solver: it omits body velocity/effective mass, friction and
@@ -154,7 +174,7 @@ operations and is not transactional if a tick fails; recover from a known-good
 checkpoint. It must not be represented as complete two-way rigid-body interaction.
 
 This is an unverified development-stage increment, not complete rope physics:
-there is no built-in rope mesh, automatic rigid-body reaction, segment or self collision,
+there is no built-in rope mesh, general rigid-body coupling, segment or self collision,
 or tearing. Moving entities to particle positions is not a rope renderer or
 coupled physics. Plane normals must be unit length; `offset` is the signed
 normal distance from the origin. Host intervals must be between 1/1000 and

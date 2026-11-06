@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.12";
+export const SDK_VERSION = "0.3.13";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -118,11 +118,13 @@ export interface SystemContext extends EngineFacade {
   readonly navigation: NavigationService;
   readonly ropes: RopeService;
 }
-/** CPU particles with sampled sphere/plane collisions. Collision only moves rope particles;
- * no automatic rigid-body reaction, segment/self collision, rendering or complete physics. */
+/** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply a delayed
+ * projection reaction to dynamic spheres; no full rigid-body coupling, segment/self collision or rope rendering. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
+/** Explicit connection between a sampled rope collider id and a dynamic sphere body. */
+export interface RopeBodyCollider { readonly id: string; readonly entity: string }
 export interface RopeDefinition {
   id: string;
   points: readonly Vec3[];
@@ -133,6 +135,8 @@ export interface RopeDefinition {
   fixedDt?: number;
   /** When true, step once after each physics phase; defaults to false (manual stepping). */
   autoStep?: boolean;
+  /** Automatically sample and react to existing dynamic, non-trigger sphere bodies. Requires autoStep. */
+  bodyColliders?: readonly RopeBodyCollider[];
   substeps?: number;
   iterations?: number;
   damping?: number;

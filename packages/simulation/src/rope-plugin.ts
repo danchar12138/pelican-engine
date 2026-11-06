@@ -1,10 +1,12 @@
-import type { RopeDefinition, RopeService } from "../../sdk/src/index.ts";
-import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
+import type { EntityHandle, RopeBodyCollider, RopeDefinition, RopeService } from "../../sdk/src/index.ts";
+import type { RuntimePluginContext, RuntimePluginFactory, RopePhysicsBridge } from "../../runtime/src/plugins.ts";
+import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
+import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type RopeCollider, type Vec3 } from "./rope.ts";
 
-type Entry = { definition: RopeDefinition; solver: RopeSolver };
-type Saved = { definition: RopeDefinition; state: RopeSnapshot };
+type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string> };
+type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_ROPE_${code}: ${detail}`); };
 const validId = (id: unknown): id is string => typeof id === "string" && id.trim() === id && id.length > 0 && id.length <= 128;
 
@@ -14,8 +16,20 @@ function createEntry(input: RopeDefinition, fixedDt: number): Entry {
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be a boolean.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Rope fixedDt must exactly match the host fixedDt.");
   if (fixedDt < 1 / 1000 || fixedDt > 1 / 30) return fail("FIXED_DT", "Host fixedDt must be within [1/1000, 1/30] seconds for ropes.");
+  if (definition.bodyColliders !== undefined) {
+    if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > 64)
+      return fail("BODY_COLLIDER", "bodyColliders must contain at most 64 bindings.");
+    if (definition.bodyColliders.length && !definition.autoStep)
+      return fail("BODY_COLLIDER", "Body bindings require autoStep: true.");
+    const ids = new Set<string>(), entities = new Set<string>();
+    for (const binding of definition.bodyColliders) {
+      if (!binding || typeof binding !== "object" || !validId(binding.id) || !validId(binding.entity) || ids.has(binding.id) || entities.has(binding.entity))
+        return fail("BODY_COLLIDER", "Each binding requires a unique nonempty collider id and body entity.");
+      ids.add(binding.id); entities.add(binding.entity);
+    }
+  }
   const solver = createRope({ ...definition, fixedDt } as unknown as RopeOptions);
-  return { definition, solver };
+  return { definition, solver, bodyRefs: new Map(), staleBodies: new Set() };
 }
 function disposeEntries(entries: Map<string, Entry>): void {
   for (const { solver } of entries.values()) solver.dispose();
@@ -31,32 +45,73 @@ function parseSnapshot(value: unknown, fixedDt: number): Map<string, Entry> {
       const entry = createEntry(item.definition, fixedDt);
       if (entries.has(entry.definition.id)) { entry.solver.dispose(); fail("SNAPSHOT", "Duplicate rope id."); }
       entries.set(entry.definition.id, entry);
+      const stale = item.staleBodyColliders === undefined ? [] : item.staleBodyColliders;
+      const bound = new Set((entry.definition.bodyColliders ?? []).map(binding => binding.id));
+      if (!Array.isArray(stale) || stale.some(id => typeof id !== "string" || !bound.has(id)) || new Set(stale).size !== stale.length)
+        fail("SNAPSHOT", "Invalid stale body collider list.");
+      entry.staleBodies = new Set(stale);
       entry.solver.restore(item.state);
     }
     return entries;
   } catch (error) { disposeEntries(entries); throw error; }
 }
+function bridgeFor(context: RuntimePluginContext): RopePhysicsBridge {
+  return context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body colliders require the physics plugin and a live dynamic sphere.");
+}
+function resolveRefs(entry: Entry, context: RuntimePluginContext, checkPhysics: boolean): Map<string, EntityHandle> {
+  const refs = new Map<string, EntityHandle>();
+  const specs = entry.definition.bodyColliders ?? [];
+  const bridge = checkPhysics && specs.length ? bridgeFor(context) : undefined;
+  for (const spec of specs) {
+    if (entry.staleBodies.has(spec.id)) continue;
+    if (!context.world.isAlive(spec.entity)) fail("BODY_COLLIDER", `Body '${spec.entity}' is not a live entity.`);
+    if (bridge) bridge.sampleSphere(spec.entity);
+    refs.set(spec.id, context.world.resolve(spec.entity));
+  }
+  return refs;
+}
+function validateWorldBindings(entries: Map<string, Entry>, context: RuntimePluginContext, world: WorldSnapshot): void {
+  const records = new Map(world.entities.map(record => [record.id, record]));
+  for (const entry of entries.values()) for (const binding of entry.definition.bodyColliders ?? []) {
+    if (entry.staleBodies.has(binding.id)) continue;
+    const record = records.get(binding.entity);
+    const definition = record && resolveEntityDefinition(context.scene, record);
+    const body = definition?.rigidBody;
+    if (!record || !body || body.type !== "dynamic" || body.collider.shape !== "sphere" || body.trigger)
+      fail("SNAPSHOT", `Bound body '${binding.entity}' must exist as a dynamic, non-trigger sphere in the restored world.`);
+  }
+}
 
-/** CPU rope ownership; optional host-scheduled stepping remains independent from Rapier. */
-export const createRopePlugin: RuntimePluginFactory = ({ fixedDt }) => {
+/** Position-based sphere reactions are delayed and do not yet solve body effective mass. */
+export const createRopePlugin: RuntimePluginFactory = (context) => {
+  const { fixedDt } = context;
   if (typeof fixedDt !== "number" || !Number.isFinite(fixedDt)) return fail("FIXED_DT", "RuntimeHost must provide a finite fixed interval.");
   const hostDt = fixedDt;
   let entries = new Map<string, Entry>();
-  let disposed = false;
+  let disposed = false, pendingRefs = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Rope service is disposed."); };
+  // Host replay restores plugin data before it replaces the World. Resolve handles
+  // lazily at the first use, after that World replacement has completed.
+  const ensureRefs = () => {
+    if (!pendingRefs) return;
+    const staged = [...entries.values()].map(entry => ({ entry, refs: resolveRefs(entry, context, false) }));
+    for (const { entry, refs } of staged) entry.bodyRefs = refs;
+    pendingRefs = false;
+  };
   const get = (id: string): Entry => {
-    alive();
+    alive(); ensureRefs();
     if (!validId(id)) return fail("ID", "Expected a nonempty rope id.");
     return entries.get(id) ?? fail("MISSING", `Rope '${id}' does not exist.`);
   };
   const service: RopeService = {
     create(definition) {
-      alive();
+      alive(); ensureRefs();
       if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty rope id.");
       if (entries.has(definition.id)) return fail("DUPLICATE", `Rope '${definition.id}' already exists.`);
       if (entries.size >= 256) return fail("CAPACITY", "At most 256 ropes per host.");
       const entry = createEntry(definition, hostDt);
-      entries.set(entry.definition.id, entry);
+      try { entry.bodyRefs = resolveRefs(entry, context, true); entries.set(entry.definition.id, entry); }
+      catch (error) { entry.solver.dispose(); throw error; }
     },
     step(id, ticks) {
       const entry = get(id);
@@ -64,7 +119,17 @@ export const createRopePlugin: RuntimePluginFactory = ({ fixedDt }) => {
       return entry.solver.step(ticks);
     },
     inspect(id) { return get(id).solver.inspect(); },
-    setColliders(id, colliders) { get(id).solver.setColliders(cloneSerializable(colliders) as RopeCollider[]); },
+    setColliders(id, colliders) {
+      const entry = get(id);
+      if (Array.isArray(colliders)) {
+        const bound = new Set((entry.definition.bodyColliders ?? []).map(item => item.id));
+        if (colliders.length + bound.size > 4096)
+          return fail("BODY_COLLIDER", "Manual and bound colliders together may not exceed 4096.");
+        if (colliders.some(collider => collider && bound.has(collider.id)))
+          return fail("BODY_COLLIDER", "Manual collider ids must not conflict with body bindings.");
+      }
+      entry.solver.setColliders(cloneSerializable(colliders) as RopeCollider[]);
+    },
     setAnchor(id, index, position) { get(id).solver.setAnchor(index, cloneSerializable(position) as Vec3); },
     releaseAnchor(id, index) { get(id).solver.releaseAnchor(index); },
     applyForce(id, index, force) { get(id).solver.applyForce(index, cloneSerializable(force) as Vec3); },
@@ -74,30 +139,95 @@ export const createRopePlugin: RuntimePluginFactory = ({ fixedDt }) => {
   return {
     id: "$engine.ropes", version: "1", services: { ropes: service },
     afterPhysics() {
-      alive();
-      const committed: { solver: RopeSolver; snapshot: RopeSnapshot }[] = [];
+      alive(); ensureRefs();
+      const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string> }[] = [];
+      const reactions = new Map<string, Vec3>();
       try {
-        // Stable ordering also makes failure and recording behavior independent of insertion order.
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
-        for (const { solver } of automatic) {
-          const snapshot = solver.snapshot();
-          solver.step(); // A failed solver step rolls itself back.
-          committed.push({ solver, snapshot });
+        for (const entry of automatic) {
+          const snapshot = entry.solver.snapshot();
+          committed.push({ entry, snapshot, definition: entry.definition, refs: entry.bodyRefs, stale: entry.staleBodies });
+          const previous = entry.definition.bodyColliders ?? [];
+          const live: RopeBodyCollider[] = [];
+          for (const binding of previous) {
+            const ref = entry.bodyRefs.get(binding.id);
+            if (!ref && !entry.staleBodies.has(binding.id)) fail("BODY_COLLIDER", `Missing live handle for '${binding.id}'; restore a known-good checkpoint.`);
+            if (ref && context.world.isAlive(ref)) live.push(binding);
+          }
+          if (live.length !== previous.length) {
+            entry.definition = { ...entry.definition, bodyColliders: live };
+            entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
+            entry.staleBodies = new Set();
+          }
+          if (previous.length) {
+            const boundIds = new Set(previous.map(item => item.id));
+            const manual = snapshot.colliders.filter(collider => !boundIds.has(collider.id));
+            const bridge = live.length ? bridgeFor(context) : undefined;
+            const sampled: RopeCollider[] = live.map(binding => {
+              const sphere = bridge!.sampleSphere(binding.entity);
+              return { kind: "sphere", id: binding.id, center: [...sphere.center] as Vec3, radius: sphere.radius };
+            });
+            entry.solver.setColliders([...manual, ...sampled]);
+          }
+          const state = entry.solver.step();
+          const byCollider = new Map(live.map(binding => [binding.id, binding.entity]));
+          for (const contact of state.contacts) {
+            const entity = byCollider.get(contact.colliderId), impulse = contact.reactionImpulse;
+            if (!entity || !impulse) continue;
+            const total = reactions.get(entity) ?? [0, 0, 0];
+            for (let k = 0; k < 3; k++) total[k] += impulse[k];
+            if (!total.every(Number.isFinite)) fail("NUMERIC", `Reaction for '${entity}' exceeded finite bounds.`);
+            reactions.set(entity, total);
+          }
         }
+        const batch = [...reactions].filter(([, impulse]) => impulse.some(value => value !== 0))
+          .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+          .map(([entity, impulse]) => ({ entity, impulse }));
+        if (batch.length) bridgeFor(context).applySphereReactions(batch);
       } catch (error) {
         const failures: string[] = [];
-        for (const { solver, snapshot } of committed.reverse()) {
-          try { solver.restore(snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
+        for (const item of committed.reverse()) {
+          item.entry.definition = item.definition; item.entry.bodyRefs = item.refs; item.entry.staleBodies = item.stale;
+          try { item.entry.solver.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
         }
         if (failures.length) throw new Error(`TC_ROPE_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`);
         throw error;
       }
     },
     legacySnapshot: () => ({ version: 1, ropes: [] }),
-    snapshot: () => ({ version: 1, ropes: [...entries.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(({ definition, solver }) => ({ definition: cloneSerializable(definition), state: solver.snapshot() })) }),
+    snapshot: () => { alive(); ensureRefs(); return { version: 1, ropes: [...entries.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(entry => {
+      const stale = (entry.definition.bodyColliders ?? []).filter(binding => {
+        const ref = entry.bodyRefs.get(binding.id);
+        if (!ref && !entry.staleBodies.has(binding.id)) return fail("SNAPSHOT", `Missing handle for '${binding.id}'.`);
+        return !ref || !context.world.isAlive(ref);
+      }).map(binding => binding.id);
+      return { definition: cloneSerializable(entry.definition), state: entry.solver.snapshot(), ...(stale.length ? { staleBodyColliders: stale } : {}) };
+    }) }; },
     validateSnapshot(value) { const staged = parseSnapshot(value, hostDt); disposeEntries(staged); },
-    restore(value) { alive(); const staged = parseSnapshot(value, hostDt); disposeEntries(entries); entries = staged; },
+    validateWorld(value, world) {
+      const staged = parseSnapshot(value, hostDt);
+      try { validateWorldBindings(staged, context, world); } finally { disposeEntries(staged); }
+    },
+    validatePeers(value, peers) {
+      const staged = parseSnapshot(value, hostDt);
+      try {
+        const bindings = [...staged.values()].flatMap(entry => (entry.definition.bodyColliders ?? []).filter(binding => !entry.staleBodies.has(binding.id)));
+        if (!bindings.length) return;
+        const physics = peers["$engine.physics"]?.payload as { bindings?: unknown; entities?: unknown } | undefined;
+        if (!physics || !Array.isArray(physics.bindings) || !Array.isArray(physics.entities))
+          return fail("SNAPSHOT", "Body-bound ropes require a matching physics snapshot.");
+        const bodyStates: unknown[] = physics.entities, bodyIds: unknown[] = physics.bindings;
+        for (const binding of bindings) {
+          const found = bodyStates.find(item => item && typeof item === "object" && (item as { id?: unknown }).id === binding.entity && (item as { type?: unknown }).type === "dynamic");
+          if (!found || !bodyIds.includes(binding.entity)) fail("SNAPSHOT", `Bound body '${binding.entity}' is missing from physics state.`);
+        }
+      } finally { disposeEntries(staged); }
+    },
+    restore(value) {
+      alive(); const staged = parseSnapshot(value, hostDt);
+      disposeEntries(entries); entries = staged; pendingRefs = true;
+    },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },
   };
 };

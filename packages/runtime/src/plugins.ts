@@ -11,6 +11,7 @@ import type {
   ComputeService,
   NavigationService,
   RopeService,
+  Vec3,
 } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import type {
@@ -33,7 +34,14 @@ export interface RuntimeServices {
   navigation: NavigationService;
   ropes: RopeService;
 }
+/** Private bridge; native physics objects never cross this interface. */
+export interface RopePhysicsBridge {
+  sampleSphere(entity: string): { center: Vec3; radius: number };
+  applySphereReactions(reactions: readonly { entity: string; impulse: Vec3 }[]): void;
+}
 export interface RuntimePluginContext {
+  /** Lazily resolved because physics may be registered after another plugin. */
+  getRopePhysicsBridge?(): RopePhysicsBridge | undefined;
   /** Host interval; supplied by RuntimeHost to engine plugins. */
   readonly fixedDt?: number;
   world: RuntimeWorld;
@@ -56,6 +64,8 @@ export interface RuntimePlugin {
   restore(value: unknown): void;
   /** Synchronous engine-owned work after the physics phase and before postPhysics systems. */
   afterPhysics?(): void;
+  /** Engine-private integration surface, not a game service. */
+  ropePhysicsBridge?: RopePhysicsBridge;
   /** Engine boundary after each fixed tick; never awaited inside a game system. */
   settle?(): Promise<void>;
   dispose(): void;

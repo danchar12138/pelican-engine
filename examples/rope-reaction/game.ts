@@ -3,33 +3,19 @@ import { defineComponent, defineGame, defineMaterial, defineScene, defineSystem 
 const State = defineComponent({ id: "RopeReactionState", schema: { initialized: { type: "boolean", default: false } } });
 const particle = defineMaterial({ id: "particle", color: "#e99b37", roughness: 0.6 });
 const ball = defineMaterial({ id: "ball", color: "#32a8b0", roughness: 0.5 });
-const prepare = defineSystem({ id: "rope-reaction-prepare", phase: "prePhysics", reads: ["RopeReactionState", "Transform"], writes: ["RopeReactionState"], run(ctx) {
+const prepare = defineSystem({ id: "rope-reaction-prepare", phase: "prePhysics", reads: ["RopeReactionState"], writes: ["RopeReactionState"], run(ctx) {
   if (!ctx.getComponent("state", State).initialized) {
-    ctx.ropes.create({ id: "rope", autoStep: true, mass: 0.2, points: [[-1, 2, 0], [-0.5, 2, 0], [0, 2, 0], [0.5, 2, 0]] });
+    ctx.ropes.create({ id: "rope", autoStep: true, mass: 0.2,
+      points: [[-1, 2, 0], [-0.5, 2, 0], [0, 2, 0], [0.5, 2, 0]],
+      bodyColliders: [{ id: "ball-sample", entity: "ball" }],
+    });
+    ctx.ropes.setColliders("rope", [{ id: "floor", kind: "plane", normal: [0, 1, 0], offset: 0 }]);
     ctx.setComponent("state", State, { initialized: true });
   }
-  // The sphere is sampled before the rigid-body step; this is a delayed, simplified coupling.
-  ctx.ropes.setColliders("rope", [
-    { id: "floor", kind: "plane", normal: [0, 1, 0], offset: 0 },
-    { id: "ball", kind: "sphere", center: ctx.getTransform("ball").position, radius: 0.5 },
-  ]);
 } });
-const react = defineSystem({ id: "rope-reaction-apply", phase: "postPhysics", run(ctx) {
+const react = defineSystem({ id: "rope-reaction-display", phase: "postPhysics", run(ctx) {
   const state = ctx.ropes.inspect("rope");
   for (let i = 0; i < state.positions.length; i++) ctx.setTransform(`particle-${i}`, { position: state.positions[i] });
-  const center = ctx.physics.centerOfMass("ball");
-  for (const contact of state.contacts) {
-    if (contact.colliderId !== "ball" || !contact.reactionImpulse || !contact.reactionAngularImpulse) continue;
-    const j = contact.reactionImpulse, m = contact.reactionAngularImpulse;
-    // Convert moment about the world origin into moment about the body's actual center of mass.
-    const torque: [number, number, number] = [
-      m[0] - (center[1] * j[2] - center[2] * j[1]),
-      m[1] - (center[2] * j[0] - center[0] * j[2]),
-      m[2] - (center[0] * j[1] - center[1] * j[0]),
-    ];
-    ctx.physics.impulse("ball", j);
-    ctx.physics.torqueImpulse("ball", torque);
-  }
 } });
 export default defineGame({ id: "rope-reaction", components: [State], systems: [prepare, react],
   scene: defineScene({ id: "rope-reaction-scene", gravity: [0, 0, 0], camera: { position: [0, 2, 6], target: [0, 1, 0], fov: 45 },

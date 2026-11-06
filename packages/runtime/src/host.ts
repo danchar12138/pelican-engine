@@ -165,6 +165,7 @@ export class RuntimeHost {
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
           fixedDt: this.fixedDt,
+          getRopePhysicsBridge: () => this.plugins.find((plugin) => plugin.id === "$engine.physics")?.ropePhysicsBridge,
           world: this.world,
           scene: this.scene,
           events: (type) => this.scheduler.events(type),

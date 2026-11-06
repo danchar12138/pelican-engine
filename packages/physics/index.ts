@@ -1050,10 +1050,33 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       };
     },
   };
+  const sampleRopeSphere = (id: string) => {
+    const b = get(id);
+    if (b.type !== "dynamic" || b.definition.rigidBody?.collider.shape !== "sphere" || b.collider.isSensor())
+      fail("TC_PHYSICS_ROPE_BODY", `Rope body '${id}' must be a live dynamic, non-trigger sphere.`);
+    return { center: tuple(b.collider.translation()), radius: b.collider.radius() };
+  };
   return {
     id: pluginId,
     version: "3",
     services: { physics },
+    ropePhysicsBridge: {
+      sampleSphere: sampleRopeSphere,
+      applySphereReactions(reactions) {
+        alive();
+        if (history.length + reactions.length > limit)
+          fail("TC_PHYSICS_HISTORY_LIMIT", "Rope reactions exceed physics history capacity; start a new scene.");
+        const seen = new Set<string>();
+        const actions = reactions.map(({ entity, impulse }) => {
+          if (seen.has(entity)) fail("TC_PHYSICS_ROPE_BODY", `Duplicate rope reaction body '${entity}'.`);
+          seen.add(entity);
+          const sample = sampleRopeSphere(entity);
+          return { kind: "impulseAtPoint" as const, id: entity, value: tuple(vec(impulse, "rope reaction")), point: sample.center };
+        });
+        // Validation precedes mutation; a native error can still leave a partial batch.
+        for (const action of actions) record(action);
+      },
+    },
     systems: [
       {
         id: pluginId,
