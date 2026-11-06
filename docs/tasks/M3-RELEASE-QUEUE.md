@@ -4,7 +4,7 @@
 
 用户要求发布 M3 后只保留单线串行开发。GitHub 已创建 `v0.3.0-m3.0` compile-only/unverified 预发布，提交 `629e880a9ab4664ee799e94293ab4dea1df11645`；这不是 M3 正式验收或完整首发。npm Actions 工作流 `42230390535` 三次直接发布均失败：首次因 2FA 权限，第二次因令牌仅允许 staging 而返回 `E_STAGE_REQUIRED`，第三次返回 `EOTP`，要求一次性双重验证。npm 公开发布未成功。
 
-用户说明当前 `NPM_TOKEN` 是 stage-only 且有 2FA bypass，要求自动提交 staged package、本人手动审核（D52）。工作流已切换为 `npm stage publish`，支持按已有标签手动触发。Staging 与审批状态分别记录；staged 不等于 npm 公开发布。
+用户要求自动提交 staged package、本人手动审核（D52）。工作流已切换为 `npm stage publish`，支持按已有标签手动触发。Actions 运行 `42237844464` 将 `pelican-engine@0.3.0-m3.0` 提交到 `next`，stage ID `6fe20eb8-97f4-48d7-9419-bea962e213c8`；等待用户以 2FA 审核。Staged 不等于 npm 公开发布；此前运行 `42237428010` 因 PowerShell 单引号导致路径未展开而失败，已修正。
 
 现仅登记 `main` 主工作树和开发分支。原有工作树已移除或作为本机快照注销，独有提交以 `refs/pelican-archive/worktrees/` 保留；未合入差异及原始快照保存在 `.pelican/consolidated-worktrees/` 和 `.pelican/worktree-snapshots/`。它们未全部归类或合入，不代表功能完成；不得跟随 junction 删除或丢弃独有成果。主树中历史 `evidence/m3/` 至 `evidence/m6/` 仍未跟踪，保留在本机，未随本次提交上传。归档路径是本机辅助记录，其他环境可能不存在。
 
