@@ -12,14 +12,16 @@ inspectAsset(
 The inspector reads actual file bytes, validates the supported representation and
 returns plain JSON. It does not read sidecar metadata, load external resources,
 write to the source file, generate assets, or require a browser or online service.
-Existing `@gltf-transform/core` reads validated GLB documents. No dependencies are
+Locked `@gltf-transform/core` and `@gltf-transform/extensions` read validated GLB documents. No dependencies are
 installed or changed by this package.
 
 ## Explicit lossless optimization
 
-`src/optimize.ts` exports `optimizeModel(input, output)` using locked glTF-Transform functions. It deduplicates resources while preserving unique names and welds bitwise-identical complete vertex streams. It verifies triangle count, static bounds, skin/joint counts and animation metadata after processing. Output must be a new `.glb`; the source and existing outputs remain unchanged. The compiler validates the adopted output as any other asset. Tests compare actual triangle vertex streams, not just counts. This is not mesh quantization or texture transcoding.
+`src/optimize.ts` exports `optimizeModel(input, output)` using locked glTF-Transform functions. It deduplicates resources while preserving unique names and welds bitwise-identical complete vertex streams. It verifies triangle count, static bounds, skin/joint counts, animation metadata and supported physical-material extension factors after processing. Output must be a new `.glb`; the source and existing outputs remain unchanged. The compiler validates the adopted output as any other asset. Tests compare actual triangle vertex streams, not just counts. This is not mesh quantization or texture transcoding.
 
 The CLI exposes `optimize --project <game> --asset <model-id> --output <new-project-relative.glb>`. Keep the asset's source/license/attribution when updating its path. `build` also emits lossless HTTP Brotli/Gzip companions and a manifest; identity files remain available for ordinary static deployment.
+
+Self-contained GLB sparse accessors with packed or zero-initialized bases and up to four components are inspected after applying their indexed replacements. Indices must be strictly increasing and in range; offsets and buffer views are validated. Sparse matrices and sparse accessors with an interleaved base are currently rejected with `TC_ASSET_UNSUPPORTED`, because the locked Three.js loader cannot reliably decode those layouts. Convert such data to packed, non-sparse accessors before import. The existing sub-32-bit matrix restriction remains.
 
 ## Metadata contract for compiler and services
 
@@ -149,11 +151,12 @@ Float WAVE uses `encoding: "ieee-float"` and requires a matching `fact` frame co
   and 8 million JPEG blocks. Exceeding these gives an explicit unsupported error.
 
 Remaining gaps deliberately return unsupported: `.gltf`, external/data resources,
-all glTF extensions (including optional ones, Draco/Meshopt/KTX2), sparse accessors,
-sub-32-bit matrix accessors, cameras, joint/weight sets beyond 0, Adam7/APNG,
+glTF extensions other than the `KHR_materials_specular` factor and UV0 texture subset
+and material constants of `KHR_materials_ior` (including Draco/Meshopt/KTX2), sparse accessors,
+sub-32-bit matrix accessors, cameras, joint/weight sets beyond 0, APNG,
 progressive/lossless/arithmetic/multiple-scan/CMYK JPEG, RF64/RIFX/WAVE extensible,
 compressed WAVE, MP3/Ogg/AAC and other image/audio codecs. The package does not
-provide optimization/transcoding, asset generation, packaging/license processing,
+provide lossy transcoding, asset generation, a general-purpose authoring system,
 or a complete glTF/asset capability claim. Supported subset validation is not a
 replacement for a complete Khronos conformance validator.
 

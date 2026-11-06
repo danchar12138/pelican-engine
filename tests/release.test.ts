@@ -23,6 +23,7 @@ import {
   checkRelease,
   packRelease,
   releaseCli,
+  collectedSourceMatchesFingerprint,
   REQUIRED_CHECKS,
   M1_REQUIRED_CHECKS,
   M2_REQUIRED_CHECKS,
@@ -32,6 +33,15 @@ import {
 
 import { sourceFingerprint } from "../tools/source-fingerprint.ts";
 
+test("release snapshot rejects stale collected executable bytes", () => {
+  const original = Buffer.from("export const value = 1;\n");
+  const changed = Buffer.from("export const value = 2;\n");
+  const files = [{ path: "src/main.ts", bytes: original.length, sha256: createHash("sha256").update(original).digest("hex") }];
+  assert.equal(collectedSourceMatchesFingerprint([{ path: "src/main.ts", content: original }], files), true);
+  assert.equal(collectedSourceMatchesFingerprint([{ path: "src/main.ts", content: changed }], files), false);
+  assert.equal(collectedSourceMatchesFingerprint([{ path: "src/main.ts", content: Buffer.concat([original, Buffer.from(" ")]) }], files), false);
+});
+
 const directories: string[] = [];
 after(async () => {
   const base = path.resolve(tmpdir());
@@ -40,12 +50,12 @@ after(async () => {
     assert.ok(
       relative && !relative.startsWith("..") && !path.isAbsolute(relative),
     );
-    assert.ok(path.basename(directory).startsWith("threecat 发布 "));
+    assert.ok(path.basename(directory).startsWith("pelican 发布 "));
     await rm(directory, { recursive: true, force: true });
   }
 });
 async function temporary() {
-  const directory = await mkdtemp(path.join(tmpdir(), "threecat 发布 "));
+  const directory = await mkdtemp(path.join(tmpdir(), "pelican 发布 "));
   directories.push(directory);
   return directory;
 }
@@ -77,17 +87,17 @@ function acceptance() {
 async function fixture() {
   const root = await temporary();
   await putJson(root, "package.json", {
-    name: "threecat",
+    name: "pelican-engine",
     version: M0_VERSION,
     license: "MIT",
   });
   await putJson(root, "package-lock.json", {
-    name: "threecat",
+    name: "pelican-engine",
     version: M0_VERSION,
     packages: { "": { version: M0_VERSION } },
   });
   await putJson(root, "engine.manifest.json", {
-    name: "threecat",
+    name: "pelican-engine",
     version: M0_VERSION,
     milestone: "M0",
     license: "MIT",
@@ -105,7 +115,7 @@ async function fixture() {
   );
   await put(root, "AGENTS.md", "Test-only AI entry.");
   await put(root, "README.md", "Synthetic release fixture.");
-  await put(root, "threecat.ps1", "# Synthetic bootstrap fixture");
+  await put(root, "pelican.ps1", "# Synthetic bootstrap fixture");
   await put(root, "docs/README.md", "Synthetic fixture documentation");
   await put(root, "assets/sample.txt", "Synthetic offline asset");
   await put(root, "src/tokens.ts", "export const tokenKinds = [];");
@@ -346,7 +356,7 @@ test("ZIP source without Git includes Chinese paths/evidence and excludes depend
   for (const name of [
     ".git/config",
     "node_modules/private/index.js",
-    ".threecat/cache.json",
+    ".pelican/cache.json",
     "release/old.zip",
     "dist/.env",
     ".env",
@@ -370,9 +380,9 @@ test("ZIP source without Git includes Chinese paths/evidence and excludes depend
   assert.equal(result.status, "succeeded", JSON.stringify(result));
   const directory = path.join(root, result.data!.directory);
   const source = unzip(
-    await readFile(path.join(directory, `threecat-${M0_VERSION}-source.zip`)),
+    await readFile(path.join(directory, `pelican-${M0_VERSION}-source.zip`)),
   );
-  const prefix = `threecat-${M0_VERSION}/`;
+  const prefix = `pelican-${M0_VERSION}/`;
   assert.equal(
     source.get(`${prefix}src/中文 空格.ts`)?.toString("utf8"),
     "export const example = 1;\n",
@@ -380,7 +390,7 @@ test("ZIP source without Git includes Chinese paths/evidence and excludes depend
   assert.ok(source.has(`${prefix}evidence/m0/acceptance.json`));
   assert.ok(source.has(`${prefix}package-lock.json`));
   for (const name of [
-    "threecat.ps1",
+    "pelican.ps1",
     "AGENTS.md",
     "docs/README.md",
     "assets/sample.txt",
@@ -393,13 +403,13 @@ test("ZIP source without Git includes Chinese paths/evidence and excludes depend
     assert.ok(name.startsWith(prefix));
     assert.doesNotMatch(
       name,
-      /(?:^|\/)(?:node_modules|\.git|\.threecat|release|dist|tmp)(?:\/|$)/,
+      /(?:^|\/)(?:node_modules|\.git|\.pelican|release|dist|tmp)(?:\/|$)/,
     );
     assert.doesNotMatch(content.toString("utf8"), /DO-NOT-PUBLISH/);
     assert.ok(!name.includes(root) && !name.includes("\\"));
   }
   const dist = unzip(
-    await readFile(path.join(directory, `threecat-${M0_VERSION}-dist.zip`)),
+    await readFile(path.join(directory, `pelican-${M0_VERSION}-dist.zip`)),
   );
   assert.ok(
     dist.has("index.html") &&
@@ -472,6 +482,18 @@ test("embedded credential-like content fails rather than publishing a renamed se
   hasCode(await packRelease({ projectRoot: root }), "TCREL_SECRET");
 });
 
+test("npm token-like content is rejected in source and dist without exposing it", async () => {
+  const marker = "npm_" + "A".repeat(36);
+  for (const target of ["src/ordinary.ts", "dist/assets/runtime.js"]) {
+    const root = await fixture();
+    await put(root, target, `const secret = "${marker}";`);
+    const result = await packRelease({ projectRoot: root });
+    hasCode(result, "TCREL_SECRET");
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(marker));
+    await assert.rejects(lstat(path.join(root, "release", `v${M0_VERSION}`)), { code: "ENOENT" });
+  }
+});
+
 test("junctions are never followed and acceptance cannot be loaded through a linked evidence directory", async () => {
   const root = await fixture();
   const outside = await temporary();
@@ -488,7 +510,7 @@ test("junctions are never followed and acceptance cannot be loaded through a lin
       path.join(
         root,
         result.data!.directory,
-        `threecat-${M0_VERSION}-source.zip`,
+        `pelican-${M0_VERSION}-source.zip`,
       ),
     ),
   );
@@ -532,7 +554,7 @@ test(
     const archive = path.join(
       root,
       result.data!.directory,
-      `threecat-${M0_VERSION}-source.zip`,
+      `pelican-${M0_VERSION}-source.zip`,
     );
     const destination = path.join(root, "解压 结果");
     await promisify(execFile)(
@@ -555,7 +577,7 @@ test(
     );
     assert.equal(
       await readFile(
-        path.join(destination, `threecat-${M0_VERSION}`, "src/中文 空格.ts"),
+        path.join(destination, `pelican-${M0_VERSION}`, "src/中文 空格.ts"),
         "utf8",
       ),
       "export const example = 1;\n",
@@ -905,7 +927,7 @@ test("M1 packages the current version, source root, evidence and independent roo
   assert.equal(packed.status, "succeeded", JSON.stringify(packed));
   assert.equal(packed.data?.directory, `release/v${M1_FIXTURE_VERSION}`);
   const directory = path.join(root, packed.data!.directory);
-  const prefix = `threecat-${M1_FIXTURE_VERSION}`;
+  const prefix = `pelican-${M1_FIXTURE_VERSION}`;
   const source = unzip(
     await readFile(path.join(directory, `${prefix}-source.zip`)),
   );
@@ -1026,12 +1048,12 @@ test("manifest version drives patch release names; a flag cannot promote M1 to a
   assert.equal(result.data?.directory, `release/v${version}`);
   const directory = path.join(root, result.data!.directory);
   const source = unzip(
-    await readFile(path.join(directory, `threecat-${version}-source.zip`)),
+    await readFile(path.join(directory, `pelican-${version}-source.zip`)),
   );
-  assert.ok(source.has(`threecat-${version}/engine.manifest.json`));
+  assert.ok(source.has(`pelican-${version}/engine.manifest.json`));
   const manifest = await readJson(
     directory,
-    `threecat-${version}-manifest.json`,
+    `pelican-${version}-manifest.json`,
   );
   assert.equal(manifest.prerelease, true);
 });
@@ -1067,7 +1089,7 @@ const M2_EVIDENCE: Record<string, string[]> = {
   "source-freeze": ["evidence/m2/compiler.json"],
 };
 const M2_ASSET_NOTICES = {
-  format: "threecat.asset-notices",
+  format: "pelican.asset-notices",
   version: 1,
   assets: [
     {
@@ -1129,7 +1151,7 @@ async function m2Fixture() {
   });
   // Content follows actual verifier envelopes; no invented dev-server/source-freeze reports.
   await putJson(root, "evidence/m2/compiler.json", {
-    format: "threecat.build-report",
+    format: "pelican.build-report",
     version: 1,
     success: true,
     engineVersion: M2_FIXTURE_VERSION,
@@ -1233,7 +1255,7 @@ test("M2 check and fixture pack use manifest version, game-slice scope and accep
   assert.equal(packed.taskId, "M2-release");
   assert.equal(packed.data!.directory, `release/v${M2_FIXTURE_VERSION}`);
   const directory = path.join(root, packed.data!.directory),
-    prefix = `threecat-${M2_FIXTURE_VERSION}`;
+    prefix = `pelican-${M2_FIXTURE_VERSION}`;
   const manifest: ReleaseManifest = await readJson(
     directory,
     `${prefix}-manifest.json`,
@@ -1473,7 +1495,7 @@ test("M2 patch filenames remain manifest-driven and cannot be promoted by prerel
   assert.equal(manifest.prerelease, true);
   assert.deepEqual(
     manifest.archives.map((a: { path: string }) => a.path),
-    [`threecat-${version}-source.zip`, `threecat-${version}-dist.zip`],
+    [`pelican-${version}-source.zip`, `pelican-${version}-dist.zip`],
   );
 });
 
@@ -1662,7 +1684,7 @@ test("M2 archive retains negotiated compressed runtime files and rejects missing
       path.join(
         root,
         packed.data!.directory,
-        "threecat-" + M2_FIXTURE_VERSION + "-dist.zip",
+        "pelican-" + M2_FIXTURE_VERSION + "-dist.zip",
       ),
     ),
   );

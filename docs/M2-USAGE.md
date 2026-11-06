@@ -4,13 +4,13 @@
 
 ## 准备与创建
 
-Windows 下可从 GitHub、ZIP、解压目录或外部引擎路径开始，不要求 Git、账号或专用 AI 平台。只修改游戏目录，游戏代码仅导入 `@threecat/sdk`。
+Windows 下可从 GitHub、ZIP、解压目录或外部引擎路径开始，不要求 Git、账号或专用 AI 平台。只修改游戏目录，游戏代码仅导入 `pelican-engine`。
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" setup --install-browser
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" create --project "<new-game>"
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" check --project "<game>"
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" dev --project "<game>" --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" setup --install-browser
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" create --project "<new-game>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" check --project "<game>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" dev --project "<game>" --port 4173
 ```
 
 `create` 复制 M2 完整示例和素材并配置本地引擎引用；不会覆盖已有目录。项目清单 `engine.path` 按游戏目录解析，`engine.version` 必须精确匹配。准备好缓存后可用 `setup --offline`；模型和素材生产方式不由引擎限制。
@@ -39,12 +39,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" dev 
 普通页面自动运行，无需点击或回车。仅开发版 `?automation=1` 明确暂停。控制桥使用数值轮询和 Node 截止时间，启动不等待窗口激活或 GPU 队列完成通知。游戏 UI 不显示内部引擎状态，测试通过结构化 `inspect` 区分 paused 与 faulted。
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" inspect --port 4173
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" input --key w --pressed true --port 4173
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" step --count 60 --port 4173
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" input --key w --pressed false --port 4173
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" capture --live --output "<game>\frame.png" --port 4173
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" build --project "<game>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" inspect --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" input --key w --pressed true --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" step --count 60 --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" input --key w --pressed false --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" capture --live --output "<game>\frame.png" --port 4173
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" build --project "<game>"
 ```
 
 `capture --live` 读取控制桥持有的当前页；独立 `capture --project` 建立冷会话。返回 JSON envelope 和退出码，负例不会被旧构建冒充成功。生产 `dist/` 部署到普通 Web 服务器，包括子路径，去除开发控制 API，不依赖原引擎目录或任何 AI 服务。

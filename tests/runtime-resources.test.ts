@@ -56,7 +56,7 @@ function gated() {
   return { manager, calls, disposed };
 }
 const snap = (resources: ResourceSnapshot["resources"]): ResourceSnapshot => ({
-  format: "threecat.resources",
+  format: "pelican.resources",
   version: 1,
   resources,
 });
@@ -377,7 +377,7 @@ describe("M1 disposal, inspection and stable diagnostics", () => {
 
 describe("M1 real loader integration and measured lifecycle", () => {
   it("loads a real temporary binary, shares it, rebuilds identity and repeats 200 ownership cycles", async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "threecat resources 中文 "));
+    const root = await mkdtemp(join(tmpdir(), "pelican resources 中文 "));
     const path = join(root, "asset binary.bin");
     const expected = Uint8Array.from({ length: 8192 }, (_v, i) => i % 251);
     let loaded = 0,
@@ -474,7 +474,7 @@ describe("M1 real loader integration and measured lifecycle", () => {
       };
       binary: Resources["binary"];
     }
-    const root = await mkdtemp(join(tmpdir(), "threecat host integration "));
+    const root = await mkdtemp(join(tmpdir(), "pelican host integration "));
     const manager = createResourceManager<HostResources>();
     const released: string[] = [];
     manager.registerLoader("json", {

@@ -4,6 +4,7 @@ import path from "node:path";
 const excluded = new Set([
   "node_modules",
   ".git",
+  ".pelican",
   ".threecat",
   "dist",
   "release",
@@ -23,7 +24,7 @@ export async function sourceFingerprint(root: string) {
       if (info.isSymbolicLink()) continue;
       if (info.isDirectory()) await visit(file);
       else if (
-        (/\.(ts|json|ps1|html|yml|glb|gltf|png|jpe?g|webp|wav|ogg|mp3|ktx2|hdr|exr|bin|dat)$/i.test(
+        (/\.(?:[cm]?[jt]sx?|json|ps1|html|css|ya?ml|wasm|glb|gltf|png|jpe?g|webp|wav|ogg|mp3|ktx2|hdr|exr|bin|dat)$/i.test(
           name,
         ) ||
           (path.relative(root, file).split(path.sep)[0] === "examples" &&
@@ -40,7 +41,7 @@ export async function sourceFingerprint(root: string) {
     }
   }
   await visit(root);
-  files.sort((a, b) => a.path.localeCompare(b.path));
+  files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   const hash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
   return {
     algorithm: "sha256",

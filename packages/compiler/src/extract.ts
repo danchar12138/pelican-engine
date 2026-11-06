@@ -19,6 +19,7 @@ const declarations: Record<string, string> = {
   defineComponent: "component",
   defineMaterial: "material",
   defineCompute: "compute",
+  definePostProcess: "postprocess",
   defineAsset: "asset",
   definePrefab: "prefab",
   defineScene: "scene",
@@ -63,7 +64,7 @@ export class Extractor {
     code: string,
     message: string,
     node: ts.Node,
-    suggestion = "Use literal data and supported @threecat/sdk declaration calls.",
+    suggestion = "Use literal data and supported pelican-engine declaration calls.",
   ): never {
     this.diagnostics.push({
       code,
@@ -108,7 +109,7 @@ export class Extractor {
             argument,
           );
         const specifier = argument.text;
-        if (specifier !== "@threecat/sdk") {
+        if (specifier !== "pelican-engine") {
           if (!specifier.startsWith("."))
             this.fail(
               "TC_PUBLIC_API",
@@ -123,7 +124,11 @@ export class Extractor {
           ).resolvedModule?.resolvedFileName;
           if (resolved) {
             const relative = path.relative(this.projectRoot, resolved);
-            if (relative.startsWith("..") || path.isAbsolute(relative))
+            if (
+              relative.startsWith("..") ||
+              path.isAbsolute(relative) ||
+              relative.split(path.sep).includes("node_modules")
+            )
               this.fail(
                 "TC_PUBLIC_API",
                 "Module reference leaves the game project.",
@@ -156,14 +161,14 @@ export class Extractor {
           );
         const clause = statement.importClause!;
         let resolved: string | undefined;
-        if (specifier !== "@threecat/sdk") {
+        if (specifier !== "pelican-engine") {
           if (!specifier.startsWith("."))
             this.fail(
               "TC_PUBLIC_API",
-              "Game code may import @threecat/sdk and project-local modules only: " +
+              "Game code may import pelican-engine and project-local modules only: " +
                 specifier,
               statement,
-              "Access engine capabilities through @threecat/sdk.",
+              "Access engine capabilities through pelican-engine.",
             );
           resolved = ts.resolveModuleName(
             specifier,
@@ -179,12 +184,16 @@ export class Extractor {
               "Check the relative import path and file name.",
             );
           const relative = path.relative(this.projectRoot, resolved!);
-          if (relative.startsWith("..") || path.isAbsolute(relative))
+          if (
+            relative.startsWith("..") ||
+            path.isAbsolute(relative) ||
+            relative.split(path.sep).includes("node_modules")
+          )
             this.fail(
               "TC_PUBLIC_API",
               "Local imports must remain inside the game project.",
               statement,
-              "Reference engine functionality through @threecat/sdk.",
+              "Reference engine functionality through pelican-engine.",
             );
         }
         // Type-only imports obey the same public API boundary as value imports.
@@ -440,7 +449,7 @@ export class Extractor {
           "TC_STATIC_SIDE_EFFECT",
           "Arbitrary function calls are not evaluated in definitions.",
           node,
-          "Use a supported define* call from @threecat/sdk; put executable behavior inside systems.",
+          "Use a supported define* call from pelican-engine; put executable behavior inside systems.",
         );
       const input = this.evaluate(node.arguments[0]!, mod);
       if (!input || Array.isArray(input) || typeof input !== "object")

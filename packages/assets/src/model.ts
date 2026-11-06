@@ -1,5 +1,6 @@
 ﻿import { NodeIO, type GLTF } from "@gltf-transform/core";
 import { InspectionContext } from "./errors.ts";
+import { KHRMaterialsIOR, KHRMaterialsSpecular } from "@gltf-transform/extensions";
 import { parseGLB, type AccessorData } from "./glb.ts";
 import { inspectTexture } from "./texture.ts";
 
@@ -147,6 +148,17 @@ export async function inspectModel(
   const materials = (json.materials ?? []).map((m, i) => {
     const at = `materials/${i}`,
       p = m.pbrMetallicRoughness;
+    const specular = m.extensions?.KHR_materials_specular as {
+      specularTexture?: GLTF.ITextureInfo;
+      specularColorTexture?: GLTF.ITextureInfo;
+    } | undefined;
+    const specularTexture = (info: GLTF.ITextureInfo | undefined, field: string) => {
+      const location = `${at}/extensions/KHR_materials_specular/${field}`;
+      const index = textureInfo(info, location);
+      if (info && info.texCoord !== undefined && info.texCoord !== 0)
+        ctx.unsupported(location + "/texCoord", "Specular textures only support TEXCOORD_0.");
+      return index;
+    };
     if (p !== undefined)
       ctx.check(
         p && typeof p === "object" && !Array.isArray(p),
@@ -162,6 +174,8 @@ export async function inspectModel(
       normal: textureInfo(m.normalTexture, at + "/normalTexture"),
       occlusion: textureInfo(m.occlusionTexture, at + "/occlusionTexture"),
       emissive: textureInfo(m.emissiveTexture, at + "/emissiveTexture"),
+      specular: specularTexture(specular?.specularTexture, "specularTexture"),
+      specularColor: specularTexture(specular?.specularColorTexture, "specularColorTexture"),
     };
     if (m.normalTexture?.scale !== undefined)
       scalar(
@@ -189,6 +203,8 @@ export async function inspectModel(
     return {
       index: i,
       name: m.name ?? "",
+      ...(m.extensions?.KHR_materials_specular ? { specular: m.extensions.KHR_materials_specular } : {}),
+      ...(m.extensions?.KHR_materials_ior ? { ior: m.extensions.KHR_materials_ior } : {}),
       pbr: {
         baseColorFactor: vector(
           p?.baseColorFactor ?? [1, 1, 1, 1],
@@ -427,12 +443,18 @@ export async function inspectModel(
       if (p.material !== undefined) {
         ref(materials, p.material, loc + "/material");
         const m = json.materials![p.material];
+        const specular = m.extensions?.KHR_materials_specular as {
+          specularTexture?: GLTF.ITextureInfo;
+          specularColorTexture?: GLTF.ITextureInfo;
+        } | undefined;
         for (const info of [
           m.pbrMetallicRoughness?.baseColorTexture,
           m.pbrMetallicRoughness?.metallicRoughnessTexture,
           m.normalTexture,
           m.occlusionTexture,
           m.emissiveTexture,
+          specular?.specularTexture,
+          specular?.specularColorTexture,
         ])
           if (info)
             ctx.check(
@@ -856,7 +878,9 @@ export async function inspectModel(
     };
   });
   // The mature reader is used only after resource and semantic validation; no URI is read.
-  const document = await new NodeIO().setStrictResources(true).readBinary(data);
+  const document = await new NodeIO()
+    .registerExtensions([KHRMaterialsIOR, KHRMaterialsSpecular])
+    .setStrictResources(true).readBinary(data);
   const sceneIndex = json.scene ?? (json.scenes?.length ? 0 : null);
   let bounds: { min: number[]; max: number[] } | null = null;
   if (sceneIndex !== null) {

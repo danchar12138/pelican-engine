@@ -65,14 +65,14 @@ import {createUIRenderer} from '/ui.js';
 const registered = new Map();
 const add = EventTarget.prototype.addEventListener, remove = EventTarget.prototype.removeEventListener;
 EventTarget.prototype.addEventListener = function(type, listener, options) {
-  if (this instanceof HTMLElement && this.hasAttribute('data-threecat-ui')) {
+  if (this instanceof HTMLElement && this.hasAttribute('data-pelican-ui')) {
     if (!registered.has(type)) registered.set(type, new Set());
     registered.get(type).add(listener);
   }
   return add.call(this, type, listener, options);
 };
 EventTarget.prototype.removeEventListener = function(type, listener, options) {
-  if (this instanceof HTMLElement && this.hasAttribute('data-threecat-ui')) registered.get(type)?.delete(listener);
+  if (this instanceof HTMLElement && this.hasAttribute('data-pelican-ui')) registered.get(type)?.delete(listener);
   return remove.call(this, type, listener, options);
 };
 const f = window.uiTest = {
@@ -96,8 +96,8 @@ const events = (page: Page) =>
   page.evaluate(() =>
     window.uiTest.events.filter((entry) => entry.type !== "ui.focus"),
   );
-const inputSelector = '[data-threecat-element="name"]';
-const buttonSelector = '[data-threecat-element="play"]';
+const inputSelector = '[data-pelican-element="name"]';
+const buttonSelector = '[data-pelican-element="play"]';
 async function sample(
   page: Page,
   buttons: number[] = [],
@@ -207,7 +207,7 @@ test(
         async (page) => {
           assert.equal((await state(page)).focus, null);
           await page.evaluate(() => window.uiTest.ui.mount());
-          assert.equal(await page.locator("[data-threecat-ui]").count(), 1);
+          assert.equal(await page.locator("[data-pelican-ui]").count(), 1);
           assert.deepEqual(
             await page.locator(inputSelector).evaluate((node) => ({
               tag: node.tagName,
@@ -217,13 +217,13 @@ test(
           );
           const layout = await page.evaluate(() => {
             const right = document.querySelector<HTMLElement>(
-              '[data-threecat-element="topRight"]',
+              '[data-pelican-element="topRight"]',
             )!;
             const bottom = document.querySelector<HTMLElement>(
-              '[data-threecat-element="bottomRight"]',
+              '[data-pelican-element="bottomRight"]',
             )!;
             const center = document
-              .querySelector<HTMLElement>('[data-threecat-element="center"]')!
+              .querySelector<HTMLElement>('[data-pelican-element="center"]')!
               .getBoundingClientRect();
             return {
               right: right.style.right,
@@ -233,10 +233,10 @@ test(
               centerX: center.x + center.width / 2,
               centerY: center.y + center.height / 2,
               padding: document.querySelector<HTMLElement>(
-                '[data-threecat-element="play"]',
+                '[data-pelican-element="play"]',
               )!.style.padding,
               bar: document.querySelector<HTMLProgressElement>(
-                '[data-threecat-element="health"]',
+                '[data-pelican-element="health"]',
               )!.value,
             };
           });
@@ -516,7 +516,7 @@ test(
             });
             window.uiTest.present();
           });
-          const world = page.locator('[data-threecat-element="world"]');
+          const world = page.locator('[data-pelican-element="world"]');
           assert.deepEqual(
             await world.evaluate((node) => {
               const r = node.getBoundingClientRect();
@@ -544,7 +544,7 @@ test(
           });
           assert.equal(
             await page
-              .locator('[data-threecat-element="worldSecond"]')
+              .locator('[data-pelican-element="worldSecond"]')
               .evaluate((node) => node.getBoundingClientRect().x),
             600,
           );
@@ -585,7 +585,7 @@ test(
                   hit:
                     document
                       .elementFromPoint(440, 195)
-                      ?.getAttribute("data-threecat-element") ?? null,
+                      ?.getAttribute("data-pelican-element") ?? null,
                 };
               }),
               {
@@ -761,9 +761,9 @@ test(
           assert.equal(await page.locator(inputSelector).count(), 0);
           const result = await page.evaluate(() => {
             const f = window.uiTest,
-              root = document.querySelector<HTMLElement>("[data-threecat-ui]")!,
+              root = document.querySelector<HTMLElement>("[data-pelican-ui]")!,
               button = document.querySelector<HTMLElement>(
-                '[data-threecat-element="play"]',
+                '[data-pelican-element="play"]',
               )!;
             const before = f.listenerCount();
             button.focus();
@@ -792,7 +792,7 @@ test(
               unchanged: JSON.stringify(f.ui.inspect()) === snapshot,
               callbacksUnchanged:
                 f.inputs.length + f.events.length === callbacks,
-              roots: document.querySelectorAll("[data-threecat-ui]").length,
+              roots: document.querySelectorAll("[data-pelican-ui]").length,
               keyboard: f.ui.consumesKeyboard(
                 new KeyboardEvent("keydown", { isComposing: true }),
               ),

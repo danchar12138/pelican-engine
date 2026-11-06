@@ -1,6 +1,10 @@
 import * as THREE from "three/webgpu";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/addons/utils/SkeletonUtils.js";
+import {
+  associateEmbeddedImage,
+  releaseEmbeddedImage,
+} from "./embedded-image-pixels.ts";
 import type {
   AnimationService,
   AssetDefinition,
@@ -31,7 +35,7 @@ export interface ModelAnimationSnapshot {
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
-  format: "threecat.models";
+  format: "pelican.models";
   version: 2;
   animations: ModelAnimationSnapshot[];
 }
@@ -56,11 +60,17 @@ export interface ModelInspection {
 export interface ModelLibraryOptions {
   fetch?: typeof fetch;
   baseURL?: string;
+  /** Borrow a game-content material when an instance is created. */
+  material?: (id: string) => THREE.Material | undefined;
 }
 export interface ModelInstance {
   readonly entity: string;
   readonly node: THREE.Group;
   dispose(): void;
+}
+export interface ModelBinding {
+  entity: string;
+  definition: ModelDefinition;
 }
 export interface ModelLibrary {
   prepare(
@@ -78,6 +88,7 @@ export interface ModelLibrary {
     activeIds: readonly string[],
     parent?: THREE.Object3D,
   ): readonly ModelInstance[];
+  reconcileBindings(bindings: readonly ModelBinding[]): readonly ModelInstance[];
   instantiate(
     entityId: string,
     definition: ModelDefinition,
@@ -87,8 +98,8 @@ export interface ModelLibrary {
   tick(dt: number): void;
   readonly animation: AnimationService;
   snapshot(): ModelLibrarySnapshot;
-  validateSnapshot(value: unknown): ModelLibrarySnapshot;
-  restore(value: unknown): void;
+  validateSnapshot(value: unknown, bindings?: readonly ModelBinding[]): ModelLibrarySnapshot;
+  restore(value: unknown, bindings?: readonly ModelBinding[]): void;
   inspect(): ModelInspection;
   dispose(): Promise<void>;
 }
@@ -101,8 +112,16 @@ interface ModelTemplate {
   meshes: number;
   primitives: number;
 }
+type NormalizedModelDefinition = Omit<
+  ModelDefinition,
+  "asset" | "material" | "materialSlots"
+> & {
+  asset: string;
+  material?: string;
+  materialSlots?: Record<string, string>;
+};
 interface KnownDefinition {
-  definition: ModelDefinition;
+  definition: NormalizedModelDefinition;
   parent?: THREE.Object3D;
 }
 interface InstanceState {
@@ -156,7 +175,10 @@ class ModelResources {
     for (const skeleton of this.skeletons) skeleton.dispose();
     for (const geometry of this.geometries) geometry.dispose();
     for (const material of this.materials) material.dispose();
-    for (const texture of this.textures) texture.dispose();
+    for (const texture of this.textures) {
+      releaseEmbeddedImage(texture);
+      texture.dispose();
+    }
     for (const bitmap of this.bitmaps) bitmap.close();
     this.skeletons.clear();
     this.geometries.clear();
@@ -315,6 +337,35 @@ class ModelLibraryImpl implements ModelLibrary {
     return [...ids].map((id) => this.instances.get(id)!.handle);
   }
 
+  reconcileBindings(bindings: readonly ModelBinding[]): readonly ModelInstance[] {
+    this.assertOpen();
+    const definitions = this.candidateDefinitions(bindings);
+    const ids = new Set(definitions.keys());
+    const staged = this.stageInstances(ids, definitions);
+    try {
+      for (const [id, state] of staged)
+        definitions.get(id)!.parent?.add(state.node);
+    } catch (error) {
+      for (const state of staged.values()) this.releaseInstance(state);
+      throw error;
+    }
+    for (const [id, known] of definitions) this.definitions.set(id, known);
+    this.commitInstances(ids, staged, undefined, true);
+    return [...ids].map((id) => this.instances.get(id)!.handle);
+  }
+
+  private candidateDefinitions(bindings: readonly ModelBinding[]): Map<string, KnownDefinition> {
+    const result = new Map<string, KnownDefinition>();
+    for (const { entity, definition } of bindings) {
+      if (result.has(entity)) throw new Error(`TC_MODEL_ENTITY_DUPLICATE: ${entity}`);
+      result.set(entity, {
+        definition: this.normalizeDefinition(entity, definition, true),
+        parent: this.definitions.get(entity)?.parent,
+      });
+    }
+    return result;
+  }
+
   instantiate(
     entityId: string,
     definition: ModelDefinition,
@@ -356,7 +407,8 @@ class ModelLibraryImpl implements ModelLibrary {
   private normalizeDefinition(
     entityId: string,
     definition: ModelDefinition,
-  ): ModelDefinition {
+    allowReplacement = false,
+  ): NormalizedModelDefinition {
     if (typeof entityId !== "string" || !entityId.trim())
       throw new Error("TC_MODEL_INVALID_ENTITY");
     const assetId =
@@ -385,10 +437,50 @@ class ModelLibraryImpl implements ModelLibrary {
         typeof definition[field] !== "boolean"
       )
         throw new Error("TC_MODEL_INVALID_SHADOW");
-    const normalized: ModelDefinition = {
+    const override = definition.material;
+    const materialId =
+      typeof override === "string"
+        ? override
+        : override &&
+            typeof override === "object" &&
+            override.kind === "material"
+          ? override.id
+          : undefined;
+    if (
+      override !== undefined &&
+      (typeof materialId !== "string" || !materialId.trim())
+    )
+      throw new Error(
+        `TC_MODEL_INVALID_MATERIAL: ${entityId}; use a non-empty material ID or MaterialDefinition`,
+      );
+    const slots = definition.materialSlots;
+    if (slots !== undefined && override !== undefined)
+      throw new Error(
+        `TC_MODEL_MATERIAL_CONFLICT: ${entityId}; use material or materialSlots, not both`,
+      );
+    let materialSlots: Record<string, string> | undefined;
+    if (slots !== undefined) {
+      if (!slots || typeof slots !== "object" || Array.isArray(slots) || !Object.keys(slots).length)
+        throw new Error(
+          `TC_MODEL_INVALID_MATERIAL_SLOTS: ${entityId}; provide a non-empty slot map`,
+        );
+      materialSlots = Object.fromEntries(
+        Object.entries(slots).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([name, value]) => {
+          const id = typeof value === "string" ? value : value && typeof value === "object" && value.kind === "material" ? value.id : undefined;
+          if (!name.trim() || typeof id !== "string" || !id.trim())
+            throw new Error(
+              `TC_MODEL_INVALID_MATERIAL_SLOTS: ${entityId}: ${name}; provide a named slot and material ID`,
+            );
+          return [name, id];
+        }),
+      );
+    }
+    const normalized: NormalizedModelDefinition = {
       castShadow: definition.castShadow !== false,
       receiveShadow: definition.receiveShadow !== false,
       asset: assetId,
+      ...(materialId !== undefined ? { material: materialId } : {}),
+      ...(materialSlots !== undefined ? { materialSlots } : {}),
       scale,
       offset: [...(definition.offset ?? [0, 0, 0])],
       rotation: [...(definition.rotation ?? [0, 0, 0])],
@@ -418,6 +510,7 @@ class ModelLibraryImpl implements ModelLibrary {
     const known = this.definitions.get(entityId);
     if (
       known &&
+      !allowReplacement &&
       JSON.stringify(known.definition) !== JSON.stringify(normalized)
     )
       throw new Error(
@@ -428,19 +521,65 @@ class ModelLibraryImpl implements ModelLibrary {
 
   private createInstance(
     entityId: string,
-    definition: ModelDefinition,
+    definition: NormalizedModelDefinition,
+    initializeAnimation = true,
   ): InstanceState {
-    const assetId = definition.asset as string;
+    // Registration precedes game-material preparation. Resolve once here, before
+    // cloning any private skeletons, and keep the borrowed material unowned.
+    const material =
+      definition.material === undefined
+        ? undefined
+        : this.options.material?.(definition.material);
+    if (definition.material !== undefined && material === undefined)
+      throw new Error(
+        `TC_MODEL_MATERIAL_MISSING: ${entityId}: ${definition.material}; prepare the game material before creating model instances`,
+      );
+    const assetId = definition.asset;
     const template = this.templates.get(assetId)!;
+    const slotMaterials = new Map<string, THREE.Material>();
+    for (const [slot, id] of Object.entries(definition.materialSlots ?? {})) {
+      const replacement = this.options.material?.(id);
+      if (replacement === undefined)
+        throw new Error(
+          `TC_MODEL_MATERIAL_MISSING: ${entityId}: ${id}; prepare the game material before creating model instances`,
+        );
+      slotMaterials.set(slot, replacement);
+    }
+    const unmatched = new Set(slotMaterials.keys());
+    const available = new Set<string>();
+    if (unmatched.size)
+      template.scene.traverse((object) => {
+        if (object instanceof THREE.Mesh)
+          for (const source of Array.isArray(object.material) ? object.material : [object.material]) {
+            if (source.name) available.add(source.name);
+            unmatched.delete(source.name);
+          }
+      });
+    if (unmatched.size) {
+      const names = [...available].sort().slice(0, 20);
+      const missing = [...unmatched].sort().slice(0, 20);
+      const label = (name: string) => JSON.stringify(name.length > 120 ? name.slice(0, 120) + "..." : name);
+      throw new Error(
+        `TC_MODEL_MATERIAL_SLOT_MISSING: ${entityId}: ${missing.map(label).join(", ")}${unmatched.size > missing.length ? ` and ${unmatched.size - missing.length} more` : ""}; available loaded material names: ${names.length ? names.map(label).join(", ") : "(none)"}${available.size > names.length ? ` and ${available.size - names.length} more` : ""}; use exact loaded names`,
+      );
+    }
     const root = cloneSkeleton(template.scene);
     root.traverse((object) => {
       if (object instanceof THREE.Mesh) {
+        if (material !== undefined)
+          object.material = Array.isArray(object.material)
+            ? object.material.map(() => material)
+            : material;
+        else if (slotMaterials.size)
+          object.material = Array.isArray(object.material)
+            ? object.material.map((source) => slotMaterials.get(source.name) ?? source)
+            : slotMaterials.get(object.material.name) ?? object.material;
         object.castShadow = definition.castShadow !== false;
         object.receiveShadow = definition.receiveShadow !== false;
       }
     });
     const node = new THREE.Group();
-    node.name = `threecat-model:${entityId}`;
+    node.name = `pelican-model:${entityId}`;
     node.scale.setScalar(definition.scale!);
     node.position.fromArray(definition.offset!);
     node.rotation.set(...definition.rotation!);
@@ -466,7 +605,7 @@ class ModelLibraryImpl implements ModelLibrary {
       },
     });
     try {
-      if (definition.animation)
+      if (initializeAnimation && definition.animation)
         this.playState(state, definition.animation.clip, definition.animation);
       return state;
     } catch (error) {
@@ -482,15 +621,19 @@ class ModelLibraryImpl implements ModelLibrary {
     disposeInstanceSkeletons(state.root);
   }
 
-  private stageInstances(ids: ReadonlySet<string>): Map<string, InstanceState> {
+  private stageInstances(ids: ReadonlySet<string>, definitions = this.definitions, initializeAnimation = true): Map<string, InstanceState> {
     const staged = new Map<string, InstanceState>();
     try {
-      for (const id of ids)
-        if (!this.instances.has(id))
+      for (const id of ids) {
+        const known = definitions.get(id);
+        if (!known) throw new Error(`TC_MODEL_DEFINITION_MISSING: ${id}`);
+        if (!this.instances.has(id) ||
+            JSON.stringify(this.definitions.get(id)?.definition) !== JSON.stringify(known.definition))
           staged.set(
             id,
-            this.createInstance(id, this.knownDefinition(id).definition),
+            this.createInstance(id, known.definition, initializeAnimation),
           );
+      }
       return staged;
     } catch (error) {
       for (const state of staged.values()) this.releaseInstance(state);
@@ -502,13 +645,17 @@ class ModelLibraryImpl implements ModelLibrary {
     ids: ReadonlySet<string>,
     staged: ReadonlyMap<string, InstanceState>,
     parent?: THREE.Object3D,
+    stagedAttached = false,
   ): void {
     for (const id of this.instances.keys()) if (!ids.has(id)) this.remove(id);
-    for (const [id, state] of staged) this.instances.set(id, state);
+    for (const [id, state] of staged) {
+      this.remove(id);
+      this.instances.set(id, state);
+    }
     for (const id of ids) {
       const known = this.knownDefinition(id);
       if (parent) known.parent = parent;
-      if ((parent || staged.has(id)) && known.parent)
+      if ((parent || (staged.has(id) && !stagedAttached)) && known.parent)
         known.parent.add(this.instances.get(id)!.node);
     }
   }
@@ -536,7 +683,7 @@ class ModelLibraryImpl implements ModelLibrary {
   snapshot(): ModelLibrarySnapshot {
     this.assertOpen();
     return {
-      format: "threecat.models",
+      format: "pelican.models",
       version: 2,
       animations: [...this.instances.values()]
         .sort((a, b) => a.entity.localeCompare(b.entity))
@@ -562,13 +709,14 @@ class ModelLibraryImpl implements ModelLibrary {
     };
   }
 
-  validateSnapshot(value: unknown): ModelLibrarySnapshot {
+  validateSnapshot(value: unknown, bindings?: readonly ModelBinding[]): ModelLibrarySnapshot {
     this.assertOpen();
+    const definitions = bindings ? this.candidateDefinitions(bindings) : this.definitions;
     const invalid = () => new Error("TC_MODEL_INVALID_SNAPSHOT");
     if (!value || typeof value !== "object") throw invalid();
     const data = value as ModelLibrarySnapshot;
     if (
-      data.format !== "threecat.models" ||
+      data.format !== "pelican.models" ||
       data.version !== 2 ||
       !Array.isArray(data.animations)
     )
@@ -583,7 +731,7 @@ class ModelLibraryImpl implements ModelLibrary {
       )
         throw invalid();
       ids.add(item.entity);
-      const known = this.definitions.get(item.entity);
+      const known = definitions.get(item.entity);
       if (!known)
         throw new Error(
           `TC_MODEL_INVALID_SNAPSHOT: TC_MODEL_DEFINITION_MISSING: ${item.entity}; register the model definition before restoring`,
@@ -651,40 +799,110 @@ class ModelLibraryImpl implements ModelLibrary {
     return structuredClone(data);
   }
 
-  restore(value: unknown): void {
-    const snapshot = this.validateSnapshot(value);
+  restore(value: unknown, bindings?: readonly ModelBinding[]): void {
+    const snapshot = this.validateSnapshot(value, bindings);
     const ids = new Set(snapshot.animations.map((item) => item.entity));
-    const staged = this.stageInstances(ids);
-    for (const item of snapshot.animations) {
-      const state = this.instances.get(item.entity) ?? staged.get(item.entity)!;
-      for (const action of state.actions.values()) action.stop();
-      state.actions.clear();
-      state.fades.clear();
-      state.action = null;
-      state.clip = null;
-      for (const saved of item.actions) {
-        const action = state.mixer.clipAction(state.clips.get(saved.clip)!);
-        action.reset();
-        action.setLoop(
-          saved.loop ? THREE.LoopRepeat : THREE.LoopOnce,
-          saved.loop ? Infinity : 1,
-        );
-        action.clampWhenFinished = !saved.loop;
-        action.timeScale = saved.speed;
-        action.enabled = true;
-        action.setEffectiveWeight(saved.weight);
-        action.play();
-        action.time = saved.time;
-        action.paused = saved.paused;
-        if (saved.fade) state.fades.set(saved.clip, { ...saved.fade });
-        state.actions.set(saved.clip, action);
+    const definitions = bindings ? this.candidateDefinitions(bindings) : this.definitions;
+    const staged = this.stageInstances(ids, definitions, false);
+    let previous = new Map<string, ModelAnimationSnapshot>();
+    type PoseBinding = THREE.PropertyBinding & {
+      getValue(values: number[], offset: number): void;
+      setValue(values: number[], offset: number): void;
+    };
+    const poses: Array<{ binding: PoseBinding; values: number[] }> = [];
+    const touched: InstanceState[] = [];
+    let committed = false;
+    let commitStarted = false;
+    try {
+      previous = new Map(this.snapshot().animations.map((item) => [item.entity, item]));
+      // Staged tracks can target materials shared with active instances.
+      const affected = snapshot.animations.map((item) =>
+        staged.get(item.entity) ?? this.instances.get(item.entity)!,
+      );
+      for (const state of affected) {
+        const tracks = new Map<string, THREE.KeyframeTrack>();
+        for (const clip of state.clips.values())
+          for (const track of clip.tracks) tracks.set(track.name, track);
+        const values = [...tracks.values()].map((track) => {
+          const binding = new THREE.PropertyBinding(state.root, track.name) as PoseBinding;
+          const captured = new Array<number>(track.getValueSize());
+          binding.getValue(captured, 0);
+          return { binding, values: captured };
+        });
+        poses.push(...values);
       }
-      state.action =
-        item.currentClip === null ? null : state.actions.get(item.currentClip)!;
-      state.clip = item.currentClip;
-      state.mixer.update(0);
+      for (const item of snapshot.animations)
+        if (staged.has(item.entity))
+          this.restoreAnimation(staged.get(item.entity)!, item);
+      for (const [id, state] of staged)
+        definitions.get(id)!.parent?.add(state.node);
+      for (const item of snapshot.animations) {
+        if (staged.has(item.entity)) continue;
+        const state = this.instances.get(item.entity)!;
+        touched.push(state);
+        this.restoreAnimation(state, item);
+      }
+      if (bindings) for (const [id, known] of definitions) this.definitions.set(id, known);
+      commitStarted = true;
+      this.commitInstances(ids, staged, undefined, true);
+      committed = true;
+    } catch (error) {
+      const failures: unknown[] = [];
+      for (const state of touched) {
+        try { this.restoreAnimation(state, previous.get(state.entity)!); }
+        catch (rollbackError) { failures.push(rollbackError); }
+      }
+      // Stopping staged mixers can write shared values; restore bindings afterwards.
+      for (const [id, candidate] of staged) {
+        if (this.instances.get(id) !== candidate) {
+          try { this.releaseInstance(candidate); }
+          catch (rollbackError) { failures.push(rollbackError); }
+        }
+      }
+      staged.clear();
+      for (const pose of poses) {
+        try { pose.binding.setValue(pose.values, 0); }
+        catch (rollbackError) { failures.push(rollbackError); }
+      }
+      if (commitStarted)
+        throw new AggregateError([error, ...failures], "TC_MODEL_RESTORE_COMMIT_FAILED: commit may be partial; model state is not guaranteed atomic");
+      if (failures.length)
+        throw new AggregateError([error, ...failures], "TC_MODEL_RESTORE_ROLLBACK_FAILED: original restore and rollback both failed");
+      throw error;
+    } finally {
+      if (!committed)
+        for (const [id, candidate] of staged)
+          if (this.instances.get(id) !== candidate) this.releaseInstance(candidate);
     }
-    this.commitInstances(ids, staged);
+  }
+
+  private restoreAnimation(state: InstanceState, item: ModelAnimationSnapshot): void {
+    for (const action of state.actions.values()) action.stop();
+    state.actions.clear();
+    state.fades.clear();
+    state.action = null;
+    state.clip = null;
+    for (const saved of item.actions) {
+      const action = state.mixer.clipAction(state.clips.get(saved.clip)!);
+      action.reset();
+      action.setLoop(
+        saved.loop ? THREE.LoopRepeat : THREE.LoopOnce,
+        saved.loop ? Infinity : 1,
+      );
+      action.clampWhenFinished = !saved.loop;
+      action.timeScale = saved.speed;
+      action.enabled = true;
+      action.setEffectiveWeight(saved.weight);
+      action.play();
+      action.time = saved.time;
+      action.paused = saved.paused;
+      if (saved.fade) state.fades.set(saved.clip, { ...saved.fade });
+      state.actions.set(saved.clip, action);
+    }
+    state.action =
+      item.currentClip === null ? null : state.actions.get(item.currentClip)!;
+    state.clip = item.currentClip;
+    state.mixer.update(0);
   }
 
   inspect(): ModelInspection {
@@ -866,6 +1084,17 @@ class ModelLibraryImpl implements ModelLibrary {
           );
           const loader = new GLTFLoader(manager);
           loader.register((parser) => {
+            const specularColorImages = new Set<number>();
+            for (const material of parser.json.materials ?? []) {
+              const index =
+                material.extensions?.KHR_materials_specular
+                  ?.specularColorTexture?.index;
+              const source =
+                index === undefined
+                  ? undefined
+                  : parser.json.textures?.[index]?.source;
+              if (source !== undefined) specularColorImages.add(source);
+            }
             const dependency = parser.getDependency.bind(parser);
             parser.getDependency = (type, index) =>
               track(
@@ -882,14 +1111,47 @@ class ModelLibraryImpl implements ModelLibrary {
                 primitives.map((primitive) => track(geometries([primitive]))),
               ).then((groups) => groups.flat());
             const image = parser.loadImageSource.bind(parser);
-            parser.loadImageSource = (...args) => track(image(...args));
+            parser.loadImageSource = (index, loader) =>
+              track(
+                (async () => {
+                  const texture = await track(image(index, loader));
+                  const definition = parser.json.images[index];
+                  const uri: string | undefined = definition.uri;
+                  const mime: string =
+                    definition.mimeType ??
+                    /^data:([^;,]+)/i.exec(uri ?? "")?.[1] ??
+                    "";
+                  // JPEG remains on the browser decoder path. Embedded PNG bytes are
+                  // associated with Source, which GLTFLoader shares across clones.
+                  if (
+                    specularColorImages.has(index) &&
+                    mime.toLowerCase() === "image/png"
+                  ) {
+                    let data: ArrayBuffer;
+                    if (definition.bufferView !== undefined) {
+                      data = await parser.getDependency(
+                        "bufferView",
+                        definition.bufferView,
+                      );
+                    } else if (uri?.startsWith("data:")) {
+                      data = await (await fetch(uri)).arrayBuffer();
+                    } else {
+                      throw new Error(
+                        `TC_MODEL_IMAGE_SOURCE_UNSUPPORTED: ${index}`,
+                      );
+                    }
+                    associateEmbeddedImage(texture, new Uint8Array(data), mime);
+                  }
+                  return texture;
+                })(),
+              );
             const finalMaterial = parser.assignFinalMaterial.bind(parser);
             parser.assignFinalMaterial = (mesh) => {
               finalMaterial(mesh);
               resources.collect(mesh);
             };
             return {
-              name: "THREECAT_resource_ownership",
+              name: "PELICAN_resource_ownership",
               beforeRoot: () => {
                 // Subresource fetches bypass options.fetch and its abort signal in GLTFLoader.
                 for (const item of [
@@ -906,6 +1168,12 @@ class ModelLibraryImpl implements ModelLibrary {
                     !Object.hasOwn(parser.extensions, name)
                   )
                     throw new Error(`TC_MODEL_EXTENSION_UNSUPPORTED: ${name}`);
+                // GLTFLoader skips node-less pointer animation channels, including
+                // optional ones. Reject used channels rather than silently omit them.
+                for (const [animationIndex, animation] of (parser.json.animations ?? []).entries())
+                  for (const [channelIndex, channel] of (animation.channels ?? []).entries())
+                    if (channel.target?.path === "pointer" || Object.hasOwn(channel.target?.extensions ?? {}, "KHR_animation_pointer"))
+                      throw new Error(`TC_MODEL_EXTENSION_UNSUPPORTED: KHR_animation_pointer animation ${animationIndex} channel ${channelIndex}; pointer animation is not supported`);
                 return null;
               },
             };

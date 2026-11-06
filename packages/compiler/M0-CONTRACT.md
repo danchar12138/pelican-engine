@@ -2,14 +2,14 @@
 
 Entry: import { compileProject } from './experiments/compiler/index.ts'.
 Signature: compileProject({ projectRoot, outDir, engineRoot? }): Promise<CompileResult>.
-No Git required. Default entry is game.ts; optional threecat.project.json: { "entry": "game.ts" }.
+No Git required. Default entry is game.ts; optional pelican.project.json: { "entry": "game.ts" }.
 Relative outDir is resolved against projectRoot; relative engineRoot against the caller cwd.
 Diagnostics have code, severity, message, suggestion and source { file, line, column, length }; line/column are 1-based UTF-16 positions. Sources are project-relative.
 The canonical typed IR and report definitions are in types.ts. Consumers must check success and IR version before loading artifacts.
 
 ## Outputs
 
-- scene.ir.json: format=threecat.scene, version=1, engineVersion, gameId, scene, components, prefabs, materials, computes, systems, assets.
+- scene.ir.json: format=pelican.scene, version=1, engineVersion, gameId, scene, components, prefabs, materials, computes, systems, assets.
 - scene.camera: position and target triples; fov is degrees; near/far are distances.
 - scene.environment: background CSS color and ambientIntensity.
 - scene.entities: resolved prefab data, id, optional parent, transform {position,rotation,scale}, components map, optional mesh and light.
@@ -26,7 +26,7 @@ The canonical typed IR and report definitions are in types.ts. Consumers must ch
 
 ## Boundaries
 
-The compiler uses TS 6.0.3 classic Compiler API and Vite build API. Source modules are parsed and typechecked, never imported/evaluated at build time. Only declaration calls imported from @threecat/sdk are statically evaluated. The M0 declaration subset allows literals, const references, arrays/objects, static spreads, finite arithmetic, and local named imports. Unsupported expressions produce errors instead of running code.
+The compiler uses TS 6.0.3 classic Compiler API and Vite build API. Source modules are parsed and typechecked, never imported/evaluated at build time. Only declaration calls imported from pelican-engine are statically evaluated. The M0 declaration subset allows literals, const references, arrays/objects, static spreads, finite arithmetic, and local named imports. Unsupported expressions produce errors instead of running code.
 
 Graphs support float, vec3, time, add, multiply, sin. The compiler validates types, references and cycles and emits graph IR. Graph GPU execution is the renderer's responsibility; compiler acceptance alone is not GPU verification.
 

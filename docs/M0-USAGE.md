@@ -1,4 +1,4 @@
-# threecat M0：当前可执行入口
+# pelican M0：当前可执行入口
 
 状态：M0 风险原型验收通过。以 `evidence/m0/acceptance.json` 的实际结果判断里程碑是否通过；本指引不代表完整引擎已经实现。现有 API 仅为 M0 实验子集。
 
@@ -7,11 +7,11 @@
 开发环境为 Windows，PowerShell。引擎可来自 Git、ZIP 或复制目录，无需 `.git`。以下 `<engine>` 替换为实际引擎目录，路径包含空格或中文时保持引号。
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" setup --install-browser
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" doctor
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" create --project "<new-game-directory>"
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" check --project "<new-game-directory>"
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" dev --project "<new-game-directory>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" setup --install-browser
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" doctor
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" create --project "<new-game-directory>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" check --project "<new-game-directory>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" dev --project "<new-game-directory>"
 ```
 
 启动脚本复用 Node 24；缺少兼容版本时，尝试下载校验官方 Node 24.15.0 ZIP 到引擎本地工具目录。依赖按锁文件准备，不全局安装、不要求管理员。不允许绕过机器政策；网络/政策阻塞应输出事实，不伪称可用。
@@ -20,7 +20,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" dev 
 
 ## 游戏开发边界
 
-只修改新游戏目录中的源文件、内容与测试。通过 `@threecat/sdk` 导入：
+只修改新游戏目录中的源文件、内容与测试。通过 `pelican-engine` 导入：
 
 - 公开实现与类型：[packages/sdk/src/index.ts](../packages/sdk/src/index.ts)。
 - 当前编译规则和产物：[CONTRACT.md](../experiments/compiler/CONTRACT.md)。
@@ -33,17 +33,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" dev 
 ## 构建与截图
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" capture --project "<game>" --mode path --output "<game>\capture.png" --port 4181
-powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\threecat.ps1" build --project "<game>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" capture --project "<game>" --mode path --output "<game>\capture.png" --port 4181
+powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" build --project "<game>"
 ```
 
-外部项目输出 `<game>/dist/`，放到 Web 服务器即可运行。不能用 `file://` 代替 Web 服务。默认发布版剔除 `window.__threecat` 开发控制；玩家不依赖模型、开发服务或原引擎目录。
+外部项目输出 `<game>/dist/`，放到 Web 服务器即可运行。不能用 `file://` 代替 Web 服务。默认发布版剔除 `window.__pelican` 开发控制；玩家不依赖模型、开发服务或原引擎目录。
 
 当前发布演示包含私有渲染/模拟探针舞台，是 M0 测试壳，不是成品游戏模板。材质仅支持文档列出的简单节点，路径追踪是软件三角 BVH 和简化积分；混合模式是光栅与追踪图像的合成试验，尚非完整材质分解集成。不要把它描述为生产级渲染器。
 
 ## 自动观察与测试
 
-开发版页面提供 `window.__threecat`，由外部浏览器自动化调用。常用操作：
+开发版页面提供 `window.__pelican`，由外部浏览器自动化调用。常用操作：
 
 - `inspect()`：当前实体、组件、渲染模式、几何版本和诊断。
 - `step(n)`：固定步推进真实玩法和当前模拟。

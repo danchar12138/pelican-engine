@@ -29,7 +29,7 @@ export interface ChunkData {
   heights: number[];
 }
 export interface WorldSnapshot {
-  format: "threecat-m0-world";
+  format: "pelican-m0-world";
   version: 1;
   config: WorldConfig;
   origin: WorldOrigin;

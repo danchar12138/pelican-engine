@@ -95,11 +95,11 @@ test("production wait does not require or introduce a development control hook",
 test("probe works without RAF, focus or input and requires ready plus the command protocol", async () => {
   const f = fixture((source, arg) => {
     const document = {
-      documentElement: { dataset: { threecatReady: "false" } },
+      documentElement: { dataset: { pelicanReady: "false" } },
     };
     const environment = {
       document,
-      __threecat: { command: () => undefined },
+      __pelican: { command: () => undefined },
       requestAnimationFrame: () => {
         throw new Error("RAF must not be used");
       },
@@ -108,10 +108,10 @@ test("probe works without RAF, focus or input and requires ready plus the comman
       arg: unknown,
     ) => unknown;
     assert.equal(probe(arg), false);
-    document.documentElement.dataset.threecatReady = "true";
+    document.documentElement.dataset.pelicanReady = "true";
     const ready = probe(arg);
     assert.equal(JSON.stringify(ready), '{"state":"ready"}');
-    (environment.__threecat as { command?: unknown }).command = undefined;
+    (environment.__pelican as { command?: unknown }).command = undefined;
     assert.equal(probe(arg), false);
     assert.equal(
       JSON.stringify(probe({ production: true })),
@@ -125,9 +125,9 @@ test("probe works without RAF, focus or input and requires ready plus the comman
 test("probe observes engine failure before ready even if a stale command hook exists", async () => {
   const f = fixture((source, arg) =>
     runInNewContext(`(${source})`, {
-      document: { documentElement: { dataset: { threecatReady: "true" } } },
-      __threecat: { command: () => undefined },
-      __threecatFailure: "TC_GPU_TIMEOUT: device initialization timed out",
+      document: { documentElement: { dataset: { pelicanReady: "true" } } },
+      __pelican: { command: () => undefined },
+      __pelicanFailure: "TC_GPU_TIMEOUT: device initialization timed out",
     })(arg),
   );
   await assert.rejects(waitForEngine(f.page, 1000), (error: unknown) => {

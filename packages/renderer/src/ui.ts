@@ -88,7 +88,7 @@ export function createUIRenderer(
   },
 ): UIRenderer {
   const root = document.createElement("div");
-  root.dataset.threecatUi = "";
+  root.dataset.pelicanUi = "";
   Object.assign(root.style, {
     position: "absolute",
     inset: "0",
@@ -269,7 +269,7 @@ export function createUIRenderer(
                 ? "input"
                 : "div",
         );
-        node.dataset.threecatElement = definition.id;
+        node.dataset.pelicanElement = definition.id;
         Object.assign(node.style, {
           position: "absolute",
           padding: "8px 12px",

@@ -1,8 +1,32 @@
-# threecat 里程碑发布规范
+# pelican 里程碑发布规范
 
 本文描述仓库内已实现的发布检查与打包工具，以及由主线执行的发布流程。工具本身不执行 Git、gh、网络上传或云端构建，不生成验收结论，也不启动 GPU 测试。
 
-用户已授权每个里程碑在验收后提交、推送并发布 Release。提交、推送、标签与 Release 必须位于同一个里程碑交付节点，不提前零散推送；提交消息采用 Conventional Commits 结构和中文描述，例如 `feat(m1): 完成核心契约与编译运行基础`。仅承担工具开发的任务不因此获得发布其他未验收代码的授权。
+最新 D50 禁止一切验证，仅允许编译/构建，并要求各里程碑按约发布。提交、推送、标签与 Release 必须位于同一个里程碑交付节点，不提前零散推送；提交消息采用 Conventional Commits 结构和中文描述。M3 只能如实标为 compile-only/unverified 预发布，不能声称测试、GPU 或完整验收通过。工具开发任务不自行发布。
+
+## M3 D50 打包
+
+主线完成允许的构建后，在同一交付节点准备 `0.3.x` 预发布版本并执行：
+
+```powershell
+node --import tsx tools/release.ts pack --compile-only-unverified
+```
+
+也可添加 `--root <project-directory>`；库接口为 `packRelease({ compileOnlyUnverified: true, projectRoot })`。必须显式选择该模式；`check` 不支持该模式，M3 无 opt-in 时拒绝打包。只接受 `releaseScope: dynamic-raytracing` 和不含 build metadata 的 `0.3.x` prerelease 版本。此模式不读取 acceptance 或任何历史 evidence，源码 ZIP 排除整个 evidence 目录。输出的 JSON、manifest 与发布说明标记 `compile-only-unverified` 和 prerelease，checks 为空，生成 packaging 元数据而非验收证据。哈希仅作清单，不代表验证。
+
+打包器不运行编译，也不能证明已有 dist 构建成功、dist 与源码一致、版本文件一致或运行正确；未执行的测试、GPU 和完整验收均未知。文件操作仍限制路径、链接、大小和已有输出，必要的 LICENSE 与第三方声明必须存在；此模式不扫描文件内容中的凭据，文件名排除规则也不完整。打包不触发 Git、网络或发布。历史 M0–M2 打包逻辑不变。
+
+## npm 同节点分发
+
+D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同；不另行提前发布版本。当前 `.github/workflows/npm-publish.yml` 响应已发布的 GitHub Release，检出对应标签、安装依赖、构建并打包，然后使用 `NPM_TOKEN` 发布；它不执行验收或安装复测。普通 push、PR、CI 构建成功和本地 tarball 生成都不等于验收通过。
+
+npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部署与源码 ZIP 使用方式保持不变。编译包不含源码映射、证据、示例或游戏资产，随包分发 MIT、第三方许可、API 索引和统一游戏开发 AI 指引。安装后无需源码与在线服务，首次依赖和浏览器准备除外。
+
+历史 M0–M2 发布打包器会拒绝源码或 dist 中匹配到的常见凭据形式，包括 npm 令牌，并且不会在诊断中回显匹配内容。M3 D50 模式不执行内容扫描；文件名排除规则不全面。
+
+按照 D50，当前 CI 不执行发布后 registry 对照、安装复测或 smoke；因此工作流成功也不证明公开包的运行行为。发布失败时须如实记录实际结果，不能假定已经发布或盲目重复发布同一版本。
+
+M3 没有完整正式验收 profile；D50 仅允许上文所述未验证预发布路径，不复用历史 M2 证据。当前 npm 工作流只安装依赖、构建、打包和发布，不运行验收或发布后复测；实际发布状态以对应操作结果为准。
 
 ## 当前阶段选择
 
@@ -26,7 +50,7 @@
 
 M0 manifest 可省略 `releaseScope`，兼容已有源码包；提供时必须为 `risk-prototypes`。旧导出 `REQUIRED_CHECKS` 仍只表示 M0 的八项门禁，`M0_VERSION` 仍是独立 legacy fixture 常量 `0.0.1-m0.0`，不控制当前仓库版本。M1、M2 检查分别由 `M1_REQUIRED_CHECKS`、`M2_REQUIRED_CHECKS` 定义，`RELEASE_PROFILES` 集中记录已实现阶段的规则。M2 的 15 项检查来自 `tools/verify-m2.ts`，测试核对两者一致。所有阶段都使用 manifest 的实际版本生成文件名。
 
-M3–M8 必须显式声明 `releaseScope`，但当前没有对应验收 profile，返回 `TCREL_PROFILE`，不能复用 M0/M1/M2 门禁通过。以后随阶段 verifier 和测试一起实现 profile，再启用该阶段。未知阶段返回 `TCREL_MILESTONE`。当前 manifest 为 M2 时，即使 M0/M1 的验收完全通过，也不能替代缺失的 M2 验收。
+M3 使用上文独立的显式未验证打包模式，不是验收 profile。M4–M8 当前没有对应 profile，返回 `TCREL_PROFILE`，不能复用 M0/M1/M2 门禁通过。未知阶段返回 `TCREL_MILESTONE`。当前 manifest 为 M2 时，即使 M0/M1 的验收完全通过，也不能替代缺失的 M2 验收。
 
 M2 是可玩游戏切片和资产管线 prerelease，不是 M1 runtime foundation，也不是完整引擎。带纹理 GLB 当前走 raster；完整 glTF 材质 hybrid/path tracing 属于 M3，M3–M8 尚未完成。发布说明明确这些边界，并逐条保留当前 acceptance 的 `limitations`，不把已通过的切片门禁扩写为完整能力或普遍性能承诺。
 
@@ -39,8 +63,8 @@ M2 构建可生成 `.br/.gz` 传输压缩文件。dist ZIP 保留这些已声明
 ```powershell
 npm run release:check
 npm run release:pack
-node --import tsx tools/release.ts check --root "D:\游戏开发\threecat"
-node --import tsx tools/release.ts pack --root "D:\游戏开发\threecat"
+node --import tsx tools/release.ts check --root "D:\游戏开发\pelican"
+node --import tsx tools/release.ts pack --root "D:\游戏开发\pelican"
 ```
 
 ```ts
@@ -59,7 +83,7 @@ await packRelease({ projectRoot: engineDirectory });
 - `status`、`diagnostics`、`artifacts`、`data`；失败时 data 为 null。
 - 每条诊断包含稳定的 code、severity、message 和 remediation，不回显原始系统异常或本机绝对路径。
 
-`check` 只读；`pack` 重新执行同一套检查，通过后才创建发布目录。它们不自动构建、不补造缺失证据、不把 CPU CI 结果当作 GPU 证明。
+历史 M0–M2 的 `check` 只读；其 `pack` 重新执行同一套检查，通过后才创建发布目录。M3 使用上文单独的未验证打包模式，不执行这套验收检查。工具不自动构建、不补造缺失证据。
 
 ## 验收输入契约
 
@@ -158,7 +182,7 @@ M2 使用 `milestone: "M2"`、`scope: "playable-game-slice"` 和 manifest 的实
 
 表中未写前缀的文件均位于 `evidence/m2/`。render 的 GPU 信息可嵌套在 `initial.backend`、`initial.adapter`；部署报告使用 `passed/base/hooks/score/errors`，编译报告使用 `success/engineVersion`，不虚构统一的 `status: passed` 报告结构。发布检查继续校验证据存在、非空和 GPU 信息，不替代 verifier 对报告内容和真实流程的断言。
 
-M2 的根 dist 还必须已有非空的 `THREE-LICENSE.txt`、`RAPIER-LICENSE.txt`、`THIRDPARTY-NOTICES.txt` 和 `generated/asset-notices.json`。前两者由构建器复制依赖完整许可，后两者保存运行时及资产声明；发布工具不补造缺失文件。资产 JSON 必须采用编译器的 `{ format: "threecat.asset-notices", version: 1, assets: [...] }`，每项保留字符串 `id/path`、非空字符串或 null 的 `license`，以及可选字符串 `source/attribution`；null 与编译器对未声明许可的警告语义兼容，不被改写为 MIT。无资产项目允许空数组。此校验确认文件和声明结构，不认证用户资产权属，也不证明许可证文本完整合法；主线须审查完整许可及归属。M0/M1 不新增这些 dist 要求。
+M2 的根 dist 还必须已有非空的 `THREE-LICENSE.txt`、`RAPIER-LICENSE.txt`、`THIRDPARTY-NOTICES.txt` 和 `generated/asset-notices.json`。前两者由构建器复制依赖完整许可，后两者保存运行时及资产声明；发布工具不补造缺失文件。资产 JSON 必须采用编译器的 `{ format: "pelican.asset-notices", version: 1, assets: [...] }`，每项保留字符串 `id/path`、非空字符串或 null 的 `license`，以及可选字符串 `source/attribution`；null 与编译器对未声明许可的警告语义兼容，不被改写为 MIT。无资产项目允许空数组。此校验确认文件和声明结构，不认证用户资产权属，也不证明许可证文本完整合法；主线须审查完整许可及归属。M0/M1 不新增这些 dist 要求。
 
 检查记录规则：
 
@@ -189,16 +213,16 @@ M0、M1、M2 的 render 检查都需要引用 JSON 报告；至少同一份报�
 
 对版本 `<version>` 输出到 `release/v<version>/`，六个附件为：
 
-1. `threecat-<version>-source.zip`：顶层目录 `threecat-<version>/`，包含源码、引导脚本、文档、资产、锁文件、许可与证据，不依赖 Git。
-2. `threecat-<version>-dist.zip`：直接以根 dist 内容为归档根，解压后可部署到 Web 服务器，补入经过检查的 LICENSE 和第三方通知。
-3. `threecat-<version>-evidence.json`：当前阶段、scope、prerelease、检查、限制、源码身份及当前阶段 evidence 目录的文件摘要。
-4. `threecat-<version>-manifest.json`：两个 ZIP 的摘要、内部逐文件 SHA-256/字节数，以及其他附件的摘要。
+1. `pelican-<version>-source.zip`：顶层目录 `pelican-<version>/`，包含源码、引导脚本、文档、资产、锁文件、许可与证据，不依赖 Git。
+2. `pelican-<version>-dist.zip`：直接以根 dist 内容为归档根，解压后可部署到 Web 服务器，补入经过检查的 LICENSE 和第三方通知。
+3. `pelican-<version>-evidence.json`：当前阶段、scope、prerelease、检查、限制、源码身份及当前阶段 evidence 目录的文件摘要。
+4. `pelican-<version>-manifest.json`：两个 ZIP 的摘要、内部逐文件 SHA-256/字节数，以及其他附件的摘要。
 5. `RELEASE_NOTES.md`：按当前阶段和 scope 生成，列出通过项及真实限制，不复用 M0 文案声称 M1 或未来阶段已完成。
 6. `SHA256SUMS`：上述五个附件的 SHA-256。
 
 源码包可以保留历史阶段的证据，但当前 evidence 摘要只索引当前阶段目录。本次维护的工具、测试、文档及生成的 JSON 和说明文件使用 LF；源码与 dist 归档保留文件原始字节，不做换行归一化。ZIP 使用已有的 UTF-8 名称、固定时间和压缩实现。
 
-沿用依赖、缓存、Git、临时目录与敏感文件排除规则。检测到凭据内容则失败，不泄露到发布包。已有发布目录不覆盖；打包采用临时目录生成并完成后移动，不覆盖源文件。打包时保持工作区稳定，避免在收集、检查与归档之间并行修改源码或构建产物。
+沿用依赖、缓存、Git、临时目录与敏感文件名排除规则。历史模式检测到凭据内容则失败；M3 不扫描凭据内容。已有发布目录不覆盖；打包采用临时目录生成并完成后移动，不覆盖源文件。打包时保持工作区稳定，避免并行修改源码或构建产物。
 
 ## 后续阶段与正式首发
 
@@ -207,30 +231,27 @@ M0、M1、M2 的 render 检查都需要引用 JSON 报告；至少同一份报�
 | M0   | `0.0.1-m0.0` | 已实现 profile；风险原型 prerelease      |
 | M1   | `0.1.0-m1.0` | 已实现 profile；运行时基础 prerelease    |
 | M2   | `0.2.0-m2.0` | 已实现 profile；可玩游戏切片 prerelease  |
-| M3   | `0.3.0-m3.0` | 待本阶段 verifier、scope 和 profile 实现 |
+| M3   | `0.3.0-m3.0` | 仅显式 compile-only/unverified 预发布打包 |
 | M4   | `0.4.0-m4.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M5   | `0.5.0-m5.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M6   | `0.6.0-m6.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M7   | `0.7.0-m7.0` | 待本阶段 verifier、scope 和 profile 实现 |
 | M8   | `1.0.0`      | 尚未启用，不接受正式版成功声明           |
 
-M0、M1、M2 始终返回 `prerelease: true`；manifest 自行写入 `prerelease: false` 不会改变它。M3–M8 当前连打包也不会通过。
+M0、M1、M2 始终返回 `prerelease: true`；manifest 自行写入 `prerelease: false` 不会改变它。M3 显式模式也始终为 prerelease；M4–M8 当前不能打包。
 
 未来启用 M8 正式版时，必须同时实现完整 capability gate：明确的必需能力清单、逐项通过状态、证据引用、与当前源码一致的身份，以及整套首发退出条件；只有全部验证通过才可设置 `prerelease: false`。不能仅凭 milestone=M8、version=1.0.0、status=passed 或单个 `allCapabilitiesPassed` 布尔字段推断完成。当前没有接受这些字段即可解锁正式版的协议，具体结构须随 M8 verifier 和完整负例测试一起确定；不提前制造 M8 成功分支。
 
 ## 主线交付节点
 
-1. 完成本阶段真实验证，记录环境、限制与证据，生成当前 acceptance。
-2. 在稳定源码快照上执行类型检查、CPU 测试、实际 WebGPU 验证、构建、dist 部署及外部开发流程验证。修复后重做受影响验证。
-3. 执行 `release:check` 和 `release:pack`，核对源码身份、ZIP 内容、说明及所有哈希。
-4. 在同一交付节点提交、推送、打标签和发布 Release，确保提交、标签和附件对应相同源码版本；不提前零散推送、不覆盖已有标签或附件。
-5. 根据打包结果设置 prerelease，上传六个附件，查询远程状态并下载核验；网络失败先查询再恢复，避免盲目重复创建。
+1. 按 D50 仅编译/构建，保留真实限制，不运行验证或生成验收通过记录。
+2. 对 M3 使用上述显式未验证模式打包，在同一交付节点提交、推送、打标签和发布 prerelease；不提前零散推送、不覆盖已有标签或附件。
 
-以上网络操作由主线在已授权范围执行，不是此工具的 API。工具开发任务若明确禁止发布，应只交付这三个文件及测试结果。
+以上网络操作由主线在已授权范围执行，不是此工具的 API。本工具任务不提交、不推送、不发布。
 
 ## CI 与本地测试边界
 
-CI 统一执行 Windows 下的依赖准备、类型检查、CPU 单元测试及静态构建。它不产生 GPU 通过证明，不生成硬件验收成功记录，也不自动发布。具体脚本由主线维护，此工具任务不修改 `.github/`。
+以下是历史测试说明，不是 D50 下的执行指令。D50 禁止测试和其他验证；CI 脚本由主线负责调整，此工具任务不修改 `.github/`。
 
 ```powershell
 node --import tsx --test tests/release.test.ts

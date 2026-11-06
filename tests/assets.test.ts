@@ -236,6 +236,8 @@ test("real WaterBottle: actual indexed triangles, four embedded textures and all
     normal: 2,
     occlusion: 1,
     emissive: 3,
+    specular: null,
+    specularColor: null,
   });
   assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
 });
@@ -396,18 +398,6 @@ const glbCases: Array<
     },
     unsupported,
     /extensions.*KHR_draco/,
-  ],
-  [
-    "unsupported sparse",
-    (j) => {
-      j.accessors![0].sparse = {
-        count: 1,
-        indices: { bufferView: 0, componentType: 5121 },
-        values: { bufferView: 0 },
-      };
-    },
-    unsupported,
-    /sparse/,
   ],
   [
     "unknown glTF version",
@@ -771,15 +761,244 @@ test("PNG rejects impossible color/bit-depth combination", async () => {
     /bit depth/,
   );
 });
-test("PNG reports Adam7 as unsupported", async () => {
+const adamPasses = [
+  [0, 0, 8, 8],
+  [4, 0, 8, 8],
+  [0, 4, 4, 8],
+  [2, 0, 4, 4],
+  [0, 2, 2, 4],
+  [1, 0, 2, 2],
+  [0, 1, 1, 2],
+];
+function adamFixture(
+  width: number,
+  height: number,
+  depth: number,
+  color: number,
+  filter: number,
+) {
+  const channels = ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 } as Record<number, number>)[
+    color
+  ];
+  const lines: Buffer[] = [];
+  const offsets: number[] = [];
+  let length = 0;
+  for (const [x, y, dx, dy] of adamPasses) {
+    const w = Math.max(0, Math.ceil((width - x) / dx));
+    const h = Math.max(0, Math.ceil((height - y) / dy));
+    offsets.push(w && h ? length : -1);
+    if (!w || !h) continue;
+    const size = Math.ceil((w * channels * depth) / 8);
+    const bpp = Math.max(1, Math.ceil((channels * depth) / 8));
+    let prev = Buffer.alloc(size);
+    for (let r = 0; r < h; r++) {
+      const row = Buffer.alloc(size);
+      // Indexed fixtures use only palette indices 0 and 1, including packed samples.
+      for (let i = 0; i < size; i++)
+        row[i] =
+          color === 3
+            ? depth === 1
+              ? 0x55
+              : depth === 2
+                ? 0x11
+                : depth === 4
+                  ? 0x01
+                  : 1
+            : (i * 31 + r * 47 + x + y) & 255;
+      const encoded = Buffer.alloc(size + 1);
+      encoded[0] = filter;
+      for (let i = 0; i < size; i++) {
+        const a = i >= bpp ? row[i - bpp] : 0,
+          b = prev[i],
+          c = i >= bpp ? prev[i - bpp] : 0;
+        const p = a + b - c,
+          pa = Math.abs(p - a),
+          pb = Math.abs(p - b),
+          pc = Math.abs(p - c);
+        const predictor =
+          filter === 1
+            ? a
+            : filter === 2
+              ? b
+              : filter === 3
+                ? Math.floor((a + b) / 2)
+                : filter === 4
+                  ? pa <= pb && pa <= pc
+                    ? a
+                    : pb <= pc
+                      ? b
+                      : c
+                  : 0;
+        encoded[i + 1] = (row[i] - predictor) & 255;
+      }
+      lines.push(encoded);
+      length += encoded.length;
+      prev = row;
+    }
+  }
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width);
+  header.writeUInt32BE(height, 4);
+  header[8] = depth;
+  header[9] = color;
+  header[12] = 1;
+  const pixels = Buffer.concat(lines);
+  const build = (
+    raw = pixels,
+    compressed = deflateSync(raw),
+    extra: Buffer[] = [],
+  ) =>
+    Buffer.concat([
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      chunk("IHDR", header),
+      ...(color === 3 ? [chunk("PLTE", Buffer.alloc(6))] : []),
+      ...extra,
+      chunk("IDAT", compressed),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+  return { pixels, offsets, header, build };
+}
+test("Adam7 validates every supported color and depth, filter, and empty pass", async () => {
+  for (const [color, depths] of [
+    [0, [1, 2, 4, 8, 16]],
+    [2, [8, 16]],
+    [3, [1, 2, 4, 8]],
+    [4, [8, 16]],
+    [6, [8, 16]],
+  ] as const)
+    for (const depth of depths)
+      for (const [w, h] of [
+        [1, 1],
+        [1, 9],
+        [9, 1],
+        [9, 11],
+      ])
+        for (const filter of [0, 1, 2, 3, 4]) {
+          const m = await inspect(
+            adamFixture(w, h, depth, color, filter).build(),
+            "texture",
+          );
+          assert.deepEqual(
+            [m.width, m.height, m.bitDepth, m.colorType],
+            [w, h, depth, color],
+          );
+        }
+});
+test("Adam7 rejects invalid filters and packed palette indices in each pass", async () => {
+  for (let pass = 0; pass < 7; pass++) {
+    const f = adamFixture(9, 9, 2, 3, 0);
+    const invalidFilter = Buffer.from(f.pixels);
+    invalidFilter[f.offsets[pass]] = 5;
+    await rejects(f.build(invalidFilter), "texture", invalid, /row filter/);
+    const invalidIndex = Buffer.from(f.pixels);
+    invalidIndex[f.offsets[pass] + 1] = 0x80;
+    await rejects(
+      f.build(invalidIndex),
+      "texture",
+      invalid,
+      /missing palette entry/,
+    );
+  }
+});
+test("Adam7 checks indexed sample depths without interpreting padding bits", async () => {
+  for (const [depth, bad] of [
+    [1, 0x80],
+    [2, 0x80],
+    [4, 0x20],
+    [8, 2],
+  ]) {
+    const f = adamFixture(1, 1, depth, 3, 0);
+    if (depth === 1) {
+      // A single-entry palette makes index 1 invalid at depth 1.
+      const valid = f.build();
+      const oneEntry = Buffer.concat([
+        valid.subarray(0, 33),
+        chunk("PLTE", Buffer.alloc(3)),
+        valid.subarray(51),
+      ]);
+      const pixels = Buffer.from(f.pixels);
+      pixels[1] = bad;
+      const broken = f.build(pixels);
+      const invalidPalette = Buffer.concat([
+        broken.subarray(0, 33),
+        chunk("PLTE", Buffer.alloc(3)),
+        broken.subarray(51),
+      ]);
+      await inspect(oneEntry, "texture");
+      await rejects(
+        invalidPalette,
+        "texture",
+        invalid,
+        /missing palette entry/,
+      );
+    } else {
+      const pixels = Buffer.from(f.pixels);
+      pixels[1] = bad;
+      await rejects(
+        f.build(pixels),
+        "texture",
+        invalid,
+        /missing palette entry/,
+      );
+    }
+  }
+  const f = adamFixture(1, 1, 1, 3, 0);
+  const pixels = Buffer.from(f.pixels);
+  pixels[1] = 0x7f;
+  await inspect(f.build(pixels), "texture");
+});
+test("Adam7 preserves strict CRC, stream length, zlib consumption and APNG errors", async () => {
+  const f = adamFixture(9, 11, 8, 6, 4);
+  const crcBroken = f.build();
+  crcBroken[29] ^= 1;
+  await rejects(crcBroken, "texture", invalid, /CRC/);
   await rejects(
-    png(undefined, (b) => {
-      b[12] = 1;
-    }),
+    f.build(f.pixels.subarray(0, -1)),
+    "texture",
+    invalid,
+    /Pixel stream length/,
+  );
+  await rejects(
+    f.build(Buffer.concat([f.pixels, Buffer.from([0])])),
+    "texture",
+    invalid,
+    /Pixel stream length|zlib/,
+  );
+  await rejects(
+    f.build(f.pixels, Buffer.concat([deflateSync(f.pixels), Buffer.from([0])])),
+    "texture",
+    invalid,
+    /Trailing compressed/,
+  );
+  await rejects(
+    f.build(f.pixels, Buffer.from([1, 2, 3])),
+    "texture",
+    invalid,
+    /zlib/,
+  );
+  await rejects(
+    f.build(f.pixels, deflateSync(f.pixels), [chunk("acTL", Buffer.alloc(8))]),
     "texture",
     unsupported,
-    /Adam7/,
+    /Animated PNG/,
   );
+  f.header.writeUInt32BE(0x7fffffff, 0);
+  f.header.writeUInt32BE(0x7fffffff, 4);
+  await rejects(f.build(), "texture", unsupported, /256 MiB/);
+});
+test("GLB accepts a verified Adam7 embedded PNG", async () => {
+  const { json, bin } = fixture();
+  const image = adamFixture(9, 11, 2, 3, 4).build();
+  json.bufferViews!.push({
+    buffer: 0,
+    byteOffset: bin.length,
+    byteLength: image.length,
+  });
+  json.images = [{ mimeType: "image/png", bufferView: 3 }];
+  const combined = Buffer.concat([bin, image]);
+  json.buffers![0].byteLength = combined.length;
+  const result = await inspect(pack(json, combined), "model");
+  assert.ok(result);
 });
 test("PNG rejects indexed pixels referencing a missing palette entry", async () => {
   const b = png(Buffer.from([0, 1]), (h) => {

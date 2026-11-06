@@ -262,7 +262,7 @@ export async function inspectDependencies(
         "TCENV_MANIFEST_INVALID",
         "error",
         "package.json is missing or invalid.",
-        "Use an intact threecat directory containing package.json.",
+        "Use an intact pelican directory containing package.json.",
       ),
     );
     return state;

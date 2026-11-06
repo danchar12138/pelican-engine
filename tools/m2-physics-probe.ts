@@ -16,14 +16,14 @@ export async function runM2Physics(root: string, output: string) {
   await mkdir(output, { recursive: true });
   const compiled = await compileProject({
     projectRoot: project,
-    outDir: path.join(project, ".threecat/public/generated"),
+    outDir: path.join(project, ".pelican/public/generated"),
     engineRoot: root,
   });
   assert.equal(compiled.success, true, JSON.stringify(compiled.diagnostics));
   const server = await createServer({
     root,
     configFile: path.join(root, "vite.config.ts"),
-    publicDir: path.join(project, ".threecat/public"),
+    publicDir: path.join(project, ".pelican/public"),
     logLevel: "silent",
     server: { port: 0, host: "127.0.0.1", strictPort: true },
   });
@@ -48,7 +48,7 @@ export async function runM2Physics(root: string, output: string) {
         await waitForEngine(page);
         const command = async (value: unknown) => {
           const response = await page.evaluate(
-            async (value) => (window as any).__threecat.command(value),
+            async (value) => (window as any).__pelican.command(value),
             value,
           );
           assert.equal(response.status, "succeeded", JSON.stringify(response));

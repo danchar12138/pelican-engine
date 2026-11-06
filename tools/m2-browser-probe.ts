@@ -29,14 +29,14 @@ export async function runM2Journey(url: string, output: string) {
         await waitForEngine(page);
         const cmd = async (value: unknown) => {
           const r = await page.evaluate(
-            async (v) => (window as any).__threecat.command(v),
+            async (v) => (window as any).__pelican.command(v),
             value,
           );
           assert.equal(r.status, "succeeded", JSON.stringify(r));
           return r.data;
         };
         const state = () =>
-          page.evaluate(() => (window as any).__threecat.inspect());
+          page.evaluate(() => (window as any).__pelican.inspect());
         const pixels = async () => {
           const png = await page
             .locator("canvas")
@@ -162,7 +162,7 @@ export async function runM2Journey(url: string, output: string) {
         assert.equal(replay.status, "passed");
         const modeFailure = await page.evaluate(
           async () =>
-            await (window as any).__threecat.command({
+            await (window as any).__pelican.command({
               type: "mode",
               mode: "path",
             }),
@@ -172,7 +172,7 @@ export async function runM2Journey(url: string, output: string) {
           modeFailure.diagnostics.some((d: any) => d.code === "TC_TRACE_STAGE"),
         );
         assert.equal((await state()).mode, "raster");
-        const storageKey = "threecat:m2-fox-journey:journey";
+        const storageKey = "pelican:m2-fox-journey:journey";
         const originalSave = await page.evaluate(
           (key) => localStorage.getItem(key),
           storageKey,

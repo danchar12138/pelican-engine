@@ -30,7 +30,7 @@ export interface EntityRecord {
   components: Record<string, ComponentData>;
 }
 export interface WorldSnapshot {
-  format: "threecat.world";
+  format: "pelican.world";
   version: 1;
   components: RuntimeComponentDefinition[];
   entities: EntityRecord[];

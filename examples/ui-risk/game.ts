@@ -4,7 +4,7 @@ import {
   defineMaterial,
   defineScene,
   defineSystem,
-} from "@threecat/sdk";
+} from "pelican-engine";
 
 const Probe = defineComponent({
   id: "UiProbe",

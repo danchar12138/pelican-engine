@@ -16,14 +16,14 @@ export async function runUIRisk(root: string, output: string) {
   await mkdir(output, { recursive: true });
   const compile = await compileProject({
     projectRoot: project,
-    outDir: path.join(project, ".threecat/public/generated"),
+    outDir: path.join(project, ".pelican/public/generated"),
     engineRoot: root,
   });
   assert.equal(compile.success, true, JSON.stringify(compile.diagnostics));
   const server = await createServer({
     root,
     configFile: path.join(root, "vite.config.ts"),
-    publicDir: path.join(project, ".threecat/public"),
+    publicDir: path.join(project, ".pelican/public"),
     logLevel: "silent",
     server: { port: 0, host: "127.0.0.1", strictPort: true },
   });
@@ -42,7 +42,7 @@ export async function runUIRisk(root: string, output: string) {
         });
         await page.addInitScript({
           content:
-            'window.__uiInputTrace=[];for(const type of ["compositionstart","compositionupdate","compositionend","beforeinput","input","keydown"]){document.addEventListener(type,e=>{if(e.target?.dataset?.threecatElement==="name")window.__uiInputTrace.push({type,data:e.data??null,inputType:e.inputType??null,isComposing:e.isComposing??null,value:e.target.value,key:e.key??null});},true);}window.__padButtons=Array(17).fill(false);Object.defineProperty(navigator,"getGamepads",{configurable:true,value:()=>[{id:"threecat virtual standard controller",index:0,connected:true,mapping:"standard",timestamp:performance.now(),axes:[0,0,0,0],buttons:window.__padButtons.map(pressed=>({pressed,touched:pressed,value:pressed?1:0}))}]});',
+            'window.__uiInputTrace=[];for(const type of ["compositionstart","compositionupdate","compositionend","beforeinput","input","keydown"]){document.addEventListener(type,e=>{if(e.target?.dataset?.pelicanElement==="name")window.__uiInputTrace.push({type,data:e.data??null,inputType:e.inputType??null,isComposing:e.isComposing??null,value:e.target.value,key:e.key??null});},true);}window.__padButtons=Array(17).fill(false);Object.defineProperty(navigator,"getGamepads",{configurable:true,value:()=>[{id:"pelican virtual standard controller",index:0,connected:true,mapping:"standard",timestamp:performance.now(),axes:[0,0,0,0],buttons:window.__padButtons.map(pressed=>({pressed,touched:pressed,value:pressed?1:0}))}]});',
         });
         const url = new URL(server.resolvedUrls!.local[0]);
         url.searchParams.set("automation", "1");
@@ -52,7 +52,7 @@ export async function runUIRisk(root: string, output: string) {
         await waitForEngine(page);
         const command = async (value: unknown) => {
           const result = await page.evaluate(
-            async (value) => (window as any).__threecat.command(value),
+            async (value) => (window as any).__pelican.command(value),
             value,
           );
           assert.equal(result.status, "succeeded", JSON.stringify(result));
@@ -65,12 +65,12 @@ export async function runUIRisk(root: string, output: string) {
           return step();
         };
         const state = () =>
-          page.evaluate(() => (window as any).__threecat.inspect());
+          page.evaluate(() => (window as any).__pelican.inspect());
         const initial = await state();
         assert.equal(initial.backend, "WebGPUBackend");
         assert.equal(initial.adapter.isFallbackAdapter, false);
-        const input = page.locator('[data-threecat-element="name"]'),
-          world = page.locator('[data-threecat-element="world-control"]');
+        const input = page.locator('[data-pelican-element="name"]'),
+          world = page.locator('[data-pelican-element="world-control"]');
         assert.equal(await world.isVisible(), false);
         await page.screenshot({
           path: path.join(output, "ui-world-occluded.png"),
@@ -148,7 +148,7 @@ export async function runUIRisk(root: string, output: string) {
         focus.push(
           await page.evaluate(
             () =>
-              document.activeElement?.getAttribute("data-threecat-element") ??
+              document.activeElement?.getAttribute("data-pelican-element") ??
               "",
           ),
         );
@@ -157,7 +157,7 @@ export async function runUIRisk(root: string, output: string) {
         focus.push(
           await page.evaluate(
             () =>
-              document.activeElement?.getAttribute("data-threecat-element") ??
+              document.activeElement?.getAttribute("data-pelican-element") ??
               "",
           ),
         );
@@ -171,7 +171,7 @@ export async function runUIRisk(root: string, output: string) {
           1,
         );
         await page
-          .locator('[data-threecat-element="title"]')
+          .locator('[data-pelican-element="title"]')
           .click({ force: true });
         await tap("v");
         assert.equal(await world.isVisible(), true);
@@ -181,7 +181,7 @@ export async function runUIRisk(root: string, output: string) {
           ({ x, y }) =>
             document
               .elementFromPoint(x, y)
-              ?.getAttribute("data-threecat-element"),
+              ?.getAttribute("data-pelican-element"),
           { x: before.x + before.width / 2, y: before.y + before.height / 2 },
         );
         assert.equal(hit, "world-control");

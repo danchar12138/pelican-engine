@@ -689,7 +689,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
       ensure();
       readAll();
       return {
-        format: "threecat.world",
+        format: "pelican.world",
         version: 1,
         components: [...state.definitions.values()].map((definition) => ({
           ...definition,
@@ -701,7 +701,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
     restore(snapshot) {
       outsideSystem();
       record(snapshot, "World snapshot");
-      if (snapshot.format !== "threecat.world" || snapshot.version !== 1)
+      if (snapshot.format !== "pelican.world" || snapshot.version !== 1)
         fail("VERSION", "Unsupported world snapshot format/version.");
       const candidate = build(
         snapshot.components,

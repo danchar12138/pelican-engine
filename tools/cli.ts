@@ -11,13 +11,21 @@ import {
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
 import { SDK_VERSION } from "../packages/sdk/src/index.ts";
-import { generateApiIndex } from "./api-index.ts";
+import { generateApiIndex, queryApiSymbol } from "./api-index.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
 import { compressDist } from "./compress-dist.ts";
 import { doctor } from "./doctor.ts";
 import { setup } from "./setup.ts";
 import { attachControl } from "./control-server.ts";
 import { createControlClient } from "./control-client.ts";
+import { diagnosticCode } from "./diagnostic-code.ts";
+import {
+  cliLayout,
+  createMinimalProject,
+  prepareInstalledDevProject,
+  installedDoctor,
+  writeAuthorEntry,
+} from "./npm/layout.ts";
 import type { ControlCommand } from "../packages/protocol/src/index.ts";
 import {
   automationLaunchOptions,
@@ -26,18 +34,25 @@ import {
   withAutomationDeadline,
 } from "./browser-session.ts";
 
-const engineRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
+const layout = cliLayout(import.meta.url);
+const engineRoot = layout.root;
 const args = process.argv.slice(2);
+const activeManifest = JSON.parse(
+  await readFile(path.join(engineRoot, "engine.manifest.json"), "utf8"),
+) as { milestone: string; stage: string };
+const defaultProject = layout.installed
+  ? process.cwd()
+  : path.join(
+      engineRoot,
+      activeManifest.milestone === "M3" ? "examples/m3" : "examples/m2",
+    );
 const command = args[0] ?? "help";
 const option = (name: string, fallback?: string) => {
   const index = args.indexOf(`--${name}`);
   return index >= 0 ? args[index + 1] : fallback;
 };
 const projectRoot = path.resolve(
-  option("project", path.join(engineRoot, "examples/m2"))!,
+  command === "api" ? defaultProject : option("project", defaultProject)!,
 );
 const taskId = `${command}-${Date.now()}`;
 const envelope = (
@@ -58,7 +73,7 @@ const envelope = (
 });
 const emit = (result: unknown) =>
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-const target = path.join(projectRoot, ".threecat/public/generated");
+const target = path.join(projectRoot, ".pelican/public/generated");
 async function compile() {
   await mkdir(target, { recursive: true });
   return compileProject({ projectRoot, outDir: target, engineRoot });
@@ -70,7 +85,7 @@ async function main() {
         commands: [
           "doctor",
           "setup [--install-browser] [--offline]",
-          "create --project <directory>",
+          "create --project <directory> [--template minimal|m2]",
           "check --project <directory>",
           "compile --project <directory>",
           "dev --project <directory> [--port 4173]",
@@ -81,28 +96,38 @@ async function main() {
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
           "snapshot --output <file> | restore --file <file>",
           "record --action start|stop|cancel | replay --file <trace.json>",
-          "status | cancel --task <id> | reset-session | api",
+          "status | cancel --task <id> | reset-session | api [--symbol <name>]",
         ],
-        stage:
-          "M2 playable game slice in development; incomplete first-release feature set",
+        stage: activeManifest.stage,
       }),
     );
     return;
   }
   if (command === "doctor") {
-    const report = await doctor({ projectRoot: engineRoot, taskId });
+    const report = layout.installed
+      ? await installedDoctor(engineRoot, taskId)
+      : await doctor({ projectRoot: engineRoot, taskId });
     emit(report);
     if (report.status !== "succeeded") process.exitCode = 1;
     return;
   }
   if (command === "api") {
-    const index = await generateApiIndex(engineRoot);
+    const index = layout.installed
+      ? JSON.parse(
+          await readFile(path.join(engineRoot, "docs/api/index.json"), "utf8"),
+        )
+      : await generateApiIndex(engineRoot);
+    const matches = queryApiSymbol(index.symbols, args.slice(1));
     emit(
       envelope(
         "succeeded",
-        { engineVersion: SDK_VERSION, symbols: index.symbols.length },
+        matches === undefined
+          ? { engineVersion: SDK_VERSION, symbols: index.symbols.length }
+          : { engineVersion: SDK_VERSION, symbols: matches },
         [],
-        ["docs/api/index.json", "docs/api/REFERENCE.md"],
+        ["docs/api/index.json", "docs/api/REFERENCE.md"].map((file) =>
+          layout.installed ? path.join(engineRoot, file) : file,
+        ),
       ),
     );
     return;
@@ -202,7 +227,7 @@ async function main() {
       )
         throw new Error("TC_CAPTURE_FORMAT: Invalid captured image.");
       const output = path.resolve(
-        option("output", path.join(projectRoot, ".threecat/live-capture.png"))!,
+        option("output", path.join(projectRoot, ".pelican/live-capture.png"))!,
       );
       if (path.extname(output).toLowerCase() !== ".png")
         throw new Error(
@@ -229,6 +254,34 @@ async function main() {
     return;
   }
   if (command === "setup") {
+    if (layout.installed) {
+      if (args.includes("--install-browser")) {
+        const { chromium } = await import("playwright");
+        try {
+          await access(chromium.executablePath());
+        } catch {
+          if (args.includes("--offline"))
+            throw new Error(
+              "TCSETUP_BROWSER_OFFLINE: Install Chromium while online before offline capture.",
+            );
+          const { runCommand } = await import("./doctor.ts");
+          const { playwrightCli } = await import("./npm/browser-cli.ts");
+          const result = await runCommand(
+            process.execPath,
+            [playwrightCli(engineRoot), "install", "chromium"],
+            { cwd: projectRoot, timeoutMs: 120_000 },
+          );
+          if (result.exitCode !== 0)
+            throw new Error(
+              "TCSETUP_BROWSER_INSTALL_FAILED: Chromium installation failed; retry setup --install-browser while online.",
+            );
+        }
+      }
+      const report = await installedDoctor(engineRoot, taskId);
+      emit(report);
+      if (report.status !== "succeeded") process.exitCode = 1;
+      return;
+    }
     const result = await setup({
       projectRoot: engineRoot,
       taskId,
@@ -240,8 +293,41 @@ async function main() {
     return;
   }
   if (command === "create") {
-    if (!option("project"))
+    const template = option("template", layout.installed ? "minimal" : "m2");
+    if (
+      !["minimal", "m2"].includes(template!) ||
+      (layout.installed && template !== "minimal")
+    )
+      throw new Error(
+        "TC_CREATE_TEMPLATE: Use minimal in either distribution; m2 sample assets are available in source checkouts only.",
+      );
+    if (!layout.installed && !option("project"))
       throw new Error("TC_CREATE_PATH: --project is required.");
+    if (template === "minimal") {
+      for (const filename of ["game.ts", "pelican.project.json", "AGENTS.md"])
+        try {
+          await access(path.join(projectRoot, filename));
+          throw new Error(
+            "TC_CREATE_EXISTS: Project files already exist; no files were overwritten.",
+          );
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      await createMinimalProject(projectRoot, engineRoot, layout.installed);
+      emit(
+        envelope(
+          "succeeded",
+          {
+            project: path.basename(projectRoot),
+            engineVersion: SDK_VERSION,
+            template,
+          },
+          [],
+          ["game.ts", "pelican.project.json", "AGENTS.md"],
+        ),
+      );
+      return;
+    }
     try {
       await access(projectRoot);
       throw new Error(
@@ -253,10 +339,10 @@ async function main() {
     await cp(path.join(engineRoot, "examples/m2"), projectRoot, {
       recursive: true,
       filter: (source) =>
-        !source.split(path.sep).includes(".threecat") &&
+        !source.split(path.sep).includes(".pelican") &&
         !source.split(path.sep).includes("dist"),
     });
-    const manifestPath = path.join(projectRoot, "threecat.project.json");
+    const manifestPath = path.join(projectRoot, "pelican.project.json");
     const manifest = JSON.parse(
       await readFile(manifestPath, "utf8").catch(() => "{}"),
     );
@@ -265,15 +351,17 @@ async function main() {
       version: SDK_VERSION,
     };
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    await writeAuthorEntry(projectRoot, engineRoot);
     emit(
       envelope(
         "succeeded",
         {
           project: path.basename(projectRoot),
           engineVersion: manifest.engine.version,
+          template,
         },
         [],
-        ["game.ts", "threecat.project.json"],
+        ["game.ts", "pelican.project.json", "AGENTS.md"],
       ),
     );
     return;
@@ -283,6 +371,10 @@ async function main() {
       command,
     )
   ) {
+    const scaffolded =
+      command === "dev" && layout.installed
+        ? await prepareInstalledDevProject(projectRoot, engineRoot)
+        : false;
     const result = await compile();
     if (!result.success) {
       emit(
@@ -303,7 +395,7 @@ async function main() {
         );
       const output = path.resolve(
         projectRoot,
-        option("output", path.join(".threecat/optimized", asset.id + ".glb"))!,
+        option("output", path.join(".pelican/optimized", asset.id + ".glb"))!,
       );
       const relative = path.relative(projectRoot, output);
       if (relative.startsWith("..") || path.isAbsolute(relative))
@@ -330,7 +422,7 @@ async function main() {
     }
     if (command === "build") {
       const output =
-        projectRoot === path.join(engineRoot, "examples/m2")
+        !layout.installed && projectRoot === defaultProject
           ? path.join(engineRoot, "dist")
           : path.join(projectRoot, "dist");
       try {
@@ -345,12 +437,20 @@ async function main() {
       process.env.NODE_ENV = "production";
       try {
         await viteBuild({
-          root: engineRoot,
-          configFile: path.join(engineRoot, "vite.config.ts"),
+          root: layout.webRoot,
+          configFile: layout.installed
+            ? false
+            : path.join(engineRoot, "vite.config.ts"),
+          envFile: false,
           publicDir: path.dirname(target),
           base: option("base", "./"),
           logLevel: "silent",
-          build: { outDir: output, emptyOutDir: true },
+          build: {
+            outDir: output,
+            emptyOutDir: true,
+            target: "es2023",
+            sourcemap: false,
+          },
         });
       } finally {
         if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
@@ -359,33 +459,49 @@ async function main() {
       await cp(path.join(engineRoot, "LICENSE"), path.join(output, "LICENSE"));
       await writeFile(
         path.join(output, "THIRDPARTY-NOTICES.txt"),
-        "threecat runtime uses Three.js 0.187.0 (MIT, three.js authors) and @dimforge/rapier3d-compat 0.21.0 (Apache-2.0, Dimforge). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
+        "pelican runtime uses Three.js 0.187.0, fast-png 8.0.0, fflate 0.8.3, iobuffer 6.0.1 and ngraph.path 1.6.1 (MIT), and @dimforge/rapier3d-compat 0.21.0 (Apache-2.0). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
           JSON.stringify(result.ir?.assetNotices ?? [], null, 2) +
           "\n",
       );
       await cp(
-        path.join(engineRoot, "node_modules/three/LICENSE"),
+        path.join(
+          engineRoot,
+          layout.installed
+            ? "licenses/three/LICENSE"
+            : "node_modules/three/LICENSE",
+        ),
         path.join(output, "THREE-LICENSE.txt"),
       );
       await cp(
-        path.join(engineRoot, "node_modules/@dimforge/rapier3d-compat/LICENSE"),
+        path.join(
+          engineRoot,
+          layout.installed
+            ? "licenses/@dimforge/rapier3d-compat/LICENSE"
+            : "node_modules/@dimforge/rapier3d-compat/LICENSE",
+        ),
         path.join(output, "RAPIER-LICENSE.txt"),
       );
+      for (const dependency of ["fast-png", "fflate", "iobuffer", "ngraph.path"]) {
+        await cp(
+          path.join(engineRoot, layout.installed ? "licenses" : "node_modules", dependency, "LICENSE"),
+          path.join(output, `${dependency.toUpperCase()}-LICENSE.txt`),
+        );
+      }
       await writeFile(
-        path.join(output, "threecat-build.json"),
+        path.join(output, "pelican-build.json"),
         JSON.stringify(
           {
             engineVersion: SDK_VERSION,
-            stage: "playable-game-slice",
+            stage: activeManifest.stage,
             game: result.ir?.gameId,
             entry: "index.html",
-            renderer: "webgpu-only",
+            renderer: "webgpu-with-webgl2-fallback",
             limitations: [
-              "M2 game slice prerelease, not the complete engine",
-              "Textured GLB scenes currently use raster; full material tracing is M3 work",
+              "M3 rendering is in development; not the complete engine or an accepted M3 release",
+              "Opaque textured surface transport is integrated; unsupported combinations report explicit diagnostics",
               "Physics snapshots replay operation history and are bounded to 100000 operations",
               "Compute BVH path tracer, no hardware ray tracing",
-              "No production denoiser; hybrid is image-compositing prototype",
+              "Spatial denoising is integrated; temporal motion reconstruction remains work in progress",
             ],
           },
           null,
@@ -401,7 +517,7 @@ async function main() {
           [
             "dist/index.html",
             "dist/generated/scene.ir.json",
-            "dist/threecat-build.json",
+            "dist/pelican-build.json",
           ],
         ),
       );
@@ -409,10 +525,37 @@ async function main() {
     }
     const port = Number(option("port", "4173"));
     const server = await createServer({
-      root: engineRoot,
-      configFile: path.join(engineRoot, "vite.config.ts"),
+      root: layout.webRoot,
+      configFile: layout.installed
+        ? false
+        : path.join(engineRoot, "vite.config.ts"),
+      envFile: false,
+      plugins: layout.installed
+        ? [
+            {
+              name: "pelican-installed-browser-entry",
+              transformIndexHtml: {
+                order: "pre",
+                handler(html) {
+                  return html.replace(
+                    "../lib/renderer/browser.js",
+                    "/@fs/" +
+                      path
+                        .join(engineRoot, "lib/renderer/browser.js")
+                        .replaceAll("\\", "/"),
+                  );
+                },
+              },
+            },
+          ]
+        : [],
       publicDir: path.dirname(target),
-      server: { port, host: "127.0.0.1", strictPort: true },
+      server: {
+        port,
+        host: "127.0.0.1",
+        strictPort: true,
+        fs: { allow: [engineRoot, projectRoot] },
+      },
       logLevel: "silent",
     });
     const controls = command === "dev" ? attachControl(server) : undefined;
@@ -435,15 +578,15 @@ async function main() {
         await withAutomationDeadline(() =>
           page.evaluate(
             async (mode) => {
-              await (window as any).__threecat.mode(mode);
+              await (window as any).__pelican.mode(mode);
               if (mode !== "raster")
-                await (window as any).__threecat.accumulate(8);
+                await (window as any).__pelican.accumulate(8);
             },
             option("mode", "raster"),
           ),
         );
         const output = path.resolve(
-          option("output", path.join(projectRoot, ".threecat/capture.png"))!,
+          option("output", path.join(projectRoot, ".pelican/capture.png"))!,
         );
         await mkdir(path.dirname(output), { recursive: true });
         await withAutomationDeadline(() =>
@@ -474,7 +617,7 @@ async function main() {
       if (
         relative.startsWith("..") ||
         path.isAbsolute(relative) ||
-        filename.includes(`${path.sep}.threecat${path.sep}`) ||
+        filename.includes(`${path.sep}.pelican${path.sep}`) ||
         filename.includes(`${path.sep}dist${path.sep}`)
       )
         return;
@@ -485,7 +628,8 @@ async function main() {
         while (dirty) {
           dirty = false;
           const next = await compile();
-          if (next.success && !dirty) server.ws.send({ type: "full-reload" });
+          if (next.success && !dirty && !next.report.incremental.cacheHit)
+            server.ws.send({ type: "full-reload" });
           else if (!next.success)
             emit(envelope("failed", next.report, next.diagnostics));
         }
@@ -503,6 +647,7 @@ async function main() {
       envelope("running", {
         url: `http://127.0.0.1:${port}/`,
         project: path.basename(projectRoot),
+        ...(scaffolded ? { scaffolded: true, template: "minimal" } : {}),
         hotUpdate:
           "full-reload; compatibility policy is reported but live patch is not implemented",
       }),
@@ -521,7 +666,7 @@ main().catch((error) => {
   emit(
     envelope("failed", null, [
       {
-        code: String(error).match(/TC_[A-Z_]+/)?.[0] ?? "TC_CLI_FAILURE",
+        code: diagnosticCode(error),
         severity: "error",
         message: String(error),
         remediation:

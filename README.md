@@ -1,12 +1,14 @@
-# threecat
+# Pelican Engine（鹈鹕游戏引擎）
 
-面向 **100% AI 开发**的开源、高质量、WebGPU-only 游戏引擎。
+面向 **100% AI 开发**的开源、高质量游戏引擎，优先 WebGPU，支持 Three.js 内置 WebGL2 光栅回退。
 
 人负责提出需求、约束和反馈；外部 AI 负责引擎研发或游戏开发的技术执行。游戏运行时不包含大模型或 AI 智能体。NPC 行为、导航等属于普通游戏逻辑。
 
 ## 当前状态
 
 **M2 游戏切片已通过验收。** 695 项测试、15 项门禁及两条冻结 ZIP 独立 AI 流程全部通过。当前版本包含真实 GLB/PBR/骨骼动画、Rapier 角色与刚体、公开游戏服务、三物品收集与通关、跨场景及冷启动存档恢复。它不是完整首发引擎；实际状态见 `evidence/m2/acceptance.json`，使用见 [M2 指引](docs/M2-USAGE.md)。M0/M1 历史证据和 Release 保持可查。
+
+已发布版本为 `v0.2.0-m2.0`，提交 `2712c4f`。当前 main 工作树进入 `0.3.0-m3.0` 研发，实际操作见 [M3 指引](docs/M3-USAGE.md)：可见路径追踪、光栅首命中 hybrid、HDR 环境/MIS、空间降噪和设备重建已有真实浏览器证据，但高性能、物理材质、时域重建和完整能力矩阵尚未完成，M3 未发布。需要稳定复现 M2 时使用其标签或对应源码 ZIP；不要用当前代码覆盖历史验收。
 
 方案依据：2026-11-04 的需求访谈。已确认的产品决策与待技术验证的实现方案分开记录。没有未经实测的性能、工期或完成度承诺。
 
@@ -18,18 +20,38 @@
 - 游戏通过公开 API 扩展，不直接依赖 Three.js、原生 WebGPU 或其他内部实现。通过规范、工具和完整能力统一生态，不建设防篡改系统。
 - 完整能力按需编译、加载；质量、正确性、性能分别验收，不通过静默降级掩盖问题。
 - 资产生产工具由开发者自主选择。引擎接收、处理并呈现高质量资产，不绑定生成服务。
-- 仓库即交付产品。支持 GitHub、ZIP、本地目录及外部引擎路径，不依赖 Git 元数据或专用平台。
+- 仓库与 npm 均为正式开发渠道。GitHub、ZIP、本地目录、外部引擎路径和 npm 共用一套 SDK、CLI 与 AI 开发能力，不依赖 Git 元数据或专用平台。npm 分发正在本阶段增量验证，未提前发布。
+- 尽快完成 1.0：性能如实测量和优化，不把固定 FPS 数字作为僵硬门槛；功能正确性、资源安全与真实画面仍需验证，不静默降画质。
 
 ## 运行当前版本
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\threecat.ps1 setup --install-browser
-powershell -NoProfile -ExecutionPolicy Bypass -File .\threecat.ps1 dev
+powershell -NoProfile -ExecutionPolicy Bypass -File .\pelican.ps1 setup --install-browser
+powershell -NoProfile -ExecutionPolicy Bypass -File .\pelican.ps1 dev
 ```
 
-在仓库目录也可使用 `npm run typecheck`、`npm test`、`npm run build`。当前默认 M2 样板构建到根目录 `dist/`；外部游戏输出其自身的 `dist/`。`npm run verify:m2` 包含真实 GPU 浏览器验收，不应在没有硬件的环境伪造通过。M0/M1 验收从对应历史版本执行，避免覆盖历史证据。
+在仓库目录也可使用 `npm run typecheck`、`npm test`、`npm run build`。当前默认 M3 样板构建到根目录 `dist/`；外部游戏输出其自身的 `dist/`。M0/M1/M2 验收从对应历史标签执行，避免覆盖历史证据。
 
 源码 ZIP 无需 Git 即可使用。创建外部游戏、捕获画面和部署方法见使用指引；引擎整体计划与当前实现状态分别记录。
+
+## npm 开发分发
+
+统一名称与历史迁移见 [Pelican 命名与迁移](docs/PELICAN-MIGRATION.md)。GitHub 仓库现为 `danchar12138/pelican-engine`。
+
+包标识为 `pelican-engine`，命令名为 `pelican`，游戏仍使用 `import { ... } from "pelican-engine"`，没有第二套 SDK。分发工具从同一份 SDK、编译器和浏览器运行时生成编译包；Windows 空目录安装后即可创建项目、检查、开发、控制浏览器、截图和构建 `dist/`，不需要引擎源码。
+
+包发布后的标准入口为：
+
+```powershell
+npm i -D pelican-engine
+npx pelican dev
+```
+
+首次 `dev` 只在没有游戏文件的 npm 工作目录创建最小项目；重复运行不覆盖游戏。当前先用本地 tarball 实测这条链路，注册表公开安装要等同一已验收里程碑发布。
+
+本工作树正在验证 M3 最小分发闭环，**尚未发布到 npm**。当前可用 `npm run distribution:pack` 生成本地安装包；安装与离线开发流程见 [npm 指引](docs/npm/DISTRIBUTION.md)，统一游戏开发 AI 入口见 [GAME-AUTHOR](docs/npm/GAME-AUTHOR.md)。包内附接口索引、声明、MIT 与第三方许可，不附示例资产、证据或源码映射。相同游戏源码与资产使用相同 API 和运行时；示例素材是否附带不代表渠道能力差异。
+
+正式 npm 发布只由已验收里程碑的 GitHub Release 触发 CI，与提交、标签和 Release 保持同一节点；普通 push 或 CPU 测试通过不触发发布。后端选择与错误码见 [渲染后端](docs/RENDER-BACKENDS.md)。
 
 ## 方案入口
 
@@ -41,7 +63,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\threecat.ps1 dev
 | [M0 实测报告](docs/M0-REPORT.md)       | 本里程碑证据、性能边界与后续风险                   |
 | [发布规范](docs/RELEASING.md)          | 同一节点提交、推送和 Release，中文标准提交消息     |
 | [AGENTS.md](AGENTS.md)                 | 外部 AI 的工作入口、职责边界和当前阶段             |
-| [需求决策](docs/DECISIONS.md)          | 40 项确认结果、纠正后的边界、待验证事项            |
+| [需求决策](docs/DECISIONS.md)          | 49 项确认结果、纠正后的边界、待验证事项            |
 | [总体架构](docs/ARCHITECTURE.md)       | 编译器、SDK、运行时、渲染、模拟和目录设计          |
 | [能力与验收矩阵](docs/CAPABILITIES.md) | 全部首发能力、交互关系和交付证据                   |
 | [AI 工作流](docs/AI-WORKFLOW.md)       | 初始化、命令契约、调试、自动测试与协作             |
@@ -56,7 +78,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\threecat.ps1 dev
 
 首次允许自动联网准备锁定依赖；依赖和资产准备完成后，日常开发、测试与构建不要求在线服务。未来构建输出为可部署到 Web 服务器的 `dist/`。
 
-玩家端不设置操作系统或浏览器白名单。实际具备所需 WebGPU 能力即可运行，不支持时清晰报错，不回退 WebGL。
+玩家端不设置操作系统或浏览器白名单。WebGPU 不可用时由 Three.js 内置机制回退到 WebGL2；不降低分辨率、采样、灯光、材质或后处理。WebGL2 不支持的 path/hybrid/降噪/计算明确报错并提示可用模式，不伪装成功。状态栏与 `render.capabilities()` 可观测当前后端，主里程碑验收仍要求真实 WebGPU。
 
 ## 完整首发目标
 

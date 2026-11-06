@@ -5,7 +5,7 @@ import type {
   WorldAdapter,
 } from "./types.ts";
 export interface WorldProbeReport {
-  prototype: "threecat-m0-world-streaming";
+  prototype: "pelican-m0-world-streaming";
   version: 1;
   passed: boolean;
   checks: Record<string, boolean>;
@@ -193,7 +193,7 @@ export async function runWorldProbe(
       asyncTransactions.rollbackRestored;
     const final = world.inspect();
     return {
-      prototype: "threecat-m0-world-streaming",
+      prototype: "pelican-m0-world-streaming",
       version: 1,
       passed: Object.values(checks).every(Boolean),
       checks,

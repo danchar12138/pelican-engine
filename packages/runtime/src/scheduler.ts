@@ -50,7 +50,11 @@ export interface SchedulerDiagnostic {
   message: string;
 }
 export interface SchedulerFault {
-  code: "TC_SCHEDULER_TICK" | "TC_SCHEDULER_LISTENER" | "TC_REPLAY_DIVERGENCE";
+  code:
+    | "TC_SCHEDULER_TICK"
+    | "TC_SCHEDULER_LISTENER"
+    | "TC_SCHEDULER_SETTLE"
+    | "TC_REPLAY_DIVERGENCE";
   tick: number;
   stage: string;
   message: string;
@@ -58,7 +62,7 @@ export interface SchedulerFault {
   eventFaults: EventFault[];
 }
 export interface SchedulerSnapshot {
-  format: "threecat.scheduler";
+  format: "pelican.scheduler";
   version: 1;
   fixedDt: number;
   maxSubsteps: number;
@@ -86,7 +90,7 @@ export type TraceAction =
  * wall-clock IO or GPU results. Replay requires matching system implementations
  * and registered listeners. Internal emissions/draws are regenerated per tick. */
 export interface SchedulerTrace {
-  format: "threecat.trace";
+  format: "pelican.trace";
   version: 1;
   initial: SchedulerSnapshot;
   actions: TraceAction[];
@@ -103,6 +107,11 @@ export interface StepReport {
   budgetExhausted: boolean;
   acceptedSeconds: number;
   ignoredSeconds: number;
+  fault: SchedulerFault | null;
+}
+export interface ReplayReport {
+  status: "passed" | "failed";
+  actionsExecuted: number;
   fault: SchedulerFault | null;
 }
 
@@ -286,13 +295,22 @@ export function createScheduler({
       null,
     replaying = false,
     disposed = false;
+  let asyncActive = false,
+    driving = false;
   const currentTick = () => completedTick + (running ? 1 : 0);
   const ensure = () => {
     if (disposed)
       throw new Error("TC_SCHEDULER_DISPOSED: Scheduler is disposed.");
   };
-  const safe = () => {
+  const mutable = () => {
     ensure();
+    if (asyncActive && !driving && !running)
+      throw new Error(
+        "TC_SCHEDULER_ASYNC_ACTIVE: An async boundary is pending.",
+      );
+  };
+  const safe = () => {
+    mutable();
     if (running)
       throw new Error(
         "TC_SCHEDULER_SAFE_POINT: Operation requires a tick boundary.",
@@ -315,7 +333,7 @@ export function createScheduler({
         );
     },
     beforeEmit: (event) => {
-      ensure();
+      mutable();
       if (fault)
         throw new Error(
           "TC_SCHEDULER_FAULT: Restore a known-good snapshot before emitting.",
@@ -455,7 +473,7 @@ export function createScheduler({
     const data = cloneSerializable(value) as SchedulerSnapshot;
     if (
       !data ||
-      data.format !== "threecat.scheduler" ||
+      data.format !== "pelican.scheduler" ||
       data.version !== 1 ||
       data.fixedDt !== fixedDt ||
       data.maxSubsteps !== maxSubsteps
@@ -490,7 +508,7 @@ export function createScheduler({
       throw new Error("TC_SCHEDULER_SNAPSHOT: Invalid delivered events.");
     const history = validateEventSnapshot(
       {
-        format: "threecat.events",
+        format: "pelican.events",
         version: 1,
         nextSequence: data.events.nextSequence,
         queue: data.delivered,
@@ -509,7 +527,7 @@ export function createScheduler({
       );
     if (
       !data.world ||
-      data.world.format !== "threecat.world" ||
+      data.world.format !== "pelican.world" ||
       data.world.version !== 1 ||
       !Array.isArray(data.world.components) ||
       !Array.isArray(data.world.entities)
@@ -588,7 +606,7 @@ export function createScheduler({
         "TC_SCHEDULER_PENDING: Snapshot requires an empty structural command queue.",
       );
     return cloneSerializable({
-      format: "threecat.scheduler",
+      format: "pelican.scheduler",
       version: 1,
       fixedDt,
       maxSubsteps,
@@ -624,7 +642,7 @@ export function createScheduler({
     delivered = data.delivered;
     fault = null;
   };
-  const step = (count = 1): StepReport => {
+  function* stepTicks(count = 1): Generator<void, StepReport, void> {
     safe();
     integer(count, "count");
     if (
@@ -637,10 +655,14 @@ export function createScheduler({
     while (executed < count && !paused && !fault) {
       if (!tick()) break;
       executed++;
+      yield;
+      ensure();
     }
     return report(executed);
-  };
-  const advance = (realSeconds: number): StepReport => {
+  }
+  function* advanceTicks(
+    realSeconds: number,
+  ): Generator<void, StepReport, void> {
     safe();
     seconds(realSeconds, "realSeconds");
     if (
@@ -659,15 +681,25 @@ export function createScheduler({
       if (!tick()) break;
       addTime(-fixedDt);
       executed++;
+      yield;
+      ensure();
     }
     return report(
       executed,
       !fault && !paused && executed === maxSubsteps && backlog() > 0,
       realSeconds,
     );
+  }
+  const drain = <T>(iterator: Generator<void, T, void>): T => {
+    let next = iterator.next();
+    while (!next.done) next = iterator.next();
+    return next.value;
   };
+  const step = (count = 1): StepReport => drain(stepTicks(count));
+  const advance = (realSeconds: number): StepReport =>
+    drain(advanceTicks(realSeconds));
   const pause = (): void => {
-    ensure();
+    mutable();
     record({ kind: "pause", atTick: currentTick() });
     paused = true;
   };
@@ -681,7 +713,7 @@ export function createScheduler({
     paused = false;
   };
   const nextRandom = (): number => {
-    ensure();
+    mutable();
     if (fault)
       throw new Error(
         "TC_SCHEDULER_FAULT: Restore a known-good checkpoint before drawing random values.",
@@ -694,7 +726,7 @@ export function createScheduler({
     const trace = cloneSerializable(value) as SchedulerTrace;
     if (
       !trace ||
-      trace.format !== "threecat.trace" ||
+      trace.format !== "pelican.trace" ||
       trace.version !== 1 ||
       !Array.isArray(trace.actions)
     )
@@ -743,7 +775,7 @@ export function createScheduler({
           throw new Error("TC_TRACE_ACTION: Invalid recorded event.");
         validateEventSnapshot(
           {
-            format: "threecat.events",
+            format: "pelican.events",
             version: 1,
             nextSequence: e.sequence + 1,
             queue: [e],
@@ -755,6 +787,129 @@ export function createScheduler({
     }
     return trace;
   };
+  const preflightReplay = (value: unknown): SchedulerTrace => {
+    safe();
+    if (recording || replaying)
+      throw new Error(
+        "TC_TRACE_ACTIVE: Cannot replay during recording/replay.",
+      );
+    return validateTrace(value);
+  };
+  const settleTick = async (afterTick: () => Promise<void>): Promise<void> => {
+    try {
+      await afterTick();
+      ensure();
+    } catch (error) {
+      if (!disposed) {
+        fault = {
+          code: "TC_SCHEDULER_SETTLE",
+          tick: completedTick,
+          stage: "settle",
+          partialState: true,
+          eventFaults: [],
+          message: error instanceof Error ? error.message : String(error),
+        };
+        paused = true;
+      }
+      throw error;
+    }
+  };
+  const asyncBoundary = async <T>(operation: () => Promise<T>): Promise<T> => {
+    safe();
+    asyncActive = true;
+    try {
+      return await operation();
+    } finally {
+      asyncActive = false;
+    }
+  };
+  // Only synchronous iterator execution may drive the scheduler. The permit is
+  // released before awaiting user/plugin code, including its synchronous prefix.
+  const drive = <T>(iterator: Generator<void, T, void>) => {
+    driving = true;
+    try {
+      return iterator.next();
+    } finally {
+      driving = false;
+    }
+  };
+  function* replayActions(
+    trace: SchedulerTrace,
+  ): Generator<void, ReplayReport, void> {
+    let actionsExecuted = 0;
+    restore(trace.initial);
+    replaying = true;
+    try {
+      for (const action of trace.actions) {
+        if (action.atTick !== completedTick)
+          throw new Error(
+            "TC_REPLAY_DIVERGENCE: Recorded operation tick differs.",
+          );
+        switch (action.kind) {
+          case "step":
+            yield* stepTicks(action.count);
+            break;
+          case "advance":
+            yield* advanceTicks(action.seconds);
+            break;
+          case "pause":
+            pause();
+            break;
+          case "resume":
+            resume();
+            break;
+          case "random":
+            if (nextRandom() !== action.value)
+              throw new Error("TC_REPLAY_DIVERGENCE: Random stream differs.");
+            break;
+          case "emit": {
+            const actual = events.emit(
+              action.event.type,
+              action.event.payload,
+              {
+                tick: action.event.tick,
+                source: action.event.source,
+              },
+            );
+            if (actual.sequence !== action.event.sequence)
+              throw new Error("TC_REPLAY_DIVERGENCE: Event sequence differs.");
+            break;
+          }
+        }
+        actionsExecuted++;
+        if (fault) break;
+      }
+      if (!fault && canonical(snapshot()) !== canonical(trace.final))
+        throw new Error(
+          "TC_REPLAY_DIVERGENCE: Final state differs; use identical system code and controlled external inputs.",
+        );
+    } catch (error) {
+      const failure: SchedulerFault = fault ?? {
+        code: "TC_REPLAY_DIVERGENCE",
+        tick: completedTick,
+        stage: "replay",
+        partialState: true,
+        eventFaults: [],
+        message: error instanceof Error ? error.message : String(error),
+      };
+      if (!disposed) {
+        fault = failure;
+        paused = true;
+      }
+      return {
+        status: "failed",
+        actionsExecuted,
+        fault: cloneSerializable(failure),
+      };
+    } finally {
+      replaying = false;
+    }
+    return {
+      status: fault ? "failed" : "passed",
+      actionsExecuted,
+      fault: cloneSerializable(fault),
+    };
+  }
   return {
     get tick() {
       return currentTick();
@@ -771,9 +926,18 @@ export function createScheduler({
     resume,
     snapshot,
     restore,
+    preflightReplay,
+    /** Await an engine boundary after an already executed synchronous tick. */
+    settle(afterTick: () => Promise<void>): Promise<void> {
+      return asyncBoundary(() => settleTick(afterTick));
+    },
     dispose(): void {
       if (disposed) return;
-      safe();
+      ensure();
+      if (running)
+        throw new Error(
+          "TC_SCHEDULER_SAFE_POINT: Operation requires a tick boundary.",
+        );
       bus.dispose();
       plan = schedule([]);
       delivered = [];
@@ -799,6 +963,7 @@ export function createScheduler({
         maxSubsteps,
         paused,
         running,
+        asyncActive,
         disposed,
         backlogTicks: backlog(),
         backlogSeconds: accumulator,
@@ -823,7 +988,7 @@ export function createScheduler({
         throw new Error("TC_TRACE_INACTIVE: No active recording.");
       const final = snapshot();
       const trace: SchedulerTrace = {
-        format: "threecat.trace",
+        format: "pelican.trace",
         version: 1,
         initial: recording.initial,
         actions: recording.actions,
@@ -836,81 +1001,30 @@ export function createScheduler({
       safe();
       recording = null;
     },
-    replay(value: unknown): {
-      status: "passed" | "failed";
-      actionsExecuted: number;
-      fault: SchedulerFault | null;
-    } {
-      safe();
-      if (recording || replaying)
-        throw new Error(
-          "TC_TRACE_ACTIVE: Cannot replay during recording/replay.",
-        );
-      const trace = validateTrace(value); // Complete shape/version preflight before any write.
-      let actionsExecuted = 0;
-      restore(trace.initial);
-      replaying = true;
-      try {
-        for (const action of trace.actions) {
-          if (action.atTick !== completedTick)
-            throw new Error(
-              "TC_REPLAY_DIVERGENCE: Recorded operation tick differs.",
-            );
-          switch (action.kind) {
-            case "step":
-              step(action.count);
-              break;
-            case "advance":
-              advance(action.seconds);
-              break;
-            case "pause":
-              pause();
-              break;
-            case "resume":
-              resume();
-              break;
-            case "random":
-              if (nextRandom() !== action.value)
-                throw new Error("TC_REPLAY_DIVERGENCE: Random stream differs.");
-              break;
-            case "emit": {
-              const actual = events.emit(
-                action.event.type,
-                action.event.payload,
-                { tick: action.event.tick, source: action.event.source },
-              );
-              if (actual.sequence !== action.event.sequence)
-                throw new Error(
-                  "TC_REPLAY_DIVERGENCE: Event sequence differs.",
-                );
-              break;
-            }
+    replay(value: unknown): ReplayReport {
+      return drain(replayActions(preflightReplay(value)));
+    },
+    async replayAsync(
+      value: unknown,
+      afterTick: () => Promise<void>,
+    ): Promise<ReplayReport> {
+      const trace = preflightReplay(value);
+      if (typeof afterTick !== "function")
+        throw new Error("TC_SCHEDULER_ARGUMENT: afterTick must be a function.");
+      return asyncBoundary(async () => {
+        const iterator = replayActions(trace);
+        let next = drive(iterator);
+        while (!next.done) {
+          try {
+            await settleTick(afterTick);
+          } catch (error) {
+            // Throw through the iterator so replay owns fault/report cleanup.
+            return iterator.throw(error).value as ReplayReport;
           }
-          actionsExecuted++;
-          if (fault) break;
+          next = drive(iterator);
         }
-        if (!fault && canonical(snapshot()) !== canonical(trace.final))
-          throw new Error(
-            "TC_REPLAY_DIVERGENCE: Final state differs; use identical system code and controlled external inputs.",
-          );
-      } catch (error) {
-        fault = {
-          code: "TC_REPLAY_DIVERGENCE",
-          tick: completedTick,
-          stage: "replay",
-          partialState: true,
-          eventFaults: [],
-          message: error instanceof Error ? error.message : String(error),
-        };
-        paused = true;
-      } finally {
-        replaying = false;
-      }
-      return {
-        status: fault ? "failed" : "passed",
-        actionsExecuted,
-        fault: cloneSerializable(fault),
-      };
+        return next.value;
+      });
     },
   };
 }

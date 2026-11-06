@@ -215,7 +215,7 @@ function withAssetImport(text: string): string {
           (s): s is ts.ImportDeclaration =>
             ts.isImportDeclaration(s) &&
             ts.isStringLiteral(s.moduleSpecifier) &&
-            s.moduleSpecifier.text === "@threecat/sdk",
+            s.moduleSpecifier.text === "pelican-engine",
         ),
         "SDK import",
       );
@@ -272,7 +272,7 @@ async function project(
   text = template,
 ) {
   const root = await fs.mkdtemp(
-    path.join(os.tmpdir(), "threecat compiler \u4e2d\u6587 "),
+    path.join(os.tmpdir(), "pelican compiler \u4e2d\u6587 "),
   );
   t.after(async () => {
     const verified = path.resolve(root);
@@ -280,12 +280,12 @@ async function project(
       path.dirname(verified).toLowerCase(),
       path.resolve(os.tmpdir()).toLowerCase(),
     );
-    assert.ok(path.basename(verified).startsWith("threecat compiler "));
+    assert.ok(path.basename(verified).startsWith("pelican compiler "));
     await fs.rm(verified, { recursive: true, force: true });
   });
   await fs.writeFile(path.join(root, "game.ts"), text);
   await fs.writeFile(
-    path.join(root, "threecat.project.json"),
+    path.join(root, "pelican.project.json"),
     JSON.stringify({ engineVersion: SDK_VERSION }),
   );
   return {
@@ -362,7 +362,7 @@ test("compiler: real TS to IR and standalone JS executes component-driven gamepl
   assert.equal(result.report.compilerVersion, ts.version);
   assert.equal(result.ir.engineVersion, SDK_VERSION);
   assert.equal(result.report.engineVersion, SDK_VERSION);
-  assert.equal(result.ir.format, "threecat.scene");
+  assert.equal(result.ir.format, "pelican.scene");
   assert.equal(result.ir.scene.entities.length, 6);
   assert.equal(
     result.ir.scene.entities.find((e) => e.id === "m0-spinner")?.components
@@ -398,7 +398,7 @@ test("compiler: real TS to IR and standalone JS executes component-driven gamepl
   game.dispose();
   assert.throws(() => game.update(1), /TC_RUNTIME_DISPOSED/);
   const js = await fs.readFile(path.join(p.out, "game.js"), "utf8");
-  assert.doesNotMatch(js, /from ["'](?:three|@threecat|typescript)/);
+  assert.doesNotMatch(js, /from ["'](?:three|@pelican|typescript)/);
   const map = JSON.parse(
     await fs.readFile(path.join(p.out, "game.js.map"), "utf8"),
   );
@@ -414,7 +414,7 @@ test("compiler: real TS to IR and standalone JS executes component-driven gamepl
 });
 
 test("compiler: arbitrary module side effects are rejected, never executed", async (t) => {
-  const marker = "__threecatCompilerSideEffect";
+  const marker = "__pelicanCompilerSideEffect";
   const global = globalThis as unknown as Record<string, unknown>;
   delete global[marker];
   const p = await project(
@@ -616,7 +616,7 @@ test("compiler: local definition modules, aliases and inherited prefabs resolve 
   );
   await fs.writeFile(
     path.join(p.root, "defs.ts"),
-    'import {definePrefab as prefab,defineMaterial} from "@threecat/sdk";const material=defineMaterial({id:"localMat"});const base=prefab({id:"base",transform:{scale:[2,2,2]},mesh:{geometry:{kind:"box"},material}});export const shape=prefab({id:"shape",extends:base,transform:{position:[1,2,3]}});',
+    'import {definePrefab as prefab,defineMaterial} from "pelican-engine";const material=defineMaterial({id:"localMat"});const base=prefab({id:"base",transform:{scale:[2,2,2]},mesh:{geometry:{kind:"box"},material}});export const shape=prefab({id:"shape",extends:base,transform:{position:[1,2,3]}});',
   );
   const result = await p.compile();
   success(result);
@@ -755,7 +755,7 @@ test("compiler: no-Git external Chinese/space directory supports configured entr
     path.join(p.root, "src \u5b50\u76ee\u5f55", "entry.ts"),
   );
   await fs.writeFile(
-    path.join(p.root, "threecat.project.json"),
+    path.join(p.root, "pelican.project.json"),
     JSON.stringify({ entry: "src \u5b50\u76ee\u5f55/entry.ts" }),
   );
   const result = await p.compile();
@@ -765,7 +765,7 @@ test("compiler: no-Git external Chinese/space directory supports configured entr
   await fs.mkdir(moved);
   for (const name of [
     "src \u5b50\u76ee\u5f55",
-    "threecat.project.json",
+    "pelican.project.json",
     "dist",
   ])
     await fs.rename(path.join(p.root, name), path.join(moved, name));
@@ -861,7 +861,7 @@ test("compiler: invalid graph values, missing outputs, async systems and malform
   result = await p.compile();
   assert.equal(result.success, false);
   assert.ok(result.diagnostics.some((d) => d.code === "TC_SYSTEM_ASYNC"));
-  await fs.writeFile(path.join(p.root, "threecat.project.json"), "{bad");
+  await fs.writeFile(path.join(p.root, "pelican.project.json"), "{bad");
   result = await p.compile();
   assert.equal(result.success, false);
   assert.ok(result.diagnostics.some((d) => d.code === "TC_PROJECT_CONFIG"));
@@ -895,7 +895,7 @@ test("compiler: SDK source and installed tool versions participate in cache inva
       "packages/sdk/src/index.ts",
     ),
   );
-  const cachePath = path.join(p.out, ".threecat-cache.json");
+  const cachePath = path.join(p.out, ".pelican-cache.json");
   const cache = JSON.parse(await fs.readFile(cachePath, "utf8"));
   cache.compilerVersion = "0.0.0-test-old";
   await fs.writeFile(cachePath, JSON.stringify(cache));
@@ -941,7 +941,7 @@ test("compiler: corrupt caches rebuild safely and unwritable output is diagnosed
   const first = await p.compile();
   success(first);
   await fs.writeFile(
-    path.join(p.out, ".threecat-cache.json"),
+    path.join(p.out, ".pelican-cache.json"),
     JSON.stringify({ format: 1 }),
   );
   const rebuilt = await p.compile();
@@ -1055,7 +1055,7 @@ test("compiler: concurrent production builds serialize their NODE_ENV transactio
 });
 
 function metadataGame(...systems: string[]): string {
-  return `import { defineGame, defineScene, defineComponent, defineSystem } from "@threecat/sdk";
+  return `import { defineGame, defineScene, defineComponent, defineSystem } from "pelican-engine";
 const Motion = defineComponent({ id: "Motion", schema: { speed: { type: "number", default: 1 } } });
 ${systems.map((s, i) => `const s${i} = defineSystem(${s});`).join("\n")}
 export default defineGame({ id: "metadata-game", scene: defineScene({ id: "scene", entities: [] }),
@@ -1271,7 +1271,7 @@ test("compiler M1: exact project locks reject M0, ranges and conflicting engine 
     { engineVersion: SDK_VERSION, engine: { version: "0.0.1-m0.0" } },
   ]) {
     await fs.writeFile(
-      path.join(p.root, "threecat.project.json"),
+      path.join(p.root, "pelican.project.json"),
       JSON.stringify(manifest),
     );
     const diagnostic = expectCode(
@@ -1282,7 +1282,7 @@ test("compiler M1: exact project locks reject M0, ranges and conflicting engine 
     assert.ok(diagnostic.suggestion.includes(SDK_VERSION));
   }
   await fs.writeFile(
-    path.join(p.root, "threecat.project.json"),
+    path.join(p.root, "pelican.project.json"),
     JSON.stringify({
       engineVersion: SDK_VERSION,
       engine: { version: SDK_VERSION },
@@ -1301,12 +1301,12 @@ test("compiler M1: malformed lock schemas fail clearly; no-manifest M0 source AP
     { engine: null },
   ]) {
     await fs.writeFile(
-      path.join(p.root, "threecat.project.json"),
+      path.join(p.root, "pelican.project.json"),
       JSON.stringify(manifest),
     );
     expectCode(await p.compile(), "TC_PROJECT_CONFIG");
   }
-  await fs.unlink(path.join(p.root, "threecat.project.json"));
+  await fs.unlink(path.join(p.root, "pelican.project.json"));
   const result = await p.compile();
   success(result);
   assert.ok(
@@ -1321,13 +1321,13 @@ test("compiler M1: relative and absolute engine paths resolve without Git and wr
   const p = await project(t);
   for (const enginePath of [path.relative(p.root, engineRoot), engineRoot]) {
     await fs.writeFile(
-      path.join(p.root, "threecat.project.json"),
+      path.join(p.root, "pelican.project.json"),
       JSON.stringify({ engine: { version: SDK_VERSION, path: enginePath } }),
     );
     success(await p.compile());
   }
   await fs.writeFile(
-    path.join(p.root, "threecat.project.json"),
+    path.join(p.root, "pelican.project.json"),
     JSON.stringify({ engine: { version: SDK_VERSION, path: "." } }),
   );
   expectCode(await p.compile(), "TC_ENGINE_PATH_MISMATCH");
@@ -1409,11 +1409,11 @@ test("compiler M1: default engine root resolves from the formal package", async 
 test("compiler M1: metadata from imported local definitions maps errors to the definition source", async (t) => {
   const p = await project(
     t,
-    `import { defineGame, defineScene } from "@threecat/sdk";
+    `import { defineGame, defineScene } from "pelican-engine";
 import { failing } from "./systems.ts";
 export default defineGame({ id: "local", scene: defineScene({ id: "scene", entities: [] }), systems: [failing] });`,
   );
-  const declaration = `import { defineSystem } from "@threecat/sdk";
+  const declaration = `import { defineSystem } from "pelican-engine";
 const metadata = { before: ["absent"] };
 export const failing = defineSystem({ id: "failing", ...metadata, run() {} });`;
   await fs.writeFile(path.join(p.root, "systems.ts"), declaration);
@@ -1436,7 +1436,7 @@ test("compiler M1: changing a version lock cannot reuse a previous successful ca
   success(cached);
   assert.equal(cached.report.incremental.cacheHit, true);
   await fs.writeFile(
-    path.join(p.root, "threecat.project.json"),
+    path.join(p.root, "pelican.project.json"),
     JSON.stringify({ engineVersion: "0.0.1-m0.0" }),
   );
   const failed = await p.compile();
@@ -1455,7 +1455,7 @@ const m2SceneGame = (
   input: { move: ["ArrowUp", "W"] },
   ui: [{ id: "health", kind: "bar", value: 0.75, width: 220, color: "#0f0" }],`,
 ) => `
-import { defineGame, defineScene } from "@threecat/sdk";
+import { defineGame, defineScene } from "pelican-engine";
 const first = defineScene(${primaryScene});
 const second = defineScene({ id: "second", entities: [{ id: "other" }] });
 export default defineGame({
@@ -1571,4 +1571,63 @@ test("compiler M2: typed text input and world UI anchors preserve metadata and r
     ),
   );
   expectCode(await invalid.compile(), "TC_UI_WORLD_ENTITY");
+});
+
+test("compiler M3: public render settings and emissive/alpha material fields reach IR with defaults and diagnostics", async (t) => {
+  const text =
+    'import{defineGame,defineScene,defineMaterial}from"pelican-engine";const glow=defineMaterial({id:"glow",color:"#80a0c0",emissive:"#ff7040",emissiveIntensity:3,opacity:0.4,alphaTest:0.2,side:"double"});export default defineGame({id:"render",scene:defineScene({id:"scene",entities:[]}),materials:[glow],render:{mode:"path",samplesPerFrame:4,maxBounces:8,denoise:true,exposure:1.5}});';
+  const p = await project(t, text),
+    result = await p.compile();
+  success(result);
+  assert.equal(result.ir.render?.mode, "path");
+  assert.equal(result.ir.render?.denoiseIterations, 3);
+  assert.equal(result.ir.render?.directLighting, true);
+  assert.equal(result.ir.materials[0].emissiveIntensity, 3);
+  assert.equal(result.ir.materials[0].opacity, 0.4);
+  assert.equal(result.ir.materials[0].side, "double");
+  const invalid = await project(t, text.replace("exposure:1.5", "exposure:0"));
+  const failed = await invalid.compile();
+  expectCode(failed, "TC_RENDER_SETTINGS");
+  assert.equal(
+    failed.diagnostics.find((d) => d.code === "TC_RENDER_SETTINGS")?.source
+      ?.file,
+    "game.ts",
+  );
+});
+
+test("compiler M3: physical transmission remains distinct from opacity and invalid combinations fail with source coordinates", async (t) => {
+  const text =
+    'import{defineGame,defineScene,defineMaterial}from"pelican-engine";const glass=defineMaterial({id:"glass",transmission:1,ior:1.5,attenuationColor:"#80c0ff",attenuationDistance:2,roughness:0.1,metalness:0});export default defineGame({id:"glass",scene:defineScene({id:"scene",entities:[]}),materials:[glass]});';
+  const p = await project(t, text),
+    result = await p.compile();
+  success(result);
+  const material = result.ir.materials[0];
+  assert.equal(material.transmission, 1);
+  assert.equal(material.ior, 1.5);
+  assert.equal(material.attenuationDistance, 2);
+  assert.equal(material.opacity, undefined);
+  assert.equal(material.attenuationColor, "#80c0ff");
+  for (const ior of [1.1, 1.5, 2]) {
+    const opaque = await project(t, text.replace(/transmission:1,ior:1.5,attenuationColor:[^,]+,attenuationDistance:2/, `transmission:0,ior:${ior}`));
+    const compiled = await opaque.compile();
+    success(compiled);
+    assert.equal(compiled.ir.materials[0].ior, ior);
+  }
+  for (const ior of [0, -1]) {
+    const invalidIor = await project(t, text.replace("ior:1.5", `ior:${ior}`));
+    expectCode(await invalidIor.compile(), "TC_SCHEMA_RANGE");
+  }
+  for (const source of [
+    text.replace("metalness:0", "metalness:1"),
+    text.replace("transmission:1", "transmission:0"),
+  ]) {
+    const invalid = await project(t, source),
+      failed = await invalid.compile();
+    expectCode(failed, "TC_MATERIAL_TRANSMISSION");
+    assert.equal(
+      failed.diagnostics.find((d) => d.code === "TC_MATERIAL_TRANSMISSION")
+        ?.source?.file,
+      "game.ts",
+    );
+  }
 });

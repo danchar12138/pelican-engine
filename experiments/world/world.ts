@@ -289,7 +289,7 @@ export function createWorldProbe(options: WorldProbeOptions = {}): WorldProbe {
     const ordered = <T>(m: Map<string, T>): [string, T][] =>
       [...m].sort((a, b) => (a[0] < b[0] ? -1 : 1));
     return {
-      format: "threecat-m0-world",
+      format: "pelican-m0-world",
       version: 1,
       config: clone(config),
       origin: clone(state.origin),
@@ -306,7 +306,7 @@ export function createWorldProbe(options: WorldProbeOptions = {}): WorldProbe {
   }
   function parseSnapshot(input: WorldSnapshot): State {
     try {
-      if (!input || input.format !== "threecat-m0-world" || input.version !== 1)
+      if (!input || input.format !== "pelican-m0-world" || input.version !== 1)
         throw new Error("format / version mismatch");
       const c = input.config;
       if (

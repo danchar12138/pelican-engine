@@ -73,7 +73,7 @@ export function makeScene(
   options: ResolvedOptions,
 ): SimulationSnapshot {
   const s: SimulationSnapshot = {
-    format: "threecat-m0-simulation",
+    format: "pelican-m0-simulation",
     version: 1,
     kind,
     options: copy(options),

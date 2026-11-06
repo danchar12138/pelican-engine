@@ -12,18 +12,58 @@ const engineRoot = path.resolve(
 );
 const source = (clip = "Survey") =>
   [
-    'import {defineAsset,defineGame,defineScene}from "@threecat/sdk";',
+    'import {defineAsset,defineGame,defineScene}from "pelican-engine";',
     'const fox=defineAsset({id:"fox",type:"model",path:"assets/Fox.glb",license:"CC0-1.0 AND CC-BY-4.0",attribution:"PixelMannen, tomkranis, AsoboStudio, scurest",source:"fixed-source"});',
     'const chime=defineAsset({id:"chime",type:"audio",path:"assets/chime.wav",license:"MIT"});',
     'export default defineGame({id:"asset-game",assets:[fox,chime],sounds:[{id:"pickup",asset:chime}],scene:defineScene({id:"scene",entities:[{id:"hero",model:{asset:fox,scale:0.01,offset:[0,-0.7,0],rotation:[0,1,0],animation:{clip:' +
       JSON.stringify(clip) +
       "}}}]})});",
   ].join("\n");
+test("named model material slots compile and invalid declarations are diagnosed", async (t) => {
+  const p = await fixture(t);
+  const game = source()
+    .replace("defineAsset,defineGame,defineScene", "defineAsset,defineGame,defineScene,defineMaterial")
+    .replace("export default defineGame", 'const paint=defineMaterial({id:"paint",color:"#ff0000"});\nexport default defineGame')
+    .replace("asset:fox,scale", 'asset:fox,materialSlots:{Fur:paint},scale');
+  await writeFile(path.join(p.root, "game.ts"), game);
+  const ok = await p.compile();
+  assert.equal(ok.success, true, JSON.stringify(ok.diagnostics));
+  assert.deepEqual(ok.ir!.scene.entities[0]!.model!.materialSlots, { Fur: "paint" });
+  await writeFile(path.join(p.root, "game.ts"), game.replace('materialSlots:{Fur:paint}', 'materialSlots:{Z:paint,A:paint}'));
+  const ordered = await p.compile();
+  assert.equal(ordered.success, true, JSON.stringify(ordered.diagnostics));
+  assert.deepEqual(Object.keys(ordered.ir!.scene.entities[0]!.model!.materialSlots!), ["A", "Z"]);
+  await writeFile(path.join(p.root, "game.ts"), game.replace('materialSlots:{Fur:paint}', 'material:paint,materialSlots:{Fur:paint}'));
+  const conflict = await p.compile();
+  assert.equal(conflict.success, false);
+  assert.ok(conflict.diagnostics.some(d => d.code === "TC_MODEL_MATERIAL_CONFLICT"));
+  await writeFile(path.join(p.root, "game.ts"), game.replace('materialSlots:{Fur:paint}', 'materialSlots:{Fur:"missing"}'));
+  const missing = await p.compile();
+  assert.equal(missing.success, false);
+  assert.ok(missing.diagnostics.some(d => d.code === "TC_RESOURCE_MISSING"));
+});
+test("audio bus declarations and routes compile through the public SDK", async (t) => {
+  const p = await fixture(t);
+  const game = source()
+    .replace('defineAsset,defineGame,defineScene', 'defineAsset,defineGame,defineScene,defineSystem')
+    .replace('export default defineGame', 'const system=defineSystem({id:"audio-control",run(ctx){ctx.audio.busVolume("effects",0.5);ctx.audio.play("pickup",{bus:"effects"});}});\nexport default defineGame')
+    .replace('sounds:[{id:"pickup",asset:chime}]', 'systems:[system],audioBuses:[{id:"effects",volume:0.4}],sounds:[{id:"pickup",asset:chime,bus:"effects"}]');
+  await writeFile(path.join(p.root, "game.ts"), game);
+  const ok = await p.compile();
+  assert.equal(ok.success, true, JSON.stringify(ok.diagnostics));
+  assert.deepEqual(ok.ir!.audioBuses, [{ id: "effects", volume: 0.4 }]);
+  assert.equal(ok.ir!.sounds![0].bus, "effects");
+  assert.equal(ok.ir!.systems[0].id, "audio-control");
+  await writeFile(path.join(p.root, "game.ts"), game.replace('asset:chime,bus:"effects"', 'asset:chime,bus:"missing"'));
+  const bad = await p.compile();
+  assert.equal(bad.success, false);
+  assert.ok(bad.diagnostics.some(d => d.code === "TC_AUDIO_BUS"));
+});
 async function fixture(t: { after(fn: () => Promise<void>): void }) {
-  const root = await mkdtemp(path.join(tmpdir(), "threecat compiler assets "));
+  const root = await mkdtemp(path.join(tmpdir(), "pelican compiler assets "));
   t.after(async () => {
     assert.equal(path.dirname(path.resolve(root)), path.resolve(tmpdir()));
-    assert.ok(path.basename(root).startsWith("threecat compiler assets "));
+    assert.ok(path.basename(root).startsWith("pelican compiler assets "));
     await rm(root, { recursive: true, force: true });
   });
   await mkdir(path.join(root, "assets"));
@@ -33,7 +73,7 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
       path.join(root, "assets", name),
     );
   await writeFile(
-    path.join(root, "threecat.project.json"),
+    path.join(root, "pelican.project.json"),
     JSON.stringify({ engineVersion: SDK_VERSION }),
   );
   await writeFile(path.join(root, "game.ts"), source());

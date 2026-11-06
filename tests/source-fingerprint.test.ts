@@ -6,10 +6,10 @@ import path from "node:path";
 import { sourceFingerprint } from "../tools/source-fingerprint.ts";
 
 test("release identity binds binary game assets and ignores generated evidence and local dependencies", async (t) => {
-  const root = await mkdtemp(path.join(tmpdir(), "threecat fingerprint "));
+  const root = await mkdtemp(path.join(tmpdir(), "pelican fingerprint "));
   t.after(async () => {
     assert.equal(path.dirname(path.resolve(root)), path.resolve(tmpdir()));
-    assert.ok(path.basename(root).startsWith("threecat fingerprint "));
+    assert.ok(path.basename(root).startsWith("pelican fingerprint "));
     await rm(root, { recursive: true, force: true });
   });
   await mkdir(path.join(root, "examples/demo/assets"), { recursive: true });
@@ -32,4 +32,36 @@ test("release identity binds binary game assets and ignores generated evidence a
     Buffer.from([9, 8, 7]),
   );
   assert.notEqual((await sourceFingerprint(root)).sha256, b.sha256);
+});
+
+test("release identity changes for executable and style files beyond TypeScript", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "pelican-fingerprint-code-"));
+  t.after(async () => {
+    assert.equal(path.dirname(path.resolve(root)).toLowerCase(), path.resolve(tmpdir()).toLowerCase());
+    assert.ok(path.basename(root).startsWith("pelican-fingerprint-code-"));
+    await rm(root, { recursive: true, force: true });
+  });
+  for (const extension of ["js", "mjs", "cjs", "jsx", "tsx", "mts", "cts", "css", "wasm", "yaml"]) {
+    const before = await sourceFingerprint(root);
+    await writeFile(path.join(root, `file.${extension}`), "first");
+    const created = await sourceFingerprint(root);
+    assert.notEqual(created.sha256, before.sha256, `creating ${extension} must change identity`);
+    await writeFile(path.join(root, `file.${extension}`), "second");
+    assert.notEqual((await sourceFingerprint(root)).sha256, created.sha256, `editing ${extension} must change identity`);
+  }
+});
+
+test("source fingerprint ordering is independent of locale collation", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "pelican-fingerprint-order-"));
+  t.after(async () => {
+    assert.equal(path.dirname(path.resolve(root)).toLowerCase(), path.resolve(tmpdir()).toLowerCase());
+    assert.ok(path.basename(root).startsWith("pelican-fingerprint-order-"));
+    await rm(root, { recursive: true, force: true });
+  });
+  for (const name of ["z.ts", "A.ts", "b.ts", "\u00e9.ts"]) await writeFile(path.join(root, name), name);
+  const expected = await sourceFingerprint(root);
+  t.mock.method(String.prototype, "localeCompare", () => 0);
+  const actual = await sourceFingerprint(root);
+  assert.equal(actual.sha256, expected.sha256);
+  assert.deepEqual(actual.files.map(file => file.path), ["A.ts", "b.ts", "z.ts", "\u00e9.ts"]);
 });

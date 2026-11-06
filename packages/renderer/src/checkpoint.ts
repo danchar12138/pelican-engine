@@ -7,7 +7,7 @@ import { createSimulation } from "../../../experiments/simulation/index.ts";
 import { createWorldProbe } from "../../../experiments/world/index.ts";
 
 export interface BrowserCheckpoint {
-  format: "threecat.browser";
+  format: "pelican.browser";
   version: 1;
   engineVersion: string;
   tick: number;
@@ -29,7 +29,7 @@ export function validateBrowserCheckpoint(
   const saved = structuredClone(value) as BrowserCheckpoint;
   if (
     !saved ||
-    saved.format !== "threecat.browser" ||
+    saved.format !== "pelican.browser" ||
     saved.version !== 1 ||
     saved.engineVersion !== SDK_VERSION ||
     !Number.isSafeInteger(saved.tick) ||

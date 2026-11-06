@@ -114,6 +114,7 @@ const OMIT_DIRS = new Set([
   ".hg",
   ".svn",
   "node_modules",
+  ".pelican",
   ".threecat",
   "release",
   ".cache",
@@ -133,10 +134,11 @@ const OMIT_DIRS = new Set([
 const OMIT_FILES =
   /^(?:\.env(?:\..*)?|\.npmrc|\.yarnrc(?:\..*)?|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|\.DS_Store|Thumbs\.db)$|(?:^|[._-])(?:secrets?|credentials?|tokens?)(?:[._-][^.]+)*\.(?:json|ya?ml|toml|ini|conf|txt|env)$|^(?:secrets?|credentials?|tokens?)$|\.(?:pem|key|pfx|p12|keystore|log|tmp|temp|bak|swp|tsbuildinfo|zip|7z|tar|gz)$/i;
 const PRIVATE_CONTENT =
-  /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{20,})\b/;
+  /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|npm_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{20,})\b/;
 
 export interface ReleaseOptions {
   projectRoot?: string;
+  compileOnlyUnverified?: boolean;
 }
 export interface ReleaseDiagnostic {
   code: string;
@@ -167,6 +169,7 @@ export interface ReleaseInfo {
   milestone: Milestone;
   scope: string;
   prerelease: boolean;
+  verification?: "compile-only-unverified";
   checks: CheckRecord[];
   limitations: string[];
   sourceFileCount: number;
@@ -194,6 +197,7 @@ export interface ReleaseManifest {
   milestone: Milestone;
   scope: string;
   prerelease: boolean;
+  verification?: "compile-only-unverified";
   archives: ArchiveManifest[];
   artifacts: FileDigest[];
 }
@@ -230,6 +234,16 @@ function digest(entry: Entry): FileDigest {
     bytes: entry.content.length,
     sha256: createHash("sha256").update(entry.content).digest("hex"),
   };
+}
+/** Match collected executable files to the source fingerprint used for acceptance. */
+export function collectedSourceMatchesFingerprint(entries: readonly Entry[], files: readonly FileDigest[]): boolean {
+  const collected = new Map(entries.map((entry) => [entry.path, entry]));
+  return files.every((file) => {
+    const entry = collected.get(file.path);
+    if (!entry) return true; // Source fingerprint and archive have different exclusions.
+    const actual = digest(entry);
+    return actual.bytes === file.bytes && actual.sha256 === file.sha256;
+  });
 }
 function ok<T>(
   data: T,
@@ -336,6 +350,7 @@ async function collect(
   root: string,
   dist: boolean,
   budget: { bytes: number; files: number },
+  unverified = false,
 ): Promise<Entry[]> {
   const base = dist ? path.join(root, "dist") : root;
   if (dist) {
@@ -361,6 +376,7 @@ async function collect(
       )
         continue;
       const relative = relativeName(prefix ? `${prefix}/${name}` : name);
+      if (unverified && !dist && relative === "evidence") continue;
       if (!dist && relative === "public/generated") continue;
       const file = path.join(directory, name);
       ensure(
@@ -398,11 +414,12 @@ async function collect(
         "TCREL_INPUT_CHANGED",
         `File changed while collecting: ${relative}.`,
       );
-      ensure(
-        !PRIVATE_CONTENT.test(content.toString("utf8")),
-        "TCREL_SECRET",
-        `Credential-like content detected in ${dist ? "dist/" : ""}${relative}.`,
-      );
+      if (!unverified)
+        ensure(
+          !PRIVATE_CONTENT.test(content.toString("utf8")),
+          "TCREL_SECRET",
+          `Credential-like content detected in ${dist ? "dist/" : ""}${relative}.`,
+        );
       budget.bytes += content.length;
       budget.files++;
       entries.push({ path: relative, content });
@@ -496,7 +513,7 @@ function validateM2DistNotices(entries: Entry[]): void {
   );
   // This is the compiler's notice envelope, not an invented acceptance artifact.
   ensure(
-    notices.format === "threecat.asset-notices" &&
+    notices.format === "pelican.asset-notices" &&
       notices.version === 1 &&
       Array.isArray(notices.assets) &&
       notices.assets.every(
@@ -519,7 +536,7 @@ function validateM2DistNotices(entries: Entry[]): void {
   if (compressed) {
     const report = parseJson(compressed, "dist/compression-manifest.json");
     ensure(
-      report.format === "threecat.dist-compression" &&
+      report.format === "pelican.dist-compression" &&
         report.version === 1 &&
         Array.isArray(report.entries),
       "TCREL_DIST_COMPRESSION",
@@ -580,6 +597,43 @@ function validateM2DistNotices(entries: Entry[]): void {
     }
   }
 }
+async function inspectUnverifiedM3(root: string, engine: Record<string, unknown>): Promise<Inventory> {
+  ensure(
+    typeof engine.version === "string" &&
+      VERSION_PATTERN.test(engine.version) &&
+      /^0\.3\.\d+-/.test(engine.version) &&
+      !engine.version.includes("+"),
+    "TCREL_VERSION",
+    "M3 compile-only packaging requires a 0.3 prerelease version without build metadata.",
+  );
+  ensure(engine.releaseScope === "dynamic-raytracing", "TCREL_RELEASE_SCOPE", "M3 releaseScope must be dynamic-raytracing.");
+  const budget = { bytes: 0, files: 0 };
+  const source = await collect(root, false, budget, true);
+  const dist = await collect(root, true, budget, true);
+  const notice = NOTICE_PATHS.find((p) => source.some((e) => e.path === p));
+  ensure(source.some((e) => e.path === "LICENSE") && notice, "TCREL_LICENSE", "Source LICENSE and third-party notice are required for packaging.");
+  return {
+    root, source, dist,
+    info: {
+      engineVersion: engine.version,
+      milestone: "M3",
+      scope: "dynamic-raytracing",
+      prerelease: true,
+      verification: "compile-only-unverified",
+      checks: [],
+      limitations: [
+        "Compile-only prerelease; packaging does not establish that compilation succeeded or that dist matches the source.",
+        "Tests, GPU behavior, runtime behavior and complete milestone acceptance are unverified.",
+        "Historical evidence is excluded and no acceptance record is read or asserted.",
+        "Credential content is not scanned; filename exclusions are not comprehensive.",
+      ],
+      sourceFileCount: source.length,
+      distFileCount: dist.length,
+      thirdPartyNotice: notice,
+    },
+  };
+}
+
 async function inspect(options: ReleaseOptions): Promise<Inventory> {
   const root = await realpath(
     path.resolve(
@@ -607,6 +661,11 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
     "engine.manifest.json must declare a milestone from M0 through M8.",
   );
   const milestone = initialEngine.milestone as Milestone;
+  if (milestone === "M3") {
+    ensure(options.compileOnlyUnverified === true, "TCREL_UNVERIFIED_OPT_IN", "M3 packaging requires explicit compile-only-unverified opt-in.");
+    return inspectUnverifiedM3(root, initialEngine);
+  }
+  ensure(!options.compileOnlyUnverified, "TCREL_UNVERIFIED_OPT_IN", "Compile-only-unverified mode is available only for M3.");
   const acceptanceName = `evidence/${milestone.toLowerCase()}/acceptance.json`;
   const evidenceDirectory = `evidence/${milestone.toLowerCase()}/`;
   ensure(
@@ -669,10 +728,10 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
   );
   const lock = parseJson(map.get("package-lock.json"), "package-lock.json");
   ensure(
-    pkg.name === "threecat" &&
+    pkg.name === "pelican-engine" &&
       typeof pkg.version === "string" &&
       VERSION_PATTERN.test(pkg.version) &&
-      engine.name === "threecat" &&
+      engine.name === "pelican-engine" &&
       engine.version === pkg.version &&
       engine.milestone === milestone,
     "TCREL_VERSION",
@@ -733,11 +792,16 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
       "TCREL_SOURCE_IDENTITY",
       "Acceptance must record a valid sourceIdentity.sha256 for the accepted executable sources and lockfiles.",
     );
+    const identity = await sourceFingerprint(root);
     ensure(
-      acceptance.sourceIdentity.sha256 ===
-        (await sourceFingerprint(root)).sha256,
+      acceptance.sourceIdentity.sha256 === identity.sha256,
       "TCREL_EVIDENCE_STALE",
       `Executable sources changed after ${milestone} acceptance; rerun hardware and external AI validation.`,
+    );
+    ensure(
+      collectedSourceMatchesFingerprint(source, identity.files),
+      "TCREL_INPUT_CHANGED",
+      "Collected source differs from the accepted executable source; freeze and retry.",
     );
   }
   if (milestone !== "M0")
@@ -841,6 +905,12 @@ async function inspect(options: ReleaseOptions): Promise<Inventory> {
       .evidence.map((file) => all.get(file)!),
   );
   if (milestone === "M2") validateM2DistNotices(dist);
+  if (object(acceptance.sourceIdentity))
+    ensure(
+      (await sourceFingerprint(root)).sha256 === acceptance.sourceIdentity.sha256,
+      "TCREL_INPUT_CHANGED",
+      "Executable source changed during release inspection; freeze and retry.",
+    );
   return {
     root,
     source,
@@ -872,6 +942,7 @@ export async function checkRelease(
   options: ReleaseOptions = {},
 ): Promise<ReleaseEnvelope<ReleaseInfo>> {
   try {
+    ensure(!options.compileOnlyUnverified, "TCREL_USAGE", "Compile-only-unverified mode supports pack only.");
     const { info } = await inspect(options);
     return ok(info, [], info.milestone);
   } catch (error) {
@@ -969,7 +1040,7 @@ export async function packRelease(
       "TCREL_OUTPUT_EXISTS",
       "This release output already exists. Preserve it or move it aside before repacking.",
     );
-    const prefix = `threecat-${info.engineVersion}`;
+    const prefix = `pelican-${info.engineVersion}`;
     const sourceEntries = source.map((e) => ({
       path: `${prefix}/${e.path}`,
       content: e.content,
@@ -1009,7 +1080,7 @@ export async function packRelease(
       )
       .map(digest);
     const evidence: Entry = {
-      path: `${prefix}-evidence.json`,
+      path: info.verification ? `${prefix}-packaging.json` : `${prefix}-evidence.json`,
       content: json({
         protocolVersion: PROTOCOL_VERSION,
         ...info,
@@ -1025,7 +1096,9 @@ export async function packRelease(
     const notes: Entry = {
       path: "RELEASE_NOTES.md",
       content: Buffer.from(
-        `# threecat ${info.engineVersion} — ${info.milestone} ${info.scope}\n\n${releaseDescription} Software BVH tracing on a real GPU does not imply hardware ray-tracing unit support. No 1080p/60 or complete M1–M8 capability claim is made.\n\n## Accepted checks\n\n${info.checks.map((c) => `- ${c.id}: ${c.status}`).join("\n")}\n\n## Known limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\n## Assets\n\n- Source ZIP: includes evidence/${info.milestone.toLowerCase()}, lockfile, MIT license and third-party notices; excludes dependencies, local secrets and caches.\n- Dist ZIP: deploy its extracted contents to a Web server.\n- Evidence summary, file-level manifest and SHA256SUMS: verify before use.\n\nSee docs/RELEASING.md in the source archive for reproduction and publishing rules.\n`,
+        info.verification
+          ? `# pelican ${info.engineVersion} — M3 compile-only / unverified prerelease\n\nNo tests, GPU execution, runtime validation or complete milestone acceptance are claimed. The packer does not establish build success or source/dist correspondence.\n\n## Limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\nSource ZIP excludes historical evidence; dist ZIP contains the supplied build output. Packaging metadata, file manifest and SHA256SUMS are inventory only, not verification results.\n`
+          : `# pelican ${info.engineVersion} — ${info.milestone} ${info.scope}\n\n${releaseDescription} Software BVH tracing on a real GPU does not imply hardware ray-tracing unit support. No 1080p/60 or complete M1–M8 capability claim is made.\n\n## Accepted checks\n\n${info.checks.map((c) => `- ${c.id}: ${c.status}`).join("\n")}\n\n## Known limitations\n\n${info.limitations.map((v) => `- ${v}`).join("\n")}\n\n## Assets\n\n- Source ZIP: includes evidence/${info.milestone.toLowerCase()}, lockfile, MIT license and third-party notices; excludes dependencies, local secrets and caches.\n- Dist ZIP: deploy its extracted contents to a Web server.\n- Evidence summary, file-level manifest and SHA256SUMS: verify before use.\n\nSee docs/RELEASING.md in the source archive for reproduction and publishing rules.\n`,
         "utf8",
       ),
     };
@@ -1038,6 +1111,7 @@ export async function packRelease(
         milestone: info.milestone,
         scope: info.scope,
         prerelease: info.prerelease,
+        ...(info.verification ? { verification: info.verification } : {}),
         archives: [
           {
             ...digest(sourceZip),
@@ -1072,6 +1146,12 @@ export async function packRelease(
       await writeFile(path.join(staging, entry.path), entry.content, {
         flag: "wx",
       });
+    if (info.sourceIdentity)
+      ensure(
+        (await sourceFingerprint(root)).sha256 === info.sourceIdentity.sha256,
+        "TCREL_INPUT_CHANGED",
+        "Executable source changed while packing; freeze and retry.",
+      );
     await rename(staging, directory);
     staging = undefined;
     const relative = `release/v${info.engineVersion}`;
@@ -1109,6 +1189,13 @@ export async function releaseCli(
   args: string[],
 ): Promise<ReleaseEnvelope<ReleaseInfo | PackedRelease>> {
   try {
+    if (args[0] === "pack" && args.includes("--compile-only-unverified")) {
+      const remaining = args.slice(1).filter((arg) => arg !== "--compile-only-unverified");
+      ensure(args.filter((arg) => arg === "--compile-only-unverified").length === 1 &&
+        (remaining.length === 0 || (remaining.length === 2 && remaining[0] === "--root" && Boolean(remaining[1]))),
+        "TCREL_USAGE", "Usage: pack --compile-only-unverified [--root <project-directory>].");
+      return packRelease({ projectRoot: remaining[1], compileOnlyUnverified: true });
+    }
     ensure(
       args[0] === "check" || args[0] === "pack",
       "TCREL_USAGE",

@@ -25,7 +25,7 @@ export interface EventFault {
   message: string;
 }
 export interface EventSnapshot {
-  format: "threecat.events";
+  format: "pelican.events";
   version: 1;
   nextSequence: number;
   queue: RuntimeEvent[];
@@ -51,7 +51,7 @@ export function validateEventSnapshot(
   const data = cloneSerializable(value) as EventSnapshot;
   if (
     !data ||
-    data.format !== "threecat.events" ||
+    data.format !== "pelican.events" ||
     data.version !== 1 ||
     !Number.isSafeInteger(data.nextSequence) ||
     data.nextSequence < 0 ||
@@ -233,7 +233,7 @@ export function createEventBus(options: EventBusOptions = {}) {
     snapshot(): EventSnapshot {
       ensure();
       return cloneSerializable({
-        format: "threecat.events",
+        format: "pelican.events",
         version: 1,
         nextSequence,
         queue,

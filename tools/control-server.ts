@@ -120,7 +120,7 @@ function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 function requestId(req: IncomingMessage): string {
-  const id = req.headers["x-threecat-task-id"];
+  const id = req.headers["x-pelican-task-id"];
   return typeof id === "string" && ID_PATTERN.test(id)
     ? id
     : `control-${randomUUID()}`;
@@ -143,8 +143,13 @@ function writeJSON(
 function readJSON(req: IncomingMessage, timeoutMs: number): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let size = 0;
+    let settled = false;
+    const length = req.headers["content-length"];
+    let oversized = length !== undefined && Number(length) > BODY_LIMIT;
     const chunks: Buffer[] = [];
     const finish = (error?: BridgeError, value?: unknown) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       req.off("data", onData);
       req.off("end", onEnd);
@@ -156,12 +161,18 @@ function readJSON(req: IncomingMessage, timeoutMs: number): Promise<unknown> {
       } else resolve(value);
     };
     const onData = (chunk: Buffer) => {
+      if (oversized) return;
       size += chunk.length;
-      if (size > BODY_LIMIT)
-        finish(new BridgeError("TC_CONTROL_BODY_TOO_LARGE", 413));
-      else chunks.push(chunk);
+      if (size > BODY_LIMIT) {
+        oversized = true;
+        chunks.length = 0;
+      } else chunks.push(chunk);
     };
     const onEnd = () => {
+      if (oversized) {
+        finish(new BridgeError("TC_CONTROL_BODY_TOO_LARGE", 413));
+        return;
+      }
       try {
         finish(undefined, JSON.parse(Buffer.concat(chunks).toString("utf8")));
       } catch {
@@ -171,16 +182,21 @@ function readJSON(req: IncomingMessage, timeoutMs: number): Promise<unknown> {
     const onError = () =>
       finish(new BridgeError("TC_CONTROL_REQUEST_ABORTED", 400));
     const timer = setTimeout(
-      () => finish(new BridgeError("TC_CONTROL_BODY_TIMEOUT", 408)),
+      () =>
+        finish(
+          new BridgeError(
+            oversized ? "TC_CONTROL_BODY_TOO_LARGE" : "TC_CONTROL_BODY_TIMEOUT",
+            oversized ? 413 : 408,
+          ),
+        ),
       timeoutMs,
     );
     req.on("data", onData);
     req.once("end", onEnd);
     req.once("error", onError);
     req.once("aborted", onError);
-    const length = req.headers["content-length"];
-    if (length !== undefined && Number(length) > BODY_LIMIT)
-      finish(new BridgeError("TC_CONTROL_BODY_TOO_LARGE", 413));
+    // Drain rejected uploads without retaining bytes, then close after the response.
+    // Closing with unread inbound data can reset a valid client's 413 response.
   });
 }
 
@@ -263,11 +279,11 @@ const physicalPageFactory: ControlPageFactory = async ({
           : page.evaluate(async (value) => {
               const api = (
                 window as unknown as {
-                  __threecat?: {
+                  __pelican?: {
                     command(input: ControlCommand): Promise<Envelope>;
                   };
                 }
-              ).__threecat;
+              ).__pelican;
               if (!api || typeof api.command !== "function")
                 throw new Error("TC_CONTROL_RUNTIME_UNAVAILABLE");
               return api.command(value);
@@ -289,9 +305,9 @@ const physicalPageFactory: ControlPageFactory = async ({
 };
 
 /** Attach before server.listen(), or after listen: the actual bound port is resolved lazily.
- * POST /__threecat/control -> ControlCommand -> Envelope (same browser until reset).
- * GET /__threecat/status -> Envelope<ControlStatus> (bounded metadata, no snapshots).
- * POST /__threecat/cancel {taskId}; POST /__threecat/session {action:"reset"}.
+ * POST /__pelican/control -> ControlCommand -> Envelope (same browser until reset).
+ * GET /__pelican/status -> Envelope<ControlStatus> (bounded metadata, no snapshots).
+ * POST /__pelican/cancel {taskId}; POST /__pelican/session {action:"reset"}.
  * An aborted HTTP command also cancels its task. Running cancellation discards state.
  */
 export function attachControl(
@@ -626,7 +642,7 @@ function attach(
     try {
       assertLocal(req);
       if (closed) throw new BridgeError("TC_CONTROL_CLOSED", 503);
-      if (route === "/__threecat/status") {
+      if (route === "/__pelican/status") {
         if (req.method !== "GET")
           throw new BridgeError("TC_CONTROL_METHOD", 405);
         const data: ControlStatus = {
@@ -655,7 +671,7 @@ function attach(
       const body = await readJSON(req, timeoutMs);
       if (closed || res.destroyed)
         throw new BridgeError("TC_CONTROL_CLOSED", 503);
-      if (route === "/__threecat/cancel") {
+      if (route === "/__pelican/cancel") {
         if (
           !record(body) ||
           Object.keys(body).length !== 1 ||
@@ -696,7 +712,7 @@ function attach(
         );
         return;
       }
-      if (route === "/__threecat/session") {
+      if (route === "/__pelican/session") {
         if (
           !record(body) ||
           Object.keys(body).length !== 1 ||
@@ -729,7 +745,7 @@ function attach(
       } catch {
         throw new BridgeError("TC_CONTROL_COMMAND_INVALID", 400);
       }
-      const headerId = req.headers["x-threecat-task-id"];
+      const headerId = req.headers["x-pelican-task-id"];
       if (
         headerId !== undefined &&
         (typeof headerId !== "string" || !ID_PATTERN.test(headerId))
@@ -826,10 +842,10 @@ function attach(
     const route = req.url?.split("?", 1)[0];
     if (
       ![
-        "/__threecat/control",
-        "/__threecat/status",
-        "/__threecat/cancel",
-        "/__threecat/session",
+        "/__pelican/control",
+        "/__pelican/status",
+        "/__pelican/cancel",
+        "/__pelican/session",
       ].includes(route ?? "")
     ) {
       next();

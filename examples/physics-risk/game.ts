@@ -3,7 +3,7 @@ import {
   defineScene,
   defineMaterial,
   defineSystem,
-} from "@threecat/sdk";
+} from "pelican-engine";
 const floor = defineMaterial({ id: "floor", color: "#405774", roughness: 0.8 });
 const gold = defineMaterial({ id: "gold", color: "#f2ba5b", roughness: 0.45 });
 const coral = defineMaterial({ id: "coral", color: "#e65d74", roughness: 0.5 });

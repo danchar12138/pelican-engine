@@ -58,7 +58,7 @@ export async function compressDist(root: string) {
   }
   await walk(root);
   const report = {
-    format: "threecat.dist-compression",
+    format: "pelican.dist-compression",
     version: 1,
     mode: "lossless-http-content-encoding",
     entries,

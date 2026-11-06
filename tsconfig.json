@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "@webgpu/types", "vite/client"],
-    "paths": { "@threecat/sdk": ["./packages/sdk/src/index.ts"] }
+    "paths": { "pelican-engine": ["./packages/sdk/src/index.ts"] }
   },
   "include": [
     "packages/**/*.ts",

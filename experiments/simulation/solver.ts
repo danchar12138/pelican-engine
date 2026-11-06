@@ -389,7 +389,7 @@ function validateSnapshot(
   try {
     if (
       !input ||
-      input.format !== "threecat-m0-simulation" ||
+      input.format !== "pelican-m0-simulation" ||
       input.version !== 1 ||
       input.kind !== kind
     )

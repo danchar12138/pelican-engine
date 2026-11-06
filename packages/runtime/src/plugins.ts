@@ -7,6 +7,9 @@ import type {
   SceneService,
   StorageService,
   UIService,
+  RenderService,
+  ComputeService,
+  NavigationService,
 } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import type {
@@ -24,6 +27,9 @@ export interface RuntimeServices {
   audio: AudioService;
   storage: StorageService;
   scenes: SceneService;
+  render: RenderService;
+  compute: ComputeService;
+  navigation: NavigationService;
 }
 export interface RuntimePluginContext {
   world: RuntimeWorld;
@@ -34,13 +40,18 @@ export interface RuntimePluginContext {
 export interface RuntimePlugin {
   id: string;
   version?: string;
+  legacySnapshot?(): unknown;
   services?: Partial<RuntimeServices>;
   systems?: readonly ScheduledSystem[];
   inspect?(): unknown;
   snapshot(): unknown;
   validateSnapshot(value: unknown): void;
   validateWorld?(value: unknown, world: WorldSnapshot): void;
+  /** Cross-owner snapshot preflight before any plugin or World mutation. */
+  validatePeers?(value: unknown, peers: Readonly<Record<string, { version?: string; payload: unknown }>>): void;
   restore(value: unknown): void;
+  /** Engine boundary after each fixed tick; never awaited inside a game system. */
+  settle?(): Promise<void>;
   dispose(): void;
 }
 export type RuntimePluginFactory = (

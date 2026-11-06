@@ -9,10 +9,10 @@ export function mapSourcePath(
   sourceRoot = "",
 ): string {
   if (
-    source.includes("threecat:m0-game-entry") ||
-    source.includes("threecat:game-entry")
+    source.includes("pelican:m0-game-entry") ||
+    source.includes("pelican:game-entry")
   )
-    return "threecat-generated-entry";
+    return "pelican-generated-entry";
   const absolute = paths.resolve(
     paths.isAbsolute(source)
       ? source
@@ -23,14 +23,14 @@ export function mapSourcePath(
     paths === path.win32 || (paths === path && process.platform === "win32")
       ? absolute.toLowerCase() === sdk.toLowerCase()
       : absolute === sdk;
-  if (same) return "threecat-sdk/index.ts";
+  if (same) return "pelican-sdk/index.ts";
   const sdkRelative = paths.relative(paths.dirname(sdk), absolute);
   if (
     sdkRelative &&
     !sdkRelative.startsWith("..") &&
     !paths.isAbsolute(sdkRelative)
   )
-    return "threecat-sdk/" + sdkRelative.replaceAll("\\", "/");
+    return "pelican-sdk/" + sdkRelative.replaceAll("\\", "/");
   const relative = paths.relative(projectRoot, absolute);
   if (paths.isAbsolute(relative))
     throw new Error(

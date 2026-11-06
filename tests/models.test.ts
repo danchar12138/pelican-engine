@@ -87,6 +87,344 @@ function fixtureFetch(bytes: ArrayBuffer) {
   return { fetcher, requests: () => requests };
 }
 
+test("binding commit failure preserves live model and definition", async (t) => {
+  const borrowed = new THREE.MeshBasicMaterial();
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher, material: () => borrowed });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const original = library.instantiate("a", { asset: "hero", animation: { clip: "raise" } }, parent);
+  library.tick(0.25);
+  const before = library.snapshot();
+  const owned = library.inspect().owned;
+  const disposedSkeletons: THREE.Skeleton[] = [];
+  const disposeSkeleton = THREE.Skeleton.prototype.dispose;
+  t.mock.method(THREE.Skeleton.prototype, "dispose", function (this: THREE.Skeleton) {
+    disposedSkeletons.push(this);
+    return disposeSkeleton.call(this);
+  });
+  let borrowedDisposals = 0;
+  borrowed.addEventListener("dispose", () => borrowedDisposals++);
+  const add = parent.add;
+  parent.add = function (...objects) { add.apply(this, objects); throw new Error("injected add failure"); };
+  try {
+    assert.throws(() => library.reconcileBindings([{ entity: "a", definition: { asset: "hero", scale: 2, material: "borrowed" } }]), /injected add failure/);
+  } finally { parent.add = add; }
+  assert.equal(library.get("a"), original);
+  assert.deepEqual(parent.children, [original.node]);
+  assert.deepEqual(library.snapshot(), before);
+  assert.deepEqual(library.inspect().owned, owned);
+  assert.equal(disposedSkeletons.length, 1);
+  assert.equal(borrowedDisposals, 0);
+  assert.throws(() => library.register("a", { asset: "hero", scale: 2 }), /TC_MODEL_DEFINITION_CONFLICT/);
+});
+
+test("restore releases staged skeletons when capturing the previous snapshot throws", async (t) => {
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const live = library.instantiate("a", { asset: "hero", animation: { clip: "raise" } }, parent);
+  library.register("b", { asset: "hero", animation: { clip: "raise" } }, parent);
+  library.tick(0.25);
+  const before = library.snapshot();
+  const owned = library.inspect().owned;
+  const target = structuredClone(before);
+  target.animations.push({ entity: "b", asset: "hero", currentClip: null, actions: [] });
+  const disposed: THREE.Skeleton[] = [];
+  const dispose = THREE.Skeleton.prototype.dispose;
+  t.mock.method(THREE.Skeleton.prototype, "dispose", function (this: THREE.Skeleton) {
+    disposed.push(this);
+    return dispose.call(this);
+  });
+  let updates = 0;
+  const update = THREE.AnimationMixer.prototype.update;
+  t.mock.method(THREE.AnimationMixer.prototype, "update", function (this: THREE.AnimationMixer, dt: number) {
+    updates++;
+    return update.call(this, dt);
+  });
+  const snapshot = library.snapshot;
+  library.snapshot = () => { throw new Error("injected snapshot failure"); };
+  try { assert.throws(() => library.restore(target), /injected snapshot failure/); }
+  finally { library.snapshot = snapshot; }
+  assert.equal(library.get("a"), live);
+  assert.equal(library.get("b"), undefined);
+  assert.deepEqual(parent.children, [live.node]);
+  assert.deepEqual(library.snapshot(), before);
+  assert.deepEqual(library.inspect().owned, owned);
+  assert.equal(disposed.length, 1);
+  assert.equal(updates, 0, "staging must not apply authored animation before the prior state is captured");
+});
+
+for (const failureAt of [1, 2]) test(`restore animation failure ${failureAt} preserves live playback and staged resources`, async (t) => {
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const original = library.instantiate("a", { asset: "hero", animation: { clip: "raise" } }, parent);
+  library.register("b", { asset: "hero" }, parent);
+  library.tick(0.25);
+  const pose = original.node.getObjectByName("animated-bone")!.position.y;
+  const before = library.snapshot();
+  const owned = library.inspect().owned;
+  const target = structuredClone(before);
+  target.animations[0]!.actions[0]!.time = 0.75;
+  target.animations.push({ entity: "b", asset: "hero", currentClip: null, actions: [] });
+  let releasedSkeletons = 0;
+  const disposeSkeleton = THREE.Skeleton.prototype.dispose;
+  t.mock.method(THREE.Skeleton.prototype, "dispose", function (this: THREE.Skeleton) {
+    releasedSkeletons++;
+    return disposeSkeleton.call(this);
+  });
+  const update = THREE.AnimationMixer.prototype.update;
+  let updates = 0;
+  THREE.AnimationMixer.prototype.update = function (delta) {
+    if (++updates === failureAt) throw new Error("injected update failure");
+    return update.call(this, delta);
+  };
+  const bindings = [
+    { entity: "a", definition: { asset: "hero", animation: { clip: "raise" } } },
+    { entity: "b", definition: { asset: "hero", scale: 2 } },
+  ];
+  try { assert.throws(() => library.restore(target, bindings), /injected update failure/); }
+  finally { THREE.AnimationMixer.prototype.update = update; }
+  assert.equal(library.get("a"), original);
+  assert.equal(library.get("b"), undefined);
+  assert.deepEqual(parent.children, [original.node]);
+  assert.equal(original.node.getObjectByName("animated-bone")!.position.y, pose);
+  assert.deepEqual(
+    { snapshot: library.snapshot(), releasedSkeletons },
+    { snapshot: before, releasedSkeletons: 1 },
+  );
+  assert.deepEqual(library.inspect().owned, owned);
+  assert.throws(() => library.register("b", { asset: "hero", scale: 2 }), /TC_MODEL_DEFINITION_CONFLICT/);
+});
+
+for (const continuous of [false, true]) test(`restore active mixer ${continuous ? "continuous" : "single"} failure reports rollback state`, async (t) => {
+  const bytes = await animatedGLB();
+  const make = () => createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(bytes).fetcher });
+  const library = make(), control = make();
+  t.after(() => Promise.all([library.dispose(), control.dispose()]));
+  await Promise.all([library.prepare(), control.prepare()]);
+  const parent = new THREE.Group();
+  const definition = { asset: "hero", animation: { clip: "raise" } };
+  const live = library.instantiate("a", definition, parent);
+  control.instantiate("a", definition);
+  library.register("b", { asset: "hero" }, parent);
+  library.tick(0.25); control.tick(0.25);
+  const bone = live.node.getObjectByName("animated-bone")!;
+  const before = library.snapshot();
+  const target = structuredClone(before);
+  target.animations[0]!.actions[0]!.time = 0.75;
+  target.animations.push({ entity: "b", asset: "hero", currentClip: null, actions: [] });
+  const disposed: THREE.Skeleton[] = [];
+  const dispose = THREE.Skeleton.prototype.dispose;
+  t.mock.method(THREE.Skeleton.prototype, "dispose", function (this: THREE.Skeleton) {
+    disposed.push(this);
+    return dispose.call(this);
+  });
+  const update = THREE.AnimationMixer.prototype.update;
+  let calls = 0;
+  THREE.AnimationMixer.prototype.update = function (delta) {
+    const result = update.call(this, delta);
+    if (++calls === 2 || (continuous && calls > 2)) throw new Error("injected active update failure");
+    return result;
+  };
+  try {
+    assert.throws(() => library.restore(target), continuous ? /TC_MODEL_RESTORE_ROLLBACK_FAILED/ : /injected active update failure/);
+  } finally { THREE.AnimationMixer.prototype.update = update; }
+  assert.equal(library.get("a"), live);
+  assert.equal(live.node.getObjectByName("animated-bone"), bone);
+  assert.equal(library.get("b"), undefined);
+  assert.deepEqual(parent.children, [live.node]);
+  assert.deepEqual(library.snapshot(), before);
+  close(bone.position.y, 0.25);
+  assert.equal(disposed.length, 1);
+  assert.equal(new Set(disposed).size, 1);
+  library.tick(0.1); control.tick(0.1);
+  close(bone.position.y, control.get("a")!.node.getObjectByName("animated-bone")!.position.y);
+  assert.deepEqual(library.snapshot().animations, control.snapshot().animations);
+});
+
+test("restore rolls back both live models and their crossfade trajectory after a later update fails", async (t) => {
+  const bytes = await animatedGLB();
+  const make = () => createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(bytes).fetcher });
+  const library = make(), control = make();
+  t.after(() => Promise.all([library.dispose(), control.dispose()]));
+  await Promise.all([library.prepare(), control.prepare()]);
+  for (const model of [library, control]) {
+    for (const id of ["a", "b"]) {
+      model.instantiate(id, { asset: "hero" });
+      model.animation.play(id, "raise");
+    }
+    model.tick(0.2);
+    for (const id of ["a", "b"]) model.animation.play(id, "lower", { fade: 0.8 });
+    model.tick(0.2);
+  }
+  const handles = [library.get("a")!, library.get("b")!];
+  const bones = handles.map((handle) => handle.node.getObjectByName("animated-bone")!);
+  const before = library.snapshot();
+  const target = structuredClone(before);
+  for (const item of target.animations) for (const action of item.actions) action.time = 0.55;
+  const update = THREE.AnimationMixer.prototype.update;
+  let count = 0;
+  THREE.AnimationMixer.prototype.update = function (delta) {
+    const result = update.call(this, delta);
+    if (++count === 2) throw new Error("injected second model update");
+    return result;
+  };
+  try { assert.throws(() => library.restore(target), /injected second model update/); }
+  finally { THREE.AnimationMixer.prototype.update = update; }
+  assert.deepEqual(library.snapshot(), before);
+  for (let i = 0; i < handles.length; i++) {
+    assert.equal(library.get(["a", "b"][i]!), handles[i]);
+    assert.equal(handles[i]!.node.getObjectByName("animated-bone"), bones[i]);
+  }
+  for (const dt of [0, 0.1, 0.2, 0.4]) {
+    library.tick(dt); control.tick(dt);
+    assert.deepEqual(library.snapshot(), control.snapshot());
+    for (let i = 0; i < bones.length; i++)
+      close(bones[i]!.position.y, control.get(["a", "b"][i]!)!.node.getObjectByName("animated-bone")!.position.y);
+  }
+});
+
+for (const where of ["replacement-parent", "new-parent"] as const) test(`restore ${where} add failure rolls back candidates`, async (t) => {
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const newParent = new THREE.Group();
+  const original = library.instantiate("a", { asset: "hero", animation: { clip: "raise" } }, parent);
+  library.register("b", { asset: "hero" }, newParent);
+  library.tick(0.25);
+  const before = library.snapshot();
+  const root = original.node.children[0];
+  const pose = original.node.getObjectByName("animated-bone")!.position.y;
+  const target = structuredClone(before);
+  target.animations[0]!.actions[0]!.time = 0.75;
+  target.animations.push({ entity: "b", asset: "hero", currentClip: null, actions: [] });
+  const disposed: THREE.Skeleton[] = [];
+  const dispose = THREE.Skeleton.prototype.dispose;
+  t.mock.method(THREE.Skeleton.prototype, "dispose", function (this: THREE.Skeleton) {
+    disposed.push(this);
+    return dispose.call(this);
+  });
+  const destination = where === "replacement-parent" ? parent : newParent;
+  const add = destination.add;
+  destination.add = function (...objects) { add.apply(this, objects); throw new Error("injected parent add failure"); };
+  const bindings = [
+    { entity: "a", definition: { asset: "hero", animation: { clip: "raise" }, ...(where === "replacement-parent" ? { scale: 2 } : {}) } },
+    { entity: "b", definition: { asset: "hero" } },
+  ];
+  try { assert.throws(() => library.restore(target, bindings), /injected parent add failure/); }
+  finally { destination.add = add; }
+  assert.equal(library.get("a"), original);
+  assert.equal(library.get("b"), undefined);
+  assert.deepEqual(parent.children, [original.node]);
+  assert.deepEqual(newParent.children, []);
+  assert.deepEqual(original.node.children, [root]);
+  assert.equal(root!.parent, original.node);
+  assert.equal(original.node.getObjectByName("animated-bone")!.position.y, pose);
+  assert.deepEqual(library.snapshot(), before);
+  assert.throws(() => library.register("a", { asset: "hero", scale: 2 }), /TC_MODEL_DEFINITION_CONFLICT/);
+  const stagedCount = where === "replacement-parent" ? 2 : 1;
+  assert.equal(disposed.length, stagedCount);
+  assert.equal(new Set(disposed).size, stagedCount);
+});
+
+test("same-definition restore keeps the outer handle node and bone without cloning skeletons", async (t) => {
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const original = library.instantiate("a", { asset: "hero", animation: { clip: "raise" } }, parent);
+  const root = original.node.children[0];
+  const bone = original.node.getObjectByName("animated-bone")!;
+  library.tick(0.25);
+  const snapshot = library.snapshot();
+  library.tick(0.25);
+  let clones = 0;
+  const clone = THREE.Skeleton.prototype.clone;
+  t.mock.method(THREE.Skeleton.prototype, "clone", function (this: THREE.Skeleton) {
+    clones++;
+    return clone.call(this);
+  });
+  library.restore(snapshot);
+  assert.equal(clones, 0);
+  assert.equal(library.get("a"), original);
+  assert.equal(library.get("a")!.node, original.node);
+  assert.equal(original.node.parent, parent);
+  assert.equal(original.node.children[0], root);
+  assert.equal(original.node.getObjectByName("animated-bone"), bone);
+  close(original.node.getObjectByName("animated-bone")!.position.y, 0.25);
+  library.tick(0.2);
+  close(original.node.getObjectByName("animated-bone")!.position.y, 0.45);
+  original.dispose();
+  assert.equal(library.get("a"), undefined);
+});
+
+test("restore commit failure retains already active staged instances without disposing them", async (t) => {
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const live = library.instantiate("a", { asset: "hero", animation: { clip: "raise" } }, parent);
+  library.register("b", { asset: "hero" }, parent);
+  library.register("c", { asset: "hero" }, parent);
+  library.tick(0.25);
+  const before = library.snapshot();
+  const target = structuredClone(before);
+  target.animations.push(
+    { entity: "b", asset: "hero", currentClip: null, actions: [] },
+    { entity: "c", asset: "hero", currentClip: null, actions: [] },
+  );
+  const disposed: THREE.Skeleton[] = [];
+  const dispose = THREE.Skeleton.prototype.dispose;
+  t.mock.method(THREE.Skeleton.prototype, "dispose", function (this: THREE.Skeleton) {
+    disposed.push(this);
+    return dispose.call(this);
+  });
+  const remove = library.remove;
+  library.remove = function (id) {
+    if (id === "c") throw new Error("injected commit removal failure");
+    return remove.call(this, id);
+  };
+  try { assert.throws(() => library.restore(target), /TC_MODEL_RESTORE_COMMIT_FAILED.*not guaranteed atomic/); }
+  finally { library.remove = remove; }
+  assert.equal(library.get("a"), live);
+  const b = library.get("b")!;
+  assert.ok(b);
+  assert.equal(library.get("c"), undefined);
+  assert.equal(b.node.parent, parent);
+  const skin = b.node.getObjectByName("skin-mesh") as THREE.SkinnedMesh;
+  assert.ok(skin.isSkinnedMesh);
+  assert.equal(disposed.length, 1);
+  assert.ok(!disposed.includes(skin.skeleton));
+  assert.deepEqual(parent.children, [live.node, b.node]);
+  library.tick(0.1);
+  assert.equal(library.get("b"), b);
+});
+
+test("restore replaces the instance for a changed binding and applies its transform", async (t) => {
+  const library = createModelLibrary({ hero: "hero.glb" }, { fetch: fixtureFetch(await animatedGLB()).fetcher });
+  t.after(() => library.dispose());
+  await library.prepare();
+  const parent = new THREE.Group();
+  const original = library.instantiate("a", { asset: "hero" }, parent);
+  const saved = library.snapshot();
+  library.restore(saved, [{ entity: "a", definition: { asset: "hero", scale: 2, offset: [1, 2, 3], rotation: [0, 0.5, 0] } }]);
+  const replacement = library.get("a")!;
+  assert.notEqual(replacement, original);
+  assert.notEqual(replacement.node, original.node);
+  assert.equal(original.node.parent, null);
+  assert.equal(replacement.node.parent, parent);
+  assert.deepEqual(replacement.node.position.toArray(), [1, 2, 3]);
+  assert.equal(replacement.node.scale.x, 2);
+  close(replacement.node.rotation.y, 0.5);
+  original.dispose();
+  assert.equal(library.get("a"), replacement);
+});
+
 test("loads a real animated GLB once and creates isolated skeletal instances", async () => {
   const bytes = await animatedGLB();
   const fetch = fixtureFetch(bytes);
@@ -1034,7 +1372,7 @@ test("morph influences are private while geometry, bind inverses, and materials 
 test(
   "embedded Fox and WaterBottle decode in Chromium, share textures, and release ImageBitmaps",
   {
-    skip: process.env.THREECAT_MODEL_BROWSER !== "1",
+    skip: process.env.PELICAN_MODEL_BROWSER !== "1",
     timeout: 60000,
   },
   async () => {
@@ -1053,7 +1391,15 @@ test(
         module: ts.ModuleKind.ESNext,
       },
     }).outputText;
+    const embeddedSource = await readFile(
+      new URL("../packages/renderer/src/embedded-image-pixels.ts", import.meta.url),
+      "utf8",
+    );
+    const embeddedModule = ts.transpileModule(embeddedSource, {
+      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
+    }).outputText;
     const vendorRoot = resolve("node_modules/three");
+    const npmRoot = resolve("node_modules");
     const fox = await readFile(
       new URL("../examples/m2/assets/Fox.glb", import.meta.url),
     );
@@ -1077,11 +1423,14 @@ test(
         if (path === "/") {
           response.setHeader("Content-Type", "text/html");
           response.end(
-            '<script type="importmap">{"imports":{"three":"/vendor/build/three.webgpu.js","three/webgpu":"/vendor/build/three.webgpu.js","three/tsl":"/vendor/build/three.tsl.js","three/addons/":"/vendor/examples/jsm/"}}</script>',
+            '<script type="importmap">{"imports":{"three":"/vendor/build/three.webgpu.js","three/webgpu":"/vendor/build/three.webgpu.js","three/tsl":"/vendor/build/three.tsl.js","three/addons/":"/vendor/examples/jsm/","fast-png":"/npm/fast-png/lib/index.js","fflate":"/npm/fflate/esm/browser.js","iobuffer":"/npm/iobuffer/lib/iobuffer.js"}}</script>',
           );
         } else if (path === "/models.js") {
           response.setHeader("Content-Type", "text/javascript");
           response.end(module);
+        } else if (path === "/embedded-image-pixels.ts") {
+          response.setHeader("Content-Type", "text/javascript");
+          response.end(embeddedModule);
         } else if (
           ["/Fox.glb", "/WaterBottle.glb", "/broken.glb"].includes(path)
         ) {
@@ -1093,13 +1442,14 @@ test(
                 ? broken
                 : bottle,
           );
-        } else if (path.startsWith("/vendor/")) {
-          const target = resolve(vendorRoot, path.slice(8));
-          const within = relative(vendorRoot, target);
+        } else if (path.startsWith("/vendor/") || path.startsWith("/npm/")) {
+          const root = path.startsWith("/vendor/") ? vendorRoot : npmRoot;
+          const target = resolve(root, path.slice(path.startsWith("/vendor/") ? 8 : 5));
+          const within = relative(root, target);
           if (
             within.startsWith(".." + sep) ||
             within === ".." ||
-            resolve(vendorRoot, within) !== target
+            resolve(root, within) !== target
           ) {
             response.writeHead(403);
             response.end();

@@ -23,7 +23,8 @@ function inspectPNG(
     width = 0,
     height = 0,
     bitDepth = 0,
-    colorType = 0;
+    colorType = 0,
+    interlace = 0;
   let paletteEntries = 0,
     ended = false,
     idatClosed = false;
@@ -83,11 +84,7 @@ function inspectPNG(
         "PNG/IHDR",
         "Invalid compression, filter or interlace method.",
       );
-      if (chunk[12] === 1)
-        ctx.unsupported(
-          "PNG/interlace",
-          "Adam7 interlaced PNG is not implemented.",
-        );
+      interlace = chunk[12];
     } else if (type === "PLTE") {
       ctx.check(
         !seen.has(type) &&
@@ -144,8 +141,28 @@ function inspectPNG(
   const channels = ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 } as Record<number, number>)[
     colorType
   ];
-  const rowBytes = Math.ceil((width * channels * bitDepth) / 8);
-  const decodedSize = (rowBytes + 1) * height;
+  const patterns = interlace
+    ? [
+        [0, 0, 8, 8],
+        [4, 0, 8, 8],
+        [0, 4, 4, 8],
+        [2, 0, 4, 4],
+        [0, 2, 2, 4],
+        [1, 0, 2, 2],
+        [0, 1, 1, 2],
+      ]
+    : [[0, 0, 1, 1]];
+  const passes = patterns.map(([x, y, dx, dy]) => {
+    const passWidth = Math.max(0, Math.ceil((width - x) / dx));
+    const passHeight = Math.max(0, Math.ceil((height - y) / dy));
+    const rowBytes = Math.ceil((passWidth * channels * bitDepth) / 8);
+    return { width: passWidth, height: passHeight, rowBytes };
+  });
+  const decodedSize = passes.reduce(
+    (sum, pass) =>
+      sum + (pass.width && pass.height ? (pass.rowBytes + 1) * pass.height : 0),
+    0,
+  );
   if (decodedSize > 256 * 1024 * 1024)
     ctx.unsupported(
       "PNG/pixels",
@@ -175,42 +192,50 @@ function inspectPNG(
     "Pixel stream length does not match dimensions.",
   );
   const bpp = Math.max(1, Math.ceil((channels * bitDepth) / 8));
-  let previous: Buffer = Buffer.alloc(rowBytes);
-  for (let y = 0; y < height; y++) {
-    const start = y * (rowBytes + 1),
-      filter = pixels[start];
-    ctx.check(filter <= 4, `PNG/row/${y}`, "Invalid PNG row filter.");
-    const row = pixels.subarray(start + 1, start + 1 + rowBytes);
-    for (let x = 0; x < rowBytes; x++) {
-      const a = x >= bpp ? row[x - bpp] : 0,
-        b = previous[x],
-        c = x >= bpp ? previous[x - bpp] : 0;
-      let predictor = 0;
-      if (filter === 1) predictor = a;
-      if (filter === 2) predictor = b;
-      if (filter === 3) predictor = Math.floor((a + b) / 2);
-      if (filter === 4) {
-        const p = a + b - c,
-          pa = Math.abs(p - a),
-          pb = Math.abs(p - b),
-          pc = Math.abs(p - c);
-        predictor = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+  let start = 0;
+  for (const [passIndex, pass] of passes.entries()) {
+    if (!pass.width || !pass.height) continue;
+    const { rowBytes } = pass;
+    let previous: Buffer = Buffer.alloc(rowBytes);
+    for (let y = 0; y < pass.height; y++) {
+      const resource = interlace
+        ? `PNG/pass/${passIndex + 1}/row/${y}`
+        : `PNG/row/${y}`;
+      const filter = pixels[start];
+      ctx.check(filter <= 4, resource, "Invalid PNG row filter.");
+      const row = pixels.subarray(start + 1, start + 1 + rowBytes);
+      for (let x = 0; x < rowBytes; x++) {
+        const a = x >= bpp ? row[x - bpp] : 0,
+          b = previous[x],
+          c = x >= bpp ? previous[x - bpp] : 0;
+        let predictor = 0;
+        if (filter === 1) predictor = a;
+        if (filter === 2) predictor = b;
+        if (filter === 3) predictor = Math.floor((a + b) / 2);
+        if (filter === 4) {
+          const p = a + b - c,
+            pa = Math.abs(p - a),
+            pb = Math.abs(p - b),
+            pc = Math.abs(p - c);
+          predictor = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+        }
+        row[x] = (row[x] + predictor) & 255;
       }
-      row[x] = (row[x] + predictor) & 255;
+      if (colorType === 3)
+        for (let x = 0; x < pass.width; x++) {
+          const index =
+            (row[Math.floor((x * bitDepth) / 8)] >>>
+              (8 - bitDepth - ((x * bitDepth) % 8))) &
+            ((1 << bitDepth) - 1);
+          ctx.check(
+            index < paletteEntries,
+            resource,
+            "Pixel references a missing palette entry.",
+          );
+        }
+      previous = row;
+      start += rowBytes + 1;
     }
-    if (colorType === 3)
-      for (let x = 0; x < width; x++) {
-        const index =
-          (row[Math.floor((x * bitDepth) / 8)] >>>
-            (8 - bitDepth - ((x * bitDepth) % 8))) &
-          ((1 << bitDepth) - 1);
-        ctx.check(
-          index < paletteEntries,
-          `PNG/row/${y}`,
-          "Pixel references a missing palette entry.",
-        );
-      }
-    previous = row;
   }
   return {
     format: "png",

@@ -38,7 +38,7 @@ ui.dispose();
 
 上例中的 host 和事件转发函数由主线提供。工厂创建后仍需 `mount()` 才附着 body；卸载后 mount/present 无操作。重复 id 抛出 `TC_UI_DUPLICATE_ID`。present 按 id 保留节点，只在新增、移除或 kind 改变时更换节点；焦点顺序采用本次 elements 的数组顺序。
 
-保留 `[data-threecat-ui]` 与 `[data-threecat-element="<id>"]`。screen UI 保留旧 gameplay 的 absolute/inset 根布局、padding、圆角、背景、字号、width、color、四角 anchor 和中心 translate；center 与旧实现一样忽略 x/y。普通文本与进度条不接收指针事件，input/button 使用浏览器原生交互。input 不设置 autofocus。
+保留 `[data-pelican-ui]` 与 `[data-pelican-element="<id>"]`。screen UI 保留旧 gameplay 的 absolute/inset 根布局、padding、圆角、背景、字号、width、color、四角 anchor 和中心 translate；center 与旧实现一样忽略 x/y。普通文本与进度条不接收指针事件，input/button 使用浏览器原生交互。input 不设置 autofocus。
 
 ## World UI 的输入边界
 

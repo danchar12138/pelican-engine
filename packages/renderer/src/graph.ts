@@ -1,145 +1,285 @@
 import * as TSL from "three/tsl";
+import { Vector2, Vector3, Vector4 } from "three";
 import type { GraphIR } from "../../compiler/src/types.ts";
+import { compileGraphDeclaration } from "../../compiler/src/graph.ts";
+import type { GraphValue } from "../../sdk/src/index.ts";
+import {
+  evaluateTypedGraph,
+  lowerGraphWGSL,
+  type GraphEvaluationContext,
+} from "./graph-expressions.ts";
+import { typedGraphToTSL } from "./graph-tsl.ts";
 
-/** Internal translators for the deliberately small, compiler-validated M0 graph subset. */
+type CompatibleGraphIR = Omit<GraphIR, "nodeTypes"> & {
+  nodeTypes?: GraphIR["nodeTypes"];
+};
+function typedGraph(graph: CompatibleGraphIR): GraphIR {
+  if (!graph || graph.nodeTypes !== undefined) return graph as GraphIR;
+  // M0 reference fixtures and serialized graphs predate per-node type metadata.
+  const result = compileGraphDeclaration(
+    {
+      nodes: graph.nodes,
+      output: graph.output,
+      ...(graph.parameters ? { parameters: graph.parameters } : {}),
+    },
+    graph.outputType,
+  );
+  if (result.issues.length)
+    throw Error(result.issues[0].code + ": " + result.issues[0].message);
+  return result.graph;
+}
+
+/** Legacy signatures remain compatible; typed material adapters supply richer bindings. */
 export function graphToTSL(
-  graph: GraphIR,
+  input: CompatibleGraphIR,
   time: ReturnType<typeof TSL.uniform>,
 ) {
-  const values = new Map<string, any>();
-  const visit = (id: string): any => {
-    if (values.has(id)) return values.get(id);
-    const node = graph.nodes.find((n) => n.id === id);
-    if (!node) throw new Error(`TC_GRAPH_NODE:${id}`);
-    let result: any;
-    if (node.op === "float") result = TSL.float(node.value);
-    else if (node.op === "vec3") result = TSL.vec3(...node.value);
-    else if (node.op === "time") result = time;
-    else if (node.op === "sin") result = TSL.sin(visit(node.inputs[0]));
-    else if (node.op === "add")
-      result = TSL.add(visit(node.inputs[0]), visit(node.inputs[1]));
-    else result = TSL.mul(visit(node.inputs[0]), visit(node.inputs[1]));
-    values.set(id, result);
-    return result;
-  };
-  return visit(graph.output);
+  const graph = typedGraph(input);
+  const parameters = new Map(
+    (graph.parameters ?? []).map((p) => {
+      const value = Array.isArray(p.default)
+        ? p.default.length === 2
+          ? new Vector2(...(p.default as [number, number]))
+          : p.default.length === 3
+            ? new Vector3(...(p.default as [number, number, number]))
+            : new Vector4(...(p.default as [number, number, number, number]))
+        : p.default;
+      return [p.name, (TSL.uniform as any)(value, p.type)];
+    }),
+  );
+  return typedGraphToTSL(graph, time, parameters, new Map());
 }
-export function evaluateGraph(graph: GraphIR, time: number): number | number[] {
-  const memo = new Map<string, number | number[]>();
-  const visit = (id: string): number | number[] => {
-    if (memo.has(id)) return memo.get(id)!;
-    const n = graph.nodes.find((n) => n.id === id)!;
-    let result: number | number[];
-    if (n.op === "float" || n.op === "vec3")
-      result = typeof n.value === "number" ? n.value : [...n.value];
-    else if (n.op === "time") result = time;
-    else if (n.op === "sin") {
-      const a = visit(n.inputs[0]);
-      result = typeof a === "number" ? Math.sin(a) : a.map(Math.sin);
-    } else {
-      const a = visit(n.inputs[0]),
-        b = visit(n.inputs[1]);
-      const op = (x: number, y: number) => (n.op === "add" ? x + y : x * y);
-      result =
-        typeof a === "number" && typeof b === "number"
-          ? op(a, b)
-          : Array.from({ length: 3 }, (_, i) =>
-              op(
-                typeof a === "number" ? a : a[i],
-                typeof b === "number" ? b : b[i],
+export function evaluateGraph(
+  graph: CompatibleGraphIR,
+  time: number,
+): GraphValue {
+  return evaluateTypedGraph(typedGraph(graph), { time });
+}
+
+/** The active check prevents uncancellable GPU promises from creating late resources. */
+export async function withGraphGPUDeadline<T>(
+  device: GPUDevice,
+  prefix: string,
+  work: (active: () => void) => Promise<T>,
+  timeoutMs = 10000,
+): Promise<T> {
+  let stopped = false,
+    timer: ReturnType<typeof setTimeout> | undefined;
+  let scope: Promise<GPUError | null> | undefined;
+  device.pushErrorScope("validation");
+  const closeScope = () => (scope ??= device.popErrorScope());
+  const active = () => {
+    if (stopped)
+      throw Error(prefix + "_CANCELLED: GPU graph work is no longer active.");
+  };
+  try {
+    return await Promise.race([
+      Promise.resolve()
+        .then(() => work(active))
+        .then(async (value) => {
+          active();
+          const validation = await closeScope();
+          active();
+          if (validation) throw Error(prefix + "_GPU: " + validation.message);
+          return value;
+        }),
+      device.lost.then((info) => {
+        throw Error(prefix + "_DEVICE_LOST: " + info.reason);
+      }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              Error(
+                prefix +
+                  "_TIMEOUT: GPU graph work exceeded " +
+                  timeoutMs +
+                  "ms.",
               ),
-            );
-    }
-    memo.set(id, result);
-    return result;
-  };
-  return visit(graph.output);
+            ),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    stopped = true;
+    clearTimeout(timer);
+    // popErrorScope may itself wait for a stuck device; cleanup must not await it.
+    void closeScope().catch(() => null);
+  }
 }
+
 export async function runComputeGraph(
   device: GPUDevice,
-  graph: GraphIR,
+  input: CompatibleGraphIR,
   count: number,
   workgroupSize: number,
   time: number,
+  parameters: Readonly<Record<string, GraphValue>> = {},
 ) {
-  if (!Number.isInteger(count) || count < 1 || count > 65536)
-    throw new Error("TC_COMPUTE_COUNT");
   if (
-    !Number.isInteger(workgroupSize) ||
-    workgroupSize < 1 ||
-    workgroupSize > 256
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    count > 65536 ||
+    count * 16 > device.limits.maxStorageBufferBindingSize ||
+    count * 16 > device.limits.maxBufferSize
   )
-    throw new Error("TC_COMPUTE_WORKGROUP");
-  const float = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
-  const memo = new Map<string, string>();
-  const lines: string[] = [];
-  const visit = (id: string): string => {
-    if (memo.has(id)) return memo.get(id)!;
-    const n = graph.nodes.find((n) => n.id === id)!;
-    const symbol = `v${memo.size}`;
-    memo.set(id, symbol);
-    let expression: string;
-    if (n.op === "float") expression = float(n.value);
-    else if (n.op === "vec3")
-      expression = `vec3f(${n.value.map(float).join(",")})`;
-    else if (n.op === "time") expression = "params.x";
-    else if (n.op === "sin") expression = `sin(${visit(n.inputs[0])})`;
-    else
-      expression = `(${visit(n.inputs[0])}${n.op === "add" ? "+" : "*"}${visit(n.inputs[1])})`;
-    lines.push(`let ${symbol} = ${expression};`);
-    return symbol;
+    throw Error(
+      "TC_COMPUTE_COUNT: Count must fit the validated output budget.",
+    );
+  if (
+    !Number.isSafeInteger(workgroupSize) ||
+    workgroupSize < 1 ||
+    workgroupSize > 256 ||
+    workgroupSize > device.limits.maxComputeWorkgroupSizeX ||
+    workgroupSize > device.limits.maxComputeInvocationsPerWorkgroup ||
+    Math.ceil(count / workgroupSize) >
+      device.limits.maxComputeWorkgroupsPerDimension
+  )
+    throw Error("TC_COMPUTE_WORKGROUP: Dispatch exceeds actual device limits.");
+  const graph = typedGraph(input);
+  if (graph.nodes.some((node) => node.op === "sampleTexture"))
+    throw Error(
+      "TC_COMPUTE_TEXTURE: Compute texture bindings are not supported yet.",
+    );
+  if (graph.nodes.some(node => node.op === "readBuffer"))
+    throw Error("TC_COMPUTE_BINDING: Buffered kernels require the managed compute service and explicit buffer bindings.");
+  const context: GraphEvaluationContext = {
+    time,
+    parameters,
+    inputs: { index: 0 },
   };
-  const output = visit(graph.output);
-  const source = `@group(0) @binding(0) var<storage,read_write> result:array<vec4f>; @group(0) @binding(1) var<uniform> params:vec4f; @compute @workgroup_size(${workgroupSize}) fn main(@builtin(global_invocation_id) id:vec3u){if(id.x>=${count}u){return;} ${lines.join("\n")} result[id.x]=${graph.outputType === "float" ? `vec4f(${output},0,0,1)` : `vec4f(${output},1)`};}`;
-  device.pushErrorScope("validation");
-  const module = device.createShaderModule({ code: source });
-  const pipeline = await device.createComputePipelineAsync({
-    layout: "auto",
-    compute: { module, entryPoint: "main" },
+  const expected = evaluateTypedGraph(graph, context);
+  const declarations = graph.parameters ?? [];
+  const uniforms = new Float32Array((declarations.length + 1) * 4);
+  uniforms[0] = time;
+  for (let i = 0; i < declarations.length; i++) {
+    const p = declarations[i],
+      value = Object.hasOwn(parameters, p.name)
+        ? parameters[p.name]
+        : p.default;
+    if (typeof value === "number" || typeof value === "boolean")
+      uniforms[(i + 1) * 4] = Number(value);
+    else uniforms.set(value, (i + 1) * 4);
+  }
+  const lowered = lowerGraphWGSL(graph, {
+    prefix: "tcCompute",
+    input: (name) => {
+      if (name === "time") return "params[0].x";
+      if (name === "index") return "f32(id.x)";
+      throw Error("TC_GRAPH_CONTEXT: Unsupported compute input " + name);
+    },
+    parameter: (name, type) => {
+      const index = declarations.findIndex((p) => p.name === name) + 1;
+      if (index === 0) throw Error("TC_GRAPH_PARAMETER: " + name);
+      const base = "params[" + index + "]";
+      return type === "float"
+        ? base + ".x"
+        : type === "bool"
+          ? "(" + base + ".x != 0.0)"
+          : base + "." + "xyzw".slice(0, Number(type.slice(3)));
+    },
+    sampleTexture: () => {
+      throw Error(
+        "TC_COMPUTE_TEXTURE: A compute texture binding must be supplied by the engine resource API.",
+      );
+    },
   });
-  const buffer = device.createBuffer({
-    size: count * 16,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
-  const uniform = device.createBuffer({
-    size: 16,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-  const read = device.createBuffer({
-    size: count * 16,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-  });
+  const value =
+    lowered.type === "float"
+      ? "vec4f(" + lowered.result + ",0,0,1)"
+      : lowered.type === "bool"
+        ? "vec4f(select(0.0,1.0," + lowered.result + "),0,0,1)"
+        : lowered.type === "vec2"
+          ? "vec4f(" + lowered.result + ",0,1)"
+          : lowered.type === "vec3"
+            ? "vec4f(" + lowered.result + ",1)"
+            : lowered.result;
+  const source =
+    "@group(0) @binding(0) var<storage,read_write> result:array<vec4f>; @group(0) @binding(1) var<uniform> params:array<vec4f," +
+    (declarations.length + 1) +
+    ">;\n" +
+    lowered.helpers +
+    "\n@compute @workgroup_size(" +
+    workgroupSize +
+    ") fn main(@builtin(global_invocation_id) id:vec3u){if(id.x>=" +
+    count +
+    "u){return;}\n" +
+    lowered.code +
+    "\nresult[id.x]=" +
+    value +
+    ";}";
+  const buffers: GPUBuffer[] = [];
   try {
-    device.queue.writeBuffer(uniform, 0, new Float32Array([time, 0, 0, 0]));
-    const group = device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer } },
-        { binding: 1, resource: { buffer: uniform } },
-      ],
-    });
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, group);
-    pass.dispatchWorkgroups(Math.ceil(count / workgroupSize));
-    pass.end();
-    encoder.copyBufferToBuffer(buffer, 0, read, 0, count * 16);
-    device.queue.submit([encoder.finish()]);
-    await read.mapAsync(GPUMapMode.READ);
-    const result = Array.from(new Float32Array(read.getMappedRange()));
-    read.unmap();
-    const error = await device.popErrorScope();
-    if (error) throw new Error(`TC_COMPUTE_GPU:${error.message}`);
-    return {
-      count,
-      outputType: graph.outputType,
-      values: result,
-      expected: evaluateGraph(graph, time),
-    };
+    const values = await withGraphGPUDeadline(
+      device,
+      "TC_COMPUTE",
+      async (active) => {
+        active();
+        const module = device.createShaderModule({
+          code: source,
+          label: "pelican controlled compute graph",
+        });
+        const info = await module.getCompilationInfo();
+        active();
+        const errors = info.messages.filter((m) => m.type === "error");
+        if (errors.length)
+          throw Error(
+            "TC_COMPUTE_SHADER: " + errors.map((e) => e.message).join("; "),
+          );
+        const pipeline = await device.createComputePipelineAsync({
+          layout: "auto",
+          compute: { module, entryPoint: "main" },
+        });
+        active();
+        const make = (size: number, usage: number) => {
+          const b = device.createBuffer({ size, usage });
+          buffers.push(b);
+          return b;
+        };
+        const output = make(
+            count * 16,
+            GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+          ),
+          uniform = make(
+            uniforms.byteLength,
+            GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+          ),
+          read = make(
+            count * 16,
+            GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+          );
+        device.queue.writeBuffer(uniform, 0, uniforms);
+        const group = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: output } },
+            { binding: 1, resource: { buffer: uniform } },
+          ],
+        });
+        const encoder = device.createCommandEncoder(),
+          pass = encoder.beginComputePass();
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, group);
+        pass.dispatchWorkgroups(Math.ceil(count / workgroupSize));
+        pass.end();
+        encoder.copyBufferToBuffer(output, 0, read, 0, count * 16);
+        device.queue.submit([encoder.finish()]);
+        await read.mapAsync(GPUMapMode.READ);
+        active();
+        const values = Array.from(
+          new Float32Array(read.getMappedRange().slice(0)),
+        );
+        read.unmap();
+        if (values.some((value) => !Number.isFinite(value)))
+          throw Error(
+            "TC_COMPUTE_NONFINITE: Graph arithmetic produced a nonfinite result; reduce parameter magnitude.",
+          );
+        return values;
+      },
+    );
+    return { count, outputType: graph.outputType, values, expected };
   } finally {
-    buffer.destroy();
-    uniform.destroy();
-    read.destroy();
+    for (const buffer of buffers) buffer.destroy();
   }
 }

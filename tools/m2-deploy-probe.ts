@@ -27,8 +27,8 @@ export async function runM2Deployment(dist: string, output: string) {
         await page.goto(server.url, { waitUntil: "domcontentloaded" });
         await waitForEngine(page, 30000, { production: true });
         const hooks = await page.evaluate(() => ({
-          control: typeof (window as any).__threecat,
-          failure: typeof (window as any).__threecatFailure,
+          control: typeof (window as any).__pelican,
+          failure: typeof (window as any).__pelicanFailure,
         }));
         assert.equal(hooks.control, "undefined");
         assert.equal(hooks.failure, "undefined");
@@ -39,7 +39,7 @@ export async function runM2Deployment(dist: string, output: string) {
         assert.equal(compressed.status(), 200);
         assert.equal(compressed.headers()["content-encoding"], "br");
         assert.equal(
-          (await page.request.get(server.url + "__threecat/control")).status(),
+          (await page.request.get(server.url + "__pelican/control")).status(),
           404,
         );
         await page.keyboard.down("w");
@@ -49,7 +49,7 @@ export async function runM2Deployment(dist: string, output: string) {
         await page.waitForFunction(
           () =>
             document
-              .querySelector('[data-threecat-element="score"]')
+              .querySelector('[data-pelican-element="score"]')
               ?.textContent?.includes("Relics 1 / 3"),
           undefined,
           { polling: 100, timeout: 10000 },
@@ -58,7 +58,7 @@ export async function runM2Deployment(dist: string, output: string) {
         await page.waitForFunction(
           () =>
             document
-              .querySelector('[data-threecat-element="hint"]')
+              .querySelector('[data-pelican-element="hint"]')
               ?.textContent?.includes("saved"),
           undefined,
           { polling: 100, timeout: 10000 },
@@ -70,13 +70,13 @@ export async function runM2Deployment(dist: string, output: string) {
         await page.waitForFunction(
           () =>
             document
-              .querySelector('[data-threecat-element="hint"]')
+              .querySelector('[data-pelican-element="hint"]')
               ?.textContent?.includes("loaded"),
           undefined,
           { polling: 100, timeout: 10000 },
         );
         const score = await page
-          .locator('[data-threecat-element="score"]')
+          .locator('[data-pelican-element="score"]')
           .textContent();
         assert.ok(score!.includes("Relics 1 / 3"));
         assert.deepEqual(errors, []);

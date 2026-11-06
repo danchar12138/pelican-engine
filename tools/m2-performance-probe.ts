@@ -32,7 +32,7 @@ export async function runM2Performance(url: string, output: string) {
           "new Promise((resolve) => {let previous;const samples=[];function sample(now){if(previous!==undefined)samples.push(now-previous);previous=now;if(samples.length>=180)resolve(samples);else requestAnimationFrame(sample);}requestAnimationFrame(sample);})",
         );
         const state = await page.evaluate(() =>
-          (window as any).__threecat.inspect(),
+          (window as any).__pelican.inspect(),
         );
         assert.equal(state.backend, "WebGPUBackend");
         assert.equal(state.adapter.isFallbackAdapter, false);

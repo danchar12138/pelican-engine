@@ -2,12 +2,28 @@ import * as THREE from "three/webgpu";
 import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
+import { SurfaceTracer } from "./surface-tracer.ts";
+import {
+  createRenderSettingsDriver,
+  resolveRenderSettings,
+} from "../../runtime/src/render-settings.ts";
 import { buildBVH, extractTriangles } from "./geometry.ts";
 import { graphToTSL, evaluateGraph, runComputeGraph } from "./graph.ts";
 import { uniform } from "three/tsl";
-import { startupPolicy, boundedOperation, runtimeStatus } from "./startup.ts";
+import { typedGraphToTSL, materialGraphNormalToTSL } from "./graph-tsl.ts";
+import type { MaterialGraphBinding } from "./material-graphs.ts";
+import { startupPolicy, boundedOperation, runtimeStatus, inspectTraceCapabilities } from "./startup.ts";
+import { renderCapabilities, requireCompute, validateRenderCapabilities } from "../../runtime/src/render-capabilities.ts";
+import { createComputeDriver } from "../../runtime/src/compute-service.ts";
+import { createComputeExecutor } from "./compute-executor.ts";
+import { createPostProcessComposer } from "./postprocess.ts";
+import { vertexGraphsToTSL } from "./vertex-graphs.ts";
+import { createVertexBoundsOwner } from "./vertex-bounds.ts";
+import { createRenderBufferBridge } from "./render-buffers.ts";
+import { createRenderTextureBridge } from "./render-textures.ts";
+import { createComputeTextureAssets } from "./compute-texture-assets.ts";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
-import type { SceneIR } from "../../compiler/src/types.ts";
+import type { SceneIR, GraphIR } from "../../compiler/src/types.ts";
 import { RuntimeHost } from "../../runtime/src/host.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import {
@@ -28,6 +44,7 @@ import type {
   EngineFacade,
   Transform,
   ComponentData,
+  RenderSettings,
 } from "../../sdk/src/index.ts";
 import { createSimulation } from "../../../experiments/simulation/index.ts";
 import type {
@@ -164,6 +181,31 @@ lamp.shadow.mapSize.set(1024, 1024);
 probeRoot.add(lamp, new THREE.HemisphereLight(0xa4c8f0, 0x26321d, 1));
 
 let renderer: THREE.Renderer, tracer: GPUTracer, device: GPUDevice;
+let backendKind: "webgpu" | "webgl2" | "uninitialized" = "uninitialized";
+let contextWasPlaying = false;
+let waitingForWebglRestore = false;
+let pendingSurface: AbortController | undefined;
+const lostDevices = new WeakSet<GPUDevice>();
+const lostRenderers = new WeakSet<THREE.Renderer>();
+let surfaceTracer: SurfaceTracer | undefined;
+let renderControl: ReturnType<typeof createRenderSettingsDriver> | undefined;
+let computeControl: ReturnType<typeof createComputeDriver> | undefined;
+let computeExecutor: ReturnType<typeof createComputeExecutor> | undefined;
+let renderBufferBridge: ReturnType<typeof createRenderBufferBridge> | undefined;
+let renderTextureBridge: ReturnType<typeof createRenderTextureBridge> | undefined;
+let postComposer: ReturnType<typeof createPostProcessComposer> | undefined;
+let vertexBounds: ReturnType<typeof createVertexBoundsOwner> | undefined;
+let legacyTracerDisposed = false;
+let recoveringGpu = false;
+let recoveryTask: Promise<void> | undefined;
+let recoveryCount = 0;
+let drawTail: Promise<unknown> = Promise.resolve();
+let tickTail: Promise<void> = Promise.resolve();
+let nativeInputTail: Promise<void> = Promise.resolve();
+let inputDrawActive = false,
+  inputDrawRequested = false;
+let frameSerial = 0;
+const recoveryEvents: { phase: string; reason: string; tick: number }[] = [];
 const gameObjects = new Map<string, THREE.Object3D>();
 const gameRoot = new THREE.Group();
 scene.add(gameRoot);
@@ -219,8 +261,47 @@ const transforms = new Map<string, Transform>();
 const materialGraphs: {
   material: THREE.MeshStandardNodeMaterial;
   graph: SceneIR["materials"][number]["graph"];
+  binding: MaterialGraphBinding;
+  uniforms: Map<string, ReturnType<typeof uniform>>;
 }[] = [];
 const graphTime = uniform(0);
+function slotTypes(graphs: readonly GraphIR[]) { return Object.assign({}, ...graphs.map(graph => graph.bufferTypes ?? {})); }
+function materialSlotTypes(binding: MaterialGraphBinding) { return slotTypes([...Object.values(binding.graphs), ...Object.values(binding.vertex ?? {})]); }
+function textureSlotTypes(graphs: readonly GraphIR[]) { return Object.assign({}, ...graphs.map(graph => graph.textureSlots ?? {})); }
+function materialTextureTypes(binding: MaterialGraphBinding) { return textureSlotTypes([...Object.values(binding.graphs), ...Object.values(binding.vertex ?? {})]); }
+function usesRenderTextures(ir: SceneIR) { return ir.materials.some(d => Object.keys(textureSlotTypes([...(d.graph ? [d.graph] : []), ...Object.values(d.graphs ?? {}), ...Object.values(d.vertex ?? {})])).length) || ir.postProcesses?.some(d => Object.keys(d.graph.textureSlots ?? {}).length); }
+function usesRenderSlots(ir: SceneIR) { return ir.materials.some(d => Object.keys(slotTypes([...(d.graph ? [d.graph] : []), ...Object.values(d.graphs ?? {}), ...Object.values(d.vertex ?? {})])).length) || ir.postProcesses?.some(d => Object.keys(d.graph.bufferTypes ?? {}).length); }
+function slotResources(owner: ReturnType<typeof createRenderSettingsDriver>, id: string) { return id.startsWith("$post.") ? owner.effectBuffers.resources(id.slice(6)) : owner.buffers.resources(id); }
+function textureResources(owner: ReturnType<typeof createRenderSettingsDriver>, id: string) { return id.startsWith("$post.") ? owner.effectTextures.resources(id.slice(6)) : owner.textures.resources(id); }
+function applyMaterialGraphs(material: THREE.MeshStandardNodeMaterial, binding: MaterialGraphBinding, uniforms: Map<string, ReturnType<typeof uniform>>, bridge?: ReturnType<typeof createRenderBufferBridge>, textureBridge?: ReturnType<typeof createRenderTextureBridge>) {
+  const slots = materialSlotTypes(binding);
+  if (Object.keys(slots).length) {
+    if (!bridge) throw new Error("TC_RENDER_BUFFER_CAPABILITY: Material storage slots require a managed WebGPU bridge.");
+    bridge.prepare(material, slots);
+  }
+  const textureSlots = materialTextureTypes(binding);
+  if (Object.keys(textureSlots).length) {
+    if (!textureBridge) throw new Error("TC_RENDER_TEXTURE_CAPABILITY: Material texture slots require a managed WebGPU bridge.");
+    textureBridge.prepare(material, textureSlots);
+  }
+  const sampleTextureSlot = (name: string, uv: any) => textureBridge!.node(material, name, uv, textureSlots[name]);
+  for (const [channel, graph] of Object.entries(binding.graphs)) {
+    let node = typedGraphToTSL(graph, graphTime, uniforms, binding.textures, {
+      readBuffer: (name, index, type) => bridge!.node(material, name, index, type, true),
+      sampleTextureSlot,
+    });
+    if (channel === "normalWorld") node = materialGraphNormalToTSL(node);
+    else if (["roughness", "metalness", "opacity"].includes(channel)) node = node.clamp(0, 1);
+    const key = ({baseColor:"colorNode",emissive:"emissiveNode",roughness:"roughnessNode",metalness:"metalnessNode",opacity:"opacityNode",normalWorld:"normalNode"} as const)[channel as keyof typeof binding.graphs];
+    (material as any)[key] = node;
+  }
+  if (binding.graphs.opacity) { material.transparent = true; material.alphaMap = null; }
+  if (binding.vertex) {
+    material.positionNode = vertexGraphsToTSL(binding, graphTime, uniforms, binding.textures, (name, index, type) => bridge!.node(material, name, index, type), sampleTextureSlot);
+    material.userData.pelicanVertexNormal = Boolean(binding.vertex.normal);
+  }
+  material.needsUpdate = true;
+}
 const componentsId = (component: { id: string } | string) =>
   typeof component === "string" ? component : component.id;
 const facade: EngineFacade = {
@@ -247,14 +328,15 @@ const facade: EngineFacade = {
   },
 };
 function reportFailure(error: unknown) {
+  if (disposed) return;
   playing = false;
   terminalFault = true;
   lastFrameTime = undefined;
   const message = String(error);
   errors.push(message);
   if (document.documentElement) {
-    document.documentElement.dataset.threecatReady = "false";
-    document.documentElement.dataset.threecatFailure = message;
+    document.documentElement.dataset.pelicanReady = "false";
+    document.documentElement.dataset.pelicanFailure = message;
   }
   status.hidden = false;
   status.textContent = message;
@@ -265,9 +347,9 @@ function requireRuntime() {
     throw new Error(
       "TC_BROWSER_DISPOSED: Reload the page before issuing commands.",
     );
-  if (loadingContent || restoring)
+  if (loadingContent || restoring || recoveringGpu)
     throw new Error(
-      "TC_CONTENT_BUSY: Wait for the current content transaction.",
+      "TC_CONTENT_BUSY: Wait for the current content or GPU recovery transaction.",
     );
   if (!runtime) throw new Error("TC_RUNTIME_NOT_ATTACHED");
   return runtime;
@@ -355,6 +437,12 @@ function createEntityView(
         : g.kind === "sphere"
           ? new THREE.SphereGeometry(g.radius ?? 0.5, g.segments ?? 12, 8)
           : new THREE.PlaneGeometry(...(g.size ?? [1, 1]));
+    for (const input of material.userData.pelicanGraphInputs ?? []) {
+      if ((input === "uv" || input === "uv1") && !geometry.hasAttribute(input)) {
+        geometry.dispose();
+        throw new Error(`TC_GRAPH_UV: Material ${entity.mesh.material} requires ${input} on entity ${entity.id}. Use geometry with that UV channel or change the graph.`);
+      }
+    }
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = entity.mesh.castShadow;
     mesh.receiveShadow = entity.mesh.receiveShadow;
@@ -373,26 +461,23 @@ function syncRuntime() {
         (record) => resolveEntityDefinition(compiledIR!, record)?.model,
       )
     : [];
-  for (const record of modelRecords)
-    gameplay?.models.register(
-      record.id,
-      resolveEntityDefinition(compiledIR!, record)!.model!,
-    );
-  gameplay?.models.reconcile(modelRecords.map((record) => record.id));
-  // Detach surviving descendants before disposing a removed parent's owned visual subtree.
+  gameplay?.models.reconcileBindings(modelRecords.map((record) => ({
+    entity: record.id,
+    definition: resolveEntityDefinition(compiledIR!, record)!.model!,
+  })));
+  // Each entity view owns its own visual subtree; detach tracked descendants before disposal.
+  const prefabById = new Map(records.map((record) => [record.id, record.prefab]));
   const removed = new Set(
     [...gameObjects]
-      .filter(([id]) => !live.has(id))
+      .filter(([id, object]) => !live.has(id) || object.userData.pelicanPrefab !== prefabById.get(id))
       .map(([, object]) => object),
   );
-  for (const [id, object] of gameObjects)
-    if (live.has(id)) {
-      for (let parent = object.parent; parent; parent = parent.parent)
-        if (removed.has(parent)) {
-          gameRoot.add(object);
-          break;
-        }
-    }
+  for (const object of gameObjects.values())
+    for (let parent = object.parent; parent; parent = parent.parent)
+      if (removed.has(parent)) {
+        gameRoot.add(object);
+        break;
+      }
   for (const [id, object] of gameObjects)
     if (!live.has(id)) {
       gameplay?.models.remove(id);
@@ -403,7 +488,8 @@ function syncRuntime() {
     transforms.set(record.id, structuredClone(record.transform));
     componentState.set(record.id, structuredClone(record.components));
     let object = gameObjects.get(record.id);
-    if (object && object.userData.threecatPrefab !== record.prefab) {
+    if (object && object.userData.pelicanPrefab !== record.prefab) {
+      gameplay?.models.get(record.id)?.node.removeFromParent();
       releaseObject(object);
       gameObjects.delete(record.id);
       object = undefined;
@@ -417,7 +503,7 @@ function syncRuntime() {
         : new THREE.Group();
 
       object.name = record.id;
-      object.userData.threecatPrefab = record.prefab;
+      object.userData.pelicanPrefab = record.prefab;
       gameRoot.add(object);
       if (object.userData.lightTarget)
         gameRoot.add(object.userData.lightTarget);
@@ -532,7 +618,7 @@ function syncSimulation() {
   }
 }
 interface GameSave {
-  format: "threecat.save";
+  format: "pelican.save";
   version: 1;
   engineVersion: string;
   gameId: string;
@@ -549,6 +635,13 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
   loadingContent = true;
   let nextScope: ResourceScope | undefined;
   let nextGameplay: GameplayContent | undefined;
+  let nextRender: ReturnType<typeof createRenderSettingsDriver> | undefined;
+  let nextCompute: ReturnType<typeof createComputeDriver> | undefined;
+  let nextPostComposer: ReturnType<typeof createPostProcessComposer> | undefined;
+  let nextVertexBounds: ReturnType<typeof createVertexBoundsOwner> | undefined;
+  let nextComputeExecutor: ReturnType<typeof createComputeExecutor> | undefined;
+  let nextRenderBufferBridge: ReturnType<typeof createRenderBufferBridge> | undefined;
+  let nextRenderTextureBridge: ReturnType<typeof createRenderTextureBridge> | undefined;
   let candidate: RuntimeHost | undefined;
   let candidateGame: { update(dt: number): void; dispose(): void } | undefined;
   let attached = false;
@@ -574,7 +667,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     const ir = structuredClone(
       resourceManager.get(sceneLease.handle),
     ) as SceneIR;
-    if (!ir || ir.format !== "threecat.scene" || ir.version !== 1)
+    if (!ir || ir.format !== "pelican.scene" || ir.version !== 1)
       throw new Error("TC_IR_VERSION");
     if (sceneId && sceneId !== ir.scene.id) {
       const selected = ir.scenes?.find((entry) => entry.id === sceneId);
@@ -587,7 +680,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     }
     if (
       saved &&
-      (saved.format !== "threecat.save" ||
+      (saved.format !== "pelican.save" ||
         saved.version !== 1 ||
         saved.engineVersion !== SDK_VERSION ||
         saved.gameId !== ir.gameId ||
@@ -599,7 +692,9 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       throw new Error(
         "TC_SAVE_VERSION: Save does not match this game version and asset set.",
       );
+    // Normal games have SDK services even when their content is only primitives.
     if (
+      !probeEnabled ||
       ir.input ||
       ir.ui ||
       ir.sounds ||
@@ -614,8 +709,34 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
         ir,
         new URL(import.meta.env.BASE_URL + "generated/", document.baseURI).href,
         renderer,
+        nextMaterials,
       );
-    candidate = new RuntimeHost(ir, { plugins: nextGameplay?.plugins });
+    nextComputeExecutor = backendKind === "webgpu" && (ir.computes.length || ir.computeBuffers?.length || ir.computeTextures?.length) ? createComputeExecutor(device) : undefined;
+    nextCompute = createComputeDriver({
+      kernels: ir.computes,
+      buffers: ir.computeBuffers,
+      textures: ir.computeTextures,
+      textureAssets: createComputeTextureAssets(nextGameplay?.textures ?? new Map()),
+      capabilities: () => renderCapabilities(backendKind),
+      time: () => candidate?.facade.time.elapsed ?? 0,
+      executor: nextComputeExecutor,
+    });
+    nextRender = createRenderSettingsDriver(ir.render ?? {}, ir.materials, () => renderCapabilities(backendKind), ir.postProcesses, {
+      describe: handle => { const descriptor = nextCompute!.service.describeBuffer(handle); return { id: descriptor.id, type: descriptor.type, count: descriptor.count }; },
+      resource: id => nextCompute!.resource(id),
+      setPins: ids => nextCompute!.setRenderPins(ids),
+    }, {
+      describe: handle => { const { id, width, height, format } = nextCompute!.service.describeTexture(handle); return { id, width, height, format }; },
+      resource: id => nextCompute!.textureResource(id),
+      setPins: ids => nextCompute!.setRenderPins(ids),
+    });
+    if (usesRenderSlots(ir))
+      nextRenderBufferBridge = createRenderBufferBridge(renderer, () => computeExecutor, id => slotResources(nextRender!, id));
+    if (usesRenderTextures(ir))
+      nextRenderTextureBridge = createRenderTextureBridge(renderer, () => computeExecutor, id => textureResources(nextRender!, id));
+    candidate = new RuntimeHost(ir, {
+      plugins: [nextRender.factory, nextCompute.factory, ...(nextGameplay?.plugins ?? [])],
+    });
     const gameURL = new URL(
       `${import.meta.env.BASE_URL}generated/game.js`,
       document.baseURI,
@@ -631,6 +752,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     candidateGame = module.createGame(candidate.facade);
     candidate.attach(candidateGame);
     attached = true;
+    if (ir.postProcesses?.length) nextPostComposer = createPostProcessComposer(renderer, width, height, ir.postProcesses, nextGameplay?.textures ?? new Map(), nextRenderBufferBridge, nextRenderTextureBridge);
     const nextCamera = {
       position: [...ir.scene.camera.position],
       target: [...ir.scene.camera.target],
@@ -643,22 +765,58 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     );
     nextRoot.add(ambient);
     for (const definition of ir.materials) {
-      const material = new THREE.MeshStandardNodeMaterial({
+      const Material =
+        (definition.transmission ?? 0) > 0 || definition.ior !== undefined || definition.specularIntensity !== undefined || definition.specularColor !== undefined
+          ? THREE.MeshPhysicalNodeMaterial
+          : THREE.MeshStandardNodeMaterial;
+      const material = new Material({
         color: definition.color,
         roughness: definition.roughness,
         metalness: definition.metalness,
+        emissive: definition.emissive ?? "#000000",
+        emissiveIntensity: definition.emissiveIntensity ?? 1,
+        opacity: definition.opacity ?? 1,
+        transparent: (definition.opacity ?? 1) < 1,
+        alphaTest: definition.alphaTest ?? 0,
+        side:
+          definition.side === "double"
+            ? THREE.DoubleSide
+            : definition.side === "back"
+              ? THREE.BackSide
+              : THREE.FrontSide,
       });
+      if (material instanceof THREE.MeshPhysicalNodeMaterial) {
+        material.transmission = definition.transmission ?? 0;
+        material.ior = definition.ior ?? 1.5;
+        material.specularIntensity = definition.specularIntensity ?? 1;
+        material.specularColor.set(definition.specularColor ?? "#ffffff");
+        material.attenuationColor.set(definition.attenuationColor ?? "#ffffff");
+        material.attenuationDistance =
+          definition.attenuationDistance ?? Infinity;
+      }
+      material.name = definition.id;
       if (definition.texture)
         material.map = nextGameplay!.textures.get(definition.texture)!;
       nextMaterials.set(definition.id, material);
-      if (definition.graph) {
-        material.colorNode = graphToTSL(definition.graph, graphTime);
-        nextGraphs.push({ material, graph: definition.graph });
+      if (definition.graph || definition.graphs || definition.vertex) {
+        const graphs = { ...(definition.graph ? { baseColor: definition.graph } : {}), ...definition.graphs };
+        const uniforms = new Map<string, ReturnType<typeof uniform>>();
+        for (const p of definition.parameters ?? []) {
+          const value = Array.isArray(p.default) ? p.default.length === 2 ? new THREE.Vector2(...p.default as [number,number]) : p.default.length === 3 ? new THREE.Vector3(...p.default as [number,number,number]) : new THREE.Vector4(...p.default as [number,number,number,number]) : p.default;
+          uniforms.set(p.name, (uniform as any)(value, p.type));
+        }
+        const textures = nextGameplay?.textures ?? new Map<string, THREE.Texture>();
+        const binding: MaterialGraphBinding = { id: definition.id, graphs, ...(definition.vertex ? { vertex: definition.vertex } : {}), time: 0, parameters: nextRender.service.materialParameters(definition.id), textures };
+        if (Object.keys(materialSlotTypes(binding)).length) binding.buffers = nextRender.buffers.resources(definition.id);
+        if (Object.keys(materialTextureTypes(binding)).length) binding.managedTextures = nextRender.textures.resources(definition.id);
+        applyMaterialGraphs(material, binding, uniforms, nextRenderBufferBridge, nextRenderTextureBridge);
+        material.userData.pelicanGraphInputs = [...new Set([...Object.values(graphs), ...Object.values(definition.vertex ?? {})].flatMap(graph => graph.requiredInputs ?? []))];
+        nextGraphs.push({ material, graph: definition.graph, binding, uniforms });
       }
     }
     for (const entity of ir.scene.entities) {
       const node = createEntityView(entity, nextMaterials);
-      node.userData.threecatPrefab = entity.prefab;
+      node.userData.pelicanPrefab = entity.prefab;
       if (entity.model)
         nextGameplay!.models.instantiate(entity.id, entity.model, node);
       node.position.fromArray(entity.transform.position);
@@ -671,21 +829,54 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     for (const entity of ir.scene.entities)
       if (entity.parent)
         nextObjects.get(entity.parent)!.add(nextObjects.get(entity.id)!);
+    nextRoot.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        for (const input of material.userData.pelicanGraphInputs ?? [])
+          if ((input === "uv" || input === "uv1") && !object.geometry.hasAttribute(input)) throw new Error(`TC_GRAPH_UV: Material ${material.name} requires ${input} on object ${object.name || object.uuid}.`);
+        if (material.userData.pelicanVertexNormal && !object.geometry.hasAttribute("normal")) throw new Error("TC_VERTEX_NORMAL_ATTRIBUTE: Vertex normal graphs require a normal attribute.");
+      }
+    });
     if (saved) {
       if (loadSlot)
         nextGameplay?.services.adoptStorageRequest("load", loadSlot);
       candidate.restore(saved.runtime);
+    }
+    if (nextGraphs.some(item => item.binding.vertex)) {
+      nextVertexBounds = createVertexBoundsOwner();
+      for (const item of nextGraphs) {
+        item.binding.time = candidate.inspect().scheduler.tick / 60;
+        item.binding.parameters = nextRender.service.materialParameters(item.binding.id);
+        if (item.binding.buffers) item.binding.buffers = nextRender.buffers.resources(item.binding.id);
+        if (item.binding.managedTextures) item.binding.managedTextures = nextRender.textures.resources(item.binding.id);
+      }
+      const boundsScene = new THREE.Scene();
+      boundsScene.add(nextRoot);
+      nextVertexBounds.update(boundsScene, new Map(nextGraphs.map(item => [item.material, item.binding])));
+      nextRoot.removeFromParent();
     }
     if (disposed) throw new Error("TC_BROWSER_DISPOSED");
     // No await in commit: a complete host/view/scope replaces the previous content together.
     const previous = runtime,
       previousScope = contentScope,
       previousMaterials = gameMaterials,
-      previousGameplay = gameplay;
+      previousGameplay = gameplay,
+      previousPostComposer = postComposer,
+      previousVertexBounds = vertexBounds,
+      previousRenderBufferBridge = renderBufferBridge,
+      previousRenderTextureBridge = renderTextureBridge;
     const previousRoot = new THREE.Group();
     if (gameRoot.children.length) previousRoot.add(...gameRoot.children);
     compiledIR = ir;
     runtime = candidate;
+    renderControl = nextRender;
+    computeControl = nextCompute;
+    computeExecutor = nextComputeExecutor;
+    renderBufferBridge = nextRenderBufferBridge;
+    renderTextureBridge = nextRenderTextureBridge;
+    postComposer = nextPostComposer;
+    vertexBounds = nextVertexBounds;
+    surfaceTracer?.clearContent();
     gameplay = nextGameplay;
     contentScope = nextScope;
     gameMaterials = nextMaterials;
@@ -723,6 +914,10 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       errors.push(`TC_CONTENT_CLEANUP: ${String(error)}`);
     }
     await previousGameplay?.dispose();
+    previousPostComposer?.dispose();
+    previousVertexBounds?.dispose();
+    previousRenderBufferBridge?.dispose();
+    previousRenderTextureBridge?.dispose();
     releaseObject(previousRoot);
     for (const material of previousMaterials.values()) material.dispose();
     await previousScope?.release();
@@ -742,6 +937,12 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
         errors.push(`TC_CONTENT_CLEANUP: ${String(cleanupError)}`);
       }
       await nextGameplay?.dispose();
+      nextRender?.dispose();
+      nextCompute?.dispose();
+      nextPostComposer?.dispose();
+      nextVertexBounds?.dispose();
+      nextRenderBufferBridge?.dispose();
+      nextRenderTextureBridge?.dispose();
       releaseObject(nextRoot);
       for (const material of nextMaterials.values()) material.dispose();
       await nextScope?.release();
@@ -753,6 +954,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
 }
 /** Only completed fixed ticks may request browser persistence or scene transactions. */
 async function processGameRequests() {
+  await computeControl?.flush();
   if (!gameplay || !compiledIR || !runtime) return;
   const requests = gameplay.services.takeRequests();
   for (const request of requests) {
@@ -761,12 +963,12 @@ async function processGameRequests() {
       continue;
     }
     const slot = request.id;
-    const key = "threecat:" + compiledIR.gameId + ":" + slot;
+    const key = "pelican:" + compiledIR.gameId + ":" + slot;
     try {
       if (request.type === "save") {
         syncRuntime();
         const saved: GameSave = {
-          format: "threecat.save",
+          format: "pelican.save",
           version: 1,
           engineVersion: SDK_VERSION,
           gameId: compiledIR.gameId,
@@ -796,10 +998,20 @@ function animate() {
   const time = tick / 60;
   graphTime.value = time;
   for (const item of materialGraphs) {
-    const value = evaluateGraph(item.graph!, time);
-    item.material.color.fromArray(
-      typeof value === "number" ? [value, value, value] : value,
-    );
+    item.binding.time = time;
+    item.binding.parameters = renderControl!.service.materialParameters(item.binding.id);
+    if (item.binding.buffers) item.binding.buffers = renderControl!.buffers.resources(item.binding.id);
+    if (item.binding.managedTextures) item.binding.managedTextures = renderControl!.textures.resources(item.binding.id);
+    for (const [name, parameter] of item.uniforms) {
+      const value = item.binding.parameters[name];
+      if (Array.isArray(value)) (parameter.value as THREE.Vector2 | THREE.Vector3 | THREE.Vector4).fromArray(value);
+      else parameter.value = value as any;
+    }
+    if (probeEnabled && item.graph) {
+      const value = evaluateGraph(item.graph, time);
+      if (typeof value === "boolean") throw Error("TC_GRAPH_TYPE: Legacy color graph must return vec3.");
+      item.material.color.fromArray(typeof value === "number" ? [value,value,value] : [...value]);
+    }
   }
   box.position.x = -1.6 + Math.sin(time) * 0.65;
   box.rotation.y = time * 0.5;
@@ -815,6 +1027,7 @@ function animate() {
     camera.lookAt(target);
   }
   camera.updateMatrixWorld();
+  vertexBounds?.update(scene, new Map(materialGraphs.map(item => [item.material, item.binding])));
   gameplay?.present(camera, gameObjects, playing ? 1 / 60 : 0, tick);
 }
 function updateTraceGeometry() {
@@ -869,13 +1082,122 @@ function cameraFrame() {
     ambient: compiledIR?.scene.environment.ambientIntensity ?? 1,
   };
 }
-async function draw(accumulate = false, changed = true) {
+function draw(accumulate = false, changed = true) {
+  const operation = drawTail.then(async () => {
+    document.documentElement.dataset.pelicanFrameState = "drawing";
+    try {
+      await drawFrame(accumulate, changed);
+      frameSerial++;
+      document.documentElement.dataset.pelicanFrameSerial =
+        String(frameSerial);
+    } finally {
+      document.documentElement.dataset.pelicanFrameState = "idle";
+    }
+  });
+  drawTail = operation.catch(() => {});
+  return operation;
+}
+async function drawFrame(accumulate = false, changed = true) {
   if (disposed) throw new Error("TC_BROWSER_DISPOSED");
+  await computeControl?.flush();
   const start = performance.now();
   syncRuntime();
   animate();
+  renderBufferBridge?.update();
+  renderTextureBridge?.update();
+  const settings =
+    renderControl?.service.state() ?? resolveRenderSettings({ mode });
+  const effects = postComposer && renderControl?.postProcesses.states().some(effect => effect.enabled) ? postComposer : undefined;
+  validateRenderCapabilities(settings, renderCapabilities(backendKind));
+  if (mode !== settings.mode) setMode(settings.mode);
+  if (probeEnabled && vertexBounds) throw new Error("TC_VERTEX_PROBE_UNSUPPORTED: Vertex graphs require a normal game scene, not the historical tracing sidecar.");
+  rasterCanvas.style.display = mode === "raster" || effects ? "block" : "none";
+  traceCanvas.style.display = mode === "raster" || effects ? "none" : "block";
+  if (effects && probeEnabled) throw new Error("TC_POSTPROCESS_PROBE_UNSUPPORTED: Controlled effects require a normal game scene, not the historical M0 tracing sidecar.");
+  if (mode !== "raster" && !probeEnabled) {
+    if (!surfaceTracer) {
+      if (!legacyTracerDisposed) {
+        tracer.dispose();
+        legacyTracerDisposed = true;
+      }
+      const controller = new AbortController();
+      const ownedDevice = device;
+      pendingSurface = controller;
+      const retain = (candidate: SurfaceTracer) => {
+        if (controller.signal.aborted || disposed || device !== ownedDevice) {
+          candidate.dispose();
+          throw new Error("TC_TRACE_CANCELLED: Surface initialization owner changed.");
+        }
+        return candidate;
+      };
+      try {
+        const candidate = await boundedOperation(SurfaceTracer.create(
+          device,
+          traceCanvas,
+          width,
+          height,
+          renderer,
+          reportFailure,
+          import.meta.env.DEV,
+          controller.signal,
+        ).then(retain), "surface renderer initialization");
+        surfaceTracer = retain(candidate);
+      } finally {
+        controller.abort();
+        if (pendingSurface === controller) pendingSurface = undefined;
+      }
+      changed = true;
+    }
+    const surfaceState = surfaceTracer.inspect();
+    const needsMotion = settings.denoise && settings.debug === "beauty";
+    if (
+      changed ||
+      surfaceState.triangleCount === 0 ||
+      surfaceState.motion.enabled !== needsMotion
+    )
+      await boundedOperation(
+        surfaceTracer.update(
+          scene,
+          new Set(materialGraphs.map((item) => item.material)),
+          needsMotion,
+          new Map(materialGraphs.map(item => [item.material, item.binding])),
+          computeExecutor,
+        ),
+        "surface content capture",
+      );
+    if (effects) await surfaceTracer.prepareLinearPresentation();
+    submitMs = surfaceTracer.render(camera, settings, effects?.traceTargets());
+    if (effects) effects.present(renderControl!.postProcesses, tick / 60, settings);
+    const report = surfaceTracer.inspect();
+    triangleCount = report.triangleCount;
+    nodeCount = report.nodeCount;
+    bvhMs =
+      (report.acceleration?.metrics.refitMs ?? 0) +
+      (report.acceleration?.metrics.buildMs ?? 0);
+    uploadMs = report.uploadMs;
+    metrics.push({
+      frame: tick,
+      bvhMs,
+      uploadMs,
+      submitMs,
+      wallMs: performance.now() - start,
+      simulationMs: lastStepCpuMs,
+    });
+    if (metrics.length > 2000) metrics.shift();
+    status.hidden = false;
+    status.textContent = runtimeStatus({
+      backend: backendKind,
+      mode,
+      playing,
+      automation: startup.automation,
+      tick,
+      triangles: triangleCount,
+      faulted: terminalFault,
+    });
+    return;
+  }
   if (changed) {
-    if (gameplay && mode === "raster") {
+    if ((gameplay || legacyTracerDisposed || backendKind === "webgl2") && mode === "raster") {
       // Raster does not consume a CPU BVH. Count authored triangles without rebuilding/uploading tracing buffers.
       triangleCount = 0;
       scene.traverseVisible((object) => {
@@ -889,7 +1211,13 @@ async function draw(accumulate = false, changed = true) {
       uploadMs = 0;
     } else updateTraceGeometry();
   }
-  if (mode !== "path") renderer.render(scene, camera);
+  renderer.toneMappingExposure = settings.exposure;
+  if (mode !== "path") {
+    if (effects) {
+      effects.captureRaster(scene, camera);
+      effects.present(renderControl!.postProcesses, tick / 60, settings);
+    } else renderer.render(scene, camera);
+  }
   if (mode !== "raster")
     submitMs = tracer.renderFrame(cameraFrame(), mode, accumulate);
   else submitMs = 0;
@@ -902,8 +1230,9 @@ async function draw(accumulate = false, changed = true) {
     simulationMs: lastStepCpuMs,
   });
   if (metrics.length > 2000) metrics.shift();
-  status.hidden = Boolean(gameplay);
+  status.hidden = false;
   status.textContent = runtimeStatus({
+    backend: backendKind,
     mode,
     playing,
     automation: startup.automation,
@@ -912,11 +1241,11 @@ async function draw(accumulate = false, changed = true) {
     faulted: terminalFault,
   });
 }
-function applyInput(key: string) {
+async function applyInput(key: string) {
   if (!probeEnabled) {
     const host = requireRuntime();
     host.input(key, true);
-    if (!playing) stepRuntime();
+    if (!playing) await stepRuntime();
     syncRuntime();
     tick = host.inspect().scheduler.tick;
     return;
@@ -944,12 +1273,38 @@ function onKeyDown(event: KeyboardEvent) {
     )
       event.preventDefault();
     gameplay?.unlockAudio();
-    inputLog.push({ tick, key: event.key });
-    applyInput(event.key);
-    void draw(false, true).catch(reportFailure);
+    queueNativeInput(async () => {
+      inputLog.push({ tick, key: event.key });
+      await applyInput(event.key);
+      if (!playing) requestInputDraw();
+    });
   } catch (error) {
     reportFailure(error);
   }
+}
+function requestInputDraw() {
+  inputDrawRequested = true;
+  if (inputDrawActive) return;
+  inputDrawActive = true;
+  void (async () => {
+    try {
+      while (inputDrawRequested && !playing && !disposed) {
+        inputDrawRequested = false;
+        await draw(false, true);
+      }
+    } catch (error) {
+      if (!disposed) reportFailure(error);
+    } finally {
+      inputDrawActive = false;
+    }
+  })();
+}
+function queueNativeInput(operation: () => void | Promise<void>) {
+  nativeInputTail = nativeInputTail.then(async () => {
+    await tickTail;
+    if (disposed || terminalFault || loadingContent || restoring || !runtime) return;
+    await operation();
+  }).catch(error => { if (!disposed) reportFailure(error); });
 }
 function onKeyUp(event: KeyboardEvent) {
   if (gameplay?.consumesKeyboard(event)) return;
@@ -962,15 +1317,11 @@ function onKeyUp(event: KeyboardEvent) {
     probeEnabled
   )
     return;
-  try {
-    requireRuntime().input(event.key, false);
-  } catch (error) {
-    reportFailure(error);
-  }
+  queueNativeInput(() => { requireRuntime().input(event.key, false); });
 }
 window.addEventListener("keydown", onKeyDown);
 window.addEventListener("keyup", onKeyUp);
-function stepRuntime() {
+async function stepRuntime() {
   const started = performance.now();
   const host = requireRuntime();
   if (terminalFault)
@@ -978,7 +1329,12 @@ function stepRuntime() {
       "TC_BROWSER_FAULTED: Restore a valid checkpoint or reload content before stepping.",
     );
   try {
-    host.step(1);
+    const operation = tickTail.then(async () => {
+      if (disposed || host !== runtime) throw new Error("TC_BROWSER_DISPOSED: Tick owner changed.");
+      await host.stepAsync(1);
+    });
+    tickTail = operation.catch(() => {});
+    await operation;
     tick = host.inspect().scheduler.tick;
     simulation?.step();
   } catch (error) {
@@ -990,14 +1346,16 @@ function stepRuntime() {
   }
 }
 function setMode(next: typeof mode) {
-  if (next !== "raster" && gameplay)
-    throw new Error(
-      "TC_TRACE_STAGE: Textured GLB game rendering currently requires raster; full material path tracing is planned for M3.",
-    );
+  if (next !== "raster") requireCompute(renderCapabilities(backendKind), next);
+  if (next !== mode) {
+    surfaceTracer?.invalidateTemporal();
+    postComposer?.resetHistory("mode");
+  }
   mode = next;
-  rasterCanvas.style.display = next === "path" ? "none" : "block";
+  document.documentElement.dataset.pelicanMode = next;
+  rasterCanvas.style.display = next === "raster" ? "block" : "none";
   traceCanvas.style.display = next === "raster" ? "none" : "block";
-  traceCanvas.style.opacity = next === "hybrid" ? "0.35" : "1";
+  traceCanvas.style.opacity = "1";
 }
 function inspect(options?: InspectPage) {
   const bounded =
@@ -1011,15 +1369,32 @@ function inspect(options?: InspectPage) {
     ? selectInspectRecords(runtimeState?.records ?? [], options)
     : undefined;
   return {
-    ready: !disposed && !terminalFault,
+    ready: !disposed && !terminalFault && !recoveringGpu,
     playback: {
       playing,
       automation: startup.automation,
       state: terminalFault ? "faulted" : playing ? "running" : "paused",
     },
-    backend: "WebGPUBackend",
+    backend: backendKind === "webgpu" ? "WebGPUBackend" : backendKind === "webgl2" ? "WebGLBackend" : "uninitialized",
     adapter: adapterInfo,
     mode,
+    rendering: {
+      postProcesses: postComposer?.inspect(),
+      vertex: vertexBounds?.inspect(),
+      bufferBindings: renderBufferBridge?.inspect(),
+      textureBindings: renderTextureBridge?.inspect(),
+      computeGpu: computeExecutor?.inspect(),
+      effectStates: renderControl?.postProcesses.states(),
+      compute: computeControl?.inspect(),
+      backendDiagnostic: backendKind === "webgl2" ? { code: "TC_RENDER_WEBGL2_FALLBACK", severity: "info", message: "WebGPU initialization unavailable; using Three.js built-in WebGL2 fallback. Available modes: raster." } : null,
+      settings: renderControl?.service.state(),
+      surface: surfaceTracer?.inspect(),
+      gpuRecovery: {
+        active: recoveringGpu,
+        count: recoveryCount,
+        events: [...recoveryEvents],
+      },
+    },
     tick,
     width,
     height,
@@ -1065,18 +1440,8 @@ function inspect(options?: InspectPage) {
     world: world?.inspect(),
     metrics: [...metrics],
     capabilities: {
-      tracer: "software-triangle-BVH",
-      hardwareRT: false,
-      denoiser: false,
-      hybrid: "raster + traced image compositing prototype",
-      pathBounces: 5,
-      tracedLights:
-        "first authored light only; raster also contains private probe lights",
-      textures: gameplay
-        ? "GLB PBR and base-color textures in raster"
-        : "no authored texture assets",
-      experimentalProbes:
-        "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules",
+      ...renderCapabilities(backendKind),
+      ...inspectTraceCapabilities({ backend: backendKind, legacyProbe: probeEnabled, surfaceInitialized: !!surfaceTracer, gameplay: !!gameplay, maxBounces: renderControl?.service.state().maxBounces ?? 5 }),
     },
   };
 }
@@ -1087,9 +1452,10 @@ async function disposeBrowser() {
   lastFrameTime = undefined;
   if (frameRequest !== undefined) cancelAnimationFrame(frameRequest);
   frameRequest = undefined;
-  document.documentElement.dataset.threecatReady = "false";
+  document.documentElement.dataset.pelicanReady = "false";
   window.removeEventListener("keydown", onKeyDown);
   window.removeEventListener("keyup", onKeyUp);
+  rasterCanvas.removeEventListener("webglcontextrestored", onContextRestored);
   window.removeEventListener("pagehide", onPageHide);
   const pending: Promise<unknown>[] = [];
   const clean = (action: () => unknown) => {
@@ -1102,13 +1468,27 @@ async function disposeBrowser() {
     }
   };
   clean(() => runtime?.dispose());
+  clean(() => computeControl?.dispose());
+  clean(() => postComposer?.dispose());
+  clean(() => vertexBounds?.dispose());
+  clean(() => renderBufferBridge?.dispose());
+  clean(() => renderTextureBridge?.dispose());
   clean(() => gameplay?.dispose());
   clean(() => simulation?.dispose());
   clean(() => world?.dispose());
   clean(() => resourceManager.dispose());
   clean(() => releaseObject(scene, true, gameMaterials.values()));
+  clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());
-  clean(() => renderer?.dispose());
+  clean(() => surfaceTracer?.dispose());
+  clean(async () => {
+    const gl = backendKind === "webgl2" ? rasterCanvas.getContext("webgl2") : null;
+    try {
+      await renderer?.dispose();
+    } finally {
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    }
+  });
   clean(() => device?.destroy());
   gameObjects.clear();
   gameMaterials.clear();
@@ -1119,6 +1499,14 @@ async function disposeBrowser() {
   topologyObjects.length = 0;
   compiledIR = null;
   runtime = undefined;
+  renderControl = undefined;
+  computeControl = undefined;
+  postComposer = undefined;
+  vertexBounds = undefined;
+  computeExecutor = undefined;
+  renderBufferBridge = undefined;
+  renderTextureBridge = undefined;
+  gameplay = undefined;
   simulation = undefined;
   world = undefined;
   contentScope = undefined;
@@ -1135,64 +1523,148 @@ function onPageHide() {
   void disposeBrowser();
 }
 window.addEventListener("pagehide", onPageHide);
-async function boot() {
-  if (!navigator.gpu)
-    throw new Error("TC_GPU_UNAVAILABLE: WebGPU API is not available");
-  const adapter = await boundedOperation(
-    navigator.gpu.requestAdapter({
-      powerPreference: "high-performance",
-    }),
-    "requestAdapter",
-  );
-  if (!adapter) throw new Error("TC_GPU_ADAPTER_UNAVAILABLE");
-  if (adapter.info.isFallbackAdapter)
-    throw new Error("TC_GPU_SOFTWARE_ADAPTER");
-  adapterInfo = {
-    vendor: adapter.info.vendor,
-    architecture: adapter.info.architecture,
-    isFallbackAdapter: adapter.info.isFallbackAdapter,
-    features: [...adapter.features],
-  };
-  device = await boundedOperation(
-    adapter
-      .requestDevice({
-        requiredFeatures: adapter.features.has("timestamp-query")
-          ? ["timestamp-query"]
-          : [],
-      })
-      .then((candidate) => {
-        if (disposed) candidate.destroy();
-        return candidate;
-      }),
-    "requestDevice",
-  );
-  if (disposed) {
-    device.destroy();
-    return;
-  }
-  device.addEventListener("uncapturederror", (event) =>
-    errors.push(event.error.message),
-  );
-  device.lost.then((info) => {
-    if (disposed) return;
-    reportFailure(
-      new Error(`TC_GPU_DEVICE_LOST:${info.reason}: ${info.message}`),
-    );
-    void disposeBrowser();
-  });
-  const backend = new THREE.WebGPUBackend({ device, canvas: rasterCanvas });
-  renderer = new THREE.Renderer(backend, { antialias: true });
-  renderer.library = new THREE.StandardNodeLibrary();
+async function initializeGpu() {
+  let abandoned = false;
+  const candidate = new THREE.WebGPURenderer({ canvas: rasterCanvas, antialias: true, powerPreference: "high-performance" });
+  renderer = candidate;
   renderer.setPixelRatio(1);
   renderer.setSize(width, height);
   renderer.shadowMap.enabled = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  await boundedOperation(renderer.init(), "renderer initialization");
+  renderer.onDeviceLost = (info) => {
+    if (disposed || renderer !== candidate) return;
+    if (info.api === "WebGL") {
+      lostRenderers.add(candidate);
+      if (recoveringGpu) return;
+      contextWasPlaying = playing;
+      playing = false;
+      recoveringGpu = true;
+      waitingForWebglRestore = true;
+      document.documentElement.dataset.pelicanReady = "false";
+      recoveryEvents.push({ phase: "lost", reason: "TC_RENDER_CONTEXT_LOST: WebGL2 context lost; waiting for browser restoration.", tick });
+      status.hidden = false;
+      status.textContent = "WebGL2 · TC_RENDER_CONTEXT_LOST";
+    }
+  };
+  try {
+    await boundedOperation(candidate.init().then(async () => {
+      if (abandoned || disposed || renderer !== candidate) await candidate.dispose();
+    }), "renderer initialization");
+  } catch (error) {
+    abandoned = true;
+    throw new Error("TC_RENDER_BACKEND_UNAVAILABLE: WebGPU and built-in WebGL2 fallback could not initialize. Enable a supported graphics backend and reload. " + String(error));
+  }
   if (disposed) return;
-  if (!(renderer.backend as THREE.WebGPUBackend).isWebGPUBackend)
-    throw new Error("TC_GPU_WRONG_BACKEND");
+  // Backend objects stay private; only plain capability data crosses the SDK boundary.
+  const backend = candidate.backend as unknown as { isWebGLBackend?: boolean; device?: GPUDevice };
+  backendKind = backend.isWebGLBackend ? "webgl2" : "webgpu";
+  document.documentElement.dataset.pelicanBackend = backendKind;
+  adapterInfo = undefined;
+  legacyTracerDisposed = backendKind !== "webgpu";
+  if (backendKind === "webgl2") return;
+  if (!backend.device) throw new Error("TC_RENDER_BACKEND_UNAVAILABLE: Initialized backend has no compute device.");
+  device = backend.device;
+  const identity = device.adapterInfo;
+  adapterInfo = {
+    vendor: identity.vendor,
+    architecture: identity.architecture,
+    isFallbackAdapter: identity.isFallbackAdapter,
+    features: [...device.features],
+  };
+  const ownedDevice = device;
+  device.addEventListener("uncapturederror", (event) => {
+    if (!disposed && device === ownedDevice && !recoveringGpu)
+      reportFailure(new Error("TC_GPU_VALIDATION: " + event.error.message));
+  });
+  void device.lost.then((info) => {
+    lostDevices.add(ownedDevice);
+    if (disposed || device !== ownedDevice || recoveringGpu) return;
+    recoveryTask = recoverGpu(info);
+    void recoveryTask.catch((error) => {
+      reportFailure(error);
+    });
+  });
   status.textContent = "GPU tracer";
   tracer = new GPUTracer(device, traceCanvas, width, height);
+  legacyTracerDisposed = false;
+}
+async function submittedWork(label = "GPU submission") {
+  if (backendKind === "webgpu") await boundedOperation(device.queue.onSubmittedWorkDone(), label);
+}
+function onContextRestored() {
+  if (disposed || backendKind !== "webgl2" || !waitingForWebglRestore) return;
+  waitingForWebglRestore = false;
+  recoveringGpu = false;
+  playing = contextWasPlaying;
+  recoveryTask = recoverGpu({ reason: "unknown", message: "WebGL2 context restored" });
+  void recoveryTask.catch(reportFailure);
+}
+rasterCanvas.addEventListener("webglcontextrestored", onContextRestored);
+async function recoverGpu(info: Pick<GPUDeviceLostInfo, "reason" | "message">) {
+  const wasPlaying = playing;
+  recoveringGpu = true;
+  playing = false;
+  lastFrameTime = undefined;
+  document.documentElement.dataset.pelicanReady = "false";
+  status.hidden = false;
+  status.textContent = `Rebuilding ${backendKind} resources`;
+  recoveryEvents.push({
+    phase: "lost",
+    reason: info.reason + ": " + info.message,
+    tick,
+  });
+  try {
+    pendingSurface?.abort();
+    renderBufferBridge?.dispose();
+    renderBufferBridge = undefined;
+    renderTextureBridge?.dispose();
+    renderTextureBridge = undefined;
+    computeControl?.replaceExecutor(undefined);
+    postComposer?.dispose();
+    postComposer = undefined;
+    surfaceTracer?.dispose();
+    surfaceTracer = undefined;
+    tracer?.dispose();
+    await renderer?.dispose();
+    await initializeGpu();
+    if (disposed) return;
+    computeExecutor = backendKind === "webgpu" && (compiledIR?.computes.length || compiledIR?.computeBuffers?.length || compiledIR?.computeTextures?.length) ? createComputeExecutor(device) : undefined;
+    computeControl?.replaceExecutor(computeExecutor);
+    if (compiledIR && usesRenderSlots(compiledIR)) {
+      renderBufferBridge = createRenderBufferBridge(renderer, () => computeExecutor, id => slotResources(renderControl!, id));
+    }
+    if (compiledIR && usesRenderTextures(compiledIR)) renderTextureBridge = createRenderTextureBridge(renderer, () => computeExecutor, id => textureResources(renderControl!, id));
+    for (const item of materialGraphs) applyMaterialGraphs(item.material, item.binding, item.uniforms, renderBufferBridge, renderTextureBridge);
+    if (gameplay)
+      scene.environment =
+        (await gameplay.rebuildGpuResources(renderer)) ?? null;
+    if (compiledIR?.postProcesses?.length)
+      postComposer = createPostProcessComposer(renderer, width, height, compiledIR.postProcesses, gameplay?.textures ?? new Map(), renderBufferBridge, renderTextureBridge);
+    await draw(false, true);
+    if (disposed) return;
+    if (lostRenderers.has(renderer) || (backendKind === "webgpu" && lostDevices.has(device)))
+      throw new Error("TC_GPU_RECOVERY_DEVICE_LOST: Replacement backend was lost during reconstruction. Reload after restoring graphics availability.");
+    terminalFault = false;
+    delete document.documentElement.dataset.pelicanFailure;
+    document.documentElement.dataset.pelicanReady = "true";
+    recoveryCount++;
+    recoveryEvents.push({
+      phase: "restored",
+      reason: backendKind === "webgpu" ? "new WebGPU device" : "new WebGL2 renderer",
+      tick,
+    });
+    playing = wasPlaying;
+    lastFrameTime = undefined;
+  } catch (error) {
+    playing = false;
+    recoveryEvents.push({ phase: "failed", reason: String(error), tick });
+    throw new Error("TC_GPU_RECOVERY_FAILED: " + String(error));
+  } finally {
+    recoveringGpu = false;
+  }
+}
+async function boot() {
+  await initializeGpu();
   status.textContent = "Loading compiled game";
   await boundedOperation(loadGame(), "compiled content initialization");
   status.textContent = "Drawing compiled game";
@@ -1200,14 +1672,54 @@ async function boot() {
   await draw();
   const api = {
     inspect,
+    configureRendering: async (settings: Partial<RenderSettings>) => {
+      requireRuntime().facade.render.configure(settings);
+      await draw(false, true);
+      await submittedWork("render settings frame");
+      return inspect();
+    },
+    exerciseDeviceLoss: async () => {
+      requireRuntime();
+      requireCompute(renderCapabilities(backendKind), "Device loss probe");
+      const lost = device;
+      lost.destroy();
+      await boundedOperation(lost.lost, "injected device loss");
+      await Promise.resolve();
+      if (!recoveryTask) throw new Error("TC_GPU_RECOVERY_NOT_STARTED");
+      await boundedOperation(recoveryTask, "device recovery", 60000);
+      if (device === lost) throw new Error("TC_GPU_RECOVERY_DEVICE_UNCHANGED");
+      return inspect();
+    },
+    exerciseContextLoss: async () => {
+      requireRuntime();
+      if (backendKind !== "webgl2") throw new Error("TC_RENDER_CONTEXT_PROBE_BACKEND: This probe requires WebGL2.");
+      const gl = rasterCanvas.getContext("webgl2")!;
+      const extension = gl.getExtension("WEBGL_lose_context");
+      if (!extension) throw new Error("TC_RENDER_CONTEXT_PROBE_UNAVAILABLE: Browser does not expose WEBGL_lose_context.");
+      const lost = new Promise<void>((resolve) => rasterCanvas.addEventListener("webglcontextlost", () => resolve(), { once: true }));
+      const restored = new Promise<void>((resolve) => rasterCanvas.addEventListener("webglcontextrestored", () => resolve(), { once: true }));
+      extension.loseContext();
+      await boundedOperation(lost, "WebGL2 injected context loss");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      extension.restoreContext();
+      await boundedOperation(restored, "WebGL2 context restoration");
+      await boundedOperation(recoveryTask!, "WebGL2 resource recovery");
+      return inspect();
+    },
     mode: async (next: typeof mode) => {
       requireRuntime();
-      setMode(next);
-      await draw(false, true);
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      const previous = mode;
+      try {
+        renderControl?.service.configure({ mode: next });
+        setMode(next);
+        await draw(false, true);
+      } catch (error) {
+        renderControl?.service.configure({ mode: previous });
+        setMode(previous);
+        await draw(false, true);
+        throw error;
+      }
+      await submittedWork("GPU submission");
       return inspect();
     },
     step: async (count = 1) => {
@@ -1215,39 +1727,84 @@ async function boot() {
       if (!Number.isInteger(count) || count < 1 || count > 10000)
         throw new Error("TC_PROTOCOL_STEPS: count must be in [1,10000].");
       for (let i = 0; i < count; i++) {
-        stepRuntime();
+        await stepRuntime();
         await processGameRequests();
         syncSimulation();
         await draw(false, true);
       }
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     camera: async (phase: number) => {
       cameraPhase = phase;
       await draw(false, false);
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     accumulate: async (count = 16) => {
+      if (mode === "raster")
+        throw new Error(
+          "TC_TRACE_MODE: Accumulation is available in path or hybrid mode.",
+        );
+      if (!Number.isSafeInteger(count) || count < 1 || count > 4096)
+        throw new Error(
+          "TC_TRACE_SAMPLES: Development accumulation count must be an integer in [1,4096].",
+        );
       for (let i = 0; i < count; i++) await draw(i > 0, false);
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
-      return tracer.pixelStats();
+      await submittedWork("GPU submission");
+      return surfaceTracer ? surfaceTracer.pixels() : tracer.pixelStats();
     },
-    pixels: () => tracer.pixelStats(),
-    gpuTimeMs: () => tracer.gpuTimeMs(),
-    ray: (origin: number[], direction: number[]) =>
-      tracer.queryRay(origin, direction),
+    pixels: () =>
+      surfaceTracer && mode !== "raster"
+        ? surfaceTracer.pixels()
+        : legacyTracerDisposed
+          ? Promise.resolve({
+              available: false,
+              mode: "raster",
+              reason:
+                "Surface statistics are not a raster framebuffer readback; use the external current-page capture.",
+            })
+          : tracer.pixelStats(),
+    linearPixels: (filtered = true) => {
+      if (!surfaceTracer) throw new Error("TC_TRACE_NOT_ACTIVE");
+      return surfaceTracer.readRadiance(filtered);
+    },
+    motionPixels: () => {
+      if (!surfaceTracer) throw new Error("TC_TRACE_NOT_ACTIVE");
+      return surfaceTracer.readMotion();
+    },
+    traceFaultTarget: (pixel: number, sample = 0) => {
+      if (!surfaceTracer) throw new Error("TC_TRACE_NOT_ACTIVE");
+      surfaceTracer.setFaultTarget(pixel, sample);
+    },
+    temporalPixels: () => {
+      if (!surfaceTracer) throw new Error("TC_TRACE_NOT_ACTIVE");
+      return surfaceTracer.readTemporal();
+    },
+    primaryStats: () => {
+      if (!surfaceTracer || mode !== "hybrid")
+        throw new Error("TC_TRACE_PRIMARY_NOT_ACTIVE");
+      return surfaceTracer.readPrimaryStats();
+    },
+    guidePixels: () => {
+      if (!surfaceTracer) throw new Error("TC_TRACE_NOT_ACTIVE");
+      return surfaceTracer.readGuides();
+    },
+    gpuTimeMs: () =>
+      backendKind !== "webgpu" ? Promise.resolve(null) : surfaceTracer ? surfaceTracer.gpuTimeMs() : tracer.gpuTimeMs(),
+    vertexRay: (origin: [number, number, number], direction: [number, number, number]) => {
+      requireRuntime();
+      if (!vertexBounds) throw new Error("TC_VERTEX_NOT_ACTIVE: This scene has no controlled vertex graphs.");
+      return vertexBounds.intersect(origin, direction);
+    },
+    ray: (origin: number[], direction: number[]) => {
+      requireCompute(renderCapabilities(backendKind), "Traced ray query");
+      return surfaceTracer
+        ? surfaceTracer.queryRay(origin, direction)
+        : tracer.queryRay(origin, direction);
+    },
     compute: async (id: string, time: number) => {
+      requireCompute(renderCapabilities(backendKind), "Compute graph");
       const definition = compiledIR?.computes.find((c) => c.id === id);
       if (!definition) throw new Error(`TC_COMPUTE_MISSING:${id}`);
       return runComputeGraph(
@@ -1263,17 +1820,14 @@ async function boot() {
       simulation = createSimulation(kind);
       syncSimulation();
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     snapshot: () => {
       const host = requireRuntime();
       syncRuntime();
       return structuredClone({
-        format: "threecat.browser",
+        format: "pelican.browser",
         version: 1,
         engineVersion: SDK_VERSION,
         tick,
@@ -1316,6 +1870,8 @@ async function boot() {
         // Host preflights scheduler/world atomically and preserves generational invalidation.
         // Invalid sidecars have already failed on isolated candidates, without touching this host.
         host.restore(saved.runtime);
+        postComposer?.resetHistory("restore");
+        surfaceTracer?.invalidateTemporal("restore");
         const previousSimulation = simulation,
           previousWorld = world;
         simulation = prepared.simulation;
@@ -1344,10 +1900,7 @@ async function boot() {
         restoring = false;
       }
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     worldLoad: async () => {
@@ -1356,10 +1909,7 @@ async function boot() {
       await Promise.all([world.loadChunk([0, 0]), world.loadChunk([1, 0])]);
       syncWorld();
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     worldEdit: async () => {
@@ -1367,10 +1917,7 @@ async function boot() {
       await world.applyEdits([{ chunk: [0, 0], x: 2, z: 2, height: 1.8 }]);
       syncWorld();
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return {
         state: inspect(),
         collision: world.sampleHeight({ chunk: [0, 0], local: [1, 0, 1] }),
@@ -1381,20 +1928,14 @@ async function boot() {
       await world?.unloadChunk([0, 0]);
       syncWorld();
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     worldReload: async () => {
       await world?.loadChunk([0, 0]);
       syncWorld();
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     topology: async () => {
@@ -1406,10 +1947,7 @@ async function boot() {
       scene.add(extra);
       topologyObjects.push(extra);
       await draw();
-      await boundedOperation(
-        device.queue.onSubmittedWorkDone(),
-        "GPU submission",
-      );
+      await submittedWork("GPU submission");
       return inspect();
     },
     play: () => {
@@ -1421,6 +1959,7 @@ async function boot() {
       playing = true;
       lastFrameTime = undefined;
       status.textContent = runtimeStatus({
+        backend: backendKind,
         mode,
         playing,
         automation: startup.automation,
@@ -1432,6 +1971,7 @@ async function boot() {
       playing = false;
       lastFrameTime = undefined;
       status.textContent = runtimeStatus({
+        backend: backendKind,
         mode,
         playing,
         automation: startup.automation,
@@ -1439,11 +1979,8 @@ async function boot() {
         triangles: triangleCount,
       });
     },
-    adapter: {
-      vendor: adapter.info.vendor,
-      architecture: adapter.info.architecture,
-      isFallbackAdapter: adapter.info.isFallbackAdapter,
-      features: [...adapter.features],
+    get adapter() {
+      return adapterInfo;
     },
     loadGame,
     setComponent: (id: string, component: string, value: ComponentData) =>
@@ -1479,6 +2016,8 @@ async function boot() {
       const taskId = `runtime-${Date.now()}`;
       try {
         const command = parseCommand(input);
+        await nativeInputTail;
+        await tickTail;
         if (command.type !== "inspect") requireRuntime();
         let data: unknown;
         switch (command.type) {
@@ -1516,7 +2055,7 @@ async function boot() {
             break;
           case "replay": {
             const host = requireRuntime();
-            const replay = host.replay(command.trace);
+            const replay = await host.replayAsync(command.trace);
             tick = host.inspect().scheduler.tick;
             if (replay.status !== "passed") {
               const error = new Error(
@@ -1572,18 +2111,24 @@ async function boot() {
     },
   };
   if (import.meta.env.DEV)
-    (window as unknown as { __threecat: typeof api }).__threecat = api;
+    (window as unknown as { __pelican: typeof api }).__pelican = api;
   async function loop(now: number) {
     if (disposed) return;
     try {
-      if (playing && !terminalFault && !loadingContent && !restoring) {
+      if (
+        playing &&
+        !terminalFault &&
+        !loadingContent &&
+        !restoring &&
+        !recoveringGpu
+      ) {
         const elapsed =
           lastFrameTime === undefined ? 0 : (now - lastFrameTime) / 1000;
         lastFrameTime = now;
         frameAccumulator += Math.max(0, elapsed);
         let steps = 0;
         while (frameAccumulator >= 1 / 60 && steps < 8) {
-          stepRuntime();
+          await stepRuntime();
           frameAccumulator -= 1 / 60;
           await processGameRequests();
           steps++;
@@ -1600,8 +2145,9 @@ async function boot() {
   }
   frameRequest = requestAnimationFrame(loop);
   playing = startup.playing;
-  document.documentElement.dataset.threecatReady = "true";
+  document.documentElement.dataset.pelicanReady = "true";
   status.textContent = runtimeStatus({
+    backend: backendKind,
     mode,
     playing,
     automation: startup.automation,
@@ -1612,7 +2158,7 @@ async function boot() {
 boot().catch((error) => {
   reportFailure(error);
   if (import.meta.env.DEV)
-    (window as unknown as { __threecatFailure: string }).__threecatFailure =
+    (window as unknown as { __pelicanFailure: string }).__pelicanFailure =
       String(error);
   void disposeBrowser();
 });

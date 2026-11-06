@@ -120,7 +120,7 @@ for the incoming action. This also defines interrupted fades; replaying the
 same clip restarts it. A zero fade removes previous action influence and sets
 full weight immediately. Outgoing actions stop when their fade completes.
 
-Snapshots use `format: "threecat.models", version: 2`. They include entity
+Snapshots use `format: "pelican.models", version: 2`. They include entity
 and asset ids, current clip, action time, speed, repeat mode, playing/paused
 state, effective weight, and each fade's source/target weight, duration, and
 elapsed seconds. The adapter owns fade envelopes instead of depending on
@@ -242,9 +242,9 @@ Playwright Chromium installation and never starts the main development server.
 
 ```powershell
 # Include the independent embedded-texture browser probe.
-$env:THREECAT_MODEL_BROWSER = "1"
+$env:PELICAN_MODEL_BROWSER = "1"
 node --import tsx --test tests/models.test.ts
-Remove-Item Env:THREECAT_MODEL_BROWSER
+Remove-Item Env:PELICAN_MODEL_BROWSER
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/models.ts packages/renderer/MODELS.md tests/models.test.ts
 ```

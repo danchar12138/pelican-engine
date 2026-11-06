@@ -120,7 +120,7 @@ export function createControlClient(
         method: body === undefined ? "GET" : "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Threecat-Task-Id": taskId,
+          "X-Pelican-Task-Id": taskId,
         },
         body: serialized,
         signal: abort.signal,
@@ -197,13 +197,13 @@ export function createControlClient(
           "TC_CONTROL_COMMAND_INVALID",
         );
       }
-      return request("/__threecat/control", command, sendOptions);
+      return request("/__pelican/control", command, sendOptions);
     },
     status: () =>
-      request("/__threecat/status", undefined) as Promise<
+      request("/__pelican/status", undefined) as Promise<
         Envelope<ControlStatus>
       >,
-    cancel: (taskId) => request("/__threecat/cancel", { taskId }),
-    reset: () => request("/__threecat/session", { action: "reset" }),
+    cancel: (taskId) => request("/__pelican/cancel", { taskId }),
+    reset: () => request("/__pelican/session", { action: "reset" }),
   };
 }

@@ -155,7 +155,7 @@ test("capture never invents viewport dimensions or accepts output paths", async 
     (
       await raw(
         f.url,
-        "/__threecat/control",
+        "/__pelican/control",
         '{"type":"capture","path":"not-allowed.png"}',
       )
     ).status,
@@ -469,7 +469,7 @@ test("real Vite GET status is not swallowed by the SPA fallback; no browser need
   assert.ok(address && typeof address !== "string");
   const response = await raw(
     `http://127.0.0.1:${address.port}`,
-    "/__threecat/status",
+    "/__pelican/status",
   );
   assert.equal(response.status, 200);
   assert.equal(response.body.status, "succeeded");
@@ -517,7 +517,7 @@ test("malformed commands are rejected before creating a browser, without reflect
     '{"type":"step","count":10001}',
     '{"type":"untrusted-secret"}',
   ]) {
-    const response = await raw(f.url, "/__threecat/control", payload);
+    const response = await raw(f.url, "/__pelican/control", payload);
     assert.equal(response.status, 400);
     assert.equal(response.body.status, "failed");
     assert.doesNotMatch(
@@ -542,14 +542,14 @@ test("loopback Host and exact same HTTP origin are required, with no CORS opt-in
     { "Access-Control-Request-Method": "POST" },
     { Host: "127.0.0.1:1" },
   ] as Record<string, string>[]) {
-    const response = await raw(f.url, "/__threecat/control", command, headers);
+    const response = await raw(f.url, "/__pelican/control", command, headers);
     assert.equal(response.status, 403);
     assert.equal(response.headers["access-control-allow-origin"], undefined);
   }
   assert.equal(f.launches, 0);
   assert.equal(
     (
-      await raw(f.url, "/__threecat/control", command, {
+      await raw(f.url, "/__pelican/control", command, {
         Origin: f.url,
         "Sec-Fetch-Site": "same-origin",
       })
@@ -566,11 +566,11 @@ test("loopback Host and exact same HTTP origin are required, with no CORS opt-in
 
 test("methods, JSON content type, encoding, task IDs and bounded bodies are checked", async (t) => {
   const f = await fixture(t);
-  assert.equal((await raw(f.url, "/__threecat/control")).status, 405);
-  assert.equal((await raw(f.url, "/__threecat/status", "{}")).status, 405);
+  assert.equal((await raw(f.url, "/__pelican/control")).status, 405);
+  assert.equal((await raw(f.url, "/__pelican/status", "{}")).status, 405);
   assert.equal(
     (
-      await raw(f.url, "/__threecat/control", "{}", {
+      await raw(f.url, "/__pelican/control", "{}", {
         "Content-Type": "text/plain",
       })
     ).status,
@@ -578,7 +578,7 @@ test("methods, JSON content type, encoding, task IDs and bounded bodies are chec
   );
   assert.equal(
     (
-      await raw(f.url, "/__threecat/control", "{}", {
+      await raw(f.url, "/__pelican/control", "{}", {
         "Content-Encoding": "gzip",
       })
     ).status,
@@ -586,8 +586,8 @@ test("methods, JSON content type, encoding, task IDs and bounded bodies are chec
   );
   assert.equal(
     (
-      await raw(f.url, "/__threecat/control", '{"type":"inspect"}', {
-        "X-Threecat-Task-Id": "invalid id",
+      await raw(f.url, "/__pelican/control", '{"type":"inspect"}', {
+        "X-Pelican-Task-Id": "invalid id",
       })
     ).status,
     400,
@@ -596,10 +596,10 @@ test("methods, JSON content type, encoding, task IDs and bounded bodies are chec
     type: "restore",
     snapshot: { padding: "x".repeat(1024 * 1024) },
   });
-  assert.equal((await raw(f.url, "/__threecat/control", large)).status, 413);
+  assert.equal((await raw(f.url, "/__pelican/control", large)).status, 413);
   assert.equal(
     (
-      await raw(f.url, "/__threecat/control", large, {
+      await raw(f.url, "/__pelican/control", large, {
         "Content-Length": String(Buffer.byteLength(large)),
       })
     ).status,
@@ -608,12 +608,74 @@ test("methods, JSON content type, encoding, task IDs and bounded bodies are chec
   assert.equal(f.launches, 0);
 });
 
+test("oversized JSON uploads finish draining before a reliable 413 response closes their socket", async (t) => {
+  const f = await fixture(t),
+    seen = deferred<void>(),
+    ended = deferred<boolean>();
+  f.http.once("request", (incoming, response) => {
+    response.once("finish", () =>
+      ended.resolve(incoming.complete && incoming.readableEnded),
+    );
+    seen.resolve();
+  });
+  const body = JSON.stringify({
+    type: "restore",
+    snapshot: { padding: "x".repeat(1024 * 1024) },
+  });
+  let req!: ReturnType<typeof httpRequest>;
+  const response = new Promise<{ status: number; body: Envelope }>(
+    (resolve, reject) => {
+      req = httpRequest(
+        f.url + "/__pelican/control",
+        {
+          method: "POST",
+          agent: false,
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": String(Buffer.byteLength(body)),
+          },
+        },
+        (res) => {
+          const parts: Buffer[] = [];
+          res.on("data", (part) => parts.push(part));
+          res.on("error", reject);
+          res.on("end", () => {
+            try {
+              resolve({
+                status: res.statusCode!,
+                body: JSON.parse(Buffer.concat(parts).toString()),
+              });
+            } catch (error) {
+              reject(error);
+            }
+          });
+        },
+      );
+      req.on("error", reject);
+    },
+  );
+  void response.catch(() => {});
+  try {
+    req.write(body.slice(0, 128));
+    await seen.promise;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    req.end(body.slice(128));
+    const result = await response;
+    assert.equal(result.status, 413);
+    assert.equal(result.body.diagnostics[0].code, "TC_CONTROL_BODY_TOO_LARGE");
+    assert.equal(await ended.promise, true);
+    assert.equal(f.launches, 0);
+  } finally {
+    req.destroy();
+  }
+});
+
 test("an unfinished request body times out without allocating a browser", async (t) => {
   const f = await fixture(t, undefined, { timeoutMs: 50 });
   const response = await new Promise<{ status: number; body: Envelope }>(
     (resolve, reject) => {
       const req = httpRequest(
-        `${f.url}/__threecat/control`,
+        `${f.url}/__pelican/control`,
         {
           method: "POST",
           headers: {
@@ -639,6 +701,47 @@ test("an unfinished request body times out without allocating a browser", async 
   );
   assert.equal(response.status, 408);
   assert.equal(response.body.diagnostics[0].code, "TC_CONTROL_BODY_TIMEOUT");
+  assert.equal(f.launches, 0);
+});
+
+test("an oversized unfinished upload remains bounded and returns 413 without retaining or launching", async (t) => {
+  const f = await fixture(t, undefined, { timeoutMs: 50 });
+  const result = await new Promise<{ status: number; body: Envelope }>(
+    (resolve, reject) => {
+      const req = httpRequest(
+        f.url + "/__pelican/control",
+        {
+          method: "POST",
+          agent: false,
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Length": String(1024 * 1024 + 100),
+          },
+        },
+        (res) => {
+          const parts: Buffer[] = [];
+          res.on("data", (part) => parts.push(part));
+          res.on("error", reject);
+          res.on("end", () => {
+            try {
+              resolve({
+                status: res.statusCode!,
+                body: JSON.parse(Buffer.concat(parts).toString()),
+              });
+            } catch (error) {
+              reject(error);
+            } finally {
+              req.destroy();
+            }
+          });
+        },
+      );
+      req.on("error", reject);
+      req.write("{");
+    },
+  );
+  assert.equal(result.status, 413);
+  assert.equal(result.body.diagnostics[0].code, "TC_CONTROL_BODY_TOO_LARGE");
   assert.equal(f.launches, 0);
 });
 
@@ -929,9 +1032,9 @@ test("completed history is bounded without retaining snapshots or command payloa
 test("cancel/reset malformed and unknown task requests are bounded without browser startup", async (t) => {
   const f = await fixture(t);
   for (const [route, body, expected] of [
-    ["/__threecat/cancel", '{"taskId":"missing"}', 404],
-    ["/__threecat/cancel", '{"taskId":4}', 400],
-    ["/__threecat/session", '{"action":"anything"}', 400],
+    ["/__pelican/cancel", '{"taskId":"missing"}', 404],
+    ["/__pelican/cancel", '{"taskId":4}', 400],
+    ["/__pelican/session", '{"action":"anything"}', 400],
   ] as const)
     assert.equal((await raw(f.url, route, body)).status, expected);
   assert.equal((await f.client.reset()).status, "succeeded");
@@ -980,7 +1083,7 @@ test("client validates local URL, timeouts, serializability and commands before 
 
 test("client rejects non-envelope HTTP responses and never follows external redirects", async (t) => {
   const http = createHTTPServer((req, res) => {
-    if (req.url === "/__threecat/control") {
+    if (req.url === "/__pelican/control") {
       res.writeHead(302, { Location: "http://external.invalid/secret" });
       res.end();
     } else {
@@ -1104,7 +1207,7 @@ test("disconnecting during an unfinished body does not leak an unhandled request
   const arrived = new Promise<void>((resolve) =>
     f.http.once("request", () => resolve()),
   );
-  const req = httpRequest(`${f.url}/__threecat/control`, {
+  const req = httpRequest(`${f.url}/__pelican/control`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Content-Length": "100" },
   });

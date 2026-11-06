@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import * as THREE from "three/webgpu";
+import * as TSL from "three/tsl";
+import { createComputeDriver } from "../packages/runtime/src/compute-service.ts";
+import { createRenderSettingsDriver } from "../packages/runtime/src/render-settings.ts";
+import { createComputeTextureAssets } from "../packages/renderer/src/compute-texture-assets.ts";
+import { createRenderTextureBridge } from "../packages/renderer/src/render-textures.ts";
+import type { PostProcessIR } from "../packages/compiler/src/types.ts";
+import type { ComputeExecutionInput } from "../packages/runtime/src/compute-contract.ts";
+
+const source = { file: "fixture.ts", line: 1, column: 1, length: 1 };
+const pass: PostProcessIR = { id: "same", enabled: true, source, buffers: [{ name: "b", type: "vec4", buffer: "buffer" }], textures: [{ name: "t", texture: "texture" }], graph: { output: "out", outputType: "vec4", nodeTypes: { out: "vec4" }, nodes: [{ id: "out", op: "vec4", value: [0,0,0,1] }] } };
+test("four slot namespaces jointly pin buffers and textures and restore atomically", t => {
+  const compute = createComputeDriver({ kernels: [], capabilities: () => ({ backend: "webgpu", compute: true, availableModes: ["raster"] }), buffers: [{ id: "buffer", type: "vec4", count: 1 }], textures: [{ id: "texture", width: 1, height: 1 }, { id: "other", width: 1, height: 1 }] });
+  let reject = false;
+  const setPins = (ids: readonly string[]) => { compute.setRenderPins(ids); if (reject) { reject = false; throw Error("injected pin failure"); } };
+  const material = [{ id: "same", buffers: [{ name: "b", type: "vec4" as const, buffer: "buffer" }], textures: [{ name: "t", texture: "texture" }] }];
+  const render = createRenderSettingsDriver({}, material, undefined, [pass], { describe: h => compute.service.describeBuffer(h), resource: id => compute.resource(id), setPins }, { describe: h => compute.service.describeTexture(h), resource: id => compute.textureResource(id), setPins });
+  t.after(() => { render.dispose(); compute.dispose(); }); const plugin = render.factory({} as never), snapshot = plugin.snapshot(), other = compute.service.resolveTexture("other");
+  render.service.textures.bind("same", "t", other); assert.throws(() => compute.service.releaseTexture(compute.service.resolveTexture("texture")), /TC_COMPUTE_BUFFER_IN_USE/);
+  render.service.effects.textures.bind("same", "t", other); compute.service.releaseTexture(compute.service.resolveTexture("texture"));
+  const before = plugin.snapshot(); reject = true; assert.throws(() => plugin.restore(snapshot), /TC_RENDER_BUFFER_PROVIDER/); assert.deepEqual(plugin.snapshot(), before);
+  assert.throws(() => compute.service.releaseTexture(other), /TC_COMPUTE_BUFFER_IN_USE/);
+  render.service.textures.unbind("same", "t"); assert.throws(() => compute.service.releaseTexture(other), /TC_COMPUTE_BUFFER_IN_USE/);
+  render.service.effects.textures.unbind("same", "t"); compute.service.releaseTexture(other);
+  render.service.buffers.unbind("same", "b"); assert.throws(() => compute.service.releaseBuffer(compute.service.resolve("buffer")), /TC_COMPUTE_BUFFER_IN_USE/);
+  render.service.effects.buffers.unbind("same", "b"); compute.service.releaseBuffer(compute.service.resolve("buffer"));
+});
+test("asset import decodes sRGB, detaches data, rejects unknown assets and retains snapshot pixels", t => {
+  const texture = new THREE.DataTexture(new Uint8Array([128,64,0,255, 255,0,0,128]), 2, 1, THREE.RGBAFormat, THREE.UnsignedByteType); texture.colorSpace = THREE.SRGBColorSpace;
+  const assets = createComputeTextureAssets(new Map([["image", texture]]));
+  const compute = createComputeDriver({ kernels: [], capabilities: () => ({ backend: "webgpu", compute: true, availableModes: ["raster"] }), textureAssets: assets, textures: [{ id: "imported", asset: "image" }] });
+  t.after(() => { compute.dispose(); texture.dispose(); }); const handle = compute.service.resolveTexture("imported"), read = compute.service.readTexture(handle);
+  const expected = Math.fround(Math.pow((128 / 255 + 0.055) / 1.055, 2.4)); assert.ok(Math.abs(read[0][0] - expected) < 1e-7); assert.equal(read[1][3], Math.fround(128 / 255));
+  (texture.image.data as Uint8Array)[0] = 0; assert.equal(compute.service.readTexture(handle)[0][0], read[0][0]);
+  assert.throws(() => compute.service.createTexture({ id: "missing", asset: "unknown" }), /TC_COMPUTE_TEXTURE_ASSET/);
+  const plugin = compute.factory({} as never), snapshot = plugin.snapshot(); plugin.restore(snapshot); assert.deepEqual(compute.service.readTexture(compute.service.resolveTexture("imported")), read);
+});
+test("Three texture bridge copies resident texture versions, reallocates on resize and never owns source", t => {
+  const savedUsage = Object.getOwnPropertyDescriptor(globalThis, "GPUTextureUsage"); Object.defineProperty(globalThis, "GPUTextureUsage", { configurable: true, value: { COPY_SRC: 1, COPY_DST: 2 } });
+  t.after(() => { if (savedUsage) Object.defineProperty(globalThis, "GPUTextureUsage", savedUsage); else delete (globalThis as any).GPUTextureUsage; });
+  const owned = new Map<THREE.Texture, any>(), copies: any[] = []; let submitted = 0, destroyed = 0;
+  const device = { limits: { maxTextureDimension2D: 1024 }, createCommandEncoder: () => ({ copyTextureToTexture(...args: any[]) { copies.push(args); }, finish: () => ({}) }), queue: { submit() { submitted++; } } };
+  const backend = { device, isWebGLBackend: false, get: (texture: THREE.Texture) => ({ texture: owned.get(texture) }) };
+  const renderer = { backend, initTexture(texture: THREE.Texture) { const native = { usage: 2, format: "rgba32float" }; owned.set(texture, native); texture.addEventListener("dispose", () => { owned.delete(texture); destroyed++; }); } } as unknown as THREE.Renderer;
+  let value: ComputeExecutionInput = { key: "a", type: "vec4", revision: 0, texture: { width: 1, height: 1 }, values: [[0,0,0,1]] };
+  const src = { usage: 1, format: "rgba32float" } as GPUTexture;
+  const bridge = createRenderTextureBridge(renderer, () => ({ textureResident: d => ({ texture: src, width: d.texture!.width, height: d.texture!.height, revision: d.revision }) }), () => ({ image: value }));
+  const material = new THREE.MeshStandardNodeMaterial(); material.name = "same";
+  bridge.prepare(material, { image: { name: "image" } }); bridge.node(material, "image", TSL.vec2(0), { name: "image" });
+  bridge.update(); bridge.update(); assert.equal(copies.length, 1); assert.equal(submitted, 1); assert.equal(bridge.inspect().cpuResultUploads, 0);
+  value = { key: "b", type: "vec4", revision: 0, texture: { width: 2, height: 1 }, values: [[0,0,0,1],[1,1,1,1]] };
+  bridge.update(); assert.equal(copies.length, 2); assert.equal(bridge.inspect().liveTextures, 1); assert.equal(destroyed, 1);
+  backend.isWebGLBackend = true; assert.throws(() => bridge.update(), /TC_RENDER_TEXTURE_CAPABILITY/);
+  bridge.dispose(); assert.equal(bridge.inspect().liveTextures, 0); assert.equal(destroyed, 2); material.dispose();
+});

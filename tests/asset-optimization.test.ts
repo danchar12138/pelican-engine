@@ -8,10 +8,10 @@ import { compressDist } from "../tools/compress-dist.ts";
 import { serveDist } from "../tools/static-server.ts";
 import { NodeIO } from "@gltf-transform/core";
 async function temporary(t: { after(fn: () => Promise<void>): void }) {
-  const root = await mkdtemp(path.join(tmpdir(), "threecat optimize "));
+  const root = await mkdtemp(path.join(tmpdir(), "pelican optimize "));
   t.after(async () => {
     assert.equal(path.dirname(path.resolve(root)), path.resolve(tmpdir()));
-    assert.ok(path.basename(root).startsWith("threecat optimize "));
+    assert.ok(path.basename(root).startsWith("pelican optimize "));
     await rm(root, { recursive: true, force: true });
   });
   return root;
@@ -53,6 +53,14 @@ test("lossless GLB weld/dedup preserves actual triangles, skin, animation and so
   );
   assert.deepEqual(await readFile(output), saved);
   await assert.rejects(optimizeModel(input, input), /TC_ASSET_OPTIMIZE_PATH/);
+});
+test("lossless GLB optimization retains IOR and specular extension factors", async (t) => {
+  const root = await temporary(t), input = path.resolve("examples/specular-material/assets/specular.glb"), output = path.join(root, "specular.glb");
+  const report = await optimizeModel(input, output);
+  const before = (report.before.materials as any[])[0], after = (report.after.materials as any[])[0];
+  assert.deepEqual(before.specular.specularColorFactor, [1,0,0]);
+  assert.deepEqual(after.specular.specularColorFactor, [1,0,0]);
+  assert.equal(before.ior.ior, 2); assert.equal(after.ior.ior, 2);
 });
 test("lossless static compression negotiates encodings, keeps originals and honors q=0", async (t) => {
   const root = await temporary(t);

@@ -20,6 +20,44 @@ import type { RuntimePlugin } from "../packages/runtime/src/plugins.ts";
 
 const source = { file: "game.ts", line: 1, column: 1, length: 1 };
 
+test("audio buses route voices, validate atomically, and restore legacy and current snapshots", () => {
+  const ir = fixture();
+  ir.audioBuses = [{ id: "music", volume: 0.5 }, { id: "effects", volume: 1 }];
+  ir.sounds![1].bus = "music";
+  const { host, driver, services, plugin } = rig({ ir });
+  try {
+    const first = services.audio.play("ambient");
+    const second = services.audio.play("ambient", { bus: "effects" });
+    services.audio.busVolume("effects", 0.25);
+    services.audio.volume(0.4);
+    services.audio.pause(first);
+    host.step(2);
+    const saved = plugin.snapshot() as any;
+    assert.deepEqual(driver.inspect().audio.busVolumes, [{ id: "music", volume: 0.5 }, { id: "effects", volume: 0.25 }]);
+    assert.deepEqual(driver.inspect().audio.voices.map(v => v.bus), ["music", "effects"]);
+    for (const run of [() => services.audio.busVolume("missing", 1), () => services.audio.busVolume("music", NaN), () => services.audio.play("ambient", { bus: "missing" })]) {
+      assert.throws(run, /TC_AUDIO_/);
+      assert.deepEqual(plugin.snapshot(), saved);
+    }
+    for (const mutate of [(s: any) => { s.audio.busVolumes[0].volume = 2; }, (s: any) => { s.audio.voices[0].bus = "missing"; }, (s: any) => { s.audio.busVolumes.pop(); }]) {
+      const bad = structuredClone(saved); mutate(bad);
+      assert.throws(() => plugin.restore(bad), /TC_SERVICES_SNAPSHOT/);
+      assert.deepEqual(plugin.snapshot(), saved);
+    }
+    services.audio.resume(first);
+    services.audio.stop(second);
+    plugin.restore(saved);
+    assert.deepEqual(plugin.snapshot(), saved);
+    const legacy = structuredClone(saved);
+    delete legacy.audio.busVolumes;
+    delete legacy.audio.voices[0].bus;
+    plugin.restore(legacy);
+    assert.equal(driver.inspect().audio.voices[0].bus, "music");
+    assert.equal(driver.inspect().audio.busVolumes![1].volume, 1);
+    assert.equal(services.audio.play("ambient"), "voice:3");
+  } finally { host.dispose(); }
+});
+
 test("services UI input commits Chinese text before gameplay and restores the same text with world anchor metadata", () => {
   const ir = fixture();
   ir.ui!.push({
@@ -148,7 +186,7 @@ function fixture(systems: readonly SystemDefinition[] = []): SceneIR {
     ],
   };
   return {
-    format: "threecat.scene",
+    format: "pelican.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: "services-test",
@@ -302,6 +340,7 @@ test("services: fixed driver contract, resolved copies, single host ownership an
   try {
     assert.deepEqual(Object.keys(driver).sort(), [
       "adoptStorageRequest",
+      "audioClock",
       "completeVoice",
       "factory",
       "inspect",
@@ -637,6 +676,65 @@ test("services audio: metadata duration expires deterministically at fixed ticks
       driver.inspect().audio.voices.map((voice) => voice.id),
       [loop, unknown],
     );
+  } finally {
+    host.dispose();
+  }
+});
+
+test("services audio: pause freezes fixed-tick age across restore, resumes once and preserves legacy snapshots", () => {
+  const { host, driver, services, plugin } = rig({ fixedDt: 0.125 });
+  try {
+    const one = services.audio.play("hit");
+    const loop = services.audio.play("hit", { loop: true });
+    const legacy = host.snapshot();
+    host.step();
+    services.audio.pause(one);
+    services.audio.pause(one);
+    services.audio.pause(loop);
+    services.audio.pause("voice:999");
+    services.audio.resume("voice:999");
+    assert.throws(() => services.audio.pause(""), /TC_AUDIO_VOICE/);
+    host.step(8);
+    const paused = host.snapshot();
+    assert.equal(driver.inspect().audio.voices[0].pausedAt, 1);
+    services.audio.resume(one);
+    services.audio.resume(one);
+    services.audio.resume(loop);
+    host.step();
+    assert.deepEqual(driver.inspect().audio.voices.map(v => v.id), [loop]);
+    host.restore(paused);
+    host.step(3);
+    assert.equal(driver.inspect().audio.voices.length, 2);
+    services.audio.resume(one);
+    host.step();
+    assert.deepEqual(driver.inspect().audio.voices.map(v => v.id), [loop]);
+    host.restore(legacy);
+    assert.equal(Object.hasOwn(driver.inspect().audio.voices[0], "pausedAt"), false);
+    plugin.validateSnapshot(plugin.snapshot());
+  } finally {
+    host.dispose();
+  }
+});
+
+test("services audio: malformed pause history is rejected atomically", () => {
+  const { host, services, plugin } = rig();
+  try {
+    const id = services.audio.play("unknown");
+    host.step(2);
+    services.audio.pause(id);
+    const original = plugin.snapshot();
+    for (const mutate of [
+      (v: any) => { delete v.pausedTicks; },
+      (v: any) => { v.pausedAt = 3; },
+      (v: any) => { v.pausedAt = -1; },
+      (v: any) => { v.pausedTicks = 3; },
+      (v: any) => { v.pausedTicks = 0.5; },
+    ]) {
+      const bad = structuredClone(original) as any;
+      mutate(bad.audio.voices[0]);
+      assert.throws(() => plugin.restore(bad), /TC_SERVICES_SNAPSHOT/);
+      assert.deepEqual(plugin.snapshot(), original);
+    }
   } finally {
     host.dispose();
   }
@@ -1046,6 +1144,8 @@ test("services lifecycle: all retained service/driver/plugin entry points reject
     () => retained.ui.setVisible("label", true),
     () => retained.audio.play("hit"),
     () => retained.audio.stop("voice:1"),
+      () => retained.audio.pause("voice:1"),
+      () => retained.audio.resume("voice:1"),
     () => retained.audio.volume(1),
     () => retained.storage.save("slot"),
     () => retained.storage.load("slot"),

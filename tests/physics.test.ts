@@ -74,7 +74,7 @@ function sceneIR(
   systems: ReturnType<typeof defineSystem>[] = [],
 ): SceneIR {
   return {
-    format: "threecat.scene",
+    format: "pelican.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: "physics-test",

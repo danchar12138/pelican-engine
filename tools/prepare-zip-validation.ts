@@ -4,7 +4,6 @@ import {
   mkdir,
   writeFile,
   readFile,
-  lstat,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,37 +12,19 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 import { sourceFingerprint } from "./source-fingerprint.ts";
+import { includeZipSnapshotPath } from "./zip-snapshot-filter.ts";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(
   await readFile(path.join(root, "engine.manifest.json"), "utf8"),
 ) as { milestone: string; version: string };
 const work = await mkdtemp(
-  path.join(tmpdir(), `threecat ${manifest.milestone} ZIP 中文 `),
+  path.join(tmpdir(), `pelican ${manifest.milestone} ZIP 中文 `),
 );
-const snapshot = path.join(work, "snapshot", "threecat");
+const snapshot = path.join(work, "snapshot", "pelican");
 await mkdir(path.dirname(snapshot), { recursive: true });
-const omit = new Set([
-  ".git",
-  "node_modules",
-  ".threecat",
-  "dist",
-  "release",
-  "evidence",
-  "public",
-  "games",
-]);
 await cp(root, snapshot, {
   recursive: true,
-  filter: async (source) => {
-    const relative = path.relative(root, source);
-    if (
-      relative
-        .split(path.sep)
-        .some((part) => omit.has(part) || part.startsWith(".env"))
-    )
-      return false;
-    return !(await lstat(source)).isSymbolicLink();
-  },
+  filter: (source) => includeZipSnapshotPath(root, source),
 });
 const fingerprint = await sourceFingerprint(root),
   copied = await sourceFingerprint(snapshot);
@@ -53,7 +34,7 @@ if (fingerprint.sha256 !== copied.sha256)
   );
 const archive = path.join(
   work,
-  `threecat-${manifest.milestone.toLowerCase()}-input.zip`,
+  `pelican-${manifest.milestone.toLowerCase()}-input.zip`,
 );
 const script = path.join(work, "archive.ps1");
 await writeFile(
@@ -83,9 +64,9 @@ const metadata = {
     .update(await readFile(archive))
     .digest("hex"),
 };
-await mkdir(path.join(root, ".threecat"), { recursive: true });
+await mkdir(path.join(root, ".pelican"), { recursive: true });
 await writeFile(
-  path.join(root, ".threecat/zip-validation.json"),
+  path.join(root, ".pelican/zip-validation.json"),
   JSON.stringify(metadata, null, 2) + "\n",
 );
 console.log(

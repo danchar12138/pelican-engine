@@ -88,7 +88,7 @@ export interface SimulationCaseReport {
   final: SimulationInspection;
 }
 export interface SimulationProbeReport {
-  prototype: "threecat-m0-cpu-interaction";
+  prototype: "pelican-m0-cpu-interaction";
   version: 1;
   passed: boolean;
   seed: number;
@@ -161,7 +161,7 @@ export function runSimulationProbe(
     );
   const cases = kinds.map((kind) => probeCase(kind, seed, steps, cycles));
   return {
-    prototype: "threecat-m0-cpu-interaction",
+    prototype: "pelican-m0-cpu-interaction",
     version: 1,
     passed: cases.every((c) => c.passed),
     seed,

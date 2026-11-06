@@ -43,7 +43,7 @@ export interface HostTrace extends SchedulerTrace {
   };
 }
 export interface HostSnapshot {
-  format: "threecat.host";
+  format: "pelican.host";
   version: 1;
   engineVersion: string;
   world: WorldSnapshot;
@@ -96,9 +96,12 @@ export class RuntimeHost {
   private readonly plugins: RuntimePlugin[] = [];
   private readonly services: Partial<RuntimeServices> = {};
   private recordingPlugins?: Record<string, HostPluginSnapshot>;
+  private asyncActive = false;
+  private drivingAsync = false;
+  private disposing = false;
 
   constructor(ir: SceneIR, options: HostOptions = {}) {
-    if (ir.format !== "threecat.scene" || ir.version !== 1)
+    if (ir.format !== "pelican.scene" || ir.version !== 1)
       throw new Error(
         "TC_RUNTIME_IR_VERSION: Unsupported scene representation.",
       );
@@ -109,7 +112,7 @@ export class RuntimeHost {
     this.fixedDt = options.fixedDt ?? 1 / 60;
     this.seed = options.seed ?? 12345;
     this.scene = structuredClone(ir);
-    this.world = createWorld({
+    const world = createWorld({
       components: ir.components.map((component) => ({
         id: component.id,
         schema: component.schema,
@@ -121,6 +124,34 @@ export class RuntimeHost {
         transform: entity.transform,
         components: entity.components as Record<string, ComponentData>,
       })),
+    });
+    const mutations = new Set<keyof RuntimeWorld>([
+      "registerComponent",
+      "spawn",
+      "destroy",
+      "setTransform",
+      "setComponent",
+      "addComponent",
+      "removeComponent",
+      "queue",
+      "flush",
+      "runSystem",
+      "restore",
+      "dispose",
+    ]);
+    this.world = new Proxy(world, {
+      get: (target, key: keyof RuntimeWorld) => {
+        const value = target[key];
+        if (!mutations.has(key)) return value;
+        return (...args: unknown[]) => {
+          this.assertAsyncMutation();
+          return Reflect.apply(
+            value as (...args: unknown[]) => unknown,
+            target,
+            args,
+          );
+        };
+      },
     });
     let createdScheduler: RuntimeScheduler | undefined;
     try {
@@ -193,11 +224,11 @@ export class RuntimeHost {
         };
       },
       random: () => {
-        this.assertAlive();
+        this.assertMutation();
         return this.scheduler.random();
       },
       emit: (type, payload) => {
-        this.assertAlive();
+        this.assertMutation();
         this.scheduler.emit(type, payload, { source: "system" });
       },
       events: (type) => {
@@ -227,6 +258,15 @@ export class RuntimeHost {
       },
       get scenes() {
         return host.service("scenes");
+      },
+      get render() {
+        return host.service("render");
+      },
+      get compute() {
+        return host.service("compute");
+      },
+      get navigation() {
+        return host.service("navigation");
       },
       entities: {
         resolve: (entity) => this.world.resolve(entity),
@@ -301,7 +341,8 @@ export class RuntimeHost {
       typeof plugin.snapshot !== "function" ||
       typeof plugin.validateSnapshot !== "function" ||
       typeof plugin.restore !== "function" ||
-      typeof plugin.dispose !== "function"
+      typeof plugin.dispose !== "function" ||
+      (plugin.settle !== undefined && typeof plugin.settle !== "function")
     )
       throw new Error(
         `TC_PLUGIN_CONTRACT: Plugin ${plugin.id} is missing lifecycle methods.`,
@@ -312,7 +353,25 @@ export class RuntimeHost {
         throw new Error(
           `TC_SERVICE_DUPLICATE: Multiple plugins provide ${key}.`,
         );
-      this.services[key as keyof RuntimeServices] = service as never;
+      const nested = new WeakMap<object, object>();
+      const guarded = (value: object): object => {
+        const previous = nested.get(value);
+        if (previous) return previous;
+        const proxy = new Proxy(value, {
+          get: (target, property) => {
+            const member = Reflect.get(target, property);
+            if (key === "render" && (property === "effects" || property === "buffers" || property === "textures") && member && typeof member === "object") return guarded(member);
+            if (typeof member !== "function") return member;
+            return (...args: unknown[]) => {
+              this.assertAsyncMutation();
+              return Reflect.apply(member, target, args);
+            };
+          },
+        });
+        nested.set(value, proxy);
+        return proxy;
+      };
+      this.services[key as keyof RuntimeServices] = guarded(service) as never;
     }
     for (const system of plugin.systems ?? [])
       if (!system.id.startsWith("$engine."))
@@ -322,7 +381,7 @@ export class RuntimeHost {
   }
 
   private service<K extends keyof RuntimeServices>(key: K): RuntimeServices[K] {
-    this.assertAlive();
+    this.assertMutation();
     const service = this.services[key];
     if (service === undefined)
       throw new Error(
@@ -355,6 +414,10 @@ export class RuntimeHost {
     >;
     if (!snapshots || typeof snapshots !== "object" || Array.isArray(snapshots))
       throw new Error("TC_PLUGIN_SNAPSHOT: Expected a plugin snapshot map.");
+    for (const plugin of this.plugins) {
+      if (!(plugin.id in snapshots) && plugin.legacySnapshot)
+        snapshots[plugin.id] = { ...(plugin.version === undefined ? {} : { version: plugin.version }), payload: plugin.legacySnapshot() };
+    }
     const ids = this.plugins.map((plugin) => plugin.id).sort();
     if (canonical(Object.keys(snapshots).sort()) !== canonical(ids))
       throw new Error(
@@ -374,6 +437,7 @@ export class RuntimeHost {
         );
       plugin.validateSnapshot(entry.payload);
     }
+    for (const plugin of this.plugins) plugin.validatePeers?.(snapshots[plugin.id]!.payload, snapshots);
     return snapshots;
   }
 
@@ -504,7 +568,7 @@ export class RuntimeHost {
   }
 
   private runSystems(systems: readonly SystemDefinition[], dt: number): void {
-    this.assertAlive();
+    this.assertMutation();
     if (
       !Number.isFinite(dt) ||
       dt < 0 ||
@@ -527,7 +591,7 @@ export class RuntimeHost {
       );
   }
 
-  step(count = 1): void {
+  private validateStep(count: number): void {
     this.assertBoundary();
     if (!Number.isInteger(count) || count < 1 || count > 10000)
       throw new Error("TC_RUNTIME_STEPS: Expected count in [1,10000].");
@@ -535,33 +599,79 @@ export class RuntimeHost {
       throw new Error(
         "TC_RUNTIME_NOT_ATTACHED: Attach a compiled game before stepping.",
       );
+  }
+
+  private updateTick(): void {
+    const previous = this.scheduler.tick;
+    this.game!.update(this.fixedDt);
+    if (this.scheduler.tick !== previous + 1 || this.scheduler.inspect().fault)
+      throw new Error(
+        "TC_RUNTIME_TICK_NOT_COMPLETED: Game update did not execute exactly one complete scheduler tick; state may be partial.",
+      );
+  }
+
+  private recordStepFailure(error: unknown): void {
+    const fault = this.scheduler.inspect().fault;
+    const system = fault?.stage.startsWith("system:")
+      ? fault.stage.slice(7)
+      : undefined;
+    const source = this.scene.systems.find(
+      (item) => item.id === system,
+    )?.source;
+    this.errors.push(
+      diagnosticFrom(error, {
+        ...(system ? { system } : {}),
+        ...(source ? { source } : {}),
+      }),
+    );
+  }
+
+  step(count = 1): void {
+    this.validateStep(count);
+    try {
+      for (let i = 0; i < count; i++) this.updateTick();
+    } catch (error) {
+      this.recordStepFailure(error);
+      throw error;
+    }
+  }
+
+  async stepAsync(count = 1): Promise<void> {
+    this.validateStep(count);
+    this.asyncActive = true;
     try {
       for (let i = 0; i < count; i++) {
-        const previous = this.scheduler.tick;
-        this.game.update(this.fixedDt);
-        if (
-          this.scheduler.tick !== previous + 1 ||
-          this.scheduler.inspect().fault
-        )
-          throw new Error(
-            "TC_RUNTIME_TICK_NOT_COMPLETED: Game update did not execute exactly one complete scheduler tick; state may be partial.",
-          );
+        this.assertAlive();
+        this.drivingAsync = true;
+        try {
+          this.updateTick();
+        } finally {
+          this.drivingAsync = false;
+        }
+        await this.scheduler.settle(() => this.settlePlugins());
+        this.assertAlive();
       }
     } catch (error) {
-      const fault = this.scheduler.inspect().fault;
-      const system = fault?.stage.startsWith("system:")
-        ? fault.stage.slice(7)
-        : undefined;
-      const source = this.scene.systems.find(
-        (item) => item.id === system,
-      )?.source;
-      this.errors.push(
-        diagnosticFrom(error, {
-          ...(system ? { system } : {}),
-          ...(source ? { source } : {}),
-        }),
-      );
+      this.recordStepFailure(error);
       throw error;
+    } finally {
+      this.asyncActive = false;
+    }
+  }
+
+  private async settlePlugins(): Promise<void> {
+    this.assertAlive();
+    for (const plugin of this.plugins) {
+      if (!plugin.settle) continue;
+      try {
+        await plugin.settle();
+      } catch (error) {
+        this.assertAlive();
+        throw new Error(
+          `TC_RUNTIME_SETTLE: Plugin ${plugin.id}; partialState=true; ${String(error)}`,
+        );
+      }
+      this.assertAlive();
     }
   }
 
@@ -628,10 +738,10 @@ export class RuntimeHost {
   }
 
   snapshot(): HostSnapshot {
-    this.assertAlive();
+    this.assertBoundary();
     const scheduler = this.scheduler.snapshot();
     return {
-      format: "threecat.host",
+      format: "pelican.host",
       version: 1,
       engineVersion: SDK_VERSION,
       world: structuredClone(scheduler.world),
@@ -645,7 +755,7 @@ export class RuntimeHost {
     const data = cloneSerializable(value) as HostSnapshot;
     if (
       !data ||
-      data.format !== "threecat.host" ||
+      data.format !== "pelican.host" ||
       data.version !== 1 ||
       data.engineVersion !== SDK_VERSION ||
       !data.scheduler
@@ -663,11 +773,11 @@ export class RuntimeHost {
       resolveEntityDefinition(this.scene, record);
     let pluginSnapshots: Record<string, HostPluginSnapshot> | undefined;
     if (this.plugins.length) {
-      if (data.plugins === undefined)
+      if (data.plugins === undefined && this.plugins.some((plugin) => !plugin.legacySnapshot))
         throw new Error(
           "TC_PLUGIN_SNAPSHOT_SET: Plugin snapshots are required.",
         );
-      pluginSnapshots = this.validatePlugins(data.plugins);
+      pluginSnapshots = this.validatePlugins(data.plugins ?? {});
       for (const plugin of this.plugins)
         plugin.validateWorld?.(
           cloneSerializable(pluginSnapshots[plugin.id].payload),
@@ -690,20 +800,27 @@ export class RuntimeHost {
       this.scheduler.restore(data.scheduler);
       return;
     }
-    const previousScheduler = this.scheduler.snapshot();
-    const previousPlugins = this.plugins.length
-      ? this.pluginSnapshot()
-      : undefined;
+    // A failed settle may leave in-flight sidecars, not a capturable checkpoint.
+    // Recovery can restore a known-good checkpoint, but cannot roll back to it.
+    const faulted = this.scheduler.inspect().fault !== null;
+    const previousScheduler = faulted ? undefined : this.scheduler.snapshot();
+    const previousPlugins =
+      !faulted && this.plugins.length ? this.pluginSnapshot() : undefined;
     try {
       this.scheduler.restore(data.scheduler);
       if (pluginSnapshots) this.restorePlugins(pluginSnapshots);
     } catch (error) {
       const rollbackErrors: string[] = [];
-      try {
-        this.scheduler.restore(previousScheduler);
-      } catch (rollbackError) {
-        rollbackErrors.push(String(rollbackError));
-      }
+      if (previousScheduler) {
+        try {
+          this.scheduler.restore(previousScheduler);
+        } catch (rollbackError) {
+          rollbackErrors.push(String(rollbackError));
+        }
+      } else
+        rollbackErrors.push(
+          "No successful checkpoint exists for the faulted state; restore a known-good checkpoint again.",
+        );
       if (previousPlugins) {
         for (const plugin of this.plugins) {
           try {
@@ -748,63 +865,121 @@ export class RuntimeHost {
     this.recordingPlugins = undefined;
     this.scheduler.cancelRecording();
   }
-  replay(trace: unknown): ReturnType<RuntimeScheduler["replay"]> {
-    this.assertConfigured();
-    let result: ReturnType<RuntimeScheduler["replay"]>;
-    try {
-      const data = cloneSerializable(trace) as HostTrace;
-      if (this.plugins.length) {
-        if (!data.plugins)
-          throw new Error(
-            "TC_PLUGIN_TRACE_REQUIRED: Trace does not contain plugin state.",
-          );
-        const initial = this.validatePlugins(data.plugins.initial);
-        const final = this.validatePlugins(data.plugins.final);
-        for (const plugin of this.plugins) {
-          plugin.validateWorld?.(
-            cloneSerializable(initial[plugin.id].payload),
-            structuredClone(data.initial.world),
-          );
-          plugin.validateWorld?.(
-            cloneSerializable(final[plugin.id].payload),
-            structuredClone(data.final.world),
-          );
-        }
-        this.restorePlugins(initial);
-        result = this.scheduler.replay(data);
+  private preflightReplay(trace: unknown) {
+    const data = this.scheduler.preflightReplay(trace) as HostTrace;
+    for (const snapshot of [data.initial, data.final])
+      for (const entity of snapshot.world.entities)
+        resolveEntityDefinition(this.scene, entity);
+    let initial: Record<string, HostPluginSnapshot> | undefined;
+    let final: Record<string, HostPluginSnapshot> | undefined;
+    if (this.plugins.length) {
+      if (!data.plugins)
+        throw new Error(
+          "TC_PLUGIN_TRACE_REQUIRED: Trace does not contain plugin state.",
+        );
+      initial = this.validatePlugins(data.plugins.initial);
+      final = this.validatePlugins(data.plugins.final);
+      for (const plugin of this.plugins) {
+        plugin.validateWorld?.(
+          cloneSerializable(initial[plugin.id].payload),
+          structuredClone(data.initial.world),
+        );
+        plugin.validateWorld?.(
+          cloneSerializable(final[plugin.id].payload),
+          structuredClone(data.final.world),
+        );
+      }
+    } else if (data.plugins) {
+      for (const snapshots of [data.plugins.initial, data.plugins.final])
         if (
-          result.status === "passed" &&
-          canonical(this.pluginSnapshot()) !== canonical(final)
-        )
-          throw new Error("TC_REPLAY_DIVERGENCE: Final plugin state differs.");
-      } else {
-        if (
-          data.plugins &&
-          (Object.keys(data.plugins.initial).length ||
-            Object.keys(data.plugins.final).length)
+          !snapshots ||
+          typeof snapshots !== "object" ||
+          Array.isArray(snapshots) ||
+          Object.keys(snapshots).length
         )
           throw new Error(
             "TC_PLUGIN_TRACE_SET: Trace requires plugins not present in this host.",
           );
-        result = this.scheduler.replay(data);
-      }
-    } catch (error) {
-      result = { status: "failed", actionsExecuted: 0, fault: null };
-      this.errors.push(diagnosticFrom(error));
-      return result;
     }
+    return { data, initial, final };
+  }
+
+  private checkReplay(
+    result: ReturnType<RuntimeScheduler["replay"]>,
+    final?: Record<string, HostPluginSnapshot>,
+  ) {
+    if (
+      result.status === "passed" &&
+      final &&
+      canonical(this.pluginSnapshot()) !== canonical(final)
+    )
+      throw new Error("TC_REPLAY_DIVERGENCE: Final plugin state differs.");
     if (result.status === "failed")
       this.errors.push(
         diagnosticFrom(
-          new Error(`TC_REPLAY_DIVERGENCE: ${result.fault?.message}`),
+          new Error(
+            result.fault?.code === "TC_SCHEDULER_SETTLE"
+              ? result.fault.message
+              : `TC_REPLAY_DIVERGENCE: ${result.fault?.message}`,
+          ),
         ),
       );
     return result;
   }
 
+  replay(trace: unknown): ReturnType<RuntimeScheduler["replay"]> {
+    this.assertConfigured();
+    try {
+      if (this.plugins.some((plugin) => plugin.settle !== undefined))
+        throw new Error(
+          "TC_RUNTIME_REPLAY_ASYNC_REQUIRED: Use replayAsync for plugins with settle boundaries.",
+        );
+      const { data, initial, final } = this.preflightReplay(trace);
+      if (initial) this.restorePlugins(initial);
+      return this.checkReplay(this.scheduler.replay(data), final);
+    } catch (error) {
+      this.errors.push(diagnosticFrom(error));
+      return { status: "failed", actionsExecuted: 0, fault: null };
+    }
+  }
+
+  async replayAsync(
+    trace: unknown,
+  ): Promise<ReturnType<RuntimeScheduler["replay"]>> {
+    this.assertConfigured();
+    try {
+      const { data, initial, final } = this.preflightReplay(trace);
+      if (initial) this.restorePlugins(initial);
+      this.asyncActive = true;
+      this.drivingAsync = true;
+      let pending: ReturnType<RuntimeScheduler["replayAsync"]>;
+      try {
+        pending = this.scheduler.replayAsync(data, () => {
+          this.drivingAsync = false;
+          return this.settlePlugins();
+        });
+      } finally {
+        this.drivingAsync = false;
+      }
+      const result = await pending;
+      this.assertAlive();
+      return this.checkReplay(result, final);
+    } catch (error) {
+      this.errors.push(diagnosticFrom(error));
+      return { status: "failed", actionsExecuted: 0, fault: null };
+    } finally {
+      this.asyncActive = false;
+    }
+  }
+
   dispose(): void {
-    if (this.released) return;
-    this.assertBoundary();
+    if (this.released || this.disposing) return;
+    this.assertAlive();
+    if (this.scheduler.inspect().running)
+      throw new Error(
+        "TC_RUNTIME_SAFE_POINT: Operation requires a tick boundary.",
+      );
+    this.disposing = true;
     const failures: unknown[] = [];
     try {
       this.game?.dispose();
@@ -829,6 +1004,7 @@ export class RuntimeHost {
       failures.push(error);
     }
     this.released = true;
+    this.disposing = false;
     if (failures.length) {
       for (const error of failures) this.errors.push(diagnosticFrom(error));
       throw new AggregateError(
@@ -843,9 +1019,29 @@ export class RuntimeHost {
   }
   private assertBoundary(): void {
     this.assertAlive();
+    if (this.asyncActive)
+      throw new Error(
+        "TC_RUNTIME_ASYNC_ACTIVE: An async step/replay is pending.",
+      );
     if (this.scheduler.inspect().running)
       throw new Error(
         "TC_RUNTIME_SAFE_POINT: Operation requires a tick boundary.",
+      );
+  }
+  private assertMutation(): void {
+    this.assertAlive();
+    this.assertAsyncMutation();
+  }
+  private assertAsyncMutation(): void {
+    if (
+      !this.released &&
+      this.asyncActive &&
+      !this.drivingAsync &&
+      !this.disposing &&
+      !this.scheduler.inspect().running
+    )
+      throw new Error(
+        "TC_RUNTIME_ASYNC_ACTIVE: An async step/replay is pending.",
       );
   }
   private assertConfigured(): void {

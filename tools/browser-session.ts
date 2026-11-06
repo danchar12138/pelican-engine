@@ -88,15 +88,15 @@ export async function waitForEngine(
           ({ production }) => {
             const data = document.documentElement.dataset;
             const runtime = globalThis as unknown as {
-              __threecatFailure?: unknown;
-              __threecat?: { command?: unknown };
+              __pelicanFailure?: unknown;
+              __pelican?: { command?: unknown };
             };
-            const failure = runtime.__threecatFailure || data.threecatFailure;
+            const failure = runtime.__pelicanFailure || data.pelicanFailure;
             if (failure) return { state: "failed", detail: String(failure) };
-            if (data.threecatReady !== "true") return false;
+            if (data.pelicanReady !== "true") return false;
             if (
               !production &&
-              typeof runtime.__threecat?.command !== "function"
+              typeof runtime.__pelican?.command !== "function"
             )
               return false;
             return { state: "ready" };

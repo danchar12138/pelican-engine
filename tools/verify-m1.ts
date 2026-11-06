@@ -118,7 +118,7 @@ await check("protocol", async () => {
   server = await createServer({
     root,
     configFile: path.join(root, "vite.config.ts"),
-    publicDir: path.join(root, "examples/m1/.threecat/public"),
+    publicDir: path.join(root, "examples/m1/.pelican/public"),
     logLevel: "silent",
     server: { port: 4373, host: "127.0.0.1", strictPort: true },
   });
@@ -196,7 +196,7 @@ await check("protocol", async () => {
   const status = await client.status();
   assert.equal(status.status, "succeeded");
   assert.ok(status.data.tasks.some((item) => item.status === "failed"));
-  const response = await fetch("http://127.0.0.1:4373/__threecat/control", {
+  const response = await fetch("http://127.0.0.1:4373/__pelican/control", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ type: "step", count: -1 }),
@@ -258,7 +258,7 @@ await check("render", async () => {
         );
         await waitForEngine(page);
         const initial = await page.evaluate(() =>
-          (window as any).__threecat.inspect(),
+          (window as any).__pelican.inspect(),
         );
         assert.equal(initial.backend, "WebGPUBackend");
         assert.equal(initial.adapter.isFallbackAdapter, false);
@@ -266,15 +266,15 @@ await check("render", async () => {
         assert.equal(initial.runtime.world.entities, 4);
         await page.keyboard.press("ArrowRight");
         const input = await page.evaluate(() =>
-          (window as any).__threecat.inspect(),
+          (window as any).__pelican.inspect(),
         );
         assert.equal(input.game.transforms.spinner.position[0], -0.65);
         assert.equal(input.runtime.scheduler.tick, 1);
         const checkpoint = await page.evaluate(() =>
-          (window as any).__threecat.snapshot(),
+          (window as any).__pelican.snapshot(),
         );
         const dynamic = await page.evaluate(async () => {
-          const api = (window as any).__threecat;
+          const api = (window as any).__pelican;
           await api.step(12);
           await api.mode("path");
           return {
@@ -294,7 +294,7 @@ await check("render", async () => {
           path: path.join(evidence, "path-runtime.png"),
         });
         const restored = await page.evaluate(async (value) => {
-          const api = (window as any).__threecat;
+          const api = (window as any).__pelican;
           await api.restore(value);
           return api.inspect();
         }, checkpoint);
@@ -307,7 +307,7 @@ await check("render", async () => {
         invalidSnapshot.runtime.scheduler.random.version = 99;
         const rejected = await page.evaluate(
           async (value) =>
-            await (window as any).__threecat.command({
+            await (window as any).__pelican.command({
               type: "restore",
               snapshot: value,
             }),
@@ -315,12 +315,12 @@ await check("render", async () => {
         );
         assert.equal(rejected.status, "failed");
         assert.deepEqual(
-          (await page.evaluate(() => (window as any).__threecat.inspect()))
+          (await page.evaluate(() => (window as any).__pelican.inspect()))
             .runtime.records,
           restored.runtime.records,
         );
         const reloads = await page.evaluate(async () => {
-          const api = (window as any).__threecat;
+          const api = (window as any).__pelican;
           const results = [];
           for (let i = 0; i < 3; i++) {
             await api.loadGame();
@@ -334,7 +334,7 @@ await check("render", async () => {
           assert.equal(result.owned.references, 2);
         }
         const beforeFailure = await page.evaluate(() =>
-          (window as any).__threecat.inspect(),
+          (window as any).__pelican.inspect(),
         );
         injectingLoadFailure = true;
         await page.route("**/generated/scene.ir.json*", (route) =>
@@ -342,7 +342,7 @@ await check("render", async () => {
         );
         const loadFailure = await page.evaluate(async () => {
           try {
-            await (window as any).__threecat.loadGame();
+            await (window as any).__pelican.loadGame();
             return null;
           } catch (error) {
             return String(error);
@@ -351,7 +351,7 @@ await check("render", async () => {
         assert.ok(loadFailure);
         await page.unroute("**/generated/scene.ir.json*");
         const afterFailure = await page.evaluate(() =>
-          (window as any).__threecat.inspect(),
+          (window as any).__pelican.inspect(),
         );
         injectingLoadFailure = false;
         assert.deepEqual(
@@ -361,7 +361,7 @@ await check("render", async () => {
         assert.equal(afterFailure.resources.owned.scopes, 1);
         assert.equal(afterFailure.resources.owned.entries, 2);
         await page.evaluate(async () => {
-          const api = (window as any).__threecat;
+          const api = (window as any).__pelican;
           await api.mode("raster");
           await api.step(3);
         });
@@ -451,8 +451,8 @@ await check("deploy", async () => {
         );
         await waitForEngine(page, 30_000, { production: true });
         const state = await page.evaluate(() => ({
-          control: typeof (window as any).__threecat,
-          failureHook: typeof (window as any).__threecatFailure,
+          control: typeof (window as any).__pelican,
+          failureHook: typeof (window as any).__pelicanFailure,
           canvases: document.querySelectorAll("canvas").length,
         }));
         assert.equal(state.control, "undefined");
@@ -461,7 +461,7 @@ await check("deploy", async () => {
         assert.equal(
           (
             await page.request.get(
-              new URL("__threecat/control", staticServer.url).href,
+              new URL("__pelican/control", staticServer.url).href,
             )
           ).status(),
           404,

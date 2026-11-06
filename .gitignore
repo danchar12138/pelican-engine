@@ -1,4 +1,6 @@
 node_modules/
+.pelican/
+# Historical local caches are not part of the renamed product.
 .threecat/
 dist/
 release/

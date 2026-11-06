@@ -80,7 +80,7 @@ async function runTests(names: string[], out: string, browser = false) {
       maxBuffer: 20e6,
       env: {
         ...process.env,
-        ...(browser ? { THREECAT_MODEL_BROWSER: "1" } : {}),
+        ...(browser ? { PELICAN_MODEL_BROWSER: "1" } : {}),
       },
     },
   );
@@ -123,7 +123,7 @@ await check("unit-tests", async () =>
 await check("compiler", async () => {
   const result = await compileProject({
     projectRoot: project,
-    outDir: path.join(project, ".threecat/public/generated"),
+    outDir: path.join(project, ".pelican/public/generated"),
     engineRoot: root,
   });
   await save("compiler.json", result.report);
@@ -144,7 +144,7 @@ await check("assets", async () => {
   assert.equal(audio.duration, 0.45);
   const optimization = await optimizeModel(
     path.join(project, "assets/Fox.glb"),
-    path.join(root, ".threecat/m2-optimized/fox-" + Date.now() + ".glb"),
+    path.join(root, ".pelican/m2-optimized/fox-" + Date.now() + ".glb"),
   );
   assert.ok(optimization.bytesSaved > 0);
   await save("assets.json", { passed: true, fox, bottle, audio });
@@ -195,7 +195,7 @@ try {
     server = await createServer({
       root,
       configFile: path.join(root, "vite.config.ts"),
-      publicDir: path.join(project, ".threecat/public"),
+      publicDir: path.join(project, ".pelican/public"),
       logLevel: "silent",
       server: { port: 0, host: "127.0.0.1", strictPort: true },
     });

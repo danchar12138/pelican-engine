@@ -3,12 +3,22 @@ import type {
   Geometry,
   Graph,
   GraphType,
+  GraphParameter,
+  GraphInputName,
+  MaterialGraphs,
+  VertexGraphs,
+  MaterialBufferInput,
+  MaterialTextureInput,
+  ComputeBufferInput,
+  ComputeTextureInput,
+  ComputeTextureBinding,
   LightDefinition,
   RigidBodyDefinition,
   CharacterDefinition,
   UIElementDefinition,
   Transform,
   Vec3,
+  RenderSettings,
 } from "../../sdk/src/index.ts";
 export const IR_VERSION = 1 as const;
 export { SYSTEM_PHASES } from "../../sdk/src/index.ts";
@@ -41,6 +51,20 @@ export interface Diagnostic {
 export interface GraphIR extends Graph {
   outputType: GraphType;
   nodeTypes: Record<string, GraphType>;
+  requiredInputs?: GraphInputName[];
+  textureIds?: string[];
+  textureSlots?: Record<string, ComputeTextureBinding>;
+  bufferTypes?: Record<string, GraphType>;
+  frameChannels?: string[];
+  historyChannels?: string[];
+}
+export interface PostProcessIR {
+  id: string;
+  buffers?: readonly MaterialBufferInput[];
+  textures?: readonly MaterialTextureInput[];
+  enabled: boolean;
+  graph: GraphIR;
+  source: SourceLocation;
 }
 export interface EntityIR {
   id: string;
@@ -55,6 +79,8 @@ export interface EntityIR {
   };
   light?: LightDefinition;
   model?: {
+    material?: string;
+    materialSlots?: Record<string, string>;
     castShadow?: boolean;
     receiveShadow?: boolean;
     asset: string;
@@ -75,10 +101,14 @@ export interface EntityIR {
   components: Record<string, Record<string, unknown>>;
 }
 export interface SceneIR {
-  format: "threecat.scene";
+  format: "pelican.scene";
   version: 1;
   engineVersion: string;
   gameId: string;
+  render?: RenderSettings;
+  postProcesses?: PostProcessIR[];
+  computeBuffers?: ComputeBufferInput[];
+  computeTextures?: ComputeTextureInput[];
   scene: {
     id: string;
     camera: {
@@ -125,7 +155,8 @@ export interface SceneIR {
     color: string;
     world?: { entity: string; offset: Vec3; occlude: boolean };
   }[];
-  sounds?: { id: string; asset: string; volume: number; loop: boolean }[];
+  sounds?: { id: string; asset: string; volume: number; loop: boolean; bus?: string }[];
+  audioBuses?: { id: string; volume: number }[];
   components: { id: string; schema: ComponentSchema; source: SourceLocation }[];
   prefabs: EntityIR[];
   materials: {
@@ -135,6 +166,22 @@ export interface SceneIR {
     metalness: number;
     texture?: string;
     graph?: GraphIR;
+    graphs?: Partial<Record<keyof MaterialGraphs, GraphIR>>;
+    vertex?: Partial<Record<keyof VertexGraphs, GraphIR>>;
+    buffers?: MaterialBufferInput[];
+    textures?: MaterialTextureInput[];
+    parameters?: GraphParameter[];
+    emissive?: string;
+    emissiveIntensity?: number;
+    opacity?: number;
+    alphaTest?: number;
+    side?: "front" | "back" | "double";
+    transmission?: number;
+    ior?: number;
+    specularIntensity?: number;
+    specularColor?: string;
+    attenuationColor?: string;
+    attenuationDistance?: number;
     source: SourceLocation;
   }[];
   computes: {
@@ -144,6 +191,8 @@ export interface SceneIR {
     graph: GraphIR;
     outputType: GraphType;
     source: SourceLocation;
+    buffers?: { name: string; type: GraphType }[];
+    textures?: ComputeTextureBinding[];
   }[];
   systems: SystemIR[];
   assets: {
@@ -153,6 +202,7 @@ export interface SceneIR {
     sourcePath: string;
     hash: string;
     metadata?: Record<string, unknown>;
+    colorSpace?: "srgb" | "linear";
     sourceInfo?: { source?: string; license?: string; attribution?: string };
     source: SourceLocation;
   }[];
@@ -170,7 +220,7 @@ export interface CompileOptions {
   engineRoot?: string;
 }
 export interface BuildReport {
-  format: "threecat.build-report";
+  format: "pelican.build-report";
   version: 1;
   success: boolean;
   engineVersion: string;

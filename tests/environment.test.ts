@@ -24,14 +24,14 @@ after(async () => {
       relative &&
         !relative.startsWith("..") &&
         !path.isAbsolute(relative) &&
-        path.basename(directory).startsWith("threecat 环境 "),
+        path.basename(directory).startsWith("pelican 环境 "),
     );
     await rm(directory, { recursive: true, force: true });
   }
 });
 const required = ["tsx", "typescript", "playwright", "three", "vite"];
 async function fixture(installed = false) {
-  const root = await mkdtemp(path.join(tmpdir(), "threecat 环境 "));
+  const root = await mkdtemp(path.join(tmpdir(), "pelican 环境 "));
   temporaryDirectories.push(root);
   const deps = Object.fromEntries(required.map((name) => [name, "1.0.0"]));
   const packages: Record<string, any> = { "": { devDependencies: deps } };
@@ -43,6 +43,12 @@ async function fixture(installed = false) {
         path.join(root, "node_modules", name, "package.json"),
         JSON.stringify({ name, version: "1.0.0" }),
       );
+      if (name === "playwright") {
+        await writeFile(
+          path.join(root, "node_modules", name, "index.js"),
+          "module.exports = { chromium: { executablePath: () => require('node:path').join(__dirname, 'missing-browser') } };\n",
+        );
+      }
     }
   }
   await writeFile(
@@ -136,7 +142,7 @@ test("CIM projection excludes identity and never treats truncated AdapterRAM as 
 });
 
 test("recursive path sanitization handles Chinese/spaces and user directories", () => {
-  const root = path.join(homedir(), "项目 空格", "threecat");
+  const root = path.join(homedir(), "项目 空格", "pelican");
   const report = sanitizeReport(
     {
       entries: [
@@ -222,7 +228,7 @@ test("ZIP-mode doctor tolerates absent Git; exact vendor VRAM is attached to the
     result.diagnostics.find((d) => d.code === "TCENV_GIT_OPTIONAL")?.severity,
     "info",
   );
-  // A package metadata stub is not a bundled browser; absence must remain a real failure.
+  // The fixture explicitly points to a missing browser, independent of the host cache.
   assert.equal(result.data.browser.installed, false);
   assert.ok(
     result.diagnostics.some(
@@ -362,7 +368,7 @@ test("real subprocess runner retains exit codes and reports missing commands and
   );
   assert.equal(failure.exitCode, 7);
   const missing = await runCommand(
-    path.join(tmpdir(), "threecat-no-such-command.exe"),
+    path.join(tmpdir(), "pelican-no-such-command.exe"),
     [],
     options,
   );
@@ -448,7 +454,7 @@ test("actual CLI persists an identical structured report at a Chinese path with 
     [tsx, tool, "--project", root, "--output", output],
     { cwd: root, timeoutMs: 30_000 },
   );
-  // The fixture intentionally has no browser implementation. Both the exit code and report must reflect this.
+  // The fixture explicitly points to a missing browser. Exit code and report must reflect this.
   assert.equal(result.exitCode, 1);
   const stdout = JSON.parse(result.stdout);
   const disk = JSON.parse(await readFile(path.join(root, output), "utf8"));

@@ -1,18 +1,25 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { Color } from "three";
 import {
   inspectAsset,
   AssetInspectionError,
   type AssetType,
 } from "../../assets/src/index.ts";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
+import { resolveRenderSettings } from "../../runtime/src/render-settings.ts";
+import { compileGraphDeclaration } from "./graph.ts";
+import { isGraphType, graphValue } from "../../sdk/src/graph-values.ts";
 import type {
   ComponentSchema,
+  ComputeTextureBinding,
+  MaterialTextureInput,
   Geometry,
   GraphType,
   Transform,
   Vec3,
+  Vec4,
 } from "../../sdk/src/index.ts";
 import type {
   Diagnostic,
@@ -208,126 +215,72 @@ export async function normalize(
     });
   }
   const componentLookup = new Map(components.map((c) => [c.id, c]));
-  const graph = (raw: unknown, owner: Obj, expected: GraphType): GraphIR => {
-    const g = obj(raw, owner, "graph");
-    const nodes = list(g.nodes, g, "nodes").map((n) => obj(n, g, "node"));
-    const lookup = new Map<string, Obj>();
-    for (const n of nodes) {
-      const name = id(n);
-      if (lookup.has(name))
-        error("TC_GRAPH_DUPLICATE", "Duplicate graph node: " + name, n, "id");
-      lookup.set(name, n);
+  const computeBuffers: NonNullable<SceneIR["computeBuffers"]> = [];
+  const initialBuffers = new Map<string, NonNullable<SceneIR["computeBuffers"]>[number]>();
+  for (const raw of list(game.computeBuffers, game, "computeBuffers")) {
+    const definition = obj(raw, game, "computeBuffers");
+    const name = id(definition);
+    for (const key of Object.keys(definition)) if (!["id", "type", "count", "data"].includes(key)) error("TC_COMPUTE_BUFFER", "Unknown initial buffer field " + key, definition, key);
+    if (initialBuffers.has(name)) error("TC_COMPUTE_BUFFER_NAME", "Duplicate initial buffer ID: " + name, definition, "id");
+    if (!isGraphType(definition.type)) error("TC_GRAPH_TYPE", "Initial buffer type must be a graph value type.", definition, "type");
+    const type = isGraphType(definition.type) ? definition.type : "float";
+    const count = num(definition.count, definition, "count", 1, 1, 0xffffffff);
+    if (!Number.isSafeInteger(count)) error("TC_COMPUTE_COUNT", "Initial buffer count must be a positive integer.", definition, "count");
+    const buffer: NonNullable<SceneIR["computeBuffers"]>[number] = { id: name, type, count };
+    if (definition.data !== undefined) {
+      const data = list(definition.data, definition, "data");
+      if (data.length !== count) error("TC_COMPUTE_COUNT", "Initial data length differs from buffer count.", definition, "data");
+      buffer.data = data.map((value, index) => {
+        const checked = graphValue(type, value);
+        if (checked === null) error("TC_COMPUTE_VALUE", "Invalid initial buffer value at index " + index, definition, "data");
+        return checked ?? (type === "bool" ? false : 0);
+      });
     }
-    const types: Record<string, GraphType> = Object.create(null);
-    const active = new Set<string>();
-    const infer = (name: string, parent: Obj): GraphType => {
-      if (types[name]) return types[name]!;
-      const n = lookup.get(name);
-      if (!n) {
-        error(
-          "TC_GRAPH_REFERENCE",
-          "Graph references missing node: " + name,
-          parent,
-          "inputs",
-        );
-        return "float";
-      }
-      if (active.has(name)) {
-        error(
-          "TC_GRAPH_CYCLE",
-          "Graph cycle at node: " + name,
-          n,
-          "inputs",
-          "Graphs must be acyclic.",
-        );
-        return "float";
-      }
-      active.add(name);
-      let result: GraphType = "float";
-      if (n.op === "float") {
-        if (n.value === undefined)
-          error("TC_GRAPH_VALUE", "float node requires a value.", n, "op");
-        else {
-          num(n.value, n, "value", 0);
-          if (
-            typeof n.value === "number" &&
-            !Number.isFinite(Math.fround(n.value))
-          )
-            error(
-              "TC_GRAPH_VALUE",
-              "Graph constants must fit a finite f32 value.",
-              n,
-              "value",
-            );
-        }
-      } else if (n.op === "time") {
-        /* runtime uniform */
-      } else if (n.op === "vec3") {
-        if (n.value === undefined)
-          error("TC_GRAPH_VALUE", "vec3 node requires a value.", n, "op");
-        const v = vector(n.value, n, "value", [0, 0, 0]);
-        if (v.some((x) => !Number.isFinite(Math.fround(x))))
-          error(
-            "TC_GRAPH_VALUE",
-            "Graph constants must fit finite f32 values.",
-            n,
-            "value",
-          );
-        result = "vec3";
-      } else if (n.op === "add" || n.op === "multiply" || n.op === "sin") {
-        const inputs = list(n.inputs, n, "inputs");
-        const arity = n.op === "sin" ? 1 : 2;
-        if (
-          inputs.length !== arity ||
-          inputs.some((x) => typeof x !== "string")
-        )
-          error(
-            "TC_GRAPH_ARITY",
-            "Node " + name + " requires " + arity + " node IDs.",
-            n,
-            "inputs",
-          );
-        const a = infer(typeof inputs[0] === "string" ? inputs[0] : "", n);
-        const b =
-          arity === 2
-            ? infer(typeof inputs[1] === "string" ? inputs[1] : "", n)
-            : a;
-        if (a !== b && !(n.op === "multiply" && [a, b].includes("float")))
-          error(
-            "TC_GRAPH_TYPE",
-            "Incompatible " + n.op + " inputs: " + a + " and " + b + ".",
-            n,
-            "inputs",
-            "add requires equal types; multiply also supports scalar-vector multiplication.",
-          );
-        result = a === "vec3" || b === "vec3" ? "vec3" : "float";
-      } else
-        error(
-          "TC_GRAPH_OP",
-          "Unsupported graph operation: " + String(n.op),
-          n,
-          "op",
-        );
-      active.delete(name);
-      types[name] = result;
-      return result;
-    };
-    for (const name of lookup.keys()) infer(name, lookup.get(name)!);
-    const output = text(g.output, g, "output");
-    const resultType = infer(output, g);
-    if (resultType !== expected)
-      error(
-        "TC_GRAPH_TYPE",
-        "Expected " + expected + " graph output, received " + resultType + ".",
-        g,
-        "output",
-      );
-    return {
-      nodes: nodes as unknown as GraphIR["nodes"],
-      output,
-      nodeTypes: types,
-      outputType: resultType,
-    };
+    computeBuffers.push(buffer); initialBuffers.set(name, buffer);
+  }
+  const computeTextures: NonNullable<SceneIR["computeTextures"]> = [];
+  const initialTextures = new Map<string, NonNullable<SceneIR["computeTextures"]>[number]>();
+  for (const raw of list(game.computeTextures, game, "computeTextures")) {
+    const definition = obj(raw, game, "computeTextures"), name = id(definition);
+    const assetInput = Object.hasOwn(definition, "asset");
+    const fields = assetInput ? ["id", "asset"] : ["id", "width", "height", "data"];
+    for (const key of Object.keys(definition)) if (!fields.includes(key)) error("TC_COMPUTE_TEXTURE", "Unknown or incompatible initial texture field " + key, definition, key);
+    if (initialTextures.has(name) || initialBuffers.has(name)) error("TC_COMPUTE_TEXTURE_NAME", "Compute resource IDs must be unique across buffers and textures.", definition, "id");
+    if (assetInput) {
+      const asset = ref(definition.asset, definition, "asset");
+      requireRef("asset", asset, definition, "asset");
+      if (registry("asset").has(asset) && registry("asset").get(asset)?.type !== "texture")
+        error("TC_ASSET_TYPE", "Initial compute textures must import declared texture assets.", definition, "asset");
+      const texture = { id: name, asset };
+      computeTextures.push(texture); initialTextures.set(name, texture);
+      continue;
+    }
+    const width = num(definition.width, definition, "width", 1, 1, 2 ** 24), height = num(definition.height, definition, "height", 1, 1, 2 ** 24);
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width * height > 2 ** 24) error("TC_COMPUTE_TEXTURE_SIZE", "Texture dimensions must be positive integers with at most 2^24 texels.", definition, "width");
+    const texture: NonNullable<SceneIR["computeTextures"]>[number] = { id: name, width, height };
+    if (definition.data !== undefined) {
+      const data = list(definition.data, definition, "data");
+      if (data.length !== width * height) error("TC_COMPUTE_TEXTURE_SIZE", "Texture data must match width times height.", definition, "data");
+      texture.data = data.map((value, index) => {
+        const checked = graphValue("vec4", value);
+        if (checked === null) error("TC_COMPUTE_VALUE", "Expected a finite f32 Vec4 texel at index " + index, definition, "data");
+        return (checked ?? [0, 0, 0, 0]) as Vec4;
+      });
+    }
+    computeTextures.push(texture); initialTextures.set(name, texture);
+  }
+  const graph = (raw: unknown, owner: Obj, expected: GraphType, domain: "material" | "compute" | "vertex" = "material", buffers?: Record<string, GraphType>, sampledTextures?: ReadonlySet<string>, textureSlots?: Readonly<Record<string, ComputeTextureBinding>>): GraphIR => {
+    const g = obj(raw, owner, "graph");
+    const result = compileGraphDeclaration(g, expected, {
+      owner,
+      domain,
+      buffers,
+      textureSlots,
+      inputs: domain === "compute" ? ["index", "pixelCoord", "outputSize", "uv"] : domain === "vertex" ? ["positionLocal", "normalLocal", "vertexIndex", "instanceIndex", "uv", "uv1"] : ["uv", "uv1", "positionWorld", "normalWorld", "viewDirectionWorld", "vertexColor"],
+      textures: sampledTextures ?? new Set(assets.filter(asset => asset.type === "texture").map(asset => asset.id)),
+    });
+    for (const issue of result.issues) error(issue.code, issue.message, issue.owner, issue.field, issue.suggestion);
+    return result.graph;
   };
   const assets: SceneIR["assets"] = [];
   for (const [name, def] of registry("asset")) {
@@ -376,7 +329,10 @@ export async function normalize(
             : {}),
         },
         source: located(def),
+        ...(def.type === "texture" && ["srgb", "linear"].includes(String(def.colorSpace)) ? { colorSpace: def.colorSpace as "srgb" | "linear" } : {}),
       });
+      if (def.colorSpace !== undefined && (def.type !== "texture" || !["srgb", "linear"].includes(String(def.colorSpace))))
+        error("TC_ASSET_COLOR_SPACE", "colorSpace is srgb or linear and applies only to texture assets.", def, "colorSpace");
       for (const field of ["source", "license", "attribution"] as const)
         if (def[field] !== undefined && typeof def[field] !== "string")
           error(
@@ -422,6 +378,77 @@ export async function normalize(
       );
     }
   }
+  const renderBuffers = (def: Obj, label: "Material" | "Postprocess") => {
+    const buffers: NonNullable<SceneIR["materials"][number]["buffers"]> = [];
+    const bufferTypes: Record<string, GraphType> = Object.create(null);
+    if (def.buffers !== undefined) {
+      for (const raw of list(def.buffers, def, "buffers")) {
+        const binding = obj(raw, def, "buffers"), name = text(binding.name, binding, "name");
+        if (!/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(name) || Object.hasOwn(bufferTypes, name)) error("TC_RENDER_BUFFER_SLOT", label + " buffer slot names must be valid and unique.", binding, "name");
+        for (const key of Object.keys(binding)) if (!["name", "type", "buffer", "count"].includes(key)) error("TC_RENDER_BUFFER_SLOT", "Unknown " + label.toLowerCase() + " buffer slot field " + key, binding, key);
+        if (!isGraphType(binding.type)) error("TC_GRAPH_TYPE", label + " buffer slot type must be a graph value type.", binding, "type");
+        const type = isGraphType(binding.type) ? binding.type : "float";
+        bufferTypes[name] = type;
+        const slot: (typeof buffers)[number] = { name, type };
+        if (binding.count !== undefined) {
+          slot.count = num(binding.count, binding, "count", 1, 1, 0xffffffff);
+          if (!Number.isSafeInteger(slot.count)) error("TC_RENDER_BUFFER_COUNT", "Slot count must be an integer.", binding, "count");
+        }
+        if (binding.buffer !== undefined) {
+          slot.buffer = text(binding.buffer, binding, "buffer");
+          const initial = initialBuffers.get(slot.buffer);
+          if (!initial) error("TC_RENDER_BUFFER_MISSING", "Initial " + label.toLowerCase() + " binding must reference a declared computeBuffers ID.", binding, "buffer");
+          else if (initial.type !== type || (slot.count !== undefined && initial.count !== slot.count)) error("TC_RENDER_BUFFER_TYPE", "Initial " + label.toLowerCase() + " slot type/count differs from the buffer declaration.", binding, "buffer");
+        }
+        buffers.push(slot);
+      }
+    }
+    return { buffers, bufferTypes };
+  };
+  const renderTextures = (def: Obj, label: "Material" | "Postprocess") => {
+    const textures: MaterialTextureInput[] = [];
+    const textureSlots: Record<string, ComputeTextureBinding> = Object.create(null);
+    for (const raw of list(def.textures, def, "textures")) {
+      const binding = obj(raw, def, "textures"), name = text(binding.name, binding, "name");
+      if (!/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(name) || Object.hasOwn(textureSlots, name))
+        error("TC_RENDER_TEXTURE_SLOT", label + " texture slot names must be valid and unique.", binding, "name");
+      if (registry("asset").has(name))
+        error("TC_RENDER_TEXTURE_SLOT", "Texture slot name conflicts with static asset ID: " + name, binding, "name");
+      for (const key of Object.keys(binding)) if (!["name", "filter", "wrapU", "wrapV", "texture", "width", "height"].includes(key))
+        error("TC_RENDER_TEXTURE_SLOT", "Unknown " + label.toLowerCase() + " texture slot field " + key, binding, key);
+      const filter = binding.filter === undefined ? "linear" : binding.filter, wrapU = binding.wrapU === undefined ? "clamp" : binding.wrapU, wrapV = binding.wrapV === undefined ? "clamp" : binding.wrapV;
+      if (filter !== "nearest" && filter !== "linear")
+        error("TC_RENDER_TEXTURE_SAMPLER", "Texture filter must be nearest or linear.", binding, "filter");
+      for (const [field, value] of [["wrapU", wrapU], ["wrapV", wrapV]] as const) if (!["clamp", "repeat", "mirror"].includes(String(value)))
+        error("TC_RENDER_TEXTURE_SAMPLER", "Texture addressing must be clamp, repeat or mirror.", binding, field);
+      const slot: MaterialTextureInput = {
+        name, filter: filter === "nearest" ? "nearest" : "linear",
+        wrapU: wrapU === "repeat" || wrapU === "mirror" ? wrapU : "clamp",
+        wrapV: wrapV === "repeat" || wrapV === "mirror" ? wrapV : "clamp",
+      };
+      textureSlots[name] = { ...slot };
+      for (const field of ["width", "height"] as const) if (binding[field] !== undefined) {
+        const value = binding[field];
+        if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > 2 ** 24)
+          error("TC_RENDER_TEXTURE_SIZE", "Texture slot dimensions must be positive integers with at most 2^24 texels.", binding, field);
+        else slot[field] = value;
+      }
+      if (slot.width !== undefined && slot.height !== undefined && slot.width * slot.height > 2 ** 24)
+        error("TC_RENDER_TEXTURE_SIZE", "Texture slot dimensions exceed 2^24 texels.", binding, "width");
+      if (binding.texture !== undefined) {
+        slot.texture = text(binding.texture, binding, "texture");
+        const initial = initialTextures.get(slot.texture);
+        if (!initial) error("TC_RENDER_TEXTURE_MISSING", "Initial " + label.toLowerCase() + " binding must reference a declared computeTextures ID.", binding, "texture");
+        else {
+          const size = typeof initial.asset === "string" ? assets.find(asset => asset.id === initial.asset)?.metadata : initial;
+          for (const field of ["width", "height"] as const) if (slot[field] !== undefined && typeof size?.[field] === "number" && slot[field] !== size[field])
+            error("TC_RENDER_TEXTURE_SIZE", "Initial " + label.toLowerCase() + " slot dimensions differ from the texture declaration.", binding, field);
+        }
+      }
+      textures.push(slot);
+    }
+    return { textures, textureSlots };
+  };
   const materials: SceneIR["materials"] = [];
   for (const [name, def] of registry("material")) {
     const material: SceneIR["materials"][number] = {
@@ -431,6 +458,79 @@ export async function normalize(
       metalness: num(def.metalness, def, "metalness", 0, 0, 1),
       source: located(def),
     };
+    if (def.emissive !== undefined)
+      material.emissive = text(def.emissive, def, "emissive");
+    if (def.emissiveIntensity !== undefined)
+      material.emissiveIntensity = num(
+        def.emissiveIntensity,
+        def,
+        "emissiveIntensity",
+        1,
+        0,
+      );
+    if (def.opacity !== undefined)
+      material.opacity = num(def.opacity, def, "opacity", 1, 0, 1);
+    if (def.alphaTest !== undefined)
+      material.alphaTest = num(def.alphaTest, def, "alphaTest", 0, 0, 1);
+    if (def.side !== undefined) {
+      if (!["front", "back", "double"].includes(String(def.side)))
+        error("TC_MATERIAL_SIDE", "Unknown material side.", def, "side");
+      else material.side = def.side as "front" | "back" | "double";
+    }
+    if (def.transmission !== undefined)
+      material.transmission = num(
+        def.transmission,
+        def,
+        "transmission",
+        0,
+        0,
+        1,
+      );
+    if (def.ior !== undefined)
+      material.ior = num(def.ior, def, "ior", 1.5, Number.EPSILON);
+    if (def.specularIntensity !== undefined)
+      material.specularIntensity = num(def.specularIntensity, def, "specularIntensity", 1, 0, 1);
+    if (def.specularColor !== undefined) {
+      const color = text(def.specularColor, def, "specularColor"), normalized = color.toLowerCase();
+      if (!/^#(?:[a-f0-9]{3}|[a-f0-9]{6})$/i.test(color) && !Object.hasOwn(Color.NAMES, normalized))
+        error("TC_MATERIAL_SPECULAR_COLOR", "Specular color must be an sRGB hex or named color.", def, "specularColor");
+      material.specularColor = color;
+    }
+    if (def.attenuationColor !== undefined)
+      material.attenuationColor = text(
+        def.attenuationColor,
+        def,
+        "attenuationColor",
+      );
+    if (def.attenuationDistance !== undefined)
+      material.attenuationDistance = num(
+        def.attenuationDistance,
+        def,
+        "attenuationDistance",
+        1,
+        Number.EPSILON,
+      );
+    if ((material.transmission ?? 0) > 0 && material.metalness !== 0)
+      error(
+        "TC_MATERIAL_TRANSMISSION",
+        "A closed dielectric volume cannot also be metallic.",
+        def,
+        "metalness",
+        "Use metalness: 0 for dielectric transmission.",
+      );
+    if ((material.transmission ?? 0) > 0 && ((material.specularIntensity ?? 1) !== 1 || (material.specularColor !== undefined && !["#fff", "#ffffff", "white"].includes(material.specularColor.toLowerCase()))))
+      error("TC_MATERIAL_SPECULAR_TRANSMISSION", "Non-default specular color/intensity on transmissive media is not supported.", def, "transmission", "Use default white specular with transmission, or set transmission to zero.");
+    if (
+      !(material.transmission! > 0) &&
+      (def.attenuationColor !== undefined ||
+        def.attenuationDistance !== undefined)
+    )
+      error(
+        "TC_MATERIAL_TRANSMISSION",
+        "Absorption requires positive transmission.",
+        def,
+        "transmission",
+      );
     if (def.texture !== undefined) {
       material.texture = ref(def.texture, def, "texture");
       requireRef("asset", material.texture, def, "texture");
@@ -442,16 +542,105 @@ export async function normalize(
           "texture",
         );
     }
-    if (def.graph !== undefined) material.graph = graph(def.graph, def, "vec3");
+    const slots = renderBuffers(def, "Material");
+    const sampled = renderTextures(def, "Material");
+    if (def.textures !== undefined) material.textures = sampled.textures;
+    if (def.buffers !== undefined) material.buffers = slots.buffers;
+    if (def.graph !== undefined) material.graph = graph(def.graph, def, "vec3", "material", slots.bufferTypes, undefined, sampled.textureSlots);
+    if (def.graphs !== undefined) {
+      const channels = obj(def.graphs, def, "graphs");
+      const types = { baseColor: "vec3", emissive: "vec3", roughness: "float", metalness: "float", opacity: "float", normalWorld: "vec3" } as const;
+      const graphs: NonNullable<typeof material.graphs> = {};
+      for (const [channel, value] of Object.entries(channels)) {
+        if (!Object.hasOwn(types, channel)) { error("TC_GRAPH_CHANNEL", "Unknown material graph channel " + channel, channels, channel); continue; }
+        const key = channel as keyof typeof types;
+        graphs[key] = graph(value, channels, types[key], "material", slots.bufferTypes, undefined, sampled.textureSlots);
+        if ((key === "opacity" || key === "emissive") && graphs[key]?.requiredInputs?.includes("viewDirectionWorld"))
+          error("TC_GRAPH_CONTEXT", "Coverage and emitted radiance are direction independent in this material model.", channels, channel);
+      }
+      if (material.graph && graphs.baseColor) error("TC_GRAPH_CHANNEL", "Use either legacy graph or graphs.baseColor, not both.", channels, "baseColor");
+      if ((material.transmission ?? 0) > 0 && graphs.metalness) error("TC_MATERIAL_TRANSMISSION", "A closed dielectric graph cannot change metalness in this material model.", channels, "metalness");
+      material.graphs = graphs;
+    }
+    if (def.vertex !== undefined) {
+      const channels = obj(def.vertex, def, "vertex");
+      const vertex: NonNullable<typeof material.vertex> = {};
+      if (!Object.keys(channels).length) error("TC_VERTEX_GRAPH", "Declare at least a position or normal vertex graph.", def, "vertex");
+      for (const [channel, value] of Object.entries(channels)) {
+        if (channel !== "position" && channel !== "normal") { error("TC_VERTEX_GRAPH", "Unknown vertex graph channel " + channel, channels, channel); continue; }
+        vertex[channel] = graph(value, channels, "vec3", "vertex", slots.bufferTypes, undefined, sampled.textureSlots);
+      }
+      material.vertex = vertex;
+    }
+    const parameters = new Map<string, NonNullable<typeof material.parameters>[number]>();
+    for (const g of [material.graph, ...Object.values(material.graphs ?? {}), ...Object.values(material.vertex ?? {})]) for (const parameter of g?.parameters ?? []) {
+      const old = parameters.get(parameter.name);
+      if (old && JSON.stringify(old) !== JSON.stringify(parameter)) error("TC_GRAPH_PARAMETER", "Material graphs disagree about parameter " + parameter.name, def, "graphs");
+      else parameters.set(parameter.name, parameter);
+    }
+    if (parameters.size) material.parameters = [...parameters.values()];
     materials.push(material);
   }
   const computes: SceneIR["computes"] = [];
+  const postProcesses: NonNullable<SceneIR["postProcesses"]> = [];
+  const declaredPost = list(game.postProcesses, game, "postProcesses").map(raw => obj(raw, game, "postProcesses"));
+  const postIDs = new Set<string>();
+  for (const definition of declaredPost) {
+    if (definition.kind !== "postprocess") error("TC_POSTPROCESS_KIND", "Use definePostProcess declarations in postProcesses.", definition, "kind");
+    const name = id(definition);
+    if (postIDs.has(name) || name === "scene" || name.startsWith("scene."))
+      error("TC_POSTPROCESS_ID", "Postprocess IDs must be unique and cannot use the reserved scene namespace.", definition, "id");
+    postIDs.add(name);
+  }
+  const frameChannels = new Set(["scene.color", "scene.normal", "scene.depth"]);
+  for (const definition of declaredPost) {
+    const name = id(definition);
+    for (const key of Object.keys(definition)) if (!["id", "kind", "graph", "enabled", "buffers", "textures"].includes(key)) error("TC_POSTPROCESS_FIELD", "Unknown postprocess field " + key, definition, key);
+    const slots = renderBuffers(definition, "Postprocess");
+    const sampled = renderTextures(definition, "Postprocess");
+    const result = compileGraphDeclaration(definition.graph, "vec4", {
+      owner: definition, domain: "postprocess", inputs: ["uv", "screenSize", "texelSize"],
+      textures: new Set(assets.filter(asset => asset.type === "texture").map(asset => asset.id)),
+      textureSlots: sampled.textureSlots,
+      buffers: slots.bufferTypes, frameChannels, historyChannels: postIDs,
+    });
+    for (const issue of result.issues) error(issue.code, issue.message, issue.owner, issue.field, issue.suggestion);
+    if (definition.enabled !== undefined && typeof definition.enabled !== "boolean") error("TC_POSTPROCESS_SETTINGS", "enabled must be boolean.", definition, "enabled");
+    postProcesses.push({ id: name, enabled: definition.enabled !== false, graph: result.graph, ...(definition.buffers !== undefined ? { buffers: slots.buffers } : {}), ...(definition.textures !== undefined ? { textures: sampled.textures } : {}), source: located(definition) });
+    frameChannels.add(name);
+  }
   for (const [name, def] of registry("compute")) {
-    const outputType = def.outputType as GraphType;
-    if (!["float", "vec3"].includes(outputType))
+    const buffers: NonNullable<SceneIR["computes"][number]["buffers"]> = [];
+    const textures: NonNullable<SceneIR["computes"][number]["textures"]> = [], sampledTextures = new Set<string>();
+    for (const raw of list(def.textures, def, "textures")) {
+      const binding = obj(raw, def, "textures"), bindingName = text(binding.name, binding, "name");
+      if (!/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(bindingName) || sampledTextures.has(bindingName)) error("TC_COMPUTE_TEXTURE_BINDING", "Texture slot names must be valid and unique.", binding, "name");
+      for (const key of Object.keys(binding)) if (!["name", "filter", "wrapU", "wrapV"].includes(key)) error("TC_COMPUTE_TEXTURE_BINDING", "Unknown texture slot field " + key, binding, key);
+      const filter = binding.filter ?? "linear", wrapU = binding.wrapU ?? "clamp", wrapV = binding.wrapV ?? "clamp";
+      if (filter !== "nearest" && filter !== "linear") error("TC_COMPUTE_TEXTURE_SAMPLER", "Texture filter must be nearest or linear.", binding, "filter");
+      for (const [field, value] of [["wrapU", wrapU], ["wrapV", wrapV]] as const) if (!["clamp", "repeat", "mirror"].includes(String(value))) error("TC_COMPUTE_TEXTURE_SAMPLER", "Texture addressing must be clamp, repeat or mirror.", binding, field);
+      textures.push({ name: bindingName, filter: filter === "nearest" ? "nearest" : "linear", wrapU: wrapU === "repeat" || wrapU === "mirror" ? wrapU : "clamp", wrapV: wrapV === "repeat" || wrapV === "mirror" ? wrapV : "clamp" });
+      sampledTextures.add(bindingName);
+    }
+    const bufferTypes: Record<string, GraphType> = Object.create(null);
+    if (def.buffers !== undefined) {
+      for (const raw of list(def.buffers, def, "buffers")) {
+        const binding = obj(raw, def, "buffers");
+        const bindingName = text(binding.name, binding, "name");
+        for (const key of Object.keys(binding)) if (!["name", "type"].includes(key)) error("TC_COMPUTE_BINDING", "Unknown compute buffer declaration field " + key, binding, key);
+        if (!/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(bindingName) || Object.hasOwn(bufferTypes, bindingName))
+          error("TC_COMPUTE_BINDING", "Compute buffer names must be valid and unique.", binding, "name");
+        if (!isGraphType(binding.type)) error("TC_GRAPH_TYPE", "Compute buffer type must be a declared graph value type.", binding, "type");
+        const type = isGraphType(binding.type) ? binding.type : "float";
+        bufferTypes[bindingName] = type;
+        buffers.push({ name: bindingName, type });
+      }
+    }
+    const outputType: GraphType = isGraphType(def.outputType) ? def.outputType : "float";
+    if (!isGraphType(def.outputType))
       error(
         "TC_GRAPH_TYPE",
-        "Compute outputType must be float or vec3.",
+        "Compute outputType must be a declared graph value type.",
         def,
         "outputType",
       );
@@ -476,7 +665,9 @@ export async function normalize(
       count,
       workgroupSize,
       outputType,
-      graph: graph(def.graph, def, outputType),
+      graph: graph(def.graph, def, outputType, "compute", bufferTypes, sampledTextures),
+      ...(buffers.length ? { buffers } : {}),
+      ...(textures.length ? { textures } : {}),
       source: located(def),
     });
   }
@@ -604,11 +795,27 @@ export async function normalize(
       for (const field of ["castShadow", "receiveShadow"] as const)
         if (model[field] !== undefined && typeof model[field] !== "boolean")
           error("TC_MODEL_VALUE", field + " must be a boolean.", model, field);
+      if (model.material !== undefined && model.materialSlots !== undefined)
+        error("TC_MODEL_MATERIAL_CONFLICT", "Use either material or materialSlots, not both.", model, "materialSlots");
+      let materialSlots: Record<string, string> | undefined;
+      if (model.materialSlots !== undefined) {
+        const slots = obj(model.materialSlots, model, "materialSlots");
+        const entries = Object.entries(slots).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+        if (!entries.length) error("TC_MODEL_MATERIAL_SLOTS", "materialSlots must not be empty.", model, "materialSlots");
+        materialSlots = Object.fromEntries(entries.map(([slot, value]) => {
+          if (!slot.trim()) error("TC_MODEL_MATERIAL_SLOTS", "Material slot names must not be empty.", model, "materialSlots");
+          const name = ref(value, slots, slot);
+          requireRef("material", name, slots, slot);
+          return [slot, name];
+        }));
+      }
       result.model = {
         castShadow: model.castShadow !== false,
         receiveShadow: model.receiveShadow !== false,
         asset,
         scale: num(model.scale, model, "scale", 1, Number.EPSILON),
+        ...(model.material !== undefined ? { material: (() => { const name = ref(model.material, model, "material"); requireRef("material", name, model, "material"); return name; })() } : {}),
+        ...(materialSlots !== undefined ? { materialSlots } : {}),
         ...(model.offset !== undefined
           ? { offset: vector(model.offset, model, "offset", [0, 0, 0]) }
           : {}),
@@ -1296,6 +1503,15 @@ export async function normalize(
         : {}),
     });
   }
+  const audioBuses: NonNullable<SceneIR["audioBuses"]> = [];
+  const busIds = new Set<string>();
+  for (const raw of list(game.audioBuses, game, "audioBuses")) {
+    const bus = obj(raw, game, "audioBuses");
+    const name = id(bus);
+    if (busIds.has(name)) error("TC_DUPLICATE_ID", "Duplicate audio bus ID: " + name, bus, "id");
+    busIds.add(name);
+    audioBuses.push({ id: name, volume: num(bus.volume, bus, "volume", 1, 0, 1) });
+  }
   const sounds: NonNullable<SceneIR["sounds"]> = [];
   const soundIds = new Set<string>();
   for (const raw of list(game.sounds, game, "sounds")) {
@@ -1315,27 +1531,46 @@ export async function normalize(
       );
     if (sound.loop !== undefined && typeof sound.loop !== "boolean")
       error("TC_SOUND_VALUE", "Sound loop must be a boolean.", sound, "loop");
+    if (sound.bus !== undefined && (typeof sound.bus !== "string" || !busIds.has(sound.bus)))
+      error("TC_AUDIO_BUS", "Sound bus must reference a declared audio bus.", sound, "bus");
     sounds.push({
       id: name,
       asset,
       volume: num(sound.volume, sound, "volume", 1, 0, 1),
       loop: sound.loop === true,
+      ...(sound.bus !== undefined ? { bus: sound.bus as string } : {}),
     });
   }
   const ir: SceneIR = {
-    format: "threecat.scene",
+    format: "pelican.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: id(game),
+    ...(game.render !== undefined
+      ? {
+          render: (() => {
+            try {
+              return resolveRenderSettings(game.render);
+            } catch (cause) {
+              error("TC_RENDER_SETTINGS", String(cause), game, "render");
+              return resolveRenderSettings({});
+            }
+          })(),
+        }
+      : {}),
     scene: primaryScene,
     ...(additionalScenes.length ? { scenes: additionalScenes } : {}),
     ...(game.input !== undefined ? { input } : {}),
     ...(game.ui !== undefined ? { ui } : {}),
     ...(game.sounds !== undefined ? { sounds } : {}),
+    ...(game.audioBuses !== undefined ? { audioBuses } : {}),
     components,
     prefabs: [...resolvedPrefabs.values()],
     materials,
     computes,
+    ...(computeBuffers.length ? { computeBuffers } : {}),
+    ...(computeTextures.length ? { computeTextures } : {}),
+    ...(postProcesses.length ? { postProcesses } : {}),
     systems,
     assets,
     assetNotices: assets.map((asset) => ({

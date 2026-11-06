@@ -6,14 +6,14 @@ import { resolveEnginePath } from "../packages/compiler/src/version.ts";
 test("source maps normalize Windows slash/case differences across engine and project drives", () => {
   const win = path.win32,
     project = "C:\\Users\\runner\\Temp\\game",
-    sdk = "D:\\a\\threecat\\packages\\sdk\\src\\index.ts";
+    sdk = "D:\\a\\pelican\\packages\\sdk\\src\\index.ts";
   assert.equal(
-    mapSourcePath("D:/a/threecat/packages/sdk/src/index.ts", project, sdk, win),
-    "threecat-sdk/index.ts",
+    mapSourcePath("D:/a/pelican/packages/sdk/src/index.ts", project, sdk, win),
+    "pelican-sdk/index.ts",
   );
   assert.equal(
-    mapSourcePath("d:/A/THREECAT/packages/sdk/src/index.ts", project, sdk, win),
-    "threecat-sdk/index.ts",
+    mapSourcePath("d:/A/PELICAN/packages/sdk/src/index.ts", project, sdk, win),
+    "pelican-sdk/index.ts",
   );
   assert.equal(mapSourcePath("../game.ts", project, sdk, win), "game.ts");
   assert.equal(
@@ -21,8 +21,8 @@ test("source maps normalize Windows slash/case differences across engine and pro
     "logic/move.ts",
   );
   assert.equal(
-    mapSourcePath("\0threecat:m0-game-entry", project, sdk, win),
-    "threecat-generated-entry",
+    mapSourcePath("\0pelican:m0-game-entry", project, sdk, win),
+    "pelican-generated-entry",
   );
   assert.throws(
     () => mapSourcePath("E:/unexpected/private.ts", project, sdk, win),
@@ -40,7 +40,7 @@ test("source maps resolve sourceRoot before clearing it and retain SDK identity 
   );
   assert.equal(
     mapSourcePath("index.ts", project, sdk, win, "D:/engine/packages/sdk/src"),
-    "threecat-sdk/index.ts",
+    "pelican-sdk/index.ts",
   );
   assert.equal(
     mapSourcePath(
@@ -50,7 +50,7 @@ test("source maps resolve sourceRoot before clearing it and retain SDK identity 
       win,
       "D:/engine/packages/sdk/src",
     ),
-    "threecat-sdk/systems/types.ts",
+    "pelican-sdk/systems/types.ts",
   );
   assert.equal(
     mapSourcePath("C:/games/demo/game.ts", project, sdk, win, "D:/ignored"),
@@ -68,11 +68,11 @@ test("source maps preserve POSIX case and map generated entries without leaking 
   );
   assert.equal(
     mapSourcePath("/engine/sdk/Index.ts", project, sdk, posix),
-    "threecat-sdk/Index.ts",
+    "pelican-sdk/Index.ts",
   );
   assert.equal(
-    mapSourcePath("\0threecat:game-entry", project, sdk, posix),
-    "threecat-generated-entry",
+    mapSourcePath("\0pelican:game-entry", project, sdk, posix),
+    "pelican-generated-entry",
   );
   assert.equal(
     mapSourcePath("/engine/sdk-other/private.ts", project, sdk, posix),
@@ -87,11 +87,11 @@ test("engine lock paths support relative, absolute cross-drive and UNC Windows d
     "C:\\engine",
   );
   assert.equal(
-    resolveEnginePath("C:\\games\\demo", "D:/engines/threecat", win),
-    "D:\\engines\\threecat",
+    resolveEnginePath("C:\\games\\demo", "D:/engines/pelican", win),
+    "D:\\engines\\pelican",
   );
   assert.equal(
-    resolveEnginePath("C:\\games\\demo", "//server/share/threecat", win),
-    "\\\\server\\share\\threecat",
+    resolveEnginePath("C:\\games\\demo", "//server/share/pelican", win),
+    "\\\\server\\share\\pelican",
   );
 });

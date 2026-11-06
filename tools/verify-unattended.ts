@@ -18,19 +18,19 @@ export async function verifyUnattended(
       timeout: 30000,
     });
     await automatic.waitForFunction(
-      () => document.documentElement.dataset.threecatReady === "true",
+      () => document.documentElement.dataset.pelicanReady === "true",
       undefined,
       { polling: 100, timeout: 30000 },
     );
     const first = await automatic.evaluate(() =>
-      (window as any).__threecat.inspect(),
+      (window as any).__pelican.inspect(),
     );
     const covering = await browser.newPage();
     await covering.goto("about:blank");
     // Never activate the game page or send keyboard/mouse input to make it progress.
     await new Promise((resolve) => setTimeout(resolve, 700));
     const second = await automatic.evaluate(() =>
-      (window as any).__threecat.inspect(),
+      (window as any).__pelican.inspect(),
     );
     assert.equal(first.playback.playing, true);
     assert.equal(first.playback.automation, false);
@@ -56,14 +56,14 @@ export async function verifyUnattended(
     // Default Playwright RAF polling would never run against this deliberate stub.
     await controlled.waitForFunction(
       () =>
-        typeof (window as any).__threecat?.command === "function" ||
-        !!(window as any).__threecatFailure,
+        typeof (window as any).__pelican?.command === "function" ||
+        !!(window as any).__pelicanFailure,
       undefined,
       { polling: 100, timeout: 30000 },
     );
     const initial = await controlled.evaluate(() => ({
-      error: (window as any).__threecatFailure,
-      state: (window as any).__threecat?.inspect(),
+      error: (window as any).__pelicanFailure,
+      state: (window as any).__pelican?.inspect(),
       status: document.querySelector("#status")?.textContent,
     }));
     assert.equal(initial.error, undefined);
@@ -75,7 +75,7 @@ export async function verifyUnattended(
     await covering.bringToFront();
     const response = await controlled.evaluate(
       async () =>
-        await (window as any).__threecat.command({ type: "step", count: 3 }),
+        await (window as any).__pelican.command({ type: "step", count: 3 }),
     );
     assert.equal(response.status, "succeeded");
     assert.equal(response.data.tick, 3);

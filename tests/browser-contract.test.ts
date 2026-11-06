@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 import * as THREE from "three/webgpu";
+import { Accessor, Document, NodeIO } from "@gltf-transform/core";
 import {
   SDK_VERSION,
   defineGame,
@@ -20,8 +21,15 @@ import {
 } from "../packages/renderer/src/checkpoint.ts";
 import { createSimulation } from "../experiments/simulation/index.ts";
 import { createWorldProbe } from "../experiments/world/index.ts";
-import { runtimeStatus } from "../packages/renderer/src/startup.ts";
+import { runtimeStatus, inspectTraceCapabilities } from "../packages/renderer/src/startup.ts";
+import { createRenderSettingsDriver } from "../packages/runtime/src/render-settings.ts";
+import { createComputeDriver } from "../packages/runtime/src/compute-service.ts";
+import { createComputeTextureAssets } from "../packages/renderer/src/compute-texture-assets.ts";
+import { renderCapabilities, validateRenderCapabilities } from "../packages/runtime/src/render-capabilities.ts";
 import { resolveEntityDefinition } from "../packages/runtime/src/prefabs.ts";
+import { createGameServices } from "../packages/runtime/src/game-services.ts";
+import { createModelLibrary } from "../packages/renderer/src/models.ts";
+import { prepareGameplay } from "../packages/renderer/src/gameplay.ts";
 
 // Execute the actual browser function bodies with real CPU World/resources/Three objects.
 // No fake adapter result is used, and none of these tests constitutes GPU evidence.
@@ -57,11 +65,31 @@ function harness(names: string[], context: Record<string, unknown>) {
   const scope = vm.createContext({
     structuredClone,
     gameplay: undefined,
+    renderControl: undefined,
+    computeControl: undefined,
+    computeExecutor: undefined,
+    renderBufferBridge: undefined,
+    renderTextureBridge: undefined,
+    postComposer: undefined,
+    vertexBounds: undefined,
+    surfaceTracer: undefined,
+    pendingSurface: undefined,
+    recoveringGpu: false,
+    recoveryCount: 0,
+    recoveryEvents: [],
+    createRenderSettingsDriver,
+    createComputeDriver,
+    createComputeTextureAssets,
+    renderCapabilities,
+    validateRenderCapabilities,
+    backendKind: "webgpu",
     lastStepCpuMs: 0,
     performance,
     startup: { automation: true, playing: false },
     playing: false,
     runtimeStatus,
+    inspectTraceCapabilities,
+    probeEnabled: false,
     resolveEntityDefinition,
     URL,
     document: { baseURI: "http://localhost/" },
@@ -71,9 +99,103 @@ function harness(names: string[], context: Record<string, unknown>) {
   vm.runInContext(script, scope);
   return scope as Record<string, any>;
 }
+
+test("browser draw queue serializes asynchronous surface setup and keeps later frames runnable after failure", async () => {
+  const events: string[] = [];
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let call = 0,
+    active = 0,
+    peak = 0;
+  const context = harness(["draw"], {
+    drawTail: Promise.resolve(),
+    frameSerial: 0,
+    document: { documentElement: { dataset: {} } },
+    drawFrame: async () => {
+      const id = ++call;
+      active++;
+      peak = Math.max(peak, active);
+      events.push("start-" + id);
+      try {
+        if (id === 1) await gate;
+        if (id === 2) throw new Error("frame failed");
+        events.push("end-" + id);
+      } finally {
+        active--;
+      }
+    },
+  });
+  const first = context.draw(),
+    second = context.draw(),
+    third = context.draw();
+  const failure = assert.rejects(second, /frame failed/);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(events, ["start-1"]);
+  assert.equal(
+    context.document.documentElement.dataset.pelicanFrameState,
+    "drawing",
+  );
+  release();
+  await first;
+  await failure;
+  await third;
+  assert.equal(peak, 1);
+  assert.deepEqual(events, ["start-1", "end-1", "start-2", "start-3", "end-3"]);
+  assert.equal(context.frameSerial, 2);
+  assert.equal(
+    context.document.documentElement.dataset.pelicanFrameSerial,
+    "2",
+  );
+  assert.equal(
+    context.document.documentElement.dataset.pelicanFrameState,
+    "idle",
+  );
+});
+
+test("late errors after browser teardown cannot publish a new runtime fault", () => {
+  const errors: string[] = [];
+  const context = harness(["reportFailure"], { disposed: true, errors, console: { error() { throw Error("disposed owner logged a fault"); } } });
+  context.reportFailure(new Error("late cancelled compute"));
+  assert.deepEqual(errors, []);
+});
+
+test("paused input draws coalesce bursts instead of starting a second renderer initialization", async () => {
+  let resolve: () => void = () => {},
+    calls = 0;
+  const gate = new Promise<void>((done) => {
+    resolve = done;
+  });
+  const context = harness(["requestInputDraw"], {
+    inputDrawRequested: false,
+    inputDrawActive: false,
+    playing: false,
+    disposed: false,
+    draw: async () => {
+      calls++;
+      if (calls === 1) await gate;
+    },
+    reportFailure: (error: unknown) => {
+      throw error;
+    },
+  });
+  context.requestInputDraw();
+  context.requestInputDraw();
+  context.requestInputDraw();
+  assert.equal(calls, 1);
+  resolve();
+  await new Promise<void>((done) => setImmediate(done));
+  assert.equal(calls, 2);
+  assert.equal(context.inputDrawActive, false);
+  context.playing = true;
+  context.requestInputDraw();
+  await new Promise<void>((done) => setImmediate(done));
+  assert.equal(calls, 2);
+});
 function ir(): SceneIR {
   return {
-    format: "threecat.scene",
+    format: "pelican.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: "browser-contract",
@@ -217,6 +339,191 @@ test("browser views: runtime-only spawn is a Group; display maps are derived fro
   }
 });
 
+test("browser views: removing a parent and child disposes each geometry once", () => {
+  const { host, definition } = hostRig();
+  definition.prefabs.push({ ...structuredClone(definition.scene.entities[0]), id: "child" });
+  const view = viewHarness(host, definition);
+  try {
+    host.world.spawn({ id: "child", prefab: "child", parent: "root" });
+    view.syncRuntime();
+    const child = view.gameObjects.get("child");
+    let disposed = 0;
+    child.children[0].geometry.addEventListener("dispose", () => disposed++);
+    host.world.destroy("root");
+    view.syncRuntime();
+    assert.equal(disposed, 1);
+    assert.equal(view.gameObjects.size, 0);
+  } finally {
+    view.releaseObject(view.gameRoot);
+    for (const material of view.gameMaterials.values()) material.dispose();
+    host.dispose();
+  }
+});
+
+test("browser views: replacing a parent prefab preserves surviving child resources", () => {
+  const { host, definition } = hostRig();
+  definition.prefabs.push(
+    { ...structuredClone(definition.scene.entities[0]), id: "parent-a" },
+    { ...structuredClone(definition.scene.entities[0]), id: "parent-b" },
+    { ...structuredClone(definition.scene.entities[0]), id: "child" },
+  );
+  const view = viewHarness(host, definition);
+  try {
+    host.world.spawn({ id: "parent", prefab: "parent-a" });
+    host.world.spawn({ id: "child", prefab: "child", parent: "parent" });
+    view.syncRuntime();
+    const child = view.gameObjects.get("child");
+    let disposed = 0;
+    child.children[0].geometry.addEventListener("dispose", () => disposed++);
+    host.world.destroy("parent");
+    host.world.spawn({ id: "parent", prefab: "parent-b" });
+    host.world.spawn({ id: "child", prefab: "child", parent: "parent" });
+    view.syncRuntime();
+    assert.equal(disposed, 0);
+    assert.equal(view.gameObjects.get("child"), child);
+    assert.equal(child.parent, view.gameObjects.get("parent"));
+  } finally {
+    view.releaseObject(view.gameRoot);
+    for (const material of view.gameMaterials.values()) material.dispose();
+    host.dispose();
+  }
+});
+
+test("browser views: replacing a parent prefab replaces its model without releasing a surviving child's shared geometry", async () => {
+  const doc = new Document();
+  const buffer = doc.createBuffer();
+  const positions = doc.createAccessor("positions", buffer).setType(Accessor.Type.VEC3)
+    .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]));
+  const mesh = doc.createMesh("triangle").addPrimitive(doc.createPrimitive().setAttribute("POSITION", positions));
+  const scene = doc.createScene("scene").addChild(doc.createNode("triangle").setMesh(mesh));
+  doc.getRoot().setDefaultScene(scene);
+  const bytes = await new NodeIO().writeBinary(doc);
+  const models = createModelLibrary({ a: "a.glb", b: "b.glb" }, {
+    baseURL: "https://assets.test/",
+    fetch: async () => new Response(bytes.slice(), { status: 200 }),
+  });
+  await models.prepare();
+  const { host, definition } = hostRig();
+  const base = structuredClone(definition.scene.entities[0]);
+  definition.prefabs.push(
+    { ...base, id: "parent-a", mesh: undefined, model: { asset: "a", scale: 1 } },
+    { ...base, id: "parent-b", mesh: undefined, model: { asset: "b", scale: 1 } },
+    { ...base, id: "parent-empty", mesh: undefined },
+    { ...base, id: "child", mesh: undefined, model: { asset: "a", scale: 1 } },
+  );
+  const view = viewHarness(host, definition);
+  view.gameplay = { models };
+  try {
+    host.world.spawn({ id: "parent", prefab: "parent-a" });
+    host.world.spawn({ id: "child", prefab: "child", parent: "parent" });
+    view.syncRuntime();
+    const old = models.get("parent")!;
+    const child = models.get("child")!;
+    const geometry = (child.node.getObjectByName("triangle") as THREE.Mesh).geometry;
+    let disposed = 0;
+    geometry.addEventListener("dispose", () => disposed++);
+    host.world.destroy("parent");
+    host.world.spawn({ id: "parent", prefab: "parent-b" });
+    host.world.spawn({ id: "child", prefab: "child", parent: "parent" });
+    view.syncRuntime();
+    assert.notEqual(models.get("parent"), old);
+    assert.equal(models.snapshot().animations.find((item) => item.entity === "parent")?.asset, "b");
+    assert.equal(models.get("child"), child);
+    assert.equal(child.node.parent, view.gameObjects.get("child"));
+    assert.equal(view.gameObjects.get("child").parent, view.gameObjects.get("parent"));
+    assert.equal(disposed, 0);
+    assert.equal(models.inspect().instances, 2);
+    host.world.destroy("parent");
+    host.world.spawn({ id: "parent", prefab: "parent-a" });
+    host.world.spawn({ id: "child", prefab: "child", parent: "parent" });
+    view.syncRuntime();
+    assert.equal((models.get("parent")!.node.getObjectByName("triangle") as THREE.Mesh).geometry, geometry);
+    host.world.destroy("parent");
+    host.world.spawn({ id: "parent", prefab: "parent-empty" });
+    host.world.spawn({ id: "child", prefab: "child", parent: "parent" });
+    view.syncRuntime();
+    assert.equal(models.get("parent"), undefined);
+    assert.equal(models.get("child"), child);
+    assert.equal(disposed, 0);
+    assert.equal(view.gameObjects.get("child").parent, view.gameObjects.get("parent"));
+  } finally {
+    await models.dispose();
+    view.releaseObject(view.gameRoot);
+    for (const material of view.gameMaterials.values()) material.dispose();
+    host.dispose();
+  }
+});
+
+test("gameplay model snapshots restore changed prefab definitions without mutating active models during preflight", async () => {
+  const doc = new Document();
+  const buffer = doc.createBuffer();
+  const positions = doc.createAccessor("positions", buffer).setType(Accessor.Type.VEC3)
+    .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]));
+  const mesh = doc.createMesh("triangle").addPrimitive(doc.createPrimitive().setAttribute("POSITION", positions));
+  doc.getRoot().setDefaultScene(doc.createScene("scene").addChild(doc.createNode("triangle").setMesh(mesh)));
+  const bytes = await new NodeIO().writeBinary(doc);
+  const oldFetch = globalThis.fetch;
+  const oldDocument = globalThis.document;
+  globalThis.fetch = async () => new Response(bytes.slice(), { status: 200 });
+  globalThis.document = { createElement: () => ({ dataset: {}, style: {}, addEventListener() {}, removeEventListener() {}, remove() {} }) } as unknown as typeof globalThis.document;
+  const definition = ir();
+  const base = structuredClone(definition.scene.entities[0]);
+  definition.prefabs.push(
+    { ...base, id: "a", mesh: undefined, model: { asset: "a", scale: 1 } },
+    { ...base, id: "b", mesh: undefined, model: { asset: "b", scale: 1 } },
+  );
+  for (const id of ["a", "b"]) definition.assets.push({ id, type: "model", path: `${id}.glb`, sourcePath: `${id}.glb`, hash: id, source: { file: "game.ts", line: 1, column: 1, length: 1 } });
+  let gameplay: Awaited<ReturnType<typeof prepareGameplay>> | undefined;
+  let host: RuntimeHost | undefined;
+  try {
+    gameplay = await prepareGameplay(definition, "https://assets.test/", {} as THREE.Renderer);
+    host = new RuntimeHost(definition, { plugins: gameplay.plugins });
+    host.attach(moduleValue.createGame(host.facade));
+    host.world.spawn({ id: "item", prefab: "a" });
+    const savedA = host.snapshot();
+    host.world.destroy("item");
+    host.world.spawn({ id: "item", prefab: "b" });
+    const savedB = host.snapshot();
+    const active = gameplay.models.get("item")!;
+    const geometry = (active.node.getObjectByName("triangle") as THREE.Mesh).geometry;
+    const beforeInspection = gameplay.models.inspect();
+    let disposed = 0;
+    geometry.addEventListener("dispose", () => disposed++);
+    const plugin = gameplay.plugins[2]({ world: host.world, scene: definition, events: () => [], emit: () => { throw new Error("unexpected emit"); } });
+    plugin.validateSnapshot(savedA.plugins!["$engine.models"].payload);
+    assert.equal(gameplay.models.get("item"), active);
+    assert.throws(() => gameplay!.models.register("item", { asset: "a" }), /TC_MODEL_DEFINITION_CONFLICT/);
+    const bad = structuredClone(savedA);
+    const payload = bad.plugins!["$engine.models"].payload as any;
+    payload.animation.animations[0].asset = "b";
+    assert.throws(() => host!.restore(bad), /TC_MODEL_INVALID_SNAPSHOT/);
+    const badWorld = structuredClone(savedB);
+    (badWorld.plugins!["$engine.models"].payload as any).bindings[0].prefab = "a";
+    (badWorld.plugins!["$engine.models"].payload as any).animation.animations[0].asset = "a";
+    assert.throws(() => host!.restore(badWorld), /TC_MODEL_BINDINGS_WORLD/);
+    assert.equal(gameplay.models.get("item"), active);
+    assert.equal((active.node.getObjectByName("triangle") as THREE.Mesh).geometry, geometry);
+    assert.equal(disposed, 0);
+    assert.deepEqual(gameplay.models.inspect(), beforeInspection);
+    assert.throws(() => gameplay!.models.register("item", { asset: "a" }), /TC_MODEL_DEFINITION_CONFLICT/);
+    gameplay.models.register("item", { asset: "b" });
+    assert.deepEqual(host.snapshot(), savedB);
+    host.restore(savedA);
+    assert.equal(gameplay.models.snapshot().animations[0].asset, "a");
+    assert.notEqual(gameplay.models.get("item"), active);
+    assert.equal(disposed, 0);
+    host.restore(savedB);
+    assert.equal(gameplay.models.snapshot().animations[0].asset, "b");
+    assert.equal((gameplay.models.get("item")!.node.getObjectByName("triangle") as THREE.Mesh).geometry, geometry);
+    assert.equal(disposed, 0);
+  } finally {
+    host?.dispose();
+    await gameplay?.dispose();
+    globalThis.fetch = oldFetch;
+    globalThis.document = oldDocument;
+  }
+});
+
 test("browser views: spawned prefab creates real geometry and retains content identity across restore", () => {
   const { host, definition } = hostRig();
   definition.prefabs.push({
@@ -274,7 +581,7 @@ async function loadHarness() {
   await manager.acquire("json", "initial-scene", { url: "scene" }, scope);
   await manager.acquire("module", "initial-game", { url: "game" }, scope);
   const context = harness(
-    ["releaseObject", "createEntityView", "syncRuntime", "loadGame"],
+    ["releaseObject", "createEntityView", "syncRuntime", "slotTypes", "materialSlotTypes", "textureSlotTypes", "materialTextureTypes", "usesRenderTextures", "usesRenderSlots", "slotResources", "textureResources", "applyMaterialGraphs", "loadGame"],
     {
       ...view,
       THREE,
@@ -292,8 +599,26 @@ async function loadHarness() {
       disposed: false,
       contentGeneration: 0,
       materialGraphs: [],
+      probeEnabled: false,
+      renderer: undefined,
+      // Keep real SDK services; this CPU transaction harness has no DOM/GPU presentation.
+      async prepareGameplay(content: SceneIR) {
+        const models = createModelLibrary([]);
+        const services = createGameServices(content, models.animation);
+        return {
+          plugins: [services.factory],
+          models,
+          services,
+          textures: new Map(),
+          mount() {},
+          dispose: () => models.dispose(),
+        };
+      },
       graphTime: { value: 0 },
       graphToTSL() {
+        throw new Error("invalid graph");
+      },
+      typedGraphToTSL() {
         throw new Error("invalid graph");
       },
       camera: new THREE.PerspectiveCamera(),
@@ -319,6 +644,7 @@ async function loadHarness() {
     },
     async dispose() {
       context.runtime.dispose();
+      await context.gameplay?.dispose();
       context.releaseObject(context.gameRoot);
       for (const material of context.gameMaterials.values()) material.dispose();
       await manager.dispose();
@@ -392,6 +718,7 @@ test("browser load transaction: commit replaces content and disposes previous ow
     assert.equal(released, 1);
     assert.equal(rig.manager.inspect().owned.scopes, 1);
     assert.equal(rig.manager.inspect().owned.entries, 2);
+    assert.equal(rig.context.runtime.facade.scenes.current(), "scene");
   } finally {
     await rig.dispose();
   }
@@ -424,12 +751,12 @@ test("browser first-load transaction does not call Object3D.add with an empty sp
 test("checkpoint: display validation is detached, rejects invalid topology/input/resource identity", () => {
   const { host } = hostRig();
   const resources = {
-    format: "threecat.resources",
+    format: "pelican.resources",
     version: 1,
     resources: [],
   } as const;
   const saved = {
-    format: "threecat.browser",
+    format: "pelican.browser",
     version: 1,
     engineVersion: SDK_VERSION,
     tick: 0,
@@ -559,6 +886,8 @@ test("browser inspect: optional selection omits IR, slices both render maps, def
   });
   try {
     const initial = context.inspect();
+    assert.equal(initial.capabilities.tracer, "WebGPU surface triangle-BVH (lazy initialization)");
+    assert.equal(initial.capabilities.tracerInitialized, false);
     assert.equal(initial.compiledIR, definition);
     assert.equal("paging" in initial, false);
     assert.equal(initial.runtime.records.length, 1);
@@ -601,7 +930,8 @@ function restoreFunction() {
 
 test("browser restore: invalid sidecars leave real Host, generations and presentation unchanged", async () => {
   const { host } = hostRig();
-  const resources = { format: "threecat.resources", version: 1, resources: [] };
+  const temporalInvalidations: string[] = [];
+  const resources = { format: "pelican.resources", version: 1, resources: [] };
   const simulation = createSimulation("cloth");
   const world = createWorldProbe();
   await world.loadChunk([0, 0]);
@@ -630,15 +960,28 @@ test("browser restore: invalid sidecars leave real Host, generations and present
     syncWorld() {},
     draw: async () => {},
     device: { queue: { onSubmittedWorkDone: async () => {} } },
+    submittedWork: async () => {},
     inspect: () => host.inspect(),
     scene: new THREE.Scene(),
+    boundedOperation: async (work: Promise<unknown>) => await work,
+    postComposer: undefined,
+    surfaceTracer: {
+      invalidateTemporal(reason: string) {
+        assert.equal(
+          host.world.getTransform("root").position[0],
+          1,
+          "visual invalidation follows successful Host restore",
+        );
+        temporalInvalidations.push(reason);
+      },
+    },
   });
   vm.runInContext(restoreFunction(), context);
   try {
     const before = host.snapshot(),
       handle = host.world.resolve("root");
     const saved = {
-      format: "threecat.browser",
+      format: "pelican.browser",
       version: 1,
       engineVersion: SDK_VERSION,
       tick: 0,
@@ -662,11 +1005,17 @@ test("browser restore: invalid sidecars leave real Host, generations and present
       assert.equal(context.simulation, simulation);
       assert.equal(context.world, world);
       assert.equal(context.restoring, false);
+      assert.deepEqual(temporalInvalidations, []);
     }
+    host.world.setTransform("root", { position: [9, 0, 0] });
+    await (context as any).restore(saved);
+    assert.deepEqual(temporalInvalidations, ["restore"]);
+    assert.equal(host.world.isAlive(handle), false);
+    assert.equal(context.restoring, false);
   } finally {
     host.dispose();
-    simulation.dispose();
-    world.dispose();
+    (context.simulation as typeof simulation).dispose();
+    (context.world as typeof world).dispose();
   }
 });
 
@@ -681,7 +1030,7 @@ test("browser source contracts: restore preflights probes, Host retains ownershi
   assert.doesNotMatch(restore, /runtime\s*=|\.generation\s*=/);
   assert.match(
     source,
-    /if \(import\.meta\.env\.DEV\)\s*\(window[\s\S]*?\.__threecat = api/,
+    /if \(import\.meta\.env\.DEV\)\s*\(window[\s\S]*?\.__pelican = api/,
   );
   assert.match(source, /playing = startup.playing/);
   assert.doesNotMatch(
@@ -732,6 +1081,7 @@ test("browser disposal: idempotent cleanup isolates errors, clears ownership and
     onKeyDown() {},
     onKeyUp() {},
     onPageHide() {},
+    onContextRestored() {},
     runtime: { dispose: run("host") },
     simulation: { dispose: run("simulation") },
     world: { dispose: run("world") },
@@ -763,7 +1113,7 @@ test("browser disposal: idempotent cleanup isolates errors, clears ownership and
     topologyObjects: [],
     compiledIR: {},
     contentScope: {},
-    rasterCanvas: { remove: run("rasterCanvas") },
+    rasterCanvas: { remove: run("rasterCanvas"), removeEventListener() {} },
     traceCanvas: { remove: run("traceCanvas") },
     errors: [],
   });

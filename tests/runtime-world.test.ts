@@ -802,7 +802,7 @@ const corruptions: [string, (snapshot: WorldSnapshot) => void][] = [
   [
     "format",
     (s) => {
-      s.format = "wrong" as "threecat.world";
+      s.format = "wrong" as "pelican.world";
     },
   ],
   [

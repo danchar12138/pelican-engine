@@ -13,7 +13,7 @@ export async function runFoundationProbe(
   engineRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
 ) {
   const project = path.join(engineRoot, "examples/m1");
-  const output = path.join(engineRoot, ".threecat/m1-cpu-compiled");
+  const output = path.join(engineRoot, ".pelican/m1-cpu-compiled");
   const compiled = await compileProject({
     projectRoot: project,
     outDir: output,
@@ -139,7 +139,7 @@ export async function runFoundationProbe(
   assert.equal(at144.tick, 60);
   assert.equal(at30.value, at144.value);
 
-  const directory = await mkdtemp(path.join(tmpdir(), "threecat-resource-m1-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "pelican-resource-m1-"));
   const file = path.join(directory, "payload.bin");
   await writeFile(file, new Uint8Array([1, 2, 3, 4]));
   const resources = new ResourceManager<{

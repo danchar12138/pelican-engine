@@ -6,6 +6,7 @@ import type { SceneIR } from "../../compiler/src/types.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { createGameServices } from "../../runtime/src/game-services.ts";
 import { createPhysicsFactory } from "../../physics/index.ts";
+import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createModelLibrary } from "./models.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import type { EntityRecord } from "../../runtime/src/contracts.ts";
@@ -15,6 +16,7 @@ export async function prepareGameplay(
   ir: SceneIR,
   baseURL: string,
   renderer: THREE.Renderer,
+  materials: ReadonlyMap<string, THREE.Material> = new Map(),
 ) {
   const assetURL = (id: string) => {
     const asset = ir.assets.find((entry) => entry.id === id);
@@ -25,25 +27,39 @@ export async function prepareGameplay(
     ir.assets
       .filter((a) => a.type === "model")
       .map((a) => ({ id: a.id, url: assetURL(a.id) })),
+    { material: id => materials.get(id) },
   );
   const textures = new Map<string, THREE.Texture>();
   let physics: PhysicsService | undefined;
   let environmentTarget: THREE.RenderTarget | undefined;
-  const audio = (ir.sounds?.length ?? 0) > 0 ? new AudioContext() : undefined;
+  const diagnostics: string[] = [];
+  let audio: AudioContext | undefined;
+  if ((ir.sounds?.length ?? 0) > 0) {
+    try {
+      if (typeof AudioContext !== "undefined") audio = new AudioContext();
+      else diagnostics.push("TC_AUDIO_UNAVAILABLE: AudioContext is unavailable.");
+    } catch (error) {
+      diagnostics.push("TC_AUDIO_UNAVAILABLE: " + String(error));
+    }
+  }
   const buffers = new Map<string, AudioBuffer>();
+  let masterGain: GainNode | undefined;
+  const busGains = new Map<string, GainNode>();
+  const busFadeKeys = new Map<string, string>();
   const voices = new Map<
     string,
-    { source: AudioBufferSourceNode; gain: GainNode; panner?: PannerNode }
+    { source: AudioBufferSourceNode; gain: GainNode; panner?: PannerNode; version: number }
   >();
   let ui: ReturnType<typeof createUIRenderer> | undefined;
   let uiInput: ((key: string, pressed: boolean) => void) | undefined;
   let uiEmit: ((type: string, payload: unknown) => void) | undefined;
   let services: ReturnType<typeof createGameServices>;
   let closed = false;
-  const diagnostics: string[] = [];
+  let audioRevision = -1;
   const stopVoice = (id: string) => {
     const voice = voices.get(id);
     if (!voice) return;
+    voice.source.onended = null;
     try {
       voice.source.stop();
     } catch {
@@ -59,6 +75,10 @@ export async function prepareGameplay(
     closed = true;
     ui?.dispose();
     for (const id of [...voices.keys()]) stopVoice(id);
+    for (const gain of busGains.values()) gain.disconnect();
+    busGains.clear();
+    busFadeKeys.clear();
+    masterGain?.disconnect();
     environmentTarget?.dispose();
     for (const texture of textures.values()) texture.dispose();
     textures.clear();
@@ -81,7 +101,7 @@ export async function prepareGameplay(
       const texture = await new THREE.TextureLoader().loadAsync(
         assetURL(asset.id),
       );
-      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
       textures.set(asset.id, texture);
     }
     if (audio)
@@ -100,10 +120,11 @@ export async function prepareGameplay(
     services = createGameServices(ir, models.animation);
     const modelBindings = (records: Pick<EntityRecord, "id" | "prefab">[]) =>
       records.filter((record) => resolveEntityDefinition(ir, record)?.model);
-    const registerModels = (records: Pick<EntityRecord, "id" | "prefab">[]) => {
-      for (const record of modelBindings(records))
-        models.register(record.id, resolveEntityDefinition(ir, record)!.model!);
-    };
+    const modelDefinitions = (records: Pick<EntityRecord, "id" | "prefab">[]) =>
+      modelBindings(records).map((record) => ({
+        entity: record.id,
+        definition: resolveEntityDefinition(ir, record)!.model!,
+      }));
     const validateModels = (value: unknown) => {
       const saved = structuredClone(value) as {
         version: number;
@@ -128,8 +149,8 @@ export async function prepareGameplay(
         );
       if (modelBindings(saved.bindings).length !== saved.bindings.length)
         throw new Error("TC_MODEL_BINDINGS_SNAPSHOT: Unknown model content.");
-      registerModels(saved.bindings);
-      const animation = models.validateSnapshot(saved.animation);
+      const definitions = modelDefinitions(saved.bindings);
+      const animation = models.validateSnapshot(saved.animation, definitions);
       if (
         JSON.stringify(
           animation.animations.map((item) => item.entity).sort(),
@@ -138,10 +159,11 @@ export async function prepareGameplay(
         throw new Error(
           "TC_MODEL_BINDINGS_SNAPSHOT: Active model bindings differ from animation state.",
         );
-      return animation;
+      return { animation, definitions };
     };
     const plugins: RuntimePluginFactory[] = [
       services.factory,
+      createNavigationPlugin,
       (context) => ({
         id: "$engine.models",
         version: "2",
@@ -152,8 +174,7 @@ export async function prepareGameplay(
               ...(prefab === undefined ? {} : { prefab }),
             }),
           );
-          registerModels(bindings);
-          models.reconcile(bindings.map((record) => record.id));
+          models.reconcileBindings(modelDefinitions(bindings));
           return { version: 1, bindings, animation: models.snapshot() };
         },
         validateSnapshot: (value) => {
@@ -188,7 +209,10 @@ export async function prepareGameplay(
               "TC_MODEL_BINDINGS_WORLD: Model identities must match the restored World.",
             );
         },
-        restore: (value) => models.restore(validateModels(value)),
+        restore: (value) => {
+          const { animation, definitions } = validateModels(value);
+          models.restore(animation, definitions);
+        },
         dispose() {
           /* Content owns async GPU/asset disposal. */
         },
@@ -199,10 +223,7 @@ export async function prepareGameplay(
             phase: "presentation",
             run: (dt) => {
               const records = context.world.records();
-              registerModels(records);
-              models.reconcile(
-                modelBindings(records).map((record) => record.id),
-              );
+              models.reconcileBindings(modelDefinitions(records));
               models.tick(dt);
             },
           },
@@ -248,6 +269,22 @@ export async function prepareGameplay(
     });
     return {
       models,
+      async rebuildGpuResources(next: THREE.Renderer) {
+        if (closed) throw new Error("TC_CONTENT_DISPOSED");
+        environmentTarget?.dispose();
+        environmentTarget = undefined;
+        if (ir.scene.environment.lighting === "studio") {
+          const room = new RoomEnvironment(),
+            generator = new THREE.PMREMGenerator(next);
+          try {
+            environmentTarget = generator.fromScene(room, 0.04);
+          } finally {
+            generator.dispose();
+            room.dispose();
+          }
+        }
+        return environmentTarget?.texture;
+      },
       environment: environmentTarget?.texture,
       textures,
       plugins,
@@ -398,9 +435,52 @@ export async function prepareGameplay(
           });
         }
         ui?.present(state.ui ?? [], positions);
-        const wanted = new Set(state.audio.voices.map((voice) => voice.id));
+        const clock = services.audioClock();
+        if (clock.revision !== audioRevision) {
+          for (const id of [...voices.keys()]) stopVoice(id);
+          busFadeKeys.clear();
+          for (const gain of busGains.values()) gain.gain.cancelScheduledValues(audio?.currentTime ?? 0);
+          audioRevision = clock.revision;
+        }
+        const wanted = new Set(state.audio.voices.filter((voice) => voice.pausedAt == null).map((voice) => voice.id));
         for (const id of [...voices.keys()]) if (!wanted.has(id)) stopVoice(id);
         if (audio) {
+          if (!masterGain) {
+            const master = audio.createGain();
+            const created = new Map<string, GainNode>();
+            try {
+              master.connect(audio.destination);
+              for (const bus of ir.audioBuses ?? []) {
+                const gain = audio.createGain();
+                created.set(bus.id, gain);
+                gain.connect(master);
+              }
+            } catch (error) {
+              for (const gain of created.values()) gain.disconnect();
+              master.disconnect();
+              throw error;
+            }
+            masterGain = master;
+            for (const [id, gain] of created) busGains.set(id, gain);
+          }
+          masterGain.gain.value = state.audio.volume;
+          for (const bus of state.audio.busVolumes ?? []) {
+            const gain = busGains.get(bus.id)!.gain;
+            const fade = bus.fade;
+            const key = fade && `${clock.revision}:${fade.startedAt}:${fade.from}:${fade.target}:${fade.duration}`;
+            if (key && clock.fixedDt !== null) {
+              if (busFadeKeys.get(bus.id) !== key) {
+                gain.cancelScheduledValues(audio.currentTime);
+                gain.setValueAtTime(bus.volume, audio.currentTime);
+                gain.linearRampToValueAtTime(fade.target, audio.currentTime + Math.max(0, fade.duration - (clock.tick - fade.startedAt) * clock.fixedDt));
+                busFadeKeys.set(bus.id, key);
+              }
+            } else {
+              if (busFadeKeys.has(bus.id)) gain.cancelScheduledValues(audio.currentTime);
+              busFadeKeys.delete(bus.id);
+              gain.value = bus.volume;
+            }
+          }
           audio.listener.positionX.value = camera.position.x;
           audio.listener.positionY.value = camera.position.y;
           audio.listener.positionZ.value = camera.position.z;
@@ -410,14 +490,19 @@ export async function prepareGameplay(
           audio.listener.forwardY.value = forward.y;
           audio.listener.forwardZ.value = forward.z;
           for (const voice of state.audio.voices) {
+            if (voice.pausedAt != null) continue;
             let active = voices.get(voice.id);
+            if (active && active.version !== clock.versions[voice.id]) {
+              stopVoice(voice.id);
+              active = undefined;
+            }
             if (!active && audio.state === "running") {
               const definition = ir.sounds!.find(
                 (sound) => sound.id === voice.sound,
               )!;
               const buffer = buffers.get(definition.asset)!;
-              const age = Math.max(0, (tick - voice.startedAt) / 60);
-              if (!voice.loop && age >= buffer.duration) continue;
+              const age = Math.max(0, (clock.tick - voice.startedAt - (voice.pausedTicks ?? 0)) * (clock.fixedDt ?? 0));
+              if (buffer.duration <= 0 || (!voice.loop && age >= buffer.duration)) continue;
               const source = audio.createBufferSource(),
                 gain = audio.createGain();
               source.buffer = buffer;
@@ -430,13 +515,18 @@ export async function prepareGameplay(
                 source.connect(panner);
                 panner.connect(gain);
               } else source.connect(gain);
-              gain.connect(audio.destination);
-              active = { source, gain, panner };
+              gain.connect(voice.bus === undefined ? masterGain : busGains.get(voice.bus)!);
+              active = { source, gain, panner, version: clock.versions[voice.id] };
               voices.set(voice.id, active);
+              source.onended = () => {
+                source.disconnect();
+                gain.disconnect();
+                panner?.disconnect();
+              };
               source.start(0, age % buffer.duration);
             }
             if (active) {
-              active.gain.gain.value = state.audio.volume * voice.volume;
+              active.gain.gain.value = voice.volume;
               const position = voice.entity
                 ? objects
                     .get(voice.entity)
@@ -455,7 +545,7 @@ export async function prepareGameplay(
         return {
           ...services.inspect(),
           models: models.inspect(),
-          audioDevice: audio?.state ?? "unused",
+          audioDevice: audio?.state ?? ((ir.sounds?.length ?? 0) > 0 ? "unavailable" : "unused"),
           decodedSounds: buffers.size,
           uiPlatform: ui?.inspect(),
           diagnostics: [...diagnostics],

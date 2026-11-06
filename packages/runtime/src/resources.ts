@@ -73,7 +73,7 @@ export class ResourceError extends Error {
   }
 }
 export interface ResourceSnapshot {
-  format: "threecat.resources";
+  format: "pelican.resources";
   version: 1;
   /** Unique identities, not leases/refcounts, runtime handles, or GPU objects. */
   resources: {
@@ -446,7 +446,7 @@ export class ResourceManager<
               : 0,
     );
     return {
-      format: "threecat.resources",
+      format: "pelican.resources",
       version: 1,
       resources: entries.map((e) => ({
         type: e.type,
@@ -786,7 +786,7 @@ export class ResourceManager<
       !snapshot ||
       Array.isArray(snapshot) ||
       typeof snapshot !== "object" ||
-      snapshot.format !== "threecat.resources" ||
+      snapshot.format !== "pelican.resources" ||
       snapshot.version !== 1 ||
       !Array.isArray(snapshot.resources) ||
       Object.keys(snapshot).sort().join() !== "format,resources,version"

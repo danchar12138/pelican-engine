@@ -21,13 +21,18 @@ export interface GameServicesInspection {
   ui: SceneIR["ui"];
   audio: {
     volume: number;
+    busVolumes?: { id: string; volume: number; fade?: { from: number; target: number; duration: number; startedAt: number } }[];
     voices: {
       id: string;
       sound: string;
+      bus?: string;
       volume: number;
       loop: boolean;
       entity: string | null;
       startedAt: number;
+      pausedAt?: number | null;
+      pausedTicks?: number;
+      priority?: number;
     }[];
   };
   storage: StorageState;
@@ -41,6 +46,7 @@ export interface GameServicesDriver {
   adoptStorageRequest(type: "save" | "load", slot: string): void;
   storageComplete(type: "save" | "load", slot: string, error?: string): void;
   completeVoice(id: string): void;
+  audioClock(): { tick: number; fixedDt: number | null; revision: number; versions: Record<string, number> };
 }
 
 /** A failed play never evicts an existing voice or consumes an id. */
@@ -220,6 +226,8 @@ export function createGameServices(
   const bindings = cloneSerializable(ir.input ?? {});
   const initialUI = cloneSerializable(ir.ui ?? []);
   const sounds = cloneSerializable(ir.sounds ?? []);
+  const hasBuses = ir.audioBuses !== undefined;
+  const buses = cloneSerializable(ir.audioBuses ?? []);
   const initialCamera = cloneSerializable(ir.scene.follow ?? null);
   const sceneIds = [ir.scene.id, ...(ir.scenes ?? []).map((scene) => scene.id)];
   const entityIds = ir.scene.entities.map((entity) => entity.id);
@@ -254,6 +262,11 @@ export function createGameServices(
     "TC_AUDIO_SOUND",
     "Duplicate sound ids.",
   );
+  check(new Set(buses.map((bus) => bus.id)).size === buses.length, "TC_AUDIO_BUS", "Duplicate audio bus ids.");
+  for (const bus of buses) {
+    name(bus.id, "TC_AUDIO_BUS", "Audio bus id");
+    finite(bus.volume, "TC_AUDIO_VOLUME", `Bus ${bus.id} volume`, 0, 1);
+  }
   for (const id of sceneIds) name(id, "TC_SCENE_ID", "Scene id");
   check(
     new Set(sceneIds).size === sceneIds.length,
@@ -271,6 +284,8 @@ export function createGameServices(
   const durations: Record<string, number | null> = {};
   for (const sound of sounds) {
     name(sound.id, "TC_AUDIO_SOUND", "Sound id");
+    if (sound.bus !== undefined)
+      check(buses.some((bus) => bus.id === sound.bus), "TC_AUDIO_BUS", `Unknown audio bus ${sound.bus}.`);
     finite(sound.volume, "TC_AUDIO_VOLUME", `Sound ${sound.id} volume`, 0, 1);
     check(
       typeof sound.loop === "boolean",
@@ -299,6 +314,7 @@ export function createGameServices(
     bindings,
     ui: initialUI,
     sounds,
+    ...(hasBuses ? { audioBuses: buses } : {}),
     durations,
     camera: initialCamera,
     assets: ir.assets.filter((asset) =>
@@ -307,7 +323,7 @@ export function createGameServices(
   });
   const definitionKey = canonical(definitions);
   const initial = () => ({
-    format: "threecat.game-services" as const,
+    format: "pelican.game-services" as const,
     version: 1 as const,
     definitions,
     tick: 0,
@@ -322,6 +338,7 @@ export function createGameServices(
     ui: cloneSerializable(initialUI),
     audio: {
       volume: 1,
+      ...(hasBuses ? { busVolumes: cloneSerializable(buses) as NonNullable<GameServicesInspection["audio"]["busVolumes"]> } : {}),
       voices: [] as GameServicesInspection["audio"]["voices"],
       nextVoice: 1,
     },
@@ -333,6 +350,8 @@ export function createGameServices(
   });
   type Snapshot = ReturnType<typeof initial>;
   let state = initial();
+  let audioRevision = 0;
+  const voiceVersions = new WeakMap<GameServicesInspection["audio"]["voices"][number], number>();
   let context: RuntimePluginContext | undefined;
   let disposed = false;
   // Dispatch belongs to the platform operation, not the saved game. In particular,
@@ -523,7 +542,7 @@ export function createGameServices(
             typeof values === "object" &&
             !Array.isArray(values) &&
             Object.keys(values).every((key) =>
-              ["volume", "loop", "entity"].includes(key),
+              ["volume", "loop", "entity", "bus", "priority"].includes(key),
             ),
           "TC_AUDIO_VALUE",
           "Unknown audio options.",
@@ -532,7 +551,15 @@ export function createGameServices(
           ? values.volume
           : sound.volume;
         const loop = Object.hasOwn(values, "loop") ? values.loop : sound.loop;
+        const bus = Object.hasOwn(values, "bus") ? values.bus : sound.bus;
+        if (bus !== undefined || Object.hasOwn(values, "bus")) {
+          name(bus, "TC_AUDIO_BUS", "Audio bus id");
+          check(buses.some((item) => item.id === bus), "TC_AUDIO_BUS", `Unknown audio bus ${bus}.`);
+        }
         finite(volume, "TC_AUDIO_VOLUME", `Sound ${id} volume`, 0, 1);
+        const priority = Object.hasOwn(values, "priority") ? values.priority : 0;
+        integer(priority, "TC_AUDIO_PRIORITY", "Voice priority", 0);
+        check(priority <= 255, "TC_AUDIO_PRIORITY", "Voice priority must be 0..255.");
         check(
           typeof loop === "boolean",
           "TC_AUDIO_VALUE",
@@ -541,19 +568,23 @@ export function createGameServices(
         if (Object.hasOwn(values, "entity"))
           target(values.entity!, "TC_AUDIO_TARGET");
         check(
-          state.audio.voices.length < GAME_SERVICES_MAX_VOICES,
-          "TC_AUDIO_VOICE_LIMIT",
-          `At most ${GAME_SERVICES_MAX_VOICES} voices may play; stop or complete a voice before retrying.`,
-        );
-        check(
           state.audio.nextVoice < Number.MAX_SAFE_INTEGER,
           "TC_AUDIO_VOICE_LIMIT",
           "Voice id counter exhausted; create a new runtime.",
         );
+        if (state.audio.voices.length >= GAME_SERVICES_MAX_VOICES) {
+          const lowest = state.audio.voices.reduce((candidate, voice) =>
+            (voice.priority ?? 0) < (candidate.priority ?? 0) ? voice : candidate);
+          check(priority > (lowest.priority ?? 0), "TC_AUDIO_VOICE_LIMIT",
+            `At most ${GAME_SERVICES_MAX_VOICES} voices may play; use a higher priority to replace the oldest lowest-priority voice.`);
+          state.audio.voices = state.audio.voices.filter((voice) => voice !== lowest);
+        }
         const voice = `voice:${state.audio.nextVoice}`;
         state.audio.voices.push({
           id: voice,
           sound: id,
+          ...(bus !== undefined ? { bus } : {}),
+          ...(priority !== 0 ? { priority } : {}),
           volume,
           loop,
           entity: values.entity ?? null,
@@ -569,10 +600,51 @@ export function createGameServices(
           (voice) => voice.id !== id,
         );
       },
+      pause(id) {
+        alive();
+        name(id, "TC_AUDIO_VOICE", "Voice id");
+        const voice = state.audio.voices.find((item) => item.id === id);
+        if (voice && voice.pausedAt == null) {
+          voice.pausedTicks ??= 0;
+          voice.pausedAt = state.tick;
+          voiceVersions.set(voice, (voiceVersions.get(voice) ?? 0) + 1);
+        }
+      },
+      resume(id) {
+        alive();
+        name(id, "TC_AUDIO_VOICE", "Voice id");
+        const voice = state.audio.voices.find((item) => item.id === id);
+        if (voice && voice.pausedAt != null) {
+          voice.pausedTicks = (voice.pausedTicks ?? 0) + state.tick - voice.pausedAt;
+          voice.pausedAt = null;
+          voiceVersions.set(voice, (voiceVersions.get(voice) ?? 0) + 1);
+        }
+      },
       volume(value) {
         alive();
         finite(value, "TC_AUDIO_VOLUME", "Master volume", 0, 1);
         state.audio.volume = value;
+      },
+      busVolume(id, value) {
+        alive();
+        name(id, "TC_AUDIO_BUS", "Audio bus id");
+        const bus = state.audio.busVolumes?.find((item) => item.id === id);
+        check(bus, "TC_AUDIO_BUS", `Unknown audio bus ${id}.`);
+        finite(value, "TC_AUDIO_VOLUME", `Bus ${id} volume`, 0, 1);
+        bus.volume = value;
+        delete bus.fade;
+      },
+      fadeBus(id, target, duration) {
+        alive();
+        name(id, "TC_AUDIO_BUS", "Audio bus id");
+        const bus = state.audio.busVolumes?.find((item) => item.id === id);
+        check(bus, "TC_AUDIO_BUS", `Unknown audio bus ${id}.`);
+        finite(target, "TC_AUDIO_VOLUME", `Bus ${id} fade target`, 0, 1);
+        finite(duration, "TC_AUDIO_FADE", "Fade duration", 0);
+        if (duration === 0 || bus.volume === target) {
+          bus.volume = target;
+          delete bus.fade;
+        } else bus.fade = { from: bus.volume, target, duration, startedAt: state.tick };
       },
     },
     storage: {
@@ -604,7 +676,7 @@ export function createGameServices(
       input: { held, pressed, released },
       camera: state.camera,
       ui: state.ui,
-      audio: { volume: state.audio.volume, voices: state.audio.voices },
+      audio: { volume: state.audio.volume, ...(state.audio.busVolumes !== undefined ? { busVolumes: state.audio.busVolumes } : {}), voices: state.audio.voices },
       storage: state.storage,
       scene: state.scene,
     });
@@ -641,7 +713,7 @@ export function createGameServices(
       SNAPSHOT_ERROR,
     );
     check(
-      data.format === "threecat.game-services" && data.version === 1,
+      data.format === "pelican.game-services" && data.version === 1,
       SNAPSHOT_ERROR,
       "Unsupported format/version.",
     );
@@ -746,8 +818,28 @@ export function createGameServices(
           "Non-bar progress cannot change.",
         );
     }
-    object(data.audio, ["volume", "voices", "nextVoice"], SNAPSHOT_ERROR);
+    object(data.audio, ["volume", "voices", "nextVoice", ...(Object.hasOwn(data.audio, "busVolumes") ? ["busVolumes"] : [])], SNAPSHOT_ERROR);
     finite(data.audio.volume, SNAPSHOT_ERROR, "Master volume", 0, 1);
+    if (data.audio.busVolumes !== undefined) {
+      check(hasBuses && Array.isArray(data.audio.busVolumes) && data.audio.busVolumes.length === buses.length, SNAPSHOT_ERROR, "Invalid audio buses.");
+      for (let i = 0; i < buses.length; i++) {
+        const bus = object(data.audio.busVolumes[i], ["id", "volume", ...(Object.hasOwn(data.audio.busVolumes[i], "fade") ? ["fade"] : [])], SNAPSHOT_ERROR);
+        check(bus.id === buses[i].id, SNAPSHOT_ERROR, "Invalid audio bus id or order.");
+        finite(bus.volume, SNAPSHOT_ERROR, "Bus volume", 0, 1);
+        if (Object.hasOwn(bus, "fade")) {
+          const fade = object(bus.fade, ["from", "target", "duration", "startedAt"], SNAPSHOT_ERROR);
+          finite(fade.from, SNAPSHOT_ERROR, "Fade start", 0, 1);
+          finite(fade.target, SNAPSHOT_ERROR, "Fade target", 0, 1);
+          finite(fade.duration, SNAPSHOT_ERROR, "Fade duration", Number.MIN_VALUE);
+          integer(fade.startedAt, SNAPSHOT_ERROR, "Fade tick", 0);
+          check(fade.startedAt <= data.tick && (data.fixedDt === null || (data.tick - fade.startedAt) * data.fixedDt < fade.duration), SNAPSHOT_ERROR, "Expired or future fade.");
+          const expected = fade.from + (fade.target - fade.from) * Math.min(1, (data.tick - fade.startedAt) * (data.fixedDt ?? 0) / fade.duration);
+          check(Math.abs(Number(bus.volume) - expected) < 1e-9, SNAPSHOT_ERROR, "Fade gain does not match tick.");
+        }
+      }
+    } else if (hasBuses) {
+      data.audio.busVolumes = cloneSerializable(buses);
+    }
     integer(data.audio.nextVoice, SNAPSHOT_ERROR, "Next voice", 1);
     check(
       Array.isArray(data.audio.voices) &&
@@ -759,7 +851,7 @@ export function createGameServices(
     for (const voice of data.audio.voices) {
       object(
         voice,
-        ["id", "sound", "volume", "loop", "entity", "startedAt"],
+        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : [])],
         SNAPSHOT_ERROR,
       );
       check(
@@ -780,7 +872,17 @@ export function createGameServices(
         SNAPSHOT_ERROR,
         "Unknown voice sound.",
       );
+      if (Object.hasOwn(voice, "bus"))
+        check(typeof voice.bus === "string" && buses.some((bus) => bus.id === voice.bus), SNAPSHOT_ERROR, "Unknown voice bus.");
+      else {
+        const defaultBus = sounds.find((sound) => sound.id === voice.sound)?.bus;
+        if (defaultBus !== undefined) voice.bus = defaultBus;
+      }
       finite(voice.volume, SNAPSHOT_ERROR, "Voice volume", 0, 1);
+      if (Object.hasOwn(voice, "priority")) {
+        integer(voice.priority, SNAPSHOT_ERROR, "Voice priority", 1);
+        check(voice.priority <= 255, SNAPSHOT_ERROR, "Invalid voice priority.");
+      }
       check(
         typeof voice.loop === "boolean",
         SNAPSHOT_ERROR,
@@ -794,13 +896,24 @@ export function createGameServices(
         SNAPSHOT_ERROR,
         "Voice starts in the future.",
       );
+      if (Object.hasOwn(voice, "pausedAt")) {
+        integer(voice.pausedTicks, SNAPSHOT_ERROR, "Voice pausedTicks");
+        if (voice.pausedAt !== null) integer(voice.pausedAt, SNAPSHOT_ERROR, "Voice pausedAt");
+        check(
+          (voice.pausedAt ?? data.tick) >= voice.startedAt &&
+            (voice.pausedAt ?? data.tick) <= data.tick &&
+            voice.pausedTicks! <= (voice.pausedAt ?? data.tick) - voice.startedAt,
+          SNAPSHOT_ERROR,
+          "Invalid voice pause history.",
+        );
+      }
       const duration = durations[voice.sound];
       check(
         voice.loop ||
           duration === null ||
           data.fixedDt === null ||
-          (data.tick - voice.startedAt) * data.fixedDt < duration ||
-          voice.startedAt === data.tick,
+          ((voice.pausedAt ?? data.tick) - voice.startedAt - (voice.pausedTicks ?? 0)) * data.fixedDt < duration ||
+          (voice.pausedAt ?? data.tick) - voice.startedAt - (voice.pausedTicks ?? 0) === 0,
         SNAPSHOT_ERROR,
         "Expired voice must have been reclaimed.",
       );
@@ -964,9 +1077,17 @@ export function createGameServices(
           state.audio.voices = state.audio.voices.filter(
             (voice) =>
               voice.loop ||
+              voice.pausedAt != null ||
               durations[voice.sound] === null ||
-              (state.tick - voice.startedAt) * dt < durations[voice.sound]!,
+              (state.tick - voice.startedAt - (voice.pausedTicks ?? 0)) * dt < durations[voice.sound]!,
           );
+          for (const bus of state.audio.busVolumes ?? []) {
+            if (!bus.fade) continue;
+            const { from, target, duration, startedAt } = bus.fade;
+            const progress = Math.min(1, (state.tick - startedAt) * dt / duration);
+            bus.volume = from + (target - from) * progress;
+            if (progress === 1) delete bus.fade;
+          }
         },
       },
     ],
@@ -981,6 +1102,7 @@ export function createGameServices(
     restore(value) {
       const restored = validate(value);
       state = restored;
+      audioRevision++;
       if (dispatchedStorage?.type !== "load") dispatchedStorage = null;
     },
     dispose() {
@@ -1073,6 +1195,15 @@ export function createGameServices(
       state.audio.voices = state.audio.voices.filter(
         (voice) => voice.id !== id,
       );
+    },
+    audioClock() {
+      alive();
+      return {
+        tick: state.tick,
+        fixedDt: state.fixedDt,
+        revision: audioRevision,
+        versions: Object.fromEntries(state.audio.voices.map((voice) => [voice.id, voiceVersions.get(voice) ?? 0])),
+      };
     },
   };
 }

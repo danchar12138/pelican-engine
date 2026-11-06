@@ -6,7 +6,7 @@ import {
   definePrefab,
   defineScene,
   defineSystem,
-} from "@threecat/sdk";
+} from "pelican-engine";
 
 const fox = defineAsset({
   id: "fox",
@@ -32,7 +32,7 @@ const chime = defineAsset({
   type: "audio",
   path: "assets/chime.wav",
   license: "MIT",
-  source: "threecat procedural PCM synthesis",
+  source: "pelican procedural PCM synthesis",
 });
 const slate = defineMaterial({
   id: "slate",

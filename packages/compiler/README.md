@@ -1,4 +1,7 @@
-# @threecat/compiler (M1 foundation, M2 content extensions)
+# Pelican Engine Internal Compiler
+
+This is an internal source module, not a second npm package or public subpath.
+Games import only `pelican-engine`; compilation is provided by the `pelican` CLI.
 
 The formal compiler implementation lives in `src/`. It has no implementation dependency on `experiments/`.
 The old experimental TypeScript entry points reexport this package for M0 source API compatibility.
@@ -50,7 +53,7 @@ Phases are reexported from the public SDK, in this order:
 
 ## Version and path locks
 
-`threecat.project.json` accepts `entry`, `engineVersion`, and `engine: { version?, path? }`.
+`pelican.project.json` accepts `entry`, `engineVersion`, and `engine: { version?, path? }`.
 Each supplied version must exactly equal `SDK_VERSION`, including prerelease identifiers.
 Ranges, conflicting declarations and old `0.0.1-m0.0` locks fail with `TC_ENGINE_VERSION_MISMATCH`
 and explicit migration advice. A manifest-less/unlocked legacy project still builds with
@@ -73,7 +76,7 @@ Runtime/schema packages still under generation may be absent: `TC_ENGINE_INPUT_M
 later additions, edits and removals invalidate cache. Hashing does not import runtime/schema modules.
 This remains whole-project reuse, not a claim of per-stage incremental execution or live state migration.
 
-Windows cross-drive SDK maps use stable `threecat-sdk/...` names. Source roots are applied before normalization
+Windows cross-drive SDK maps use stable `pelican-sdk/...` names. Source roots are applied before normalization
 and then cleared; source content is embedded. Unexpected cross-drive non-SDK sources fail explicitly.
 Vite's temporary production `NODE_ENV` transaction is serialized and restored on success/failure.
 

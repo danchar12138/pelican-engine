@@ -103,7 +103,7 @@ await check("unit-tests", async () => {
 await check("compiler", async () => {
   const result = await compileProject({
     projectRoot: path.join(root, "examples/m0"),
-    outDir: ".threecat/public/generated",
+    outDir: ".pelican/public/generated",
     engineRoot: root,
   });
   assert.equal(result.success, true, JSON.stringify(result.diagnostics));
@@ -142,7 +142,7 @@ await check("render", async () => {
   const server = await createServer({
     root,
     configFile: path.join(root, "vite.config.ts"),
-    publicDir: path.join(root, "examples/m0/.threecat/public"),
+    publicDir: path.join(root, "examples/m0/.pelican/public"),
     logLevel: "silent",
     server: { port: 4273, host: "127.0.0.1", strictPort: true },
   });
@@ -170,17 +170,17 @@ await check("render", async () => {
     await page.waitForFunction(
       () =>
         Boolean(
-          (window as any).__threecat || (window as any).__threecatFailure,
+          (window as any).__pelican || (window as any).__pelicanFailure,
         ),
       null,
       { timeout: 30000 },
     );
     assert.equal(
-      await page.evaluate(() => (window as any).__threecatFailure),
+      await page.evaluate(() => (window as any).__pelicanFailure),
       undefined,
     );
     const initial = await page.evaluate(() =>
-      (window as any).__threecat.inspect(),
+      (window as any).__pelican.inspect(),
     );
     assert.equal(initial.backend, "WebGPUBackend");
     assert.deepEqual(
@@ -188,11 +188,11 @@ await check("render", async () => {
       initial.compiledIR.scene.camera.position,
     );
     const parentTransform = await page.evaluate(
-      () => (window as any).__threecat.worldTransforms()["m0-child"],
+      () => (window as any).__pelican.worldTransforms()["m0-child"],
     );
     assert.deepEqual(parentTransform, [7, 0.5, -2]);
     const adapter = await page.evaluate(
-      () => (window as any).__threecat.adapter,
+      () => (window as any).__pelican.adapter,
     );
     assert.equal(adapter.isFallbackAdapter, false);
     assert.ok(
@@ -208,12 +208,12 @@ await check("render", async () => {
     await page.keyboard.press("ArrowRight");
     await page.waitForFunction(
       (x) =>
-        (window as any).__threecat.inspect().game.transforms["m0-spinner"]
+        (window as any).__pelican.inspect().game.transforms["m0-spinner"]
           .position[0] !== x,
       beforeInput,
     );
     const directSnapshot = await page.evaluate(async () => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       const saved = api.snapshot();
       const original = saved.components["m0-spinner"].Motion.speed;
       api.setComponent("m0-spinner", "Motion", { speed: 9 });
@@ -231,7 +231,7 @@ await check("render", async () => {
     assert.equal(directSnapshot.unpolluted, true);
     assert.equal(directSnapshot.restored, directSnapshot.expected);
     const isolatedGeometry = await page.evaluate(() => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       return {
         morph0: api.geometryProbe("morph", 0),
         morph1: api.geometryProbe("morph", 1),
@@ -250,7 +250,7 @@ await check("render", async () => {
     assert.notEqual(isolatedGeometry.morph0.hash, isolatedGeometry.morph1.hash);
     assert.notEqual(isolatedGeometry.skin0.hash, isolatedGeometry.skin1.hash);
     const isolatedRays = await page.evaluate(async () => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       api.geometryProbe("morph", 0);
       const morph0 = await api.ray([1.5, 5, -0.2], [0, -1, 0]);
       api.geometryProbe("morph", 1);
@@ -270,21 +270,21 @@ await check("render", async () => {
         0.05,
     );
     const afterInput = await page.evaluate(() =>
-      (window as any).__threecat.inspect(),
+      (window as any).__pelican.inspect(),
     );
     assert.equal(
       afterInput.game.transforms["m0-spinner"].position[0],
       beforeInput + 0.25,
     );
     const compute = await page.evaluate(
-      async () => await (window as any).__threecat.compute("pulse", 1.25),
+      async () => await (window as any).__pelican.compute("pulse", 1.25),
     );
     for (let i = 0; i < compute.count; i++)
       assert.ok(Math.abs(compute.values[i * 4] - Math.sin(1.25)) < 1e-6);
     const dynamic: unknown[] = [];
     for (const mode of ["raster", "hybrid", "path"]) {
       const result = await page.evaluate(async (mode) => {
-        const api = (window as any).__threecat;
+        const api = (window as any).__pelican;
         await api.mode(mode);
         const before = api.inspect();
         await api.step(12);
@@ -306,7 +306,7 @@ await check("render", async () => {
       await shot(`${mode}-dynamic.png`);
     }
     const ray = await page.evaluate(async () => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       const state = api.inspect();
       return api.ray([state.objects.box[0], 10, 0], [0, -1, 0]);
     });
@@ -314,12 +314,12 @@ await check("render", async () => {
     assert.ok(Math.abs(ray.distance - 9) < 0.01);
     for (let frame = 0; frame < 4; frame++) {
       await page.evaluate(async () => {
-        await (window as any).__threecat.step(4);
+        await (window as any).__pelican.step(4);
       });
       await shot(`sequence-path-${frame.toString().padStart(2, "0")}.png`);
     }
     const camera = await page.evaluate(async () => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       const before = await api.pixels();
       const directionBefore = api.cameraDirection();
       const state = await api.camera(0.35);
@@ -333,7 +333,7 @@ await check("render", async () => {
       camera.directionAfter.forward,
     );
     const topology = await page.evaluate(async () => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       const before = api.inspect();
       const after = await api.topology();
       return { before: before.triangleCount, after: after.triangleCount };
@@ -342,7 +342,7 @@ await check("render", async () => {
     const simulations: unknown[] = [];
     for (const kind of ["rope", "cloth", "softbody", "fluid"]) {
       const result = await page.evaluate(async (kind) => {
-        const api = (window as any).__threecat;
+        const api = (window as any).__pelican;
         await api.simulation(kind);
         const before = api.inspect();
         const saved = api.snapshot();
@@ -378,7 +378,7 @@ await check("render", async () => {
       await shot(`simulation-${kind}.png`);
     }
     const worldIntegration = await page.evaluate(async () => {
-      const api = (window as any).__threecat;
+      const api = (window as any).__pelican;
       const loaded = await api.worldLoad();
       const edited = await api.worldEdit();
       const saved = api.snapshot();
@@ -404,7 +404,7 @@ await check("render", async () => {
     );
     await shot("world-edited-path.png");
     await page.evaluate(async () => {
-      await (window as any).__threecat.accumulate(24);
+      await (window as any).__pelican.accumulate(24);
     });
     await shot("path-static-24spp.png");
     // A separate native 1080p page. Report serialized fence wall time and compute timestamps, never call either FPS.
@@ -414,14 +414,14 @@ await check("render", async () => {
     });
     await benchmark.goto("http://127.0.0.1:4273/?width=1920&height=1080");
     await benchmark.waitForFunction(
-      () => Boolean((window as any).__threecat),
+      () => Boolean((window as any).__pelican),
       null,
       { timeout: 30000 },
     );
     const benchmarkResults: unknown[] = [];
     for (const mode of ["raster", "hybrid", "path"]) {
       const result = await benchmark.evaluate(async (mode) => {
-        const api = (window as any).__threecat;
+        const api = (window as any).__pelican;
         await api.mode(mode);
         await api.step(5);
         const frames = [];
@@ -473,10 +473,10 @@ await check("render", async () => {
       });
       await broken.goto("http://127.0.0.1:4273/");
       await broken.waitForFunction(() =>
-        Boolean((window as any).__threecatFailure),
+        Boolean((window as any).__pelicanFailure),
       );
       const result = await broken.evaluate(() => ({
-        failure: (window as any).__threecatFailure,
+        failure: (window as any).__pelicanFailure,
         webglCalls: (window as any).__webglCalls,
       }));
       assert.equal(result.webglCalls, 0);
@@ -555,7 +555,7 @@ await check("deploy", async () => {
     await page.goto(server.url);
     await page
       .waitForFunction(
-        () => document.documentElement.dataset.threecatReady === "true",
+        () => document.documentElement.dataset.pelicanReady === "true",
         null,
         { timeout: 30000 },
       )
@@ -568,8 +568,8 @@ await check("deploy", async () => {
         throw error;
       });
     const state = await page.evaluate(() => ({
-      hook: typeof (window as any).__threecat,
-      failureHook: typeof (window as any).__threecatFailure,
+      hook: typeof (window as any).__pelican,
+      failureHook: typeof (window as any).__pelicanFailure,
       canvases: document.querySelectorAll("canvas").length,
       text: document.querySelector("#status")?.textContent,
     }));

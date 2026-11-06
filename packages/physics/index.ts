@@ -65,9 +65,10 @@ type Action =
       created: Creation[];
       removed: string[];
     }
-  | { kind: "move" | "velocity" | "impulse"; id: string; value: Vec3 };
+  | { kind: "move" | "velocity" | "impulse" | "angularVelocity" | "torqueImpulse"; id: string; value: Vec3 }
+  | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 };
 interface PhysicsSnapshot {
-  format: "threecat.physics-rapier3d";
+  format: "pelican.physics-rapier3d";
   version: 3;
   scene: string;
   world: number[];
@@ -553,12 +554,18 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   ) {
     if (
       !action ||
-      !["step", "move", "velocity", "impulse"].includes(action.kind)
+      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
     if (action.kind !== "step") {
+      if (["angularVelocity", "torqueImpulse", "impulseAtPoint"].includes(action.kind)) {
+        const keys = action.kind === "impulseAtPoint" ? ["kind", "id", "value", "point"] : ["kind", "id", "value"];
+        if (Object.keys(action).length !== keys.length || Object.keys(action).some((key) => !keys.includes(key)))
+          fail("TC_PHYSICS_SNAPSHOT", "Invalid angular history action fields.");
+      }
       const b = get(action.id),
         v = vec(action.value, action.kind);
+      const point = action.kind === "impulseAtPoint" ? vec(action.point, "point") : undefined;
       if (action.kind === "move") {
         if (!b.character)
           fail("TC_PHYSICS_CHARACTER", b.id + " is not a character.");
@@ -585,9 +592,12 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
         if (b.type !== "dynamic")
           fail(
             "TC_PHYSICS_BODY_TYPE",
-            "impulse requires a dynamic body (" + b.id + ").",
+            (action.kind === "angularVelocity" ? "setAngularVelocity" : action.kind) + " requires a dynamic body (" + b.id + ").",
           );
-        b.body.applyImpulse(v, true);
+        if (action.kind === "angularVelocity") b.body.setAngvel(v, true);
+        else if (action.kind === "torqueImpulse") b.body.applyTorqueImpulse(v, true);
+        else if (action.kind === "impulseAtPoint") b.body.applyImpulseAtPoint(v, point!, true);
+        else b.body.applyImpulse(v, true);
       }
       return;
     }
@@ -860,7 +870,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     alive();
     ensureRefs();
     return {
-      format: "threecat.physics-rapier3d",
+      format: "pelican.physics-rapier3d",
       version: 3,
       scene,
       history: structuredClone(history),
@@ -877,7 +887,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       const s = cloneSerializable(input) as PhysicsSnapshot;
       if (
         !s ||
-        s.format !== "threecat.physics-rapier3d" ||
+        s.format !== "pelican.physics-rapier3d" ||
         s.version !== 3 ||
         s.scene !== scene ||
         !Number.isSafeInteger(s.tick) ||
@@ -955,6 +965,21 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     impulse(id, value) {
       get(id);
       record({ kind: "impulse", id, value });
+    },
+    angularVelocity(id) {
+      return tuple(get(id).body.angvel());
+    },
+    setAngularVelocity(id, value) {
+      get(id);
+      record({ kind: "angularVelocity", id, value: tuple(vec(value, "angular velocity")) });
+    },
+    torqueImpulse(id, value) {
+      get(id);
+      record({ kind: "torqueImpulse", id, value: tuple(vec(value, "torque impulse")) });
+    },
+    impulseAtPoint(id, value, point) {
+      get(id);
+      record({ kind: "impulseAtPoint", id, value: tuple(vec(value, "impulse")), point: tuple(vec(point, "point")) });
     },
     raycast(
       origin: Vec3,

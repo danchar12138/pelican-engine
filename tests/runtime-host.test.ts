@@ -158,7 +158,7 @@ const transform = () => ({
 /** Minimal valid IR: gameplay tests use ordinary SDK definitions, not fake World/scheduler objects. */
 function sceneIR(systems: readonly SystemDefinition[] = []): SceneIR {
   return {
-    format: "threecat.scene",
+    format: "pelican.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: "host-test",
@@ -234,7 +234,7 @@ const increment: SystemInput = {
 
 test("host: real compiled game initializes scheduler and runs authoritative World, input, random and events", async (t) => {
   const root = await fs.mkdtemp(
-    path.join(os.tmpdir(), "threecat host \u4e2d\u6587 "),
+    path.join(os.tmpdir(), "pelican host \u4e2d\u6587 "),
   );
   t.after(async () => {
     const absolute = path.resolve(root);
@@ -242,17 +242,17 @@ test("host: real compiled game initializes scheduler and runs authoritative Worl
       path.dirname(absolute).toLowerCase(),
       path.resolve(os.tmpdir()).toLowerCase(),
     );
-    assert.ok(path.basename(absolute).startsWith("threecat host "));
+    assert.ok(path.basename(absolute).startsWith("pelican host "));
     await fs.rm(absolute, { recursive: true, force: true });
   });
   await fs.writeFile(
-    path.join(root, "threecat.project.json"),
+    path.join(root, "pelican.project.json"),
     JSON.stringify({ entry: "game.ts", engineVersion: SDK_VERSION }),
   );
   await fs.writeFile(
     path.join(root, "game.ts"),
     `
-import { defineComponent, defineGame, defineScene, defineSystem } from "@threecat/sdk";
+import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-engine";
 const Stats = defineComponent({ id: "Stats", schema: {
   count: { type: "number", default: 0 }, tick: { type: "number", default: 0 },
   elapsed: { type: "number", default: 0 }, random: { type: "number", default: 0 },

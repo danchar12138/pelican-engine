@@ -50,7 +50,7 @@ export interface SimulationCounters {
   maxObservedSpeed: number;
 }
 export interface SimulationSnapshot {
-  format: "threecat-m0-simulation";
+  format: "pelican-m0-simulation";
   version: 1;
   kind: SimulationKind;
   options: ResolvedOptions;

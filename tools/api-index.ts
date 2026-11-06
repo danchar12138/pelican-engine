@@ -5,6 +5,19 @@ import { fileURLToPath } from "node:url";
 import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+export function queryApiSymbol<T extends { name: string }>(symbols: T[], args: string[]) {
+  const positions = args.flatMap((arg, i) => arg === "--symbol" ? [i] : []);
+  if (positions.length === 0) return undefined;
+  if (positions.length !== 1)
+    throw new Error("TC_API_SYMBOL_DUPLICATE: Supply --symbol exactly once.");
+  const name = args[positions[0] + 1];
+  if (!name || name.startsWith("--"))
+    throw new Error("TC_API_SYMBOL_REQUIRED: Supply a public symbol name after --symbol.");
+  const matches = symbols.filter((symbol) => symbol.name === name);
+  if (matches.length === 0)
+    throw new Error("TC_API_SYMBOL_UNKNOWN: Symbol not found; use pelican api to inspect the public index and check exact spelling and case.");
+  return matches;
+}
 /** Public SDK source is the sole signature source; this file does not maintain duplicate API declarations. */
 export async function generateApiIndex(engineRoot = root) {
   const filename = path.join(engineRoot, "packages/sdk/src/index.ts");
@@ -70,10 +83,10 @@ export async function generateApiIndex(engineRoot = root) {
     }
   }
   const index = {
-    format: "threecat.api-index",
+    format: "pelican.api-index",
     version: 1,
     engineVersion: SDK_VERSION,
-    entry: "@threecat/sdk",
+    entry: "pelican-engine",
     source: "packages/sdk/src/index.ts",
     symbols,
   };
@@ -84,7 +97,7 @@ export async function generateApiIndex(engineRoot = root) {
     JSON.stringify(index, null, 2) + "\n",
   );
   const reference = [
-    `# threecat ${SDK_VERSION} API 索引`,
+    `# pelican ${SDK_VERSION} API 索引`,
     "",
     "由公开 SDK 源码生成。签名以源码和 TypeScript 检查为准，不在文档维护第二套声明。",
     "",

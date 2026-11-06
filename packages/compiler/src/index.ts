@@ -1,4 +1,5 @@
 import { mapSourcePath } from "./source-map.ts";
+import { compilerLayout } from "./distribution.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,7 +60,7 @@ function usableCache(value: Cache | undefined): value is Cache {
     !Array.isArray(value.outputHashes) &&
     Object.keys(value.outputHashes).includes("game.js") &&
     !!value.ir &&
-    value.ir.format === "threecat.scene" &&
+    value.ir.format === "pelican.scene" &&
     typeof value.schemaHash === "string" &&
     typeof value.defaultsHash === "string"
   );
@@ -121,9 +122,9 @@ async function bundle(
   projectRoot: string,
 ): Promise<{ code: string; map: string }> {
   const virtual = slash(
-    path.join(projectRoot, "__threecat_m0_game_entry__.js"),
+    path.join(projectRoot, "__pelican_m0_game_entry__.js"),
   );
-  const virtualId = "\0threecat:m0-game-entry";
+  const virtualId = "\0pelican:m0-game-entry";
   const result = await productionBuild({
     configFile: false,
     envFile: false,
@@ -131,13 +132,13 @@ async function bundle(
     root: projectRoot,
     publicDir: false,
     logLevel: "silent",
-    resolve: { alias: { "@threecat/sdk": slash(sdkPath) } },
+    resolve: { alias: { "pelican-engine": slash(sdkPath) } },
     plugins: [
       {
-        name: "threecat-compiled-game",
+        name: "pelican-compiled-game",
         enforce: "pre",
         resolveId(id) {
-          if (id === "@threecat/sdk") return slash(sdkPath);
+          if (id === "pelican-engine") return slash(sdkPath);
           if (slash(id) === virtual) return virtualId;
         },
         load(id) {
@@ -203,13 +204,12 @@ export async function compileProject(
   const start = performance.now();
   const projectRoot = path.resolve(options.projectRoot);
   const outDir = path.resolve(projectRoot, options.outDir);
-  const engineRoot = options.engineRoot
-    ? path.resolve(options.engineRoot)
-    : fileURLToPath(new URL("../../../", import.meta.url));
-  const sdkPath = path.join(engineRoot, "packages/sdk/src/index.ts");
+  const layout = compilerLayout(import.meta.url, options.engineRoot);
+  const engineRoot = layout.root;
+  const sdkPath = layout.sdk;
   const diagnostics: Diagnostic[] = [];
   const report: BuildReport = {
-    format: "threecat.build-report",
+    format: "pelican.build-report",
     version: 1,
     success: false,
     engineVersion: SDK_VERSION,
@@ -264,7 +264,7 @@ export async function compileProject(
     return { success: false, diagnostics, report };
   };
   try {
-    const manifestPath = path.join(projectRoot, "threecat.project.json");
+    const manifestPath = path.join(projectRoot, "pelican.project.json");
     let rawManifest: unknown = {};
     try {
       rawManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
@@ -273,7 +273,7 @@ export async function compileProject(
         diagnostics.push({
           code: "TC_PROJECT_CONFIG",
           severity: "error",
-          message: "Cannot read threecat.project.json as JSON.",
+          message: "Cannot read pelican.project.json as JSON.",
           suggestion:
             "Use a JSON object with an optional project-relative entry string.",
         });
@@ -313,7 +313,7 @@ export async function compileProject(
       return await fail();
     }
     const selectedSDKVersion = readSDKVersion(
-      await fs.readFile(sdkPath, "utf8"),
+      await fs.readFile(layout.types, "utf8"),
     );
     if (selectedSDKVersion !== SDK_VERSION) {
       diagnostics.push({
@@ -352,21 +352,30 @@ export async function compileProject(
         return await fail();
       }
     }
-    const cachePath = path.join(outDir, ".threecat-cache.json");
+    const cachePath = path.join(outDir, ".pelican-cache.json");
     const cacheCandidate = await readJSON<Cache>(cachePath);
     const previous = usableCache(cacheCandidate) ? cacheCandidate : undefined;
     const toolFiles = (
       await filesUnder(fileURLToPath(new URL(".", import.meta.url)))
-    ).filter((p) => p.endsWith(".ts"));
-    const sdkFiles = (
-      await filesUnder(path.join(engineRoot, "packages/sdk/src"))
-    ).filter((p) => p.endsWith(".ts"));
+    ).filter((p) => /\.(?:ts|js)$/.test(p));
+    const sdkFiles = (await filesUnder(path.dirname(sdkPath))).filter((p) =>
+      /\.(?:ts|js)$/.test(p),
+    );
     const packageInputs: string[] = [];
     let assetPackageAvailable = true;
     for (const name of ["runtime", "schema", "assets"]) {
-      const directory = path.join(engineRoot, "packages", name);
+      const directory = path.join(
+        engineRoot,
+        layout.installed ? "lib" : "packages",
+        name,
+      );
       const files = (await filesUnder(directory)).filter(
-        (p) => /\.(?:ts|json)$/.test(p) && !p.includes("node_modules"),
+        (p) =>
+          /\.(?:ts|js|json)$/.test(p) &&
+          !path
+            .relative(engineRoot, p)
+            .split(path.sep)
+            .includes("node_modules"),
       );
       packageInputs.push(...files);
       if (name === "assets" && !files.length) assetPackageAvailable = false;
@@ -385,6 +394,11 @@ export async function compileProject(
     const engineInputs = [
       ...new Set([...toolFiles, ...sdkFiles, ...packageInputs]),
     ];
+    if (layout.installed)
+      engineInputs.push(
+        path.join(engineRoot, "distribution.json"),
+        path.join(engineRoot, "package.json"),
+      );
     const makeInput = async (
       file: string,
       root: "project" | "engine",
@@ -525,11 +539,11 @@ export async function compileProject(
       allowImportingTsExtensions: true,
       types: [],
       lib: ["lib.es2023.d.ts"],
-      paths: { "@threecat/sdk": [slash(sdkPath)] },
+      paths: { "pelican-engine": [slash(layout.types)] },
     };
     const program = ts.createProgram([entry], compilerOptions);
     program.getTypeChecker(); // Bind source parents before source-mapped static extraction.
-    const extractor = new Extractor(program, projectRoot, sdkPath);
+    const extractor = new Extractor(program, projectRoot, layout.types);
     const game = extractor.extract(entry);
     diagnostics.push(...extractor.diagnostics);
     for (const d of ts.getPreEmitDiagnostics(program)) {
@@ -611,7 +625,7 @@ export async function compileProject(
       "scene.ir.json": JSON.stringify(ir, null, 2),
       "asset-notices.json": JSON.stringify(
         {
-          format: "threecat.asset-notices",
+          format: "pelican.asset-notices",
           version: 1,
           assets: ir.assetNotices ?? [],
         },
@@ -622,7 +636,7 @@ export async function compileProject(
       "game.js.map": bundled.map,
       "version.json": JSON.stringify(
         {
-          format: "threecat.version",
+          format: "pelican.version",
           version: 1,
           engineVersion: SDK_VERSION,
           sdkVersion: SDK_VERSION,
@@ -696,6 +710,10 @@ function modulesFor(ir: SceneIR): string[] {
     ...(ir.systems.length ? ["systems"] : []),
     ...(ir.materials.length ? ["materials"] : []),
     ...(ir.computes.length ? ["compute-graph-ir"] : []),
+    ...(ir.computeTextures?.length || ir.computes.some(kernel => kernel.textures?.length) ? ["compute-textures"] : []),
+    ...(ir.postProcesses?.length ? ["postprocess-graph-ir"] : []),
+    ...(ir.materials.some(material => material.vertex) ? ["vertex-graph-ir"] : []),
+    ...(ir.materials.some(material => material.buffers?.length) ? ["render-buffer-bindings"] : []),
     ...(ir.assets.length ? ["assets"] : []),
   ];
 }

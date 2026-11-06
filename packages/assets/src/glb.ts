@@ -128,20 +128,28 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         "Expected a nonempty array of objects.",
       );
   }
+  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior"]);
   for (const key of ["extensionsUsed", "extensionsRequired"] as const)
     if (json[key] !== undefined) {
       ctx.check(
         Array.isArray(json[key]) &&
-          json[key]!.every((s) => typeof s === "string"),
+          json[key]!.length > 0 &&
+          json[key]!.every((s) => typeof s === "string" && s.length > 0) &&
+          new Set(json[key]).size === json[key]!.length,
         key,
         "Expected extension names.",
       );
-      if (json[key]!.length)
+      const unknown = json[key]!.filter((name) => !supported.has(name));
+      if (unknown.length)
         ctx.unsupported(
           key,
-          `glTF extensions are not implemented: ${json[key]!.join(", ")}.`,
+          `glTF extensions are not implemented: ${unknown.join(", ")}.`,
         );
     }
+  const used = new Set(json.extensionsUsed ?? []);
+  for (const name of json.extensionsRequired ?? [])
+    ctx.check(used.has(name), "extensionsRequired", `${name} must also be declared in extensionsUsed.`);
+  const encountered = new Set<string>();
   // Never silently lose optional extension semantics in the metadata.
   const checkExtensions = (value: unknown, location: string): void => {
     if (typeof value === "number")
@@ -165,15 +173,39 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
           location + "/extensions",
           "Expected extension object.",
         );
-        if (Object.keys(child).length)
-          ctx.unsupported(
-            location + "/extensions",
-            `Extension payloads are not implemented: ${Object.keys(child).join(", ")}.`,
-          );
+        for (const [name, payload] of Object.entries(child)) {
+          const at = location + "/extensions/" + name;
+          if (!supported.has(name) || !/^glTF\/materials\/(0|[1-9]\d*)$/.test(location))
+            ctx.unsupported(at, `Extension payload ${name} is not supported at this location.`);
+          ctx.check(used.has(name), at, `${name} must be declared in extensionsUsed.`);
+          encountered.add(name);
+          ctx.check(payload && typeof payload === "object" && !Array.isArray(payload), at, "Expected extension object.");
+          for (const [field, fieldValue] of Object.entries(payload)) {
+            if (name === "KHR_materials_specular" && (field === "specularTexture" || field === "specularColorTexture")) {
+              checkExtensions(fieldValue, at + "/" + field);
+              continue;
+            }
+            if (field === "extensions" || field === "extras") {
+              checkExtensions({ [field]: fieldValue }, at);
+              continue;
+            }
+            const allowed = name === "KHR_materials_specular"
+              ? ["specularFactor", "specularColorFactor"] : ["ior"];
+            ctx.check(allowed.includes(field), at + "/" + field, "Unknown extension property.");
+            const validNumber = (v: unknown, min: number, max: number) =>
+              typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
+            ctx.check(field === "specularColorFactor"
+              ? Array.isArray(fieldValue) && fieldValue.length === 3 && fieldValue.every(v => validNumber(v, 0, 1))
+              : validNumber(fieldValue, field === "ior" ? 1 : 0, field === "ior" ? Infinity : 1),
+              at + "/" + field, "Invalid extension factor or IOR.");
+          }
+        }
       } else checkExtensions(child, location + "/" + key);
     }
   };
   checkExtensions(json, "glTF");
+  for (const name of used)
+    ctx.check(encountered.has(name), "extensionsUsed", `${name} is declared but not used by a material.`);
   const buffers = json.buffers ?? [];
   for (let i = 0; i < buffers.length; i++)
     if (buffers[i].uri !== undefined)
@@ -257,8 +289,6 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
       at,
       "Invalid accessor componentType or type.",
     );
-    if (a.sparse)
-      ctx.unsupported(at + "/sparse", "Sparse accessors are not implemented.");
     const size = sizes[a.componentType],
       components = counts[a.type];
     if (a.type.startsWith("MAT") && size < 4)
@@ -318,32 +348,67 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         at,
         "Accessors exceed the 16 million scalar inspection limit.",
       );
+    const replacements = new Map<number, number>();
+    if (a.sparse !== undefined) {
+      const sparse = a.sparse, sparseAt = at + "/sparse";
+      ctx.check(sparse && typeof sparse === "object" && !Array.isArray(sparse), sparseAt, "Expected a sparse object.");
+      if (components > 4)
+        ctx.unsupported(sparseAt, "Sparse matrices are not supported by the current model loader.");
+      if (a.bufferView !== undefined && json.bufferViews![a.bufferView].byteStride !== undefined)
+        ctx.unsupported(sparseAt, "Sparse accessors with interleaved base data are not supported by the current model loader.");
+      const count = ctx.integer(sparse.count, sparseAt + "/count", 1, a.count);
+      ctx.check(sparse.indices && typeof sparse.indices === "object" && !Array.isArray(sparse.indices), sparseAt + "/indices", "Expected sparse indices.");
+      ctx.check(sparse.values && typeof sparse.values === "object" && !Array.isArray(sparse.values), sparseAt + "/values", "Expected sparse values.");
+      const indexSize = sizes[sparse.indices.componentType];
+      ctx.check([5121, 5123, 5125].includes(sparse.indices.componentType), sparseAt + "/indices/componentType", "Sparse indices must be unsigned byte, short, or int.");
+      const sparseStart = (part: typeof sparse.indices | typeof sparse.values, label: string, alignment: number, length: number) => {
+        const resource = sparseAt + "/" + label;
+        const index = ctx.integer(part.bufferView, resource + "/bufferView", 0, (json.bufferViews?.length ?? 0) - 1);
+        const view = json.bufferViews![index];
+        const offset = ctx.integer(part.byteOffset ?? 0, resource + "/byteOffset");
+        ctx.check(view.byteStride === undefined && view.target === undefined, resource + "/bufferView", "Sparse buffer views cannot have byteStride or target.");
+        ctx.check(offset % alignment === 0 && ((view.byteOffset ?? 0) + offset) % alignment === 0, resource + "/byteOffset", "Sparse data is misaligned.");
+        ctx.check(offset + length <= view.byteLength, resource, "Sparse data exceeds buffer view boundary.");
+        return (view.byteOffset ?? 0) + offset;
+      };
+      const indexStart = sparseStart(sparse.indices, "indices", indexSize, count * indexSize);
+      const valueStart = sparseStart(sparse.values, "values", size, count * components * size);
+      let previous = -1;
+      for (let n = 0; n < count; n++) {
+        const p = indexStart + n * indexSize;
+        const index = indexSize === 1 ? bin.readUInt8(p) : indexSize === 2 ? bin.readUInt16LE(p) : bin.readUInt32LE(p);
+        ctx.check(index > previous && index < a.count, sparseAt + "/indices", "Sparse indices must be strictly increasing and within accessor count.");
+        replacements.set(index, valueStart + n * components * size);
+        previous = index;
+      }
+    }
     const values: number[] = [],
       min = Array(components).fill(Infinity) as number[],
       max = Array(components).fill(-Infinity) as number[];
     for (let element = 0; element < a.count; element++)
       for (let c = 0; c < components; c++) {
-        const p = start + element * stride + c * size;
+        const replacement = replacements.get(element);
+        const p = replacement === undefined ? start + element * stride + c * size : replacement + c * size;
         let v = 0;
-        if (source)
+        if (source || replacement !== undefined)
           switch (a.componentType) {
             case 5120:
-              v = source.readInt8(p);
+              v = bin.readInt8(p);
               break;
             case 5121:
-              v = source.readUInt8(p);
+              v = bin.readUInt8(p);
               break;
             case 5122:
-              v = source.readInt16LE(p);
+              v = bin.readInt16LE(p);
               break;
             case 5123:
-              v = source.readUInt16LE(p);
+              v = bin.readUInt16LE(p);
               break;
             case 5125:
-              v = source.readUInt32LE(p);
+              v = bin.readUInt32LE(p);
               break;
             case 5126:
-              v = source.readFloatLE(p);
+              v = bin.readFloatLE(p);
               break;
           }
         ctx.check(

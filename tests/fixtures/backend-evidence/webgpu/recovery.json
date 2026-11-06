@@ -1,0 +1,622 @@
+{
+  "passed": true,
+  "before": {
+    "tick": 3,
+    "mode": "path",
+    "records": [
+      {
+        "id": "floor",
+        "transform": {
+          "position": [
+            0,
+            -0.15,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "back",
+        "transform": {
+          "position": [
+            0,
+            1.7,
+            -2.7
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "red-wall",
+        "transform": {
+          "position": [
+            -3.5,
+            1.7,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "metal",
+        "transform": {
+          "position": [
+            -1.2325072907552626,
+            0.7,
+            -0.2
+          ],
+          "rotation": [
+            0,
+            0.020000000000000004,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "teal-block",
+        "transform": {
+          "position": [
+            1.5,
+            0.5,
+            -0.8
+          ],
+          "rotation": [
+            0,
+            0.4,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "fox",
+        "transform": {
+          "position": [
+            0,
+            0.02,
+            1.2
+          ],
+          "rotation": [
+            0,
+            0.5,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {
+          "Gallery": {
+            "animate": true
+          }
+        }
+      },
+      {
+        "id": "bottle",
+        "transform": {
+          "position": [
+            1.4,
+            0.85,
+            0.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "plinth",
+        "transform": {
+          "position": [
+            1.4,
+            0.3,
+            0.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "emitter",
+        "transform": {
+          "position": [
+            0,
+            3,
+            -1.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "key",
+        "transform": {
+          "position": [
+            -2,
+            4,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "fill",
+        "transform": {
+          "position": [
+            2.8,
+            2,
+            -0.8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "sun",
+        "transform": {
+          "position": [
+            -2,
+            6,
+            4
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      }
+    ]
+  },
+  "after": {
+    "tick": 3,
+    "mode": "path",
+    "records": [
+      {
+        "id": "floor",
+        "transform": {
+          "position": [
+            0,
+            -0.15,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "back",
+        "transform": {
+          "position": [
+            0,
+            1.7,
+            -2.7
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "red-wall",
+        "transform": {
+          "position": [
+            -3.5,
+            1.7,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "metal",
+        "transform": {
+          "position": [
+            -1.2325072907552626,
+            0.7,
+            -0.2
+          ],
+          "rotation": [
+            0,
+            0.020000000000000004,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "teal-block",
+        "transform": {
+          "position": [
+            1.5,
+            0.5,
+            -0.8
+          ],
+          "rotation": [
+            0,
+            0.4,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "fox",
+        "transform": {
+          "position": [
+            0,
+            0.02,
+            1.2
+          ],
+          "rotation": [
+            0,
+            0.5,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {
+          "Gallery": {
+            "animate": true
+          }
+        }
+      },
+      {
+        "id": "bottle",
+        "transform": {
+          "position": [
+            1.4,
+            0.85,
+            0.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "plinth",
+        "transform": {
+          "position": [
+            1.4,
+            0.3,
+            0.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "emitter",
+        "transform": {
+          "position": [
+            0,
+            3,
+            -1.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "key",
+        "transform": {
+          "position": [
+            -2,
+            4,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "fill",
+        "transform": {
+          "position": [
+            2.8,
+            2,
+            -0.8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      },
+      {
+        "id": "sun",
+        "transform": {
+          "position": [
+            -2,
+            6,
+            4
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "components": {}
+      }
+    ],
+    "recovery": {
+      "active": false,
+      "count": 1,
+      "events": [
+        {
+          "phase": "lost",
+          "reason": "destroyed: Device was destroyed.",
+          "tick": 3
+        },
+        {
+          "phase": "restored",
+          "reason": "new WebGPU device",
+          "tick": 3
+        }
+      ]
+    }
+  },
+  "pixels": {
+    "backend": "webgpu",
+    "nonBlack": 230400,
+    "finite": true,
+    "meanLuminance": 0.7405785908067753,
+    "maximum": 224.09947204589844,
+    "samples": 9
+  },
+  "repetitions": [
+    {
+      "mode": "hybrid",
+      "recovery": {
+        "active": false,
+        "count": 2,
+        "events": [
+          {
+            "phase": "lost",
+            "reason": "destroyed: Device was destroyed.",
+            "tick": 3
+          },
+          {
+            "phase": "restored",
+            "reason": "new WebGPU device",
+            "tick": 3
+          },
+          {
+            "phase": "lost",
+            "reason": "destroyed: Device was destroyed.",
+            "tick": 3
+          },
+          {
+            "phase": "restored",
+            "reason": "new WebGPU device",
+            "tick": 3
+          }
+        ]
+      }
+    },
+    {
+      "mode": "raster",
+      "recovery": {
+        "active": false,
+        "count": 3,
+        "events": [
+          {
+            "phase": "lost",
+            "reason": "destroyed: Device was destroyed.",
+            "tick": 3
+          },
+          {
+            "phase": "restored",
+            "reason": "new WebGPU device",
+            "tick": 3
+          },
+          {
+            "phase": "lost",
+            "reason": "destroyed: Device was destroyed.",
+            "tick": 3
+          },
+          {
+            "phase": "restored",
+            "reason": "new WebGPU device",
+            "tick": 3
+          },
+          {
+            "phase": "lost",
+            "reason": "destroyed: Device was destroyed.",
+            "tick": 3
+          },
+          {
+            "phase": "restored",
+            "reason": "new WebGPU device",
+            "tick": 3
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

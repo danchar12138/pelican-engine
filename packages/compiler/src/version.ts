@@ -59,7 +59,7 @@ export function validateManifest(
       severity: "error",
       message,
       suggestion:
-        "Use entry, engineVersion and engine.{version,path} strings in threecat.project.json.",
+        "Use entry, engineVersion and engine.{version,path} strings in pelican.project.json.",
     });
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     fail("Project manifest must be an object.");
@@ -123,7 +123,7 @@ export function validateManifest(
       suggestion:
         "Add engineVersion: " +
         JSON.stringify(sdkVersion) +
-        " to threecat.project.json for reproducible builds.",
+        " to pelican.project.json for reproducible builds.",
     });
   return { manifest, diagnostics };
 }

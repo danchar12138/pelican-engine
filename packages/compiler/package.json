@@ -1,6 +1,6 @@
 {
-  "name": "@threecat/compiler",
-  "version": "0.2.0-m2.0",
+  "name": "pelican-engine-compiler-internal",
+  "version": "0.3.0-m3.0",
   "private": true,
   "type": "module",
   "license": "MIT",

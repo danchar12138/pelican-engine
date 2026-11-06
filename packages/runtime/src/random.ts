@@ -60,7 +60,7 @@ export function cloneSerializable<T>(value: T): T {
 }
 
 export interface RandomSnapshot {
-  format: "threecat.random";
+  format: "pelican.random";
   version: 1;
   algorithm: "mulberry32";
   state: number;
@@ -71,7 +71,7 @@ export function validateRandomSnapshot(value: unknown): RandomSnapshot {
   const data = cloneSerializable(value) as RandomSnapshot;
   if (
     !data ||
-    data.format !== "threecat.random" ||
+    data.format !== "pelican.random" ||
     data.version !== 1 ||
     data.algorithm !== "mulberry32" ||
     !Number.isInteger(data.state) ||
@@ -105,7 +105,7 @@ export function createRandom(seed = 0) {
     },
     snapshot(): RandomSnapshot {
       return {
-        format: "threecat.random",
+        format: "pelican.random",
         version: 1,
         algorithm: "mulberry32",
         state,

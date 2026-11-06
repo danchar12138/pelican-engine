@@ -5,7 +5,7 @@ import {
   defineMaterial,
   defineScene,
   defineSystem,
-} from "@threecat/sdk";
+} from "pelican-engine";
 
 export const Motion = defineComponent({
   id: "Motion",

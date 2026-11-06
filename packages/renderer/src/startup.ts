@@ -4,6 +4,30 @@ export function startupPolicy(development: boolean, search: string) {
   return { automation, playing: !automation };
 }
 
+/** Diagnostic descriptions distinguish capability from lazy renderer allocation. */
+export function inspectTraceCapabilities(data: {
+  backend: "webgpu" | "webgl2" | "uninitialized";
+  legacyProbe: boolean;
+  surfaceInitialized: boolean;
+  gameplay: boolean;
+  maxBounces: number;
+}) {
+  const compute = data.backend === "webgpu";
+  const legacy = compute && data.legacyProbe;
+  const modern = compute && !data.legacyProbe;
+  return {
+    tracer: !compute ? false : legacy ? "legacy software-triangle-BVH" : data.surfaceInitialized ? "WebGPU surface triangle-BVH" : "WebGPU surface triangle-BVH (lazy initialization)",
+    tracerInitialized: compute && (legacy || data.surfaceInitialized),
+    hardwareRT: false,
+    denoiser: modern ? "motion-reprojected temporal history + spatial a-trous; complete quality matrix unaccepted" : false,
+    hybrid: !compute ? false : legacy ? "legacy raster + traced image compositing prototype" : "raster primary visibility + actual shadow and secondary rays",
+    pathBounces: data.maxBounces,
+    tracedLights: !compute ? false : legacy ? "legacy first authored light only" : "all captured point/directional/ambient/hemisphere lights",
+    textures: data.gameplay ? (modern ? "supported GLB PBR textures in raster and surface tracing; see documented limits" : "GLB PBR and base-color textures in raster") : "no authored texture assets",
+    experimentalProbes: "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules",
+  };
+}
+
 /** Explicit progress deadline; startup and commands never require a user focus/key event. */
 export async function boundedOperation<T>(
   promise: PromiseLike<T>,
@@ -34,6 +58,7 @@ export async function boundedOperation<T>(
 }
 
 export function runtimeStatus(data: {
+  backend?: "webgpu" | "webgl2" | "uninitialized";
   mode: string;
   playing: boolean;
   automation: boolean;
@@ -48,5 +73,6 @@ export function runtimeStatus(data: {
       : data.automation
         ? "paused · automation"
         : "paused";
-  return `threecat · ${data.mode}\nWebGPU · ${data.triangles} triangles · tick ${data.tick}\n${state}`;
+  const backend = data.backend === "webgl2" ? "WebGL2" : data.backend === "uninitialized" ? "Initializing" : "WebGPU";
+  return `Pelican Engine · ${data.mode}\n${backend} · ${data.triangles} triangles · tick ${data.tick}\n${state}`;
 }

@@ -102,7 +102,7 @@ Descriptor 必须为有限、无环、无访问器的普通 JSON 数据。拒绝
 
 ```json
 {
-  "format": "threecat.resources",
+  "format": "pelican.resources",
   "version": 1,
   "resources": [
     {
