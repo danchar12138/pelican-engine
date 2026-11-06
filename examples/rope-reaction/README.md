@@ -1,13 +1,14 @@
 # Rope and dynamic sphere example
 
 This development example explicitly binds a rope collider to a dynamic sphere.
-The host samples the real sphere after its physics step, advances the rope, and
-applies the particle projection's opposite normal impulse to the body. The boxes
-mark particle positions; there is no rope mesh. The body's displacement responds
-on its next physics step. The rope solver does not include the body's effective
-mass or velocity, friction, continuous collision or fully coupled substeps. This
-is not a complete or validated two-way physics solver; a native failure may leave
-partial host state and requires restoring a known-good checkpoint.
+The host samples the sphere's velocity and effective mass after its physics step,
+then advances the rope with a virtual body and applies the opposite normal impulse.
+The boxes mark particle positions; there is no rope mesh. Actual body displacement
+responds on its next physics step. Virtual transform changes are first-order; ropes
+are processed sequentially without shared substeps. Friction, restitution and
+continuous collision are not implemented; only detected overlaps are resolved. This is not a complete or validated
+solver; a native failure may leave partial host state and requires restoring a
+known-good checkpoint.
 
 From the engine checkout, build with:
 

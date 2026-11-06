@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.13";
+export const SDK_VERSION = "0.3.14";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -146,7 +146,7 @@ export interface RopeDefinition {
 /** Sampled-collider contact from the most recently completed rope tick. */
 export interface RopeContact {
   tick: number; particle: number; colliderId: string; penetration: number;
-  /** Opposite of particle projection impulses, N·s; absent in older snapshots. */
+  /** Opposite of particle contact impulses, N·s; absent in older snapshots. */
   reactionImpulse?: Vec3;
   /** Angular impulse about the world origin; absent in older snapshots. */
   reactionAngularImpulse?: Vec3;

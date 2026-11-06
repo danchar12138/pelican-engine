@@ -6,6 +6,13 @@ export type Vec3 = [number, number, number];
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number };
+/** Private per-tick coupling. The caller owns and discards virtual body state on failure. */
+export interface RopeDynamicCoupling {
+  sphere(colliderId: string): { center: Vec3; radius: number } | undefined;
+  resolve(colliderId: string, normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number): {
+    correction: Vec3; reactionImpulse: Vec3; reactionAngularImpulse: Vec3;
+  };
+}
 export interface RopeOptions {
   /** At least two distinct consecutive 3D points, in metres. */
   points: Vec3[];
@@ -28,7 +35,7 @@ export interface RopeContact {
   colliderId: string;
   /** Maximum overlap observed during this tick before positional correction, metres. */
   penetration: number;
-  /** Opposite impulse from particle contact projections, in world-space N·s. */
+  /** Opposite impulse from particle contact response, in world-space N·s. */
   reactionImpulse?: Vec3;
   /** Moment of those impulses about the world origin, in angular-momentum units. */
   reactionAngularImpulse?: Vec3;
@@ -177,8 +184,9 @@ export class RopeSolver {
     this.forces[i] = next;
   }
   /** Exactly N fixed ticks; a failed batch restores the state before the first tick. */
-  step(steps = 1): RopeState {
+  step(steps = 1, coupling?: RopeDynamicCoupling): RopeState {
     this.alive();
+    if (coupling && steps !== 1) fail("ROPE_INPUT", "coupled stepping requires exactly one tick");
     if (!Number.isSafeInteger(steps) || steps < 1 || steps > 1000 || this.tickValue + steps > Number.MAX_SAFE_INTEGER) fail("ROPE_INPUT", "steps must be an integer in [1,1000] without tick overflow");
     // stepOne replaces these arrays rather than mutating the prior committed state.
     const before = {
@@ -189,7 +197,7 @@ export class RopeSolver {
       tick: this.tickValue,
     };
     try {
-      for (let s = 0; s < steps; s++) this.stepOne();
+      for (let s = 0; s < steps; s++) this.stepOne(coupling);
     } catch (error) {
       this.positions = before.positions;
       this.velocities = before.velocities;
@@ -200,7 +208,7 @@ export class RopeSolver {
     }
     return this.inspect();
   }
-  private stepOne(): void {
+  private stepOne(coupling?: RopeDynamicCoupling): void {
     const { fixedDt, substeps, iterations, mass, gravity, damping, restLengths, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
     // Work on copies; numeric failures must never leave half a tick applied.
@@ -236,26 +244,35 @@ export class RopeSolver {
           const p = positions[i];
           for (const c of this.colliders) {
             let depth = 0; let normal: Vec3;
+            const dynamic = c.kind === "sphere" ? coupling?.sphere(c.id) : undefined;
             if (c.kind === "plane") {
               depth = c.offset + radius - (p[0] * c.normal[0] + p[1] * c.normal[1] + p[2] * c.normal[2]);
               normal = c.normal;
             } else {
-              const delta: Vec3 = [p[0] - c.center[0], p[1] - c.center[1], p[2] - c.center[2]];
+              const center = dynamic?.center ?? c.center, colliderRadius = dynamic?.radius ?? c.radius;
+              const delta: Vec3 = [p[0] - center[0], p[1] - center[1], p[2] - center[2]];
               const distance = length(delta);
-              depth = c.radius + radius - distance;
+              depth = colliderRadius + radius - distance;
               normal = distance < 1e-12 ? [1, 0, 0] : [delta[0] / distance, delta[1] / distance, delta[2] / distance];
             }
             if (depth <= 0) continue;
-            for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
-            // Each positional projection changes the particle's velocity by depth / h.
-            // Report its equal-and-opposite impulse and moment on the sampled surface;
-            // the collider itself remains an immutable input and is not moved here.
-            const magnitude = -mass * depth / h;
-            const reaction: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
-            const point: Vec3 = c.kind === "sphere"
-              ? [c.center[0] + normal[0] * c.radius, c.center[1] + normal[1] * c.radius, c.center[2] + normal[2] * c.radius]
-              : [p[0] - normal[0] * radius, p[1] - normal[1] * radius, p[2] - normal[2] * radius];
-            const moment: Vec3 = [point[1] * reaction[2] - point[2] * reaction[1], point[2] * reaction[0] - point[0] * reaction[2], point[0] * reaction[1] - point[1] * reaction[0]];
+            let reaction: Vec3, moment: Vec3;
+            if (dynamic && coupling) {
+              const result = coupling.resolve(c.id, normal, depth, p, previous[i], mass, h);
+              if (!finiteVector(result.correction) || !finiteVector(result.reactionImpulse) || !finiteVector(result.reactionAngularImpulse))
+                fail("ROPE_NUMERIC", "coupled contact exceeded finite numeric bounds");
+              for (let k = 0; k < 3; k++) p[k] += result.correction[k];
+              reaction = result.reactionImpulse; moment = result.reactionAngularImpulse;
+            } else {
+              for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
+              // A manually sampled collider remains immovable; expose its projection reaction.
+              const magnitude = -mass * depth / h;
+              reaction = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+              const point: Vec3 = c.kind === "sphere"
+                ? [c.center[0] + normal[0] * c.radius, c.center[1] + normal[1] * c.radius, c.center[2] + normal[2] * c.radius]
+                : [p[0] - normal[0] * radius, p[1] - normal[1] * radius, p[2] - normal[2] * radius];
+              moment = [point[1] * reaction[2] - point[2] * reaction[1], point[2] * reaction[0] - point[0] * reaction[2], point[0] * reaction[1] - point[1] * reaction[0]];
+            }
             if (!finiteVector(reaction) || !finiteVector(moment)) fail("ROPE_NUMERIC", "contact reaction exceeded finite numeric bounds");
             const key = `${i}:${c.id}`;
             const existing = contacts.get(key);

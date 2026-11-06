@@ -1054,7 +1054,13 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const b = get(id);
     if (b.type !== "dynamic" || b.definition.rigidBody?.collider.shape !== "sphere" || b.collider.isSensor())
       fail("TC_PHYSICS_ROPE_BODY", `Rope body '${id}' must be a live dynamic, non-trigger sphere.`);
-    return { center: tuple(b.collider.translation()), radius: b.collider.radius() };
+    const inertia = b.body.effectiveWorldInvInertia();
+    return {
+      center: tuple(b.collider.translation()), radius: b.collider.radius(),
+      centerOfMass: tuple(b.body.worldCom()), linearVelocity: tuple(b.body.linvel()),
+      angularVelocity: tuple(b.body.angvel()), inverseMass: tuple(b.body.effectiveInvMass()),
+      inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const,
+    };
   };
   return {
     id: pluginId,
@@ -1064,15 +1070,20 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       sampleSphere: sampleRopeSphere,
       applySphereReactions(reactions) {
         alive();
-        if (history.length + reactions.length > limit)
-          fail("TC_PHYSICS_HISTORY_LIMIT", "Rope reactions exceed physics history capacity; start a new scene.");
         const seen = new Set<string>();
-        const actions = reactions.map(({ entity, impulse }) => {
+        const actions: Action[] = [];
+        for (const { entity, impulse, moment } of reactions) {
           if (seen.has(entity)) fail("TC_PHYSICS_ROPE_BODY", `Duplicate rope reaction body '${entity}'.`);
           seen.add(entity);
-          const sample = sampleRopeSphere(entity);
-          return { kind: "impulseAtPoint" as const, id: entity, value: tuple(vec(impulse, "rope reaction")), point: sample.center };
-        });
+          const sample = sampleRopeSphere(entity), j = tuple(vec(impulse, "rope reaction"));
+          const m = tuple(vec(moment, "rope reaction moment")), c = sample.centerOfMass;
+          const torque: Vec3 = [m[0] - (c[1] * j[2] - c[2] * j[1]), m[1] - (c[2] * j[0] - c[0] * j[2]), m[2] - (c[0] * j[1] - c[1] * j[0])];
+          vec(torque, "rope reaction torque");
+          if (j.some(value => value !== 0)) actions.push({ kind: "impulse", id: entity, value: j });
+          if (torque.some(value => value !== 0)) actions.push({ kind: "torqueImpulse", id: entity, value: torque });
+        }
+        if (history.length + actions.length > limit)
+          fail("TC_PHYSICS_HISTORY_LIMIT", "Rope reactions exceed physics history capacity; start a new scene.");
         // Validation precedes mutation; a native error can still leave a partial batch.
         for (const action of actions) record(action);
       },

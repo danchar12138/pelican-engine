@@ -1,4 +1,4 @@
-# pelican 0.3.13 API 索引
+# pelican 0.3.14 API 索引
 
 由公开 SDK 源码生成。签名以源码和 TypeScript 检查为准，不在文档维护第二套声明。
 
@@ -7,7 +7,7 @@
 来源：`packages/sdk/src/index.ts:2`
 
 ```ts
-SDK_VERSION = "0.3.13"
+SDK_VERSION = "0.3.14"
 ```
 
 ## Vec2
@@ -304,7 +304,7 @@ export interface RopeDefinition {
 ```ts
 export interface RopeContact {
   tick: number; particle: number; colliderId: string; penetration: number;
-  /** Opposite of particle projection impulses, N·s; absent in older snapshots. */
+  /** Opposite of particle contact impulses, N·s; absent in older snapshots. */
   reactionImpulse?: Vec3;
   /** Angular impulse about the world origin; absent in older snapshots. */
   reactionAngularImpulse?: Vec3;

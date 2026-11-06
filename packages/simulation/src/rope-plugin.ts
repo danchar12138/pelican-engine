@@ -4,6 +4,7 @@ import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type RopeCollider, type Vec3 } from "./rope.ts";
+import { createRopeBodyCoupling, VirtualRopeSphere } from "./rope-body-coupling.ts";
 
 type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string> };
 type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
@@ -82,7 +83,7 @@ function validateWorldBindings(entries: Map<string, Entry>, context: RuntimePlug
   }
 }
 
-/** Position-based sphere reactions are delayed and do not yet solve body effective mass. */
+/** Split-step sphere contact uses virtual mass/velocity state; native commit is deferred. */
 export const createRopePlugin: RuntimePluginFactory = (context) => {
   const { fixedDt } = context;
   if (typeof fixedDt !== "number" || !Number.isFinite(fixedDt)) return fail("FIXED_DT", "RuntimeHost must provide a finite fixed interval.");
@@ -141,7 +142,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     afterPhysics() {
       alive(); ensureRefs();
       const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string> }[] = [];
-      const reactions = new Map<string, Vec3>();
+      const bodies = new Map<string, VirtualRopeSphere>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
@@ -160,30 +161,27 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
             entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.staleBodies = new Set();
           }
+          const coupled = new Map<string, VirtualRopeSphere>();
           if (previous.length) {
             const boundIds = new Set(previous.map(item => item.id));
             const manual = snapshot.colliders.filter(collider => !boundIds.has(collider.id));
             const bridge = live.length ? bridgeFor(context) : undefined;
             const sampled: RopeCollider[] = live.map(binding => {
-              const sphere = bridge!.sampleSphere(binding.entity);
-              return { kind: "sphere", id: binding.id, center: [...sphere.center] as Vec3, radius: sphere.radius };
+              let body = bodies.get(binding.entity);
+              if (!body) {
+                body = new VirtualRopeSphere(bridge!.sampleSphere(binding.entity));
+                bodies.set(binding.entity, body);
+              }
+              coupled.set(binding.id, body);
+              return { kind: "sphere", id: binding.id, center: [...body.center] as Vec3, radius: body.radius };
             });
             entry.solver.setColliders([...manual, ...sampled]);
           }
-          const state = entry.solver.step();
-          const byCollider = new Map(live.map(binding => [binding.id, binding.entity]));
-          for (const contact of state.contacts) {
-            const entity = byCollider.get(contact.colliderId), impulse = contact.reactionImpulse;
-            if (!entity || !impulse) continue;
-            const total = reactions.get(entity) ?? [0, 0, 0];
-            for (let k = 0; k < 3; k++) total[k] += impulse[k];
-            if (!total.every(Number.isFinite)) fail("NUMERIC", `Reaction for '${entity}' exceeded finite bounds.`);
-            reactions.set(entity, total);
-          }
+          entry.solver.step(1, coupled.size ? createRopeBodyCoupling(coupled) : undefined);
         }
-        const batch = [...reactions].filter(([, impulse]) => impulse.some(value => value !== 0))
-          .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-          .map(([entity, impulse]) => ({ entity, impulse }));
+        const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
+          .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
+          .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
         if (batch.length) bridgeFor(context).applySphereReactions(batch);
       } catch (error) {
         const failures: string[] = [];

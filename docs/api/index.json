@@ -1,14 +1,14 @@
 {
   "format": "pelican.api-index",
   "version": 1,
-  "engineVersion": "0.3.13",
+  "engineVersion": "0.3.14",
   "entry": "pelican-engine",
   "source": "packages/sdk/src/index.ts",
   "symbols": [
     {
       "name": "SDK_VERSION",
       "kind": "constant",
-      "signature": "SDK_VERSION = \"0.3.13\"",
+      "signature": "SDK_VERSION = \"0.3.14\"",
       "line": 2
     },
     {
@@ -232,7 +232,7 @@
     {
       "name": "RopeContact",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface RopeContact {\n  tick: number; particle: number; colliderId: string; penetration: number;\n  /** Opposite of particle projection impulses, N·s; absent in older snapshots. */\n  reactionImpulse?: Vec3;\n  /** Angular impulse about the world origin; absent in older snapshots. */\n  reactionAngularImpulse?: Vec3;\n}",
+      "signature": "export interface RopeContact {\n  tick: number; particle: number; colliderId: string; penetration: number;\n  /** Opposite of particle contact impulses, N·s; absent in older snapshots. */\n  reactionImpulse?: Vec3;\n  /** Angular impulse about the world origin; absent in older snapshots. */\n  reactionAngularImpulse?: Vec3;\n}",
       "line": 147,
       "fields": [
         "tick",

@@ -35,9 +35,20 @@ export interface RuntimeServices {
   ropes: RopeService;
 }
 /** Private bridge; native physics objects never cross this interface. */
+export interface RopePhysicsSphere {
+  center: Vec3;
+  radius: number;
+  centerOfMass: Vec3;
+  linearVelocity: Vec3;
+  angularVelocity: Vec3;
+  inverseMass: Vec3;
+  /** Symmetric world inverse inertia: xx, xy, xz, yy, yz, zz. */
+  inverseInertia: readonly [number, number, number, number, number, number];
+}
 export interface RopePhysicsBridge {
-  sampleSphere(entity: string): { center: Vec3; radius: number };
-  applySphereReactions(reactions: readonly { entity: string; impulse: Vec3 }[]): void;
+  sampleSphere(entity: string): RopePhysicsSphere;
+  /** Moment is the sum of contact angular impulses about the world origin. */
+  applySphereReactions(reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[]): void;
 }
 export interface RuntimePluginContext {
   /** Lazily resolved because physics may be registered after another plugin. */
