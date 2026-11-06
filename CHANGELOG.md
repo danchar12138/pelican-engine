@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.31 - 2026-11-06
+
+- Made cloth and rope reaction batches recoverable: a failed native action rebuilds physics state and history from the pre-batch snapshot before the host fault is reported.
+- Build-only release; runtime rollback behavior was not verified.
+
 ## 0.3.30 - 2026-11-06
 
 - Restored cloth binding definitions together with solver state when an automatic cloth tick fails, preventing destroyed-body pruning from surviving rollback.

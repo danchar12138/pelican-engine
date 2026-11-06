@@ -1084,8 +1084,28 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         }
         if (history.length + actions.length > limit)
           fail("TC_PHYSICS_HISTORY_LIMIT", "Rope reactions exceed physics history capacity; start a new scene.");
-        // Validation precedes mutation; a native error can still leave a partial batch.
-        for (const action of actions) record(action);
+        // Record the whole batch as one recoverable transaction. Native actions are
+        // still applied sequentially, so a failed action must rebuild the physics
+        // state and history from the pre-batch snapshot before the host faults.
+        const before = snapshot(), previousHistory = history.slice(), previousState = state;
+        try {
+          for (const action of actions) record(action);
+        } catch (error) {
+          try {
+            const checked = validate(before);
+            state = checked.candidate;
+            history = previousHistory;
+            bindRefs(checked.bindings);
+            previousState.dispose();
+            for (const body of state.bodies.values()) {
+              const ref = refs.get(body.id);
+              if (ref) context.world.setTransform(ref, body.transform);
+            }
+          } catch (rollbackError) {
+            throw new Error(`TC_PHYSICS_REACTION_ROLLBACK: ${String(error)}; partialState=true; rollback failure: ${String(rollbackError)}`);
+          }
+          throw new Error(`TC_PHYSICS_REACTION: ${String(error)}; reaction batch rolled back.`);
+        }
       },
     },
     systems: [
