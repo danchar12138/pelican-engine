@@ -1,5 +1,7 @@
 import type { ClothBodyCollider, ClothDefinition, ClothService, Vec2 } from "../../sdk/src/index.ts";
-import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
+import type { RuntimePluginContext, RuntimePluginFactory } from "../../runtime/src/plugins.ts";
+import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
+import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
 
@@ -54,6 +56,19 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
   } catch (error) { solver.dispose(); throw error; }
 }
 function disposeEntries(entries: Map<string, Entry>): void { for (const entry of entries.values()) entry.solver.dispose(); entries.clear(); }
+function validateBodyBindings(entries: Iterable<Entry>, context: RuntimePluginContext, world?: WorldSnapshot): void {
+  const records = world ? new Map(world.entities.map(record => [record.id, record])) : undefined;
+  const bridge = [...entries].some(entry => (entry.definition.bodyColliders?.length ?? 0) > 0)
+    ? context.getRopePhysicsBridge?.() : undefined;
+  for (const entry of entries) for (const binding of entry.definition.bodyColliders ?? []) {
+    const record = records?.get(binding.entity);
+    if (records && (!record || !resolveEntityDefinition(context.scene, record)?.rigidBody))
+      fail("SNAPSHOT", `Bound body '${binding.entity}' is missing from the restored world.`);
+    if (!context.world.isAlive(binding.entity)) fail("BODY_COLLIDER", `Body '${binding.entity}' is not a live entity.`);
+    if (!bridge) fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
+    bridge!.sampleSphere(binding.entity);
+  }
+}
 function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<string>): Map<string, Entry> {
   if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1 || !Array.isArray((value as { cloths?: unknown }).cloths) || (value as { cloths: unknown[] }).cloths.length > 256)
     return fail("SNAPSHOT", "Expected a version 1 snapshot containing at most 256 cloths.");
@@ -86,11 +101,7 @@ export const createClothPlugin: RuntimePluginFactory = context => {
       if (entries.size >= 256) return fail("CAPACITY", "At most 256 cloths per host.");
       const entry = createEntry(definition, hostDt, materials);
       try {
-        const bridge = entry.definition.bodyColliders?.length ? context.getRopePhysicsBridge?.() : undefined;
-        for (const binding of entry.definition.bodyColliders ?? []) {
-          if (!context.world.isAlive(binding.entity)) return fail("BODY_COLLIDER", `Body '${binding.entity}' is not a live entity.`);
-          bridge?.sampleSphere(binding.entity);
-        }
+        validateBodyBindings([entry], context);
         entries.set(entry.definition.id, entry);
       } catch (error) { entry.solver.dispose(); throw error; }
     },
@@ -146,7 +157,15 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     snapshot: () => ({ version: 1, cloths: [...entries.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0)
       .map(({ definition, solver }) => ({ definition: cloneSerializable(definition), state: solver.snapshot() })) }),
     validateSnapshot(value) { const staged = parseSnapshot(value, hostDt, materials); disposeEntries(staged); },
-    restore(value) { alive(); const staged = parseSnapshot(value, hostDt, materials); disposeEntries(entries); entries = staged; },
+    validateWorld(value, world) {
+      const staged = parseSnapshot(value, hostDt, materials);
+      try { validateBodyBindings(staged.values(), context, world); } finally { disposeEntries(staged); }
+    },
+    restore(value) {
+      alive(); const staged = parseSnapshot(value, hostDt, materials);
+      try { validateBodyBindings(staged.values(), context); } catch (error) { disposeEntries(staged); throw error; }
+      disposeEntries(entries); entries = staged;
+    },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },
   };
 };
