@@ -20,6 +20,8 @@
 
 - Historical cloth snapshots without `selfCollisions` restore in the legacy particle-only mode; invalid or duplicate self-contact state is rejected atomically. This migration fix is unverified.
 
+- Cloth automatic stepping can bind live dynamic non-trigger spheres and sample their center and radius after physics as one-way moving obstacles; no reaction impulse is applied. This interface is unverified.
+
 ## 单线接续
 
 只在 `main` 的主工作树串行开发。历史独有候选和失败记录在本机 `.pelican/consolidated-worktrees/`、`.pelican/worktree-snapshots/` 或原证据目录中；它们不是活动工作树，未审查前不能删除或声称已合入。其他环境不一定有这些本机目录。

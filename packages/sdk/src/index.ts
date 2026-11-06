@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.22";
+export const SDK_VERSION = "0.3.23";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -234,6 +234,7 @@ export interface ClothVisualOptions {
   castShadow?: boolean;
   receiveShadow?: boolean;
 }
+export interface ClothBodyCollider { readonly id: string; readonly entity: string }
 export interface ClothDefinition {
   id: string;
   points: readonly Vec3[];
@@ -255,6 +256,8 @@ export interface ClothDefinition {
   selfCollisions?: boolean;
   /** Sphere triangle-surface contacts; defaults to true for new cloth. */
   surfaceCollisions?: boolean;
+  /** Optional live dynamic sphere bindings; sampled after the physics phase, one-way only. */
+  bodyColliders?: readonly ClothBodyCollider[];
 }
 export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
 export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }

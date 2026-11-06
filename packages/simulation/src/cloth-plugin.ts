@@ -1,4 +1,4 @@
-import type { ClothDefinition, ClothService, Vec2 } from "../../sdk/src/index.ts";
+import type { ClothBodyCollider, ClothDefinition, ClothService, Vec2 } from "../../sdk/src/index.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
@@ -20,6 +20,15 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty id of at most 128 characters.");
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be boolean.");
+  if (definition.bodyColliders !== undefined) {
+    if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > 64) return fail("BODY_COLLIDER", "bodyColliders must contain at most 64 bindings.");
+    if (definition.bodyColliders.length && !definition.autoStep) return fail("BODY_COLLIDER", "bodyColliders require autoStep: true.");
+    const ids = new Set<string>(), entities = new Set<string>();
+    for (const binding of definition.bodyColliders) {
+      if (!binding || !validId(binding.id) || !validId(binding.entity) || ids.has(binding.id) || entities.has(binding.entity)) return fail("BODY_COLLIDER", "Body bindings require unique nonempty ids and entities.");
+      ids.add(binding.id); entities.add(binding.entity);
+    }
+  }
   if (definition.selfCollisions !== undefined && typeof definition.selfCollisions !== "boolean") return fail("SELF_COLLISION", "selfCollisions must be boolean.");
   if (definition.surfaceCollisions !== undefined && typeof definition.surfaceCollisions !== "boolean") return fail("SURFACE_COLLISION", "surfaceCollisions must be boolean.");
   if (restoredSurfaceMode !== undefined && definition.surfaceCollisions !== undefined && definition.surfaceCollisions !== restoredSurfaceMode)
@@ -75,7 +84,15 @@ export const createClothPlugin: RuntimePluginFactory = context => {
       alive(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty cloth id.");
       if (entries.has(definition.id)) return fail("DUPLICATE", `Cloth '${definition.id}' already exists.`);
       if (entries.size >= 256) return fail("CAPACITY", "At most 256 cloths per host.");
-      const entry = createEntry(definition, hostDt, materials); entries.set(entry.definition.id, entry);
+      const entry = createEntry(definition, hostDt, materials);
+      try {
+        const bridge = entry.definition.bodyColliders?.length ? context.getRopePhysicsBridge?.() : undefined;
+        for (const binding of entry.definition.bodyColliders ?? []) {
+          if (!context.world.isAlive(binding.entity)) return fail("BODY_COLLIDER", `Body '${binding.entity}' is not a live entity.`);
+          bridge?.sampleSphere(binding.entity);
+        }
+        entries.set(entry.definition.id, entry);
+      } catch (error) { entry.solver.dispose(); throw error; }
     },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Cloth '${id}' is automatically stepped.`); return entry.solver.step(ticks); },
     inspect(id) { return get(id).solver.inspect(); },
@@ -100,7 +117,24 @@ export const createClothPlugin: RuntimePluginFactory = context => {
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
-        for (const { solver } of automatic) { const snapshot = solver.snapshot(); committed.push({ solver, snapshot }); solver.step(); }
+        for (const entry of automatic) {
+          const snapshot = entry.solver.snapshot(); committed.push({ solver: entry.solver, snapshot });
+          const bindings = entry.definition.bodyColliders ?? [];
+          if (bindings.length) {
+            const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
+            const manual = snapshot.colliders.filter(collider => !bindings.some(binding => binding.id === collider.id));
+            const sampled: ClothCollider[] = [];
+            const live: ClothBodyCollider[] = [];
+            for (const binding of bindings) {
+              if (!context.world.isAlive(binding.entity)) continue;
+              const sphere = bridge.sampleSphere(binding.entity);
+              sampled.push({ kind: "sphere", id: binding.id, center: [...sphere.center] as Vec3, radius: sphere.radius }); live.push(binding);
+            }
+            entry.definition = { ...entry.definition, bodyColliders: live };
+            entry.solver.setColliders([...manual, ...sampled]);
+          }
+          entry.solver.step();
+        }
       } catch (error) {
         const failures: string[] = [];
         for (const { solver, snapshot } of committed.reverse()) try { solver.restore(snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
