@@ -18,6 +18,8 @@ node --import tsx tools/release.ts pack --compile-only-unverified
 
 ## npm 同节点分发
 
+**当前规则（D53）：** `main` 每次推送触发 `.github/workflows/npm-publish.yml`，CI 基于 GitHub 运行 ID 生成 `主版本.次版本.运行ID` 格式的无后缀版本，在构建副本中同步清单、SDK 和 M3 示例版本锁，然后通过 npm OIDC 可信发布直接发布到 `latest`。手动触发也生成新版本。构建副本的版本与 Git 提交中的版本字面值可能不同；失败、排队和重跑须以实际 Actions 结果为准，npm 不允许覆盖已发布版本。GitHub 队列有容量限制，且排队顺序不保证与提交顺序一致，因此不能保证每次推送即时成功或 `latest` 永远指向最新提交。D50 下只构建，不运行测试或其他验证；无后缀不意味着完整里程碑或运行行为已验收。下文 D52 staged 方案为历史记录。
+
 D41–D46 新增 npm 开发渠道。包名 `pelican-engine`，CLI 为 `pelican`，公开 API 与仓库游戏相同；不另行提前发布版本。按 D52，`.github/workflows/npm-publish.yml` 响应已发布的 GitHub Release，也可手动指定已有标签；检出该标签、安装依赖、构建并打包后，使用受保护的 `NPM_TOKEN` 执行 `npm stage publish`。预发布提交到 `next` 标签；用户须在 npm 使用 2FA 审核，staged 不代表已公开发布。工作流不执行验收或安装复测。普通 push、PR、CI 构建成功和本地 tarball 生成都不等于验收通过。
 
 npm 暂存与归档在 `.pelican/npm/`，不放入游戏 `dist/`；原静态部署与源码 ZIP 使用方式保持不变。编译包不含源码映射、证据、示例或游戏资产，随包分发 MIT、第三方许可、API 索引和统一游戏开发 AI 指引。安装后无需源码与在线服务，首次依赖和浏览器准备除外。

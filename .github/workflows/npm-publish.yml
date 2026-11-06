@@ -1,21 +1,17 @@
-name: Stage npm package
+name: Publish npm package
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Existing release tag to stage
-        required: true
-        type: string
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
-  group: npm-${{ github.event.release.tag_name || inputs.release_tag }}
-  cancel-in-progress: false
+  group: npm-publish-main
+  queue: max
 
 jobs:
   publish:
@@ -23,24 +19,19 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name || inputs.release_tag }}
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: '24'
           registry-url: https://registry.npmjs.org
-          cache: npm
       - run: npm ci
+      - name: Assign unique stable version
+        run: node tools/npm/ci-version.mjs
       - run: npm run build
       - run: npm run distribution:pack
-      - name: Install npm with staged publishing support
+      - name: Install npm with trusted publishing support
         run: npm install --global npm@11.21.2
-      - name: Stage package for maintainer approval
+      - name: Publish to latest using OIDC
         shell: pwsh
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           $version = (Get-Content .pelican/npm/package/package.json -Raw | ConvertFrom-Json).version
-          $distTag = if ($version.Contains('-')) { 'next' } else { 'latest' }
-          npm stage publish "./.pelican/npm/artifacts/pelican-engine-$version.tgz" --access public --tag $distTag
+          npm publish (Join-Path .pelican/npm/artifacts ('pelican-engine-' + $version + '.tgz')) --access public --tag latest
