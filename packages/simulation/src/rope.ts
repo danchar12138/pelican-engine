@@ -163,11 +163,28 @@ export class RopeSolver {
     if (!finiteState(next)) fail("ROPE_NUMERIC", "force accumulation exceeds numeric bounds");
     this.forces[i] = next;
   }
-  /** Exactly N fixed ticks; no wall-clock accumulation or variable delta. */
+  /** Exactly N fixed ticks; a failed batch restores the state before the first tick. */
   step(steps = 1): RopeState {
     this.alive();
     if (!Number.isSafeInteger(steps) || steps < 1 || steps > 1000 || this.tickValue + steps > Number.MAX_SAFE_INTEGER) fail("ROPE_INPUT", "steps must be an integer in [1,1000] without tick overflow");
-    for (let s = 0; s < steps; s++) this.stepOne();
+    // stepOne replaces these arrays rather than mutating the prior committed state.
+    const before = {
+      positions: this.positions,
+      velocities: this.velocities,
+      forces: this.forces,
+      contacts: this.contacts,
+      tick: this.tickValue,
+    };
+    try {
+      for (let s = 0; s < steps; s++) this.stepOne();
+    } catch (error) {
+      this.positions = before.positions;
+      this.velocities = before.velocities;
+      this.forces = before.forces;
+      this.contacts = before.contacts;
+      this.tickValue = before.tick;
+      throw error;
+    }
     return this.inspect();
   }
   private stepOne(): void {
