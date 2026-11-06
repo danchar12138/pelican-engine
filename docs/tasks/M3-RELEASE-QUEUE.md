@@ -2,7 +2,7 @@
 
 ## 2026-11-06 单线收敛接续
 
-用户要求发布 M3 后只保留单线串行开发。GitHub 已创建 `v0.3.0-m3.0` compile-only/unverified 预发布，提交 `629e880a9ab4664ee799e94293ab4dea1df11645`；这不是 M3 正式验收或完整首发。npm Actions 工作流 `42230390535` 两次发布均失败：首次因 2FA 权限，重试时因令牌仅允许 staging 而返回 `E_STAGE_REQUIRED`。npm 发布未成功，须更换具有首次直接发布权限的受保护令牌后处理，不能假称完成或公开令牌。
+用户要求发布 M3 后只保留单线串行开发。GitHub 已创建 `v0.3.0-m3.0` compile-only/unverified 预发布，提交 `629e880a9ab4664ee799e94293ab4dea1df11645`；这不是 M3 正式验收或完整首发。npm Actions 工作流 `42230390535` 三次发布均失败：首次因 2FA 权限，第二次因令牌仅允许 staging 而返回 `E_STAGE_REQUIRED`，第三次返回 `EOTP`，要求一次性双重验证。npm 发布未成功；无人值守发布需要兼具直接发布和满足 2FA 要求的受保护令牌，不能假称完成或公开令牌。
 
 现仅登记 `main` 主工作树和开发分支。原有工作树已移除或作为本机快照注销，独有提交以 `refs/pelican-archive/worktrees/` 保留；未合入差异及原始快照保存在 `.pelican/consolidated-worktrees/` 和 `.pelican/worktree-snapshots/`。它们未全部归类或合入，不代表功能完成；不得跟随 junction 删除或丢弃独有成果。主树中历史 `evidence/m3/` 至 `evidence/m6/` 仍未跟踪，保留在本机，未随本次提交上传。归档路径是本机辅助记录，其他环境可能不存在。
 
