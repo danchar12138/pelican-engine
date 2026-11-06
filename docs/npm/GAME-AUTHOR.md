@@ -233,7 +233,12 @@ manual cloth uses `ctx.cloth.step`. Use `setAnchor`, `releaseAnchor`, `applyForc
 (next tick), `applyImpulse`, `setColliders`, `inspect`, and `destroy` to manage it.
 The source checkout includes `examples/cloth-sheet`.
 
-An automatic cloth may bind a live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The plugin samples the real sphere after physics and uses it as a one-way moving obstacle. The body receives no cloth reaction impulse. Destroyed bodies are removed on the next automatic step. This is not complete cloth-rigid-body coupling.
+An automatic cloth may bind a live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The plugin samples the real sphere after physics and uses it as a one-way moving obstacle. Set `bodyReactions: true` to submit approximate normal reaction impulses from
+particle and triangle-surface contacts through the physics bridge. This changes
+body velocity on the next physics step; it is delayed, projection-derived and
+not mass-coupled with cloth velocity. The body receives no reaction when the
+option is omitted. Destroyed bodies are removed on the next automatic step.
+This is not complete cloth-rigid-body coupling.
 
 New cloth also resolves detected sphere overlaps against triangle surface interiors
 using closest-point barycentric projection. `inspect(id).surfaceContacts` reports

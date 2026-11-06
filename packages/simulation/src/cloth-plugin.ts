@@ -22,6 +22,8 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty id of at most 128 characters.");
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be boolean.");
+  if (definition.bodyReactions !== undefined && typeof definition.bodyReactions !== "boolean") return fail("BODY_REACTION", "bodyReactions must be boolean.");
+  if (definition.bodyReactions && !definition.bodyColliders?.length) return fail("BODY_REACTION", "bodyReactions require bodyColliders.");
   if (definition.bodyColliders !== undefined) {
     if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > 64) return fail("BODY_COLLIDER", "bodyColliders must contain at most 64 bindings.");
     if (definition.bodyColliders.length && !definition.autoStep) return fail("BODY_COLLIDER", "bodyColliders require autoStep: true.");
@@ -32,6 +34,7 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
     }
   }
   if (definition.selfCollisions !== undefined && typeof definition.selfCollisions !== "boolean") return fail("SELF_COLLISION", "selfCollisions must be boolean.");
+  if (definition.bodyReactions !== undefined && typeof definition.bodyReactions !== "boolean") return fail("BODY_REACTION", "bodyReactions must be boolean.");
   if (definition.surfaceCollisions !== undefined && typeof definition.surfaceCollisions !== "boolean") return fail("SURFACE_COLLISION", "surfaceCollisions must be boolean.");
   if (restoredSurfaceMode !== undefined && definition.surfaceCollisions !== undefined && definition.surfaceCollisions !== restoredSurfaceMode)
     return fail("SNAPSHOT", "Surface collision configuration does not match the saved solver.");
@@ -144,7 +147,20 @@ export const createClothPlugin: RuntimePluginFactory = context => {
             entry.definition = { ...entry.definition, bodyColliders: live };
             entry.solver.setColliders([...manual, ...sampled]);
           }
-          entry.solver.step();
+          const state = entry.solver.step();
+          if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) {
+            const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
+            const byCollider = new Map((entry.definition.bodyColliders ?? []).map(binding => [binding.id, binding.entity]));
+            const reactions = new Map<string, { impulse: Vec3; moment: Vec3 }>();
+            for (const contact of [...state.contacts, ...state.surfaceContacts]) {
+              const entity = byCollider.get(contact.colliderId);
+              if (!entity || !contact.reactionImpulse || !contact.reactionAngularImpulse) continue;
+              const current = reactions.get(entity) ?? { impulse: [0, 0, 0] as Vec3, moment: [0, 0, 0] as Vec3 };
+              for (let k = 0; k < 3; k++) { current.impulse[k] += contact.reactionImpulse[k]; current.moment[k] += contact.reactionAngularImpulse[k]; }
+              reactions.set(entity, current);
+            }
+            if (reactions.size) bridge.applySphereReactions([...reactions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([entity, value]) => ({ entity, ...value })));
+          }
         }
       } catch (error) {
         const failures: string[] = [];

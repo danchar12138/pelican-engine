@@ -10,6 +10,7 @@ const simulate = defineSystem({ id: "cloth-example", phase: "prePhysics", reads:
       anchors: [{ index: 0, position: [-1, 2, 0] }, { index: 2, position: [1, 2, 0] }],
       visual: { material: "sheet-material" },
       bodyColliders: [{ id: "sphere", entity: "cloth-ball" }],
+      bodyReactions: true,
     });
     ctx.setComponent("state", State, { initialized: true });
   }

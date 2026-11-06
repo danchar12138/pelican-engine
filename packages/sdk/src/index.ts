@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.25";
+export const SDK_VERSION = "0.3.26";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -256,12 +256,14 @@ export interface ClothDefinition {
   selfCollisions?: boolean;
   /** Sphere triangle-surface contacts; defaults to true for new cloth. */
   surfaceCollisions?: boolean;
-  /** Optional live dynamic sphere bindings; sampled after the physics phase, one-way only. */
+  /** Optional live dynamic sphere bindings; sampled after the physics phase. */
   bodyColliders?: readonly ClothBodyCollider[];
+  /** When true, detected contacts submit approximate reaction impulses to bound bodies. */
+  bodyReactions?: boolean;
 }
-export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
+export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }
 export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }
-export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number] }
+export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number]; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }
 export interface ClothState {
   tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; surfaceCollisions: boolean;
   positions: Vec3[]; velocities: Vec3[]; triangles: ClothTriangle[];

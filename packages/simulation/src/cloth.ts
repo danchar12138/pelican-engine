@@ -9,9 +9,9 @@ export interface ClothOptions {
   substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean; selfCollisions?: boolean; surfaceCollisions?: boolean;
   anchors?: { index: number; position: Vec3 }[];
 }
-export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number }
+export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }
 export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }
-export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number] }
+export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number]; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }
 type Constraint = [number, number, number];
 type Config = { mass: number; radius: number; fixedDt: number; substeps: number; iterations: number; damping: number; gravity: Vec3; bending: boolean; selfCollisions: boolean; surfaceCollisions: boolean; triangles: Triangle[]; constraints: Constraint[] };
 export interface ClothState {
@@ -34,6 +34,7 @@ const positive = (input: unknown, label: string): number => typeof input === "nu
 const indexOf = (input: unknown, count: number): number => Number.isSafeInteger(input) && (input as number) >= 0 && (input as number) < count ? input as number : fail("CLOTH_INDEX", "particle index is out of range");
 const distance = (a: Vec3, b: Vec3): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const tuple = (a: Vec3): Triangle => [a[0], a[1], a[2]];
+const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 function readAnchors(input: unknown, count: number): Map<number, Vec3> {
   if (!Array.isArray(input) || input.length > count) fail("CLOTH_INPUT", "anchors must be an array of unique particle indices");
   const result = new Map<number, Vec3>();
@@ -208,9 +209,11 @@ export class ClothSolver {
             }
             if (depth <= 0) continue;
             for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
-            const key = `${i}:${collider.id}`, old = contacts.get(key);
-            if (old) old.penetration = Math.max(old.penetration, depth);
-            else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: collider.id, penetration: depth });
+            const magnitude = -mass * depth / h, reactionImpulse: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+            const point: Vec3 = collider.kind === "sphere" ? [collider.center[0] + normal[0] * collider.radius, collider.center[1] + normal[1] * collider.radius, collider.center[2] + normal[2] * collider.radius] : [p[0] - normal[0] * radius, p[1] - normal[1] * radius, p[2] - normal[2] * radius];
+            const reactionAngularImpulse = cross(point, reactionImpulse), key = `${i}:${collider.id}`, old = contacts.get(key);
+            if (old) { old.penetration = Math.max(old.penetration, depth); for (let k = 0; k < 3; k++) { old.reactionImpulse![k] += reactionImpulse[k]; old.reactionAngularImpulse![k] += reactionAngularImpulse[k]; } }
+            else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: collider.id, penetration: depth, reactionImpulse, reactionAngularImpulse });
           }
         }
         if (this.config.surfaceCollisions) for (let triangleIndex = 0; triangleIndex < this.config.triangles.length; triangleIndex++) {
@@ -223,8 +226,10 @@ export class ClothSolver {
             if (denominator === 0) continue;
             const correction = depth / denominator;
             for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++) positions[triangle[vertex]][axis] += normal[axis] * correction * weights[vertex];
+            const magnitude = -mass * depth / h, reactionImpulse: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude], reactionAngularImpulse = cross(closest.point, reactionImpulse);
             const key = `${triangleIndex}:${collider.id}`, old = surfaceContacts.get(key);
-            if (old) old.penetration = Math.max(old.penetration, depth); else surfaceContacts.set(key, { tick: this.tickValue + 1, triangle: triangleIndex, colliderId: collider.id, penetration: depth, barycentric: closest.barycentric });
+            if (old) { old.penetration = Math.max(old.penetration, depth); for (let k = 0; k < 3; k++) { old.reactionImpulse![k] += reactionImpulse[k]; old.reactionAngularImpulse![k] += reactionAngularImpulse[k]; } }
+            else surfaceContacts.set(key, { tick: this.tickValue + 1, triangle: triangleIndex, colliderId: collider.id, penetration: depth, barycentric: closest.barycentric, reactionImpulse, reactionAngularImpulse });
           }
         }
         if (this.config.selfCollisions) for (let i = 0; i < positions.length; i++) for (let j = i + 1; j < positions.length; j++) {
@@ -284,7 +289,7 @@ export class ClothSolver {
     const colliders = readColliders(input.colliders), keys = new Set<string>();
     if (!Array.isArray(input.contacts) || input.contacts.length > count * colliders.length || input.contacts.some(contact => !contact || contact.tick !== input.tick ||
         !Number.isSafeInteger(contact.particle) || contact.particle < 0 || contact.particle >= count || !colliders.some(collider => collider.id === contact.colliderId) ||
-        typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0)) fail("CLOTH_SNAPSHOT", "invalid contact state");
+        typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 || (contact.reactionImpulse === undefined) !== (contact.reactionAngularImpulse === undefined) || (contact.reactionImpulse !== undefined && (!vec(contact.reactionImpulse) || !vec(contact.reactionAngularImpulse)))) ) fail("CLOTH_SNAPSHOT", "invalid contact state");
     for (const contact of input.contacts) { const key = `${contact.particle}:${contact.colliderId}`; if (keys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate contact"); keys.add(key); }
     const selfContacts = input.selfContacts ?? [];
     const selfKeys = new Set<string>();
@@ -300,7 +305,7 @@ export class ClothSolver {
         surfaceContacts.some(contact => !contact || contact.tick !== input.tick || !Number.isSafeInteger(contact.triangle) || contact.triangle < 0 || contact.triangle >= this.config.triangles.length ||
           !colliders.some(collider => collider.id === contact.colliderId && collider.kind === "sphere") || typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 ||
           !Array.isArray(contact.barycentric) || contact.barycentric.length !== 3 || !contact.barycentric.every(value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1) ||
-          Math.abs(contact.barycentric[0] + contact.barycentric[1] + contact.barycentric[2] - 1) > 1e-5))
+          Math.abs(contact.barycentric[0] + contact.barycentric[1] + contact.barycentric[2] - 1) > 1e-5 || (contact.reactionImpulse === undefined) !== (contact.reactionAngularImpulse === undefined) || (contact.reactionImpulse !== undefined && (!vec(contact.reactionImpulse) || !vec(contact.reactionAngularImpulse)))))
       fail("CLOTH_SNAPSHOT", "invalid surface contact state");
     for (const contact of surfaceContacts) { const key = `${contact.triangle}:${contact.colliderId}`; if (surfaceKeys.has(key)) fail("CLOTH_SNAPSHOT", "duplicate surface contact"); surfaceKeys.add(key); }
     this.positions = input.positions.map(copy); this.velocities = input.velocities.map(copy); this.forces = input.forces.map(copy);
