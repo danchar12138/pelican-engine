@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add model animation clip discovery, pause/resume, seeking and speed control, including snapshot suspension state. Runtime behavior is unverified.
+
 ## 0.4.1 - 2026-11-07
 
 - Bundle the accumulated simulation, graphics, asset and API improvements after 0.3.35, including fluid and soft-body forces and manual colliders.

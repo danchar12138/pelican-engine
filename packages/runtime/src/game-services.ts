@@ -1,5 +1,5 @@
 import type { SceneIR } from "../../compiler/src/types.ts";
-import type { AnimationService } from "../../sdk/src/index.ts";
+import type { AnimationControlService, AnimationService } from "../../sdk/src/index.ts";
 import type {
   RuntimePlugin,
   RuntimePluginContext,
@@ -219,7 +219,7 @@ function uiValue(value: unknown, code: string): asserts value is UI[number] {
 /** Pure deterministic gameplay state. The caller owns platform I/O and the animation adapter. */
 export function createGameServices(
   ir: SceneIR,
-  animation: AnimationService,
+  animation: AnimationService & Partial<AnimationControlService>,
 ): GameServicesDriver {
   const sceneId = ir.scene.id;
   const gameId = ir.gameId;
@@ -457,6 +457,31 @@ export function createGameServices(
       state(entity) {
         alive();
         return animation.state(entity);
+      },
+      clips(entity) {
+        alive();
+        if (!animation.clips) throw new Error("TC_ANIMATION_ADAPTER: Clip inspection is unavailable in this animation adapter.");
+        return animation.clips(entity);
+      },
+      pause(entity) {
+        alive();
+        if (!animation.pause) throw new Error("TC_ANIMATION_ADAPTER: Pause is unavailable in this animation adapter.");
+        animation.pause(entity);
+      },
+      resume(entity) {
+        alive();
+        if (!animation.resume) throw new Error("TC_ANIMATION_ADAPTER: Resume is unavailable in this animation adapter.");
+        animation.resume(entity);
+      },
+      seek(entity, time) {
+        alive();
+        if (!animation.seek) throw new Error("TC_ANIMATION_ADAPTER: Seek is unavailable in this animation adapter.");
+        animation.seek(entity, time);
+      },
+      setSpeed(entity, speed) {
+        alive();
+        if (!animation.setSpeed) throw new Error("TC_ANIMATION_ADAPTER: Speed control is unavailable in this animation adapter.");
+        animation.setSpeed(entity, speed);
       },
     },
     camera: {

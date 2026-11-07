@@ -154,8 +154,15 @@ changing material semantics.
 Use `ctx.animation.play(entity, clip, { startAt: seconds, speed, loop, fade })`
 to begin a model clip at a local time within its duration. Negative playback
 speed starts at the clip end when `startAt` is omitted; positive speed defaults
-to the beginning. Clip timing, fades and snapshot restoration remain unverified
-at runtime under the current build-only policy.
+to the beginning. `ctx.animation.clips(entity)` lists available clip names and
+durations. Use `pause(entity)` and `resume(entity)` to suspend or continue all
+of a model's active clips and cross-fades, `seek(entity, seconds)` to move the
+current clip, and `setSpeed(entity, speed)` to change its speed. A paused model
+stays paused when `play` starts a new clip; call `resume` to continue. Seek and
+speed control require a current clip; seek does not resume a finished clip.
+Snapshots retain suspension, and older snapshots without it resume normally.
+Clip timing, fades, controls and snapshot restoration remain unverified at
+runtime under the current build-only policy.
 
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
 resumed with `ctx.audio.pause(voice)` and `ctx.audio.resume(voice)`. Both are

@@ -8,6 +8,7 @@ import {
 } from "./embedded-image-pixels.ts";
 import type {
   AnimationService,
+  AnimationControlService,
   AssetDefinition,
   ModelDefinition,
 } from "../../sdk/src/index.ts";
@@ -33,6 +34,8 @@ export interface ModelAnimationSnapshot {
   entity: string;
   asset: string;
   currentClip: string | null;
+  /** Optional for compatibility with snapshots created before animation suspension. */
+  suspended?: boolean;
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
@@ -97,7 +100,7 @@ export interface ModelLibrary {
   ): ModelInstance;
   remove(entityId: string): void;
   tick(dt: number): void;
-  readonly animation: AnimationService;
+  readonly animation: AnimationControlService;
   snapshot(): ModelLibrarySnapshot;
   validateSnapshot(value: unknown, bindings?: readonly ModelBinding[]): ModelLibrarySnapshot;
   restore(value: unknown, bindings?: readonly ModelBinding[]): void;
@@ -137,6 +140,7 @@ interface InstanceState {
   actions: Map<string, THREE.AnimationAction>;
   action: THREE.AnimationAction | null;
   clip: string | null;
+  suspended: boolean;
   fades: Map<string, ModelFadeSnapshot>;
 }
 
@@ -236,15 +240,38 @@ class ModelLibraryImpl implements ModelLibrary {
   private closed = false;
   private disposing?: Promise<void>;
 
-  readonly animation: AnimationService = {
+  readonly animation: AnimationControlService = {
     play: (entity, clip, options = {}) => this.play(entity, clip, options),
     state: (entity) => {
       const instance = this.instance(entity);
       return {
         clip: instance.clip,
         time: instance.action?.time ?? 0,
-        playing: instance.action?.isRunning() ?? false,
+        playing: !instance.suspended && (instance.action?.isRunning() ?? false),
       };
+    },
+    clips: (entity) => [...this.instance(entity).clips.values()]
+      .map(({ name, duration }) => ({ name, duration })),
+    pause: (entity) => { this.instance(entity).suspended = true; },
+    resume: (entity) => { this.instance(entity).suspended = false; },
+    seek: (entity, time) => {
+      const state = this.instance(entity);
+      const action = state.action;
+      const clip = state.clip === null ? undefined : state.clips.get(state.clip);
+      if (!action || !clip)
+        throw new Error(`TC_MODEL_ANIMATION_MISSING: ${entity}; play a clip before seeking.`);
+      if (!Number.isFinite(time) || time < 0 || time > clip.duration)
+        throw new Error(`TC_MODEL_ANIMATION_TIME: ${entity}; time must be within [0, ${clip.duration}] seconds.`);
+      action.time = time;
+      state.mixer.update(0);
+    },
+    setSpeed: (entity, speed) => {
+      const state = this.instance(entity);
+      if (!state.action)
+        throw new Error(`TC_MODEL_ANIMATION_MISSING: ${entity}; play a clip before changing speed.`);
+      if (!Number.isFinite(speed))
+        throw new Error(`TC_MODEL_ANIMATION_SPEED: ${entity}; speed must be finite.`);
+      state.action.setEffectiveTimeScale(speed);
     },
   };
 
@@ -629,6 +656,7 @@ class ModelLibraryImpl implements ModelLibrary {
       actions: new Map(),
       action: null,
       clip: null,
+      suspended: false,
       fades: new Map(),
     };
     state.handle = Object.freeze({
@@ -698,6 +726,7 @@ class ModelLibraryImpl implements ModelLibrary {
     this.assertOpen();
     if (!Number.isFinite(dt) || dt < 0) throw new Error("TC_MODEL_INVALID_DT");
     for (const state of this.instances.values()) {
+      if (state.suspended) continue;
       for (const [name, fade] of state.fades) {
         fade.elapsed = Math.min(fade.duration, fade.elapsed + dt);
         state.actions.get(name)!.setEffectiveWeight(this.fadeWeight(fade));
@@ -726,6 +755,7 @@ class ModelLibraryImpl implements ModelLibrary {
             entity: state.entity,
             asset: state.asset,
             currentClip: state.clip,
+            ...(state.suspended ? { suspended: true } : {}),
             actions: [...state.actions.entries()].map(([clip, action]) => ({
               clip,
               time: action.time,
@@ -779,6 +809,7 @@ class ModelLibraryImpl implements ModelLibrary {
         (typeof item.currentClip !== "string" || !clips.has(item.currentClip))
       )
         throw invalid();
+      if (item.suspended !== undefined && typeof item.suspended !== "boolean") throw invalid();
       if (!Array.isArray(item.actions)) throw invalid();
       const actionNames = new Set<string>();
       for (const action of item.actions) {
@@ -916,6 +947,7 @@ class ModelLibraryImpl implements ModelLibrary {
     state.fades.clear();
     state.action = null;
     state.clip = null;
+    state.suspended = item.suspended ?? false;
     for (const saved of item.actions) {
       const action = state.mixer.clipAction(state.clips.get(saved.clip)!);
       action.reset();

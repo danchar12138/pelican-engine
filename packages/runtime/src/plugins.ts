@@ -1,5 +1,5 @@
 import type {
-  AnimationService,
+  AnimationControlService,
   AudioService,
   CameraService,
   InputService,
@@ -26,7 +26,7 @@ import type { RuntimeEvent } from "./events.ts";
 export interface RuntimeServices {
   input: InputService;
   physics: PhysicsService;
-  animation: AnimationService;
+  animation: AnimationControlService;
   camera: CameraService;
   ui: UIService;
   audio: AudioService;

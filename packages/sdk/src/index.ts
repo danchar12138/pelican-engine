@@ -107,7 +107,7 @@ export interface SystemContext extends EngineFacade {
   events(type?: string): readonly GameEvent[];
   readonly input: InputService;
   readonly physics: PhysicsService;
-  readonly animation: AnimationService;
+  readonly animation: AnimationControlService;
   readonly camera: CameraService;
   readonly ui: UIService;
   readonly audio: AudioService;
@@ -675,6 +675,18 @@ export interface AnimationService {
     time: number;
     playing: boolean;
   };
+}
+/** Full model animation controls exposed by system contexts. */
+export interface AnimationControlService extends AnimationService {
+  /** Available model clips and their durations in seconds. */
+  clips(entity: string): readonly { name: string; duration: number }[];
+  /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */
+  pause(entity: string): void;
+  resume(entity: string): void;
+  /** Move the current clip to a local time in [0, duration] without changing pause state. */
+  seek(entity: string, time: number): void;
+  /** Change current clip playback speed; negative values reverse it, zero freezes clip time. */
+  setSpeed(entity: string, speed: number): void;
 }
 export interface CameraService {
   follow(
