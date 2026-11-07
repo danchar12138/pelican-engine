@@ -23,7 +23,9 @@ export function createComputeTextureAssets(textures: ReadonlyMap<string, THREE.T
       const float = decoded?.encoding === "float32" || (native.isDataTexture && texture.type === THREE.FloatType);
       if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width * height > 2 ** 24 || !source || source.length !== width * height * 4 || (native.isDataTexture && ![THREE.FloatType, THREE.UnsignedByteType].includes(texture.type as never)))
         return fail(id, "Expected readable RGBA8 or float32 pixels and valid dimensions.");
-      const flip = decoded?.origin === "image" && texture.flipY, srgb = texture.colorSpace === THREE.SRGBColorSpace;
+      if (float ? !(source instanceof Float32Array) : !(source instanceof Uint8Array || source instanceof Uint8ClampedArray))
+        return fail(id, "Pixel array type does not match the texture encoding.");
+      const flip = (native.isDataTexture || decoded?.origin === "image") && texture.flipY, srgb = texture.colorSpace === THREE.SRGBColorSpace;
       const data: Vec4[] = [];
       for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
         const offset = ((flip ? height - 1 - y : y) * width + x) * 4, rgba: number[] = [];

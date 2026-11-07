@@ -47,7 +47,7 @@ radians and `lightingIntensity` scales the lighting. This option cannot be
 combined with the `lighting` preset. Background and lighting textures are
 independent; use the same asset for both when desired. Radiance RGBE `.hdr`
 textures are loaded as linear float data; PNG/JPEG remain supported. RGBE import,
-rendering and device recovery have not been runtime-validated.
+rendering, use in controlled compute and device recovery have not been runtime-validated.
 
 GLB `KHR_materials_unlit` materials use their base color and texture without
 lighting; they do not emit light into the scene. Import, optimization and
