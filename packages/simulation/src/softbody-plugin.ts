@@ -133,7 +133,8 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
         if (reactions.size) {
           const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
           bridge.applySphereReactions([...reactions].sort(([a], [b]) => a.localeCompare(b)).map(([entity, impulse]) => {
-            const c = bridge.sampleSphere(entity).centerOfMass;
+            // Normal impulses on a sphere pass through its collider center, which can differ from its body's center of mass.
+            const c = bridge.sampleSphere(entity).center;
             return { entity, impulse, moment: [c[1] * impulse[2] - c[2] * impulse[1], c[2] * impulse[0] - c[0] * impulse[2], c[0] * impulse[1] - c[1] * impulse[0]] as Vec3 };
           }));
         }

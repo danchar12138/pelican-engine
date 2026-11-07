@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development accounts for the offset between a bound sphere collider and its rigid-body center of mass when applying fluid/soft-body normal reaction impulses. This remains discrete, approximate coupling; forces, torque, rollback and stability are unverified.
+
 - Local development aligns authored and dynamic input length with the 4096 UTF-16-unit event limit and constrains browser commits without splitting surrogate pairs. IME, paste, focus and restoration remain unverified.
 
 - Local development adds entity-following focus for static world chunk residency, with missing/invalid states and snapshot persistence. It does not stream dynamic physics or assets; following, transitions and restoration are unverified.

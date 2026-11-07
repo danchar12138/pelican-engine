@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Account for collider-center offset in fluid and soft-body reaction torque; runtime behavior remains unverified.
+
 - Align UI input length limits across authored controls, runtime updates and browser IME commits; runtime behavior remains unverified.
 
 - Add entity-following focus for static world chunk residency, with diagnostics and snapshot state. Runtime behavior remains unverified.
