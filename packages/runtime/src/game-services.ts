@@ -227,6 +227,8 @@ function uiValue(value: unknown, code: string): asserts value is UI[number] {
   const ui = object(
     value,
     [...UI_FIELDS,
+      ...(value && typeof value === "object" && Object.hasOwn(value, "enabled") ? ["enabled"] : []),
+      ...(value && typeof value === "object" && Object.hasOwn(value, "ariaLabel") ? ["ariaLabel"] : []),
       ...(value && typeof value === "object" && Object.hasOwn(value, "world") ? ["world"] : []),
       ...(value && typeof value === "object" && Object.hasOwn(value, "generation") ? ["generation"] : [])],
     code,
@@ -242,6 +244,10 @@ function uiValue(value: unknown, code: string): asserts value is UI[number] {
     code,
     "Invalid UI text/visible.",
   );
+  if (Object.hasOwn(ui, "enabled"))
+    check(typeof ui.enabled === "boolean" && (ui.kind === "button" || ui.kind === "input"), code, "UI enabled is a boolean for button or input controls.");
+  if (Object.hasOwn(ui, "ariaLabel"))
+    check(typeof ui.ariaLabel === "string" && ui.ariaLabel.trim().length > 0 && ui.ariaLabel.length <= 256, code, "UI ariaLabel must be nonempty and at most 256 characters.");
   finite(ui.value, code, "UI progress", 0, 1);
   if (ui.world !== undefined) {
     const world = object(ui.world, ["entity", "offset", "occlude"], code);
@@ -653,7 +659,7 @@ export function createGameServices(
         alive();
         const input = cloneSerializable(definition);
         check(input && typeof input === "object" && !Array.isArray(input) &&
-          Object.keys(input).every(key => ["id", "kind", "text", "value", "visible", "anchor", "x", "y", "width", "color", "world"].includes(key)),
+          Object.keys(input).every(key => ["id", "kind", "text", "value", "visible", "enabled", "ariaLabel", "anchor", "x", "y", "width", "color", "world"].includes(key)),
           "TC_UI_VALUE", "UI definition contains unknown fields.");
         name(input.id, "TC_UI_ID", "UI id");
         check(!state.ui.some(item => item.id === input.id), "TC_UI_ID", `UI ${input.id} already exists.`);
@@ -673,6 +679,8 @@ export function createGameServices(
         const item: UI[number] = { id: input.id, kind: input.kind,
           text: input.text === undefined ? "" : input.text, value: input.value === undefined ? 0 : input.value,
           visible: input.visible === undefined ? true : input.visible,
+          ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+          ...(input.ariaLabel === undefined ? {} : { ariaLabel: input.ariaLabel }),
           anchor: input.anchor === undefined ? "top-left" : input.anchor,
           x: input.x === undefined ? 0 : input.x, y: input.y === undefined ? 0 : input.y,
           width: input.width === undefined ? 160 : input.width, color: input.color === undefined ? "#ffffff" : input.color,
@@ -738,6 +746,17 @@ export function createGameServices(
           `UI ${id} visible must be boolean.`,
         );
         item.visible = visible;
+      },
+      setEnabled(id, enabled) {
+        const item = ui(id);
+        check(item.kind === "button" || item.kind === "input", "TC_UI_KIND", `UI ${id} must be a button or input.`);
+        check(typeof enabled === "boolean", "TC_UI_VALUE", `UI ${id} enabled must be boolean.`);
+        item.enabled = enabled;
+      },
+      setAriaLabel(id, label) {
+        const item = ui(id);
+        check(label === null || (typeof label === "string" && label.trim().length > 0 && label.length <= 256), "TC_UI_VALUE", `UI ${id} ariaLabel must be null or a nonempty string up to 256 characters.`);
+        if (label === null) delete item.ariaLabel; else item.ariaLabel = label;
       },
     },
     audio: {
@@ -1303,11 +1322,12 @@ export function createGameServices(
               integer(payload.generation, "TC_UI_INPUT_EVENT", "UI generation", 1);
               const item = state.ui.find(entry => entry.id === payload.id);
               // Retired/replaced dynamic inputs may have an event already in flight.
-              if (!item || item.kind !== "input" || item.generation !== payload.generation) continue;
+              if (!item || item.kind !== "input" || item.generation !== payload.generation || item.enabled === false || !item.visible) continue;
               item.text = payload.text;
             } else {
               const item = ui(payload.id, "input");
               check(item.generation === undefined, "TC_UI_INPUT_EVENT", "Dynamic input events require a generation.");
+              if (item.enabled === false || !item.visible) continue;
               item.text = payload.text;
             }
           }

@@ -154,6 +154,8 @@ export interface SceneIR {
     text: string;
     value: number;
     visible: boolean;
+    enabled?: boolean;
+    ariaLabel?: string;
     anchor:
       | "top-left"
       | "top-right"

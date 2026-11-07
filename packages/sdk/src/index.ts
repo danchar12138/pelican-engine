@@ -1042,6 +1042,9 @@ export interface UIElementState {
   text: string;
   value: number;
   visible: boolean;
+  /** Missing means enabled, for compatibility with older states. */
+  enabled?: boolean;
+  ariaLabel?: string;
   anchor: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
   x: number; y: number; width: number; color: string;
   world?: { entity: string; offset: Vec3; occlude: boolean };
@@ -1066,6 +1069,10 @@ export interface UIService {
   setText(id: string, text: string): void;
   setProgress(id: string, value: number): void;
   setVisible(id: string, visible: boolean): void;
+  /** Enable or disable a button or input without hiding it. */
+  setEnabled(id: string, enabled: boolean): void;
+  /** Set an accessible name, or clear it with null. */
+  setAriaLabel(id: string, label: string | null): void;
 }
 /** Item stack rules; tags and label are game-defined, not localized automatically. */
 export interface InventoryItemDefinition {
@@ -1300,6 +1307,10 @@ export interface UIElementDefinition {
   text?: string;
   value?: number;
   visible?: boolean;
+  /** Buttons and inputs default to enabled. */
+  enabled?: boolean;
+  /** Accessible name; input and progress controls fall back to their ID. */
+  ariaLabel?: string;
   anchor?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
   x?: number;
   y?: number;

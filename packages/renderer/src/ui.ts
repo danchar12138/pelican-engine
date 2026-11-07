@@ -7,6 +7,8 @@ export interface UiElement {
   text: string;
   value: number;
   visible: boolean;
+  enabled?: boolean;
+  ariaLabel?: string;
   anchor: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
   x: number;
   y: number;
@@ -50,6 +52,8 @@ export interface UiInspection {
     id: string;
     kind: UiElement["kind"];
     visible: boolean;
+    enabled: boolean;
+    ariaLabel: string | null;
     composing: boolean;
     inputValue: string | null;
     selection: Selection | null;
@@ -154,6 +158,7 @@ export function createUIRenderer(
       mounted &&
       !disposed &&
       row.shown &&
+      row.definition.enabled !== false &&
       root.isConnected &&
       (row.definition.kind === "button" || row.definition.kind === "input")
     );
@@ -341,19 +346,27 @@ export function createUIRenderer(
             Number.isFinite(position.x) &&
             Number.isFinite(position.y) &&
             (!definition.world.occlude || !position.occluded)));
-      if (!row.shown) {
-        // No hidden control can emit a blur commit or retain keyboard/gamepad focus.
+      const control = definition.kind === "input" || definition.kind === "button";
+      const enabled = definition.enabled !== false;
+      if (!row.shown || (control && !enabled)) {
+        // Hidden or disabled controls cannot retain focus or emit a composition commit.
+        if (row.composing && input) {
+          input.value = definition.text;
+          row.emittedText = definition.text;
+          row.pendingCommit = null;
+        }
         row.composing = false;
         if (node === document.activeElement) node.blur();
       }
       node.hidden = !row.shown;
       node.style.display = row.shown ? "" : "none";
-      const control =
-        definition.kind === "input" || definition.kind === "button";
       if (control)
-        (node as HTMLInputElement | HTMLButtonElement).disabled = !row.shown;
-      node.tabIndex = control && row.shown ? 0 : -1;
-      node.style.pointerEvents = control && row.shown ? "auto" : "none";
+        (node as HTMLInputElement | HTMLButtonElement).disabled = !row.shown || !enabled;
+      node.tabIndex = control && row.shown && enabled ? 0 : -1;
+      node.style.pointerEvents = control && row.shown && enabled ? "auto" : "none";
+      node.style.opacity = control && !enabled ? "0.55" : "";
+      const label = definition.ariaLabel ?? (definition.kind === "input" || definition.kind === "bar" ? definition.id : undefined);
+      if (label === undefined) node.removeAttribute("aria-label"); else node.setAttribute("aria-label", label);
       node.style.width = definition.width + "px";
       node.style.color = definition.color;
       const style = node.style;
@@ -520,6 +533,8 @@ export function createUIRenderer(
             id,
             kind: row.definition.kind,
             visible: row.shown,
+            enabled: row.definition.enabled !== false,
+            ariaLabel: row.node.getAttribute("aria-label"),
             composing: row.composing,
             inputValue: row.input?.value ?? null,
             selection: selection(row),

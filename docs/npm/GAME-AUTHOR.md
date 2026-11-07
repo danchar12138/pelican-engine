@@ -691,6 +691,16 @@ Input values are limited to 4096 UTF-16 code units. Authored and
 IME commits are constrained before `ui.text` or `ui.submit` is emitted. IME,
 clipboard and browser behavior remain unverified under the build-only policy.
 
+Buttons and inputs accept `enabled: false`, and game code can change this with
+`ctx.ui.setEnabled(id, boolean)` without hiding the control. Disabled controls
+cannot receive keyboard or gamepad focus, activation or text input; disabling
+an input during composition discards its uncommitted composition. Set an
+accessible name with `ariaLabel` or `ctx.ui.setAriaLabel(id, label)`; pass
+`null` to clear it. Input and progress controls fall back to their ID, and
+buttons without an explicit label use their visible text. These fields persist
+in UI snapshots. Queued gameplay events should still be checked against the
+current control state. Screen readers, IME and focus behavior are unverified.
+
 Declare persistent controls in `game.ui` and use `ctx.ui.create` for dynamic
 text, bars, buttons or inputs. `create` accepts the same element definition
 fields as `game.ui` and returns a generation number. Use `ctx.ui.get(id)` to

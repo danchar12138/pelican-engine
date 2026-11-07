@@ -1506,6 +1506,10 @@ export async function normalize(
       error("TC_UI_ANCHOR", "Unknown UI anchor.", element, "anchor");
     if (element.visible !== undefined && typeof element.visible !== "boolean")
       error("TC_UI_VALUE", "UI visible must be a boolean.", element, "visible");
+    if (element.enabled !== undefined && (typeof element.enabled !== "boolean" || (kind !== "button" && kind !== "input")))
+      error("TC_UI_VALUE", "UI enabled is a boolean for button or input controls.", element, "enabled");
+    if (element.ariaLabel !== undefined && (typeof element.ariaLabel !== "string" || !element.ariaLabel.trim() || element.ariaLabel.length > 256))
+      error("TC_UI_VALUE", "UI ariaLabel must be a nonempty string of at most 256 characters.", element, "ariaLabel");
     const uiText = text(element.text, element, "text", "");
     if (kind === "input" && uiText.length > UI_INPUT_MAX_LENGTH)
       error("TC_UI_VALUE", `Input text must be at most ${UI_INPUT_MAX_LENGTH} UTF-16 code units.`, element, "text");
@@ -1515,6 +1519,8 @@ export async function normalize(
       text: uiText,
       value: num(element.value, element, "value", 0, 0, 1),
       visible: element.visible !== false,
+      ...(element.enabled === undefined ? {} : { enabled: element.enabled as boolean }),
+      ...(element.ariaLabel === undefined ? {} : { ariaLabel: element.ariaLabel as string }),
       anchor: anchor as NonNullable<SceneIR["ui"]>[number]["anchor"],
       x: num(element.x, element, "x", 0),
       y: num(element.y, element, "y", 0),

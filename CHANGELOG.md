@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add disabled button/input states and accessible UI labels; runtime and assistive-technology behavior remain unverified.
+
 - Add runtime 3D rigid-body world gravity control with history recording; behavior and replay remain unverified.
 
 - Add a composed public-API gameplay recipe covering inventory, equipment, quests, dialogue, camera and saves; runtime behavior remains unverified.
