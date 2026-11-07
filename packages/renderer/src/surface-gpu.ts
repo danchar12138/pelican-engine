@@ -377,7 +377,7 @@ export function packSurfaceMaterialTable(snapshot: SurfaceScene) {
           : material.alphaMode === "mask"
             ? 1
             : 0,
-        material.transmission ?? 0,
+        material.kind === "unlit" ? -1 : material.transmission ?? 0,
         material.ior ?? 1.5,
         (material.transmission ?? 0) > 0
           ? (material.attenuationDistance ?? 0)

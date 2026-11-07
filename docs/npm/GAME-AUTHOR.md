@@ -35,6 +35,10 @@ with `TC_MODEL_EXTENSION_UNSUPPORTED`; pointer-driven material animation is not
 implemented. A merely declared optional extension without such a channel does
 not cause this runtime rejection.
 
+GLB `KHR_materials_unlit` materials use their base color and texture without
+lighting; they do not emit light into the scene. Import, optimization and
+raster/path/hybrid behavior for this addition have not been runtime-validated.
+
 ## Standalone Rendering Recipe
 
 The following complete asset-free `game.ts` works with either distribution and

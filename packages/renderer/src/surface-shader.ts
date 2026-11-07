@@ -42,7 +42,7 @@ fn surfaceWrap(value:f32,mode:u32)->f32{
 }
 fn surfaceCoverage(index:u32,bary:vec3f,front:bool)->vec2f{
  let material=surfaceMaterials[u32(surfaceTriangle(index).a.w)];
- if((!surfacePhysicalEnabled||material.physical.x==0.0)&&((material.maps1.w==0.0&&!front)||(material.maps1.w==1.0&&front))){return vec2f(0,1);}
+ if((!surfacePhysicalEnabled||material.physical.x<=0.0)&&((material.maps1.w==0.0&&!front)||(material.maps1.w==1.0&&front))){return vec2f(0,1);}
  if(material.normal.w==0.0&&material.factors.z==0.0){return vec2f(1,0);}
  let triangle=surfaceTriangle(index);
  let uv=triangle.ua*bary.x+triangle.ub*bary.y+triangle.uc*bary.z;var alpha=material.base.a;
@@ -82,7 +82,7 @@ fn evaluateSurfaceView(index:u32,bary:vec3f,front:bool,view:vec3f)->SurfaceValue
  var medium=material.physical;var specular=vec4f(select(material.attenuation.rgb,vec3f(1),medium.x>0.0),1.0-medium.w);
  if(medium.x==0.0){specular*=vec4f(surfaceMap(material.attenuation.w-1.0,uv).rgb,surfaceMap(medium.z-1.0,uv).a);medium.z=0.0;}
  var result=surfaceGraphApply(index,bary,front,view,SurfaceValue(color.rgb,color.a,normal,roughness,emissive,metalness,ao,0u,medium,specular));
- let discarded=((!surfacePhysicalEnabled||material.physical.x==0.0)&&((material.maps1.w==0.0&&!front)||(material.maps1.w==1.0&&front)))||(material.factors.z>0.0&&result.alpha<=material.factors.z);
+ let discarded=((!surfacePhysicalEnabled||material.physical.x<=0.0)&&((material.maps1.w==0.0&&!front)||(material.maps1.w==1.0&&front)))||(material.factors.z>0.0&&result.alpha<=material.factors.z);
  result.discarded=select(0u,1u,discarded);return result;
 }
 ` + DEFAULT_SURFACE_GRAPHS;

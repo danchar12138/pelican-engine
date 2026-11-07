@@ -1,5 +1,5 @@
 import { NodeIO, Logger } from "@gltf-transform/core";
-import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRTextureTransform } from "@gltf-transform/extensions";
+import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform } from "@gltf-transform/extensions";
 import { dedup, weld } from "@gltf-transform/functions";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +17,7 @@ export async function optimizeModel(input: string, output: string) {
     throw new Error("TC_ASSET_OPTIMIZE_PATH: Output must use .glb.");
   const before = await inspectAsset(input, "model");
   const sourceBytes = await readFile(input);
-  const io = new NodeIO().registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRTextureTransform]);
+  const io = new NodeIO().registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform]);
   const document = await io.readBinary(normalizeSparseGLB(sourceBytes));
   document.setLogger(new Logger(Logger.Verbosity.SILENT));
   // Weld compares the complete vertex stream bit-for-bit; names remain stable for animations and author references.
@@ -36,8 +36,9 @@ export async function optimizeModel(input: string, output: string) {
   try {
     const after = await inspectAsset(output, "model");
     const physicalExtensions = (metadata: Record<string, unknown>) => {
-      const materials = metadata.materials as { name: string; specular?: { specularFactor?: number; specularColorFactor?: number[] }; ior?: { ior?: number }; emissiveStrength?: { emissiveStrength?: number } }[];
-      return [...new Set(materials.filter(m => m.specular || m.ior || (m.emissiveStrength?.emissiveStrength ?? 1) !== 1).map(m => JSON.stringify({ name: m.name,
+      const materials = metadata.materials as { name: string; unlit?: boolean; specular?: { specularFactor?: number; specularColorFactor?: number[] }; ior?: { ior?: number }; emissiveStrength?: { emissiveStrength?: number } }[];
+      return [...new Set(materials.filter(m => m.unlit || m.specular || m.ior || (m.emissiveStrength?.emissiveStrength ?? 1) !== 1).map(m => JSON.stringify({ name: m.name,
+        ...(m.unlit ? { unlit: true } : {}),
         ...(m.specular ? { specular: { intensity: m.specular.specularFactor ?? 1, color: m.specular.specularColorFactor ?? [1,1,1] } } : {}),
         ...(m.ior ? { ior: m.ior.ior ?? 1.5 } : {}),
         ...((m.emissiveStrength?.emissiveStrength ?? 1) !== 1 ? { emissiveStrength: m.emissiveStrength!.emissiveStrength } : {}) })))].sort();

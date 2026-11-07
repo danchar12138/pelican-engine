@@ -120,6 +120,7 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
     else if(traceParams.flags.y==3.0){radiance=vec3f(clamp(hit.distance/traceParams.settings.w,0.0,1.0));}
     break;
    }
+   if(surface.medium.x<0.0){radiance+=throughput*surface.base;break;}
    var emissionWeight=1.0;if(bounce>0u&&traceParams.flags.z>0.5&&!previousDelta){emissionWeight=tracePower(previousPdf,traceEmitterPdf(u32(hit.index),previousPosition,position));}
    radiance+=throughput*surface.emissive*emissionWeight;
    if(traceParams.flags.z>0.5){radiance+=throughput*traceDirect(point,geometric,surface,-direction,shadowMedia,traceParams.flags.w>0.5&&bounce+1u<u32(traceParams.settings.z),&seed);}

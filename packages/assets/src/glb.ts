@@ -128,7 +128,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         "Expected a nonempty array of objects.",
       );
   }
-  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength", "KHR_texture_transform"]);
+  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength", "KHR_materials_unlit", "KHR_texture_transform"]);
   for (const key of ["extensionsUsed", "extensionsRequired"] as const)
     if (json[key] !== undefined) {
       ctx.check(
@@ -189,6 +189,10 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
             }
             if (field === "extensions" || field === "extras") {
               checkExtensions({ [field]: fieldValue }, at);
+              continue;
+            }
+            if (name === "KHR_materials_unlit") {
+              ctx.check(false, at + "/" + field, "Unlit has no properties.");
               continue;
             }
             if (name === "KHR_texture_transform") {

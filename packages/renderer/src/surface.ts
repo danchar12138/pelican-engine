@@ -229,7 +229,7 @@ export type SurfaceMapSlot =
 export interface SurfaceMaterial {
   readonly uuid: string;
   readonly name: string;
-  readonly kind: "standard" | "physical";
+  readonly kind: "standard" | "physical" | "unlit";
   readonly side: "front" | "back" | "double";
   readonly vertexColors: boolean;
   readonly flatShading: boolean;
@@ -780,20 +780,22 @@ function snapshotMaterial(
   const flags = m as unknown as {
     isMeshStandardMaterial?: boolean;
     isMeshPhysicalMaterial?: boolean;
+    isMeshBasicMaterial?: boolean;
   };
+  const unlit = flags.isMeshBasicMaterial === true;
   if ((m as unknown as { isNodeMaterial?: boolean }).isNodeMaterial)
     fail(
       "SURFACE_NODE_GRAPH_UNSUPPORTED",
       "Node materials require a graph-aware surface adapter",
       m.uuid,
     );
-  if (!flags.isMeshStandardMaterial && !flags.isMeshPhysicalMaterial)
+  if (!flags.isMeshStandardMaterial && !flags.isMeshPhysicalMaterial && !unlit)
     return fail(
       "SURFACE_MATERIAL_UNSUPPORTED",
-      `Material ${m.type} is not standard/physical PBR`,
+      `Material ${m.type} is not standard/physical PBR or unlit`,
       m.uuid,
     );
-  if (m.type !== "MeshStandardMaterial" && m.type !== "MeshPhysicalMaterial")
+  if (m.type !== "MeshStandardMaterial" && m.type !== "MeshPhysicalMaterial" && m.type !== "MeshBasicMaterial")
     return fail(
       "SURFACE_MATERIAL_CUSTOM_SUBCLASS",
       `Custom material ${m.type} is unsupported`,
@@ -820,7 +822,8 @@ function snapshotMaterial(
   rejectExtensions(m.userData, m.uuid);
   if (
     m.constructor !== THREE.MeshStandardMaterial &&
-    m.constructor !== THREE.MeshPhysicalMaterial
+    m.constructor !== THREE.MeshPhysicalMaterial &&
+    m.constructor !== THREE.MeshBasicMaterial
   )
     fail(
       "SURFACE_MATERIAL_CUSTOM_SUBCLASS",
@@ -1011,7 +1014,7 @@ function snapshotMaterial(
       // Preserve source identity without mutating/cloning the adapted material.
       uuid: original.uuid,
       name: m.name,
-      kind: physicalMaterial ? "physical" : "standard",
+      kind: unlit ? "unlit" : physicalMaterial ? "physical" : "standard",
       side:
         m.side === THREE.DoubleSide
           ? "double"
@@ -1019,17 +1022,17 @@ function snapshotMaterial(
             ? "back"
             : "front",
       vertexColors: s.vertexColors,
-      flatShading: s.flatShading,
+      flatShading: s.flatShading ?? false,
       baseColor: [c.r, c.g, c.b, s.opacity],
       alphaMode: m.transparent ? "blend" : m.alphaTest > 0 ? "mask" : "opaque",
       alphaTest: m.alphaTest,
-      roughness: s.roughness,
-      metalness: s.metalness,
-      normalScale: [s.normalScale.x, s.normalScale.y],
-      normalMapType: s.normalMapType,
-      aoMapIntensity: s.aoMapIntensity,
-      emissive: [s.emissive.r, s.emissive.g, s.emissive.b],
-      emissiveIntensity: s.emissiveIntensity,
+      roughness: unlit ? 1 : s.roughness,
+      metalness: unlit ? 0 : s.metalness,
+      normalScale: unlit ? [1, 1] : [s.normalScale.x, s.normalScale.y],
+      normalMapType: unlit ? THREE.TangentSpaceNormalMap : s.normalMapType,
+      aoMapIntensity: unlit ? 1 : s.aoMapIntensity,
+      emissive: unlit ? [0, 0, 0] : [s.emissive.r, s.emissive.g, s.emissive.b],
+      emissiveIntensity: unlit ? 0 : s.emissiveIntensity,
       ...(physicalMaterial
         ? {
             transmission: (s as THREE.MeshPhysicalMaterial).transmission,
