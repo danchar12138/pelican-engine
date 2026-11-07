@@ -63,6 +63,8 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       entry.simulation.restore(item.state);
       const differing = differingSimulationOption(entry.simulation.snapshot().options, expected, "softbody", !!entry.definition.bodyColliders?.length);
       if (differing) fail("SNAPSHOT", `Soft body '${entry.definition.id}' option '${differing}' differs from its definition.`);
+      if (entry.definition.bodyColliders?.length)
+        entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
     }
     return result;
   }
