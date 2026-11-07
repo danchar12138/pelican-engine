@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.12.0 - 2026-11-08
+
+- Development batch only: built without tests or runtime, browser, GPU, performance, compatibility or recovery validation. The 3D first-step deletion defect and other 1.0 requirements remain open.
+
 - Add dynamic-body rope particle attachments with approximate bilateral reactions and attach/detach operations; runtime and recovery remain unverified.
 
 - Add model-local CCD IK chains with targets, blending and snapshot state; solver and rendering behavior remain unverified.
