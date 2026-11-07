@@ -265,6 +265,8 @@ export interface SurfaceTriangle {
   readonly geometryUuid: string;
   readonly instanceId: number;
   readonly instanceColor?: SurfaceVec3;
+  readonly castShadow?: boolean;
+  readonly receiveShadow?: boolean;
   readonly materialUuid: string;
   readonly materialIndex: number;
   readonly groupIndex: number;
@@ -1545,6 +1547,8 @@ function meshSignature(
   const g = mesh.geometry,
     signature: unknown[] = [
       mesh.uuid,
+      mesh.castShadow,
+      mesh.receiveShadow,
       g,
       g.uuid,
       g.type,
@@ -1999,6 +2003,8 @@ export function extractSurfaceScene(
                 objectUuid: mesh.uuid,
                 geometryUuid: g.uuid,
                 instanceId,
+                castShadow: mesh.castShadow,
+                receiveShadow: mesh.receiveShadow,
                 ...(instanceColor ? { instanceColor } : {}),
                 materialUuid: material.uuid,
                 materialIndex: segment.materialIndex,

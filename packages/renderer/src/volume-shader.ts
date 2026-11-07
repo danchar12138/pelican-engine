@@ -32,10 +32,10 @@ fn traceValidDirection(geometric:vec3f,surface:SurfaceValue,direction:vec3f)->bo
  let gn=dot(geometric,direction);let sn=dot(surface.normal,direction);return select(gn>0.0&&sn>0.0,gn*sn>0.0,traceVolumeEnabled&&surface.medium.x>0.0);
 }
 fn traceCosine(surface:SurfaceValue,direction:vec3f)->f32{return select(max(dot(surface.normal,direction),0.0),abs(dot(surface.normal,direction)),traceVolumeEnabled&&surface.medium.x>0.0);}
-struct TracePoint{position:vec3f,error:vec3f,}
+struct TracePoint{position:vec3f,error:vec3f,receiveShadow:bool,}
 fn tracePoint(triangle:SurfaceTriangle,bary:vec3f)->TracePoint{
  let a=triangle.a.xyz*bary.x;let b=triangle.b.xyz*bary.y;let c=triangle.c.xyz*bary.z;
- return TracePoint(a+b+c,(abs(a)+abs(b)+abs(c))*4.172327e-7);
+ return TracePoint(a+b+c,(abs(a)+abs(b)+abs(c))*4.172327e-7,(u32(triangle.nmc.w)&2u)!=0u);
 }
 fn traceOffset(point:TracePoint,geometric:vec3f,direction:vec3f)->vec3f{
  let offset=geometric*(dot(abs(geometric),point.error)*select(-1.0,1.0,dot(geometric,direction)>0.0));

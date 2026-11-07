@@ -118,6 +118,8 @@ export function packSurfaceGeometry(
       volumeIds.get(
         JSON.stringify([triangle.objectUuid, triangle.instanceId]),
       ) ?? 0;
+    output[offset + 71] = (triangle.castShadow === false ? 0 : 1) +
+      (triangle.receiveShadow === false ? 0 : 2);
   }
   for (const value of output) finite(value, "Triangle data");
   return output;
