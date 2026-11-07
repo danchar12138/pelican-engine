@@ -164,7 +164,7 @@ export async function writeAuthorEntry(
       "",
       "Work only in this game project. Use named imports from pelican-engine and project-local modules.",
       `Read [game-author workflow](${docs}/npm/GAME-AUTHOR.md),`,
-      `[API reference](${docs}/api/REFERENCE.md), and [API index](${docs}/api/index.json).`,
+      `[game recipes](${docs}/npm/RECIPES.md), [API reference](${docs}/api/REFERENCE.md), and [API index](${docs}/api/index.json).`,
       "Use the engine's JSON CLI protocol for checks, builds, browser controls and capture.",
       "Do not edit engine internals or node_modules. Do not run engine milestone/evidence/release workflows.",
       "",

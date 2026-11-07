@@ -22,6 +22,7 @@
     "release:pack": "tsx tools/release.ts pack",
     "verify:m1": "tsx tools/verify-m1.ts",
     "api:index": "tsx tools/api-index.ts",
+    "recipes:generate": "tsx tools/npm/generate-recipes.ts",
     "verify:m2": "tsx tools/verify-m2.ts",
     "probe:m3": "tsx tools/m3-development.ts",
     "execute:m3": "tsx tools/m3-acceptance-execute.ts",

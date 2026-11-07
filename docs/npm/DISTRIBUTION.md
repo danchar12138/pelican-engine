@@ -81,6 +81,11 @@ The renderer prioritizes WebGPU and can use Three.js's built-in WebGL2 raster fa
 
 ## Documentation
 
+For complete, asset-free starter recipes available offline in the installed
+package, read `docs/npm/RECIPES.md` in the package. A source checkout or ZIP
+contains the same recipe originals under `examples/`. These examples are not
+runtime-validated and are not a claim of complete engine support.
+
 - [Getting started: npm and source checkout](https://github.com/danchar12138/pelican-engine/blob/main/docs/GETTING-STARTED.md)
 - [Game author guide](https://github.com/danchar12138/pelican-engine/blob/main/docs/npm/GAME-AUTHOR.md)
 - [API reference](https://github.com/danchar12138/pelican-engine/blob/main/docs/api/REFERENCE.md) and [capabilities](https://github.com/danchar12138/pelican-engine/blob/main/docs/CAPABILITIES.md)

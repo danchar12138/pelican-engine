@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import ts from "typescript";
 import { generateApiIndex } from "../api-index.ts";
+import { renderRecipes } from "./recipes.ts";
 import { SDK_VERSION } from "../../packages/sdk/src/index.ts";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -278,6 +279,8 @@ export async function buildDistribution() {
     "docs/npm/GAME-AUTHOR.md",
   ])
     await put(name, await readFile(path.join(root, name), "utf8"));
+  // Documentation contains copyable asset-free recipes, not source example projects.
+  await put("docs/npm/RECIPES.md", await renderRecipes(root));
   await put(
     "AGENTS.md",
     await readFile(path.join(root, "docs/npm/GAME-AUTHOR.md"), "utf8"),

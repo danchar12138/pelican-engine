@@ -49,7 +49,7 @@ npx --no-install pelican api
 npx --no-install pelican api --symbol defineGame
 ```
 
-项目锁与安装版本不一致时，应先迁移项目，再明确更新 `pelican.project.json` 中的版本；不要通过修改 `node_modules` 绕过诊断。更多使用细节见 [npm 分发指南](npm/DISTRIBUTION.md) 和 [Game Author 指南](npm/GAME-AUTHOR.md)。
+项目锁与安装版本不一致时，应先迁移项目，再明确更新 `pelican.project.json` 中的版本；不要通过修改 `node_modules` 绕过诊断。更多使用细节见 [npm 分发指南](npm/DISTRIBUTION.md)、[Game Author 指南](npm/GAME-AUTHOR.md) 和 [游戏开发配方](npm/RECIPES.md)。
 
 ## 方式二：从仓库使用引擎
 

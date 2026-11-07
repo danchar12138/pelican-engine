@@ -53,6 +53,7 @@ npx --no-install pelican build
 | --- | --- |
 | 安装引擎、创建游戏或使用源码开发游戏 | [快速入门](docs/GETTING-STARTED.md) |
 | 查看公开类型和接口 | [API 参考](docs/api/REFERENCE.md) · [API 索引](docs/api/index.json) |
+| 复制玩法与界面入门配方 | [游戏开发配方](docs/npm/RECIPES.md) |
 | 了解能力、限制和后续计划 | [当前状态](docs/STATUS.md) · [能力说明](docs/CAPABILITIES.md) · [研发计划](docs/ROADMAP.md) |
 | 了解后端选择和诊断 | [渲染后端](docs/RENDER-BACKENDS.md) |
 | 让外部 AI 使用引擎制作游戏 | [Game Author 指南](docs/npm/GAME-AUTHOR.md) |

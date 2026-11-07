@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Generate offline npm game-author recipes from the same asset-free source examples used by the repository. Runtime and cross-channel use are unverified.
+
 ## 0.7.0 - 2026-11-07
 
 - Development batch only: tests, runtime behavior, deployment, hardware, performance, resource lifecycle and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.

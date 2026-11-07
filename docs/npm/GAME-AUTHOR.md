@@ -184,6 +184,16 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Self-contained game recipes
+
+`docs/npm/RECIPES.md` contains complete asset-free `game.ts` recipes for
+UI, inventory, quests, dialogue, localization, navigation and static chunks.
+The installed package includes this document, not the source checkout's
+`examples/` directories. In a repository or ZIP those paths are editable
+originals; the packaged recipes are generated from the same files at distribution
+build time. Back up existing game work before replacing `game.ts` with a recipe.
+These development-stage recipes have not been runtime-validated.
+
 ### Localized text
 
 Register game-authored dictionaries with `ctx.i18n`, choose an active locale,

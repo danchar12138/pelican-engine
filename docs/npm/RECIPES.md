@@ -1,0 +1,445 @@
+# Game-author recipes
+
+> These are development-stage examples. Runtime behavior, hardware, input and snapshot restoration remain unverified under the current build-only policy.
+
+Each recipe is a complete asset-free `game.ts` using only `pelican-engine`.
+In a new installed game directory, create a minimal project with `npx --no-install pelican create --template minimal`, then replace its generated `game.ts` with one recipe. Back up any existing game work before replacing it. Use `npx --no-install pelican dev` or `npx --no-install pelican build` afterward.
+
+For a source checkout or ZIP, use the same code and the engine CLI with the project directory; the corresponding editable originals are under `examples/`. The npm package includes this documentation, not those example directories or game assets.
+
+Recipes are independent; use one at a time and adapt IDs, input, UI and rules to the game. Their feature limitations remain in `docs/npm/GAME-AUTHOR.md`.
+
+## Recipes
+
+- [Dynamic UI](#dynamic-ui) — Create and remove reusable menu slots.
+- [Inventory](#inventory) — Move stackable items between a backpack and a chest.
+- [Quest objectives](#quest-objectives) — Advance objectives and grant a game-defined reward.
+- [Branching dialogue](#branching-dialogue) — Display a conversation and start a quest from a choice.
+- [Localization](#localization) — Switch languages and format plural messages.
+- [Grid navigation](#grid-navigation) — Move two point agents and change an obstacle.
+- [Static world chunks](#static-world-chunks) — Load static chunks and build or remove markers.
+
+## Dynamic UI
+
+Create and remove reusable menu slots.
+
+Source checkout: `examples/dynamic-ui/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-engine";
+
+type Slot = { id: string; generation: number } | null;
+const State = defineComponent({ id: "MenuState", schema: {
+  slots: { type: "string", default: "[]" },
+} });
+const menu = defineSystem({ id: "dynamic-menu", phase: "update", reads: ["MenuState"], writes: ["MenuState"], run(ctx) {
+  const state = ctx.getComponent("state", State);
+  const slots = JSON.parse(state.slots) as Slot[];
+  let changed = false;
+  for (const event of ctx.events("ui.activate")) {
+    const payload = event.payload as { id: string; generation?: number };
+    if (payload.id === "add") {
+      let index = slots.findIndex(slot => slot === null);
+      if (index < 0) index = slots.length;
+      if (index >= 6) continue;
+      const id = `item:${index}`;
+      const generation = ctx.ui.create({ id, kind: "button", text: `Item ${index + 1} — remove`,
+        x: 16, y: 110 + index * 48, width: 220, color: "#ffffff" });
+      slots[index] = { id, generation };
+      changed = true;
+    } else {
+      const index = slots.findIndex(slot => slot?.id === payload.id && slot.generation === payload.generation);
+      if (index >= 0) {
+        ctx.ui.remove(payload.id);
+        slots[index] = null;
+        changed = true;
+      }
+    }
+  }
+  if (changed) ctx.setComponent("state", State, { slots: JSON.stringify(slots) });
+  ctx.ui.setText("hint", `Items: ${slots.filter(slot => slot !== null).length}/6`);
+} });
+
+export default defineGame({
+  id: "dynamic-ui", components: [State], systems: [menu],
+  ui: [
+    { id: "hint", kind: "text", text: "Items: 0/6", x: 16, y: 16, width: 220 },
+    { id: "add", kind: "button", text: "Add item", x: 16, y: 62, width: 220 },
+  ],
+  scene: defineScene({ id: "dynamic-ui", camera: { position: [0, 3, 5], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Inventory
+
+Move stackable items between a backpack and a chest.
+
+Source checkout: `examples/inventory/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-engine";
+
+const State = defineComponent({ id: "InventoryDemo", schema: {
+  initialized: { type: "boolean", default: false },
+  message: { type: "string", default: "P: take potion | R: return potion" },
+} });
+const inventory = defineSystem({ id: "inventory-demo", phase: "update", reads: ["InventoryDemo"], writes: ["InventoryDemo"], run(ctx) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.inventory.defineItem({ id: "potion", label: "Potion", maxStack: 5, tags: ["consumable"] });
+    ctx.inventory.defineItem({ id: "gem", label: "Gem", maxStack: 1 });
+    ctx.inventory.create({ id: "bag", owner: "player", capacity: 4 });
+    ctx.inventory.create({ id: "chest", owner: "scene", capacity: 4 });
+    ctx.inventory.add("chest", "potion", 8);
+    ctx.inventory.add("chest", "gem", 1);
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  try {
+    if (ctx.input.pressed("take")) {
+      ctx.inventory.transfer("chest", "bag", "potion", 1);
+      ctx.setComponent("state", State, { message: "Moved one potion to the backpack." });
+    }
+    if (ctx.input.pressed("return")) {
+      ctx.inventory.transfer("bag", "chest", "potion", 1);
+      ctx.setComponent("state", State, { message: "Returned one potion to the chest." });
+    }
+  } catch (error) {
+    const message = String(error);
+    if (!message.includes("TC_INVENTORY_INSUFFICIENT") && !message.includes("TC_INVENTORY_FULL")) throw error;
+    ctx.setComponent("state", State, { message });
+  }
+  const bag = ctx.inventory.inspect("bag"), chest = ctx.inventory.inspect("chest");
+  const describe = (slots: typeof bag.slots) => slots.map(slot => slot ? `${slot.item} x${slot.count}` : "empty").join(" | ");
+  ctx.ui.setText("bag", `Backpack: ${describe(bag.slots)}`);
+  ctx.ui.setText("chest", `Chest: ${describe(chest.slots)}`);
+  ctx.ui.setText("help", ctx.getComponent("state", State).message);
+} });
+
+export default defineGame({ id: "inventory-demo", components: [State], systems: [inventory],
+  input: { take: ["p"], return: ["r"] },
+  ui: [
+    { id: "help", kind: "text", text: "P: take potion | R: return potion", x: 16, y: 16, width: 520 },
+    { id: "bag", kind: "text", text: "Backpack", x: 16, y: 70, width: 520 },
+    { id: "chest", kind: "text", text: "Chest", x: 16, y: 124, width: 520 },
+  ],
+  scene: defineScene({ id: "inventory", camera: { position: [0, 3, 5], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Quest objectives
+
+Advance objectives and grant a game-defined reward.
+
+Source checkout: `examples/quests/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-engine";
+import type { QuestProgressUpdate } from "pelican-engine";
+
+const State = defineComponent({ id: "QuestDemo", schema: {
+  initialized: { type: "boolean", default: false },
+  rewarded: { type: "boolean", default: false },
+} });
+const quest = defineSystem({ id: "quest-demo", phase: "update", reads: ["QuestDemo"], writes: ["QuestDemo"], run(ctx) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.inventory.defineItem({ id: "coin", label: "Coin", maxStack: 100 });
+    ctx.inventory.create({ id: "bag", owner: "player", capacity: 4 });
+    ctx.quests.define({ id: "supplies", title: "Gather supplies", objectives: [
+      { id: "herbs", label: "Collect herbs", target: 3 },
+      { id: "report", label: "Report to the guide", target: 1 },
+    ] });
+    ctx.quests.start("supplies");
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  if (ctx.input.pressed("reset")) {
+    ctx.quests.reset("supplies");
+    ctx.quests.start("supplies");
+    ctx.setComponent("state", State, { rewarded: false });
+  }
+  const current = ctx.quests.inspect("supplies");
+  if (current.status === "active") {
+    const updates: QuestProgressUpdate[] = [];
+    if (ctx.input.pressed("collect")) updates.push({ objective: "herbs", amount: 1 });
+    if (ctx.input.pressed("report")) updates.push({ objective: "report", amount: 1 });
+    if (updates.length) ctx.quests.advanceBatch("supplies", updates);
+  }
+  const result = ctx.quests.inspect("supplies");
+  if (result.status === "completed" && !ctx.getComponent("state", State).rewarded) {
+    ctx.inventory.add("bag", "coin", 5);
+    ctx.setComponent("state", State, { rewarded: true });
+  }
+  const progress = result.objectives.map(item => `${item.label}: ${item.progress}/${item.target}`).join(" | ");
+  ctx.ui.setText("quest", `${result.title}: ${result.status} | ${progress}`);
+  ctx.ui.setText("coins", `Coins: ${ctx.inventory.count("bag", "coin")}`);
+} });
+
+export default defineGame({ id: "quests-demo", components: [State], systems: [quest],
+  input: { collect: ["c"], report: ["t"], reset: ["r"] },
+  ui: [
+    { id: "help", kind: "text", text: "C: collect | T: report | R: reset", x: 16, y: 16, width: 600 },
+    { id: "quest", kind: "text", text: "Quest", x: 16, y: 70, width: 600 },
+    { id: "coins", kind: "text", text: "Coins: 0", x: 16, y: 124, width: 300 },
+  ],
+  scene: defineScene({ id: "quests", camera: { position: [0, 3, 5], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Branching dialogue
+
+Display a conversation and start a quest from a choice.
+
+Source checkout: `examples/dialogue/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-engine";
+
+const State = defineComponent({ id: "DialogueDemo", schema: {
+  initialized: { type: "boolean", default: false },
+} });
+const dialogue = defineSystem({ id: "dialogue-demo", phase: "update", reads: ["DialogueDemo"], writes: ["DialogueDemo"], run(ctx) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.quests.define({ id: "supplies", title: "Gather supplies", objectives: [
+      { id: "herbs", label: "Collect herbs", target: 3 },
+    ] });
+    ctx.dialogue.define({ id: "guide", start: "hello", nodes: [
+      { id: "hello", speaker: "Guide", text: "Welcome, traveler.", next: "ask" },
+      { id: "ask", speaker: "Guide", text: "Can you gather some herbs?", choices: [
+        { id: "yes", text: "I can help", next: "thanks" },
+        { id: "no", text: "Not now", next: "later" },
+      ] },
+      { id: "thanks", speaker: "Guide", text: "Thank you. Bring back three herbs." },
+      { id: "later", speaker: "Guide", text: "Come back when you are ready." },
+    ] });
+    ctx.dialogue.start("conversation", "guide");
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  if (ctx.input.pressed("restart")) {
+    ctx.dialogue.close("conversation");
+    ctx.dialogue.start("conversation", "guide");
+    ctx.quests.reset("supplies");
+  }
+  for (const event of ctx.events("ui.activate")) {
+    const payload = event.payload as { id: string };
+    const session = ctx.dialogue.inspect("conversation");
+    if (!session.node) continue;
+    if (payload.id === "next" && session.node.choices.length === 0) ctx.dialogue.advance("conversation");
+    if ((payload.id === "yes" || payload.id === "no") && session.node.choices.some(choice => choice.id === payload.id)) {
+      ctx.dialogue.choose("conversation", payload.id);
+      if (payload.id === "yes" && ctx.quests.inspect("supplies").status === "inactive") ctx.quests.start("supplies");
+    }
+  }
+  const current = ctx.dialogue.inspect("conversation"), node = current.node;
+  ctx.ui.setText("line", node ? `${node.speaker}: ${node.text}` : "Conversation finished. Press R to restart.");
+  ctx.ui.setVisible("next", !!node && node.choices.length === 0);
+  ctx.ui.setVisible("yes", !!node && node.choices.some(choice => choice.id === "yes"));
+  ctx.ui.setVisible("no", !!node && node.choices.some(choice => choice.id === "no"));
+  ctx.ui.setText("quest", `Quest status: ${ctx.quests.inspect("supplies").status}`);
+} });
+
+export default defineGame({ id: "dialogue-demo", components: [State], systems: [dialogue],
+  input: { restart: ["r"] },
+  ui: [
+    { id: "line", kind: "text", text: "Conversation", x: 16, y: 16, width: 500 },
+    { id: "next", kind: "button", text: "Continue", x: 16, y: 90, width: 200 },
+    { id: "yes", kind: "button", text: "I can help", x: 16, y: 90, width: 200, visible: false },
+    { id: "no", kind: "button", text: "Not now", x: 230, y: 90, width: 200, visible: false },
+    { id: "quest", kind: "text", text: "Quest status", x: 16, y: 150, width: 500 },
+  ],
+  scene: defineScene({ id: "dialogue", camera: { position: [0, 3, 5], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Localization
+
+Switch languages and format plural messages.
+
+Source checkout: `examples/localization/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-engine";
+
+const State = defineComponent({ id: "LocaleDemo", schema: {
+  initialized: { type: "boolean", default: false },
+  count: { type: "number", default: 0 },
+} });
+const language = defineSystem({ id: "locale-demo", phase: "update", reads: ["LocaleDemo"], writes: ["LocaleDemo"], run(ctx) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.i18n.define("en-US", {
+      greeting: "Hello, {name}!",
+      items: { one: "{count} item", other: "{count} items" },
+      fallback: "This line comes from the fallback catalog.",
+    });
+    ctx.i18n.define("zh-CN", {
+      greeting: "你好，{name}！",
+      items: { other: "{count} 件物品" },
+    });
+    ctx.i18n.setFallback("en-US");
+    ctx.i18n.setLocale("zh-CN");
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  if (ctx.input.pressed("language")) ctx.i18n.setLocale(ctx.i18n.inspect().locale === "zh-CN" ? "en-US" : "zh-CN");
+  const count = state.count + Number(ctx.input.pressed("add"));
+  if (count !== state.count) ctx.setComponent("state", State, { count });
+  ctx.ui.setText("greeting", ctx.i18n.text("greeting", { name: "Pelican" }));
+  ctx.ui.setText("items", `${ctx.i18n.text("items", { count })} | ${ctx.i18n.number(count)}`);
+  ctx.ui.setText("fallback", ctx.i18n.text("fallback"));
+} });
+
+export default defineGame({ id: "localization-demo", components: [State], systems: [language],
+  input: { language: ["l"], add: ["c"] },
+  ui: [
+    { id: "help", kind: "text", text: "L: language | C: add item", x: 16, y: 16, width: 550 },
+    { id: "greeting", kind: "text", text: "Greeting", x: 16, y: 70, width: 550 },
+    { id: "items", kind: "text", text: "Items", x: 16, y: 124, width: 550 },
+    { id: "fallback", kind: "text", text: "Fallback", x: 16, y: 178, width: 550 },
+  ],
+  scene: defineScene({ id: "localization", camera: { position: [0, 3, 5], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Grid navigation
+
+Move two point agents and change an obstacle.
+
+Source checkout: `examples/navigation-agents/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineMaterial, defineScene, defineSystem } from "pelican-engine";
+
+const State = defineComponent({ id: "AgentDemo", schema: {
+  initialized: { type: "boolean", default: false },
+  blocked: { type: "boolean", default: false },
+} });
+const floorMaterial = defineMaterial({ id: "floor", color: "#344c5a", roughness: 0.8 });
+const obstacleMaterial = defineMaterial({ id: "obstacle", color: "#e48c61", roughness: 0.7 });
+const firstMaterial = defineMaterial({ id: "first-agent", color: "#56cde8", roughness: 0.6 });
+const secondMaterial = defineMaterial({ id: "second-agent", color: "#dfd27b", roughness: 0.6 });
+
+const agents = defineSystem({ id: "agent-demo", phase: "update", reads: ["AgentDemo", "Transform"], writes: ["AgentDemo", "Transform"], run(ctx) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.navigation.createGrid({ id: "board", owner: "scene", width: 8, height: 8 });
+    ctx.navigation.createAgent({ id: "first", entity: "first", grid: "board", origin: [-4, -4], cellSize: 1, speed: 1.8, allowDiagonal: true });
+    ctx.navigation.createAgent({ id: "second", entity: "second", grid: "board", origin: [-4, -4], cellSize: 1, speed: 1.5, allowDiagonal: true });
+    ctx.navigation.setAgentTarget("first", { x: 7, y: 7 });
+    ctx.navigation.setAgentTarget("second", { x: 6, y: 7 });
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  if (ctx.input.pressed("toggle")) {
+    const blocked = !state.blocked;
+    ctx.navigation.setBlocked("board", { x: 3, y: 3 }, blocked);
+    ctx.setTransform("obstacle", { position: [-0.5, blocked ? 0.5 : -5, -0.5] });
+    ctx.setComponent("state", State, { blocked });
+  }
+  const current = ctx.navigation.listAgents();
+  ctx.ui.setText("status", `B: toggle obstacle | ${current.map(agent => `${agent.id}: ${agent.status}`).join(" | ")}`);
+} });
+
+export default defineGame({
+  id: "navigation-agents", components: [State], systems: [agents],
+  materials: [floorMaterial, obstacleMaterial, firstMaterial, secondMaterial],
+  input: { toggle: ["b"] },
+  ui: [{ id: "status", kind: "text", text: "B: toggle obstacle", x: 16, y: 16 }],
+  scene: defineScene({ id: "navigation-agents", camera: { position: [0, 11, 11], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "floor", transform: { position: [0, -0.1, 0] }, mesh: { geometry: { kind: "box", size: [8, 0.2, 8] }, material: floorMaterial } },
+      { id: "obstacle", transform: { position: [-0.5, -5, -0.5] }, mesh: { geometry: { kind: "box", size: [0.9, 1, 0.9] }, material: obstacleMaterial } },
+      { id: "first", transform: { position: [-3.5, 0.4, -3.5] }, mesh: { geometry: { kind: "box", size: [0.5, 0.8, 0.5] }, material: firstMaterial } },
+      { id: "second", transform: { position: [-2.5, 0.4, -3.5] }, mesh: { geometry: { kind: "box", size: [0.5, 0.8, 0.5] }, material: secondMaterial } },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Static world chunks
+
+Load static chunks and build or remove markers.
+
+Source checkout: `examples/streaming-world/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineMaterial, definePrefab, defineScene, defineSystem } from "pelican-engine";
+
+const State = defineComponent({ id: "StreamingState", schema: {
+  initialized: { type: "boolean", default: false },
+  nextBuilding: { type: "number", default: 0 },
+  lastBuilding: { type: "string", default: "" },
+  lastX: { type: "number", default: 0 },
+  lastZ: { type: "number", default: 0 },
+} });
+const ground = defineMaterial({ id: "ground", color: "#3a8065", roughness: 0.9 });
+const pillar = defineMaterial({ id: "pillar", color: "#e0ad53", roughness: 0.7 });
+const playerMaterial = defineMaterial({ id: "player", color: "#70ddf2", roughness: 0.6 });
+const floorPrefab = definePrefab({ id: "chunk-floor", mesh: { geometry: { kind: "box", size: [7.8, 0.2, 7.8] }, material: ground } });
+const markerPrefab = definePrefab({ id: "chunk-marker", mesh: { geometry: { kind: "box", size: [0.6, 1.8, 0.6] }, material: pillar } });
+const walk = defineSystem({ id: "streaming-demo", phase: "update", reads: ["StreamingState", "Transform"], writes: ["StreamingState", "Transform"], run(ctx, dt) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.streaming.configure({ chunkSize: 8, loadRadius: 1, unloadRadius: 2, maxChangesPerTick: 4 });
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++)
+      ctx.streaming.defineChunk({ x, z, entities: [
+        { id: `floor:${x}:${z}`, prefab: "chunk-floor", transform: { position: [x * 8 + 4, -0.1, z * 8 + 4] } },
+        { id: `marker:${x}:${z}`, prefab: "chunk-marker", transform: { position: [x * 8 + 4, 0.9, z * 8 + 4] } },
+      ] });
+    ctx.camera.follow("player", { distance: 12, height: 11, lookHeight: 0 });
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  const position = ctx.getTransform("player").position;
+  const next: [number, number, number] = [
+    Math.max(-23, Math.min(23, position[0] + ctx.input.axis("left", "right") * dt * 4)),
+    position[1],
+    Math.max(-23, Math.min(23, position[2] + ctx.input.axis("up", "down") * dt * 4)),
+  ];
+  ctx.setTransform("player", { position: next });
+  ctx.streaming.setFocus(next);
+  if (ctx.input.pressed("build")) {
+    const x = Math.floor(next[0] / 8), z = Math.floor(next[2] / 8);
+    const id = `built:${state.nextBuilding}`;
+    ctx.streaming.addEntity(x, z, { id, prefab: "chunk-marker", transform: { position: [next[0] + 1, 0.9, next[2]] } });
+    ctx.setComponent("state", State, { nextBuilding: state.nextBuilding + 1, lastBuilding: id, lastX: x, lastZ: z });
+  }
+  if (ctx.input.pressed("remove") && state.lastBuilding) {
+    ctx.streaming.removeEntity(state.lastX, state.lastZ, state.lastBuilding);
+    ctx.setComponent("state", State, { lastBuilding: "" });
+  }
+  const visible = ctx.streaming.inspect().chunks.filter(chunk => chunk.active).length;
+  ctx.ui.setText("status", `Arrows: move | B: build | X: remove last | active chunks: ${visible}`);
+} });
+
+export default defineGame({
+  id: "streaming-world", components: [State], systems: [walk],
+  prefabs: [floorPrefab, markerPrefab], materials: [ground, pillar, playerMaterial],
+  input: { left: ["ArrowLeft"], right: ["ArrowRight"], up: ["ArrowUp"], down: ["ArrowDown"], build: ["b"], remove: ["x"] },
+  ui: [{ id: "status", kind: "text", text: "Arrows: move | B: build | X: remove last", x: 16, y: 16 }],
+  scene: defineScene({ id: "streaming-world", camera: { position: [8, 14, 16], target: [0, 0, 0] },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "player", transform: { position: [0, 0.45, 0] }, mesh: { geometry: { kind: "box", size: [0.7, 0.9, 0.7] }, material: playerMaterial } },
+      { id: "sun", transform: { position: [4, 10, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
