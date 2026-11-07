@@ -35,6 +35,17 @@ export async function optimizeModel(input: string, output: string) {
   }
   try {
     const after = await inspectAsset(output, "model");
+    const materialFactors = (metadata: Record<string, unknown>) => {
+      const materials = metadata.materials as { name: string; pbr: unknown; emissiveFactor: unknown; alphaMode: string; alphaCutoff: number; doubleSided: boolean }[];
+      return [...new Set(materials.map(m => JSON.stringify({
+        name: m.name,
+        pbr: m.pbr,
+        emissiveFactor: m.emissiveFactor,
+        alphaMode: m.alphaMode,
+        ...(m.alphaMode === "MASK" ? { alphaCutoff: m.alphaCutoff } : {}),
+        doubleSided: m.doubleSided,
+      })))].sort();
+    };
     const physicalExtensions = (metadata: Record<string, unknown>) => {
       const materials = metadata.materials as { name: string; unlit?: boolean; specular?: { specularFactor?: number; specularColorFactor?: number[] }; ior?: { ior?: number }; emissiveStrength?: { emissiveStrength?: number } }[];
       return [...new Set(materials.filter(m => m.unlit || m.specular || m.ior || (m.emissiveStrength?.emissiveStrength ?? 1) !== 1).map(m => JSON.stringify({ name: m.name,
@@ -80,11 +91,12 @@ export async function optimizeModel(input: string, output: string) {
       JSON.stringify(before.animations) !== JSON.stringify(after.animations) ||
       before.skinCount !== after.skinCount ||
       before.jointCount !== after.jointCount ||
+      JSON.stringify(materialFactors(before)) !== JSON.stringify(materialFactors(after)) ||
       JSON.stringify(physicalExtensions(before)) !== JSON.stringify(physicalExtensions(after)) ||
       JSON.stringify(materialTextures(sourceBytes)) !== JSON.stringify(materialTextures(Buffer.from(content)))
     )
       throw new Error(
-        "TC_ASSET_OPTIMIZE_INVARIANT: Geometry bounds, triangles, skin, animation or physical material extension metadata changed.",
+        "TC_ASSET_OPTIMIZE_INVARIANT: Geometry bounds, triangles, skin, animation or material semantics changed.",
       );
     return {
       format: "pelican.asset-optimization",

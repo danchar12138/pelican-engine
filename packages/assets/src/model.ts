@@ -224,6 +224,7 @@ export async function inspectModel(
       ),
       textures: slots,
       alphaMode: m.alphaMode ?? "OPAQUE",
+      alphaCutoff: m.alphaCutoff ?? 0.5,
       doubleSided: m.doubleSided ?? false,
     };
   });
