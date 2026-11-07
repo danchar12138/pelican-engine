@@ -668,7 +668,7 @@ export interface RopeDefinition {
   fixedDt?: number;
   /** When true, step once after each physics phase; defaults to false (manual stepping). */
   autoStep?: boolean;
-  /** Automatically sample and react to existing dynamic, non-trigger sphere bodies. Requires autoStep. */
+  /** Automatically sample and react to existing dynamic, non-trigger sphere or box bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
   /** Resolve sampled sphere and box contacts on segment interiors; defaults to true for new ropes. */
   segmentCollisions?: boolean;

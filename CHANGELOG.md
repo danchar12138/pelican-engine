@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add split-step rope contact and reactions with dynamic 3D box bodies; runtime and snapshot behavior remain unverified.
+
 - Add cloth contact with live dynamic 3D boxes and optional delayed reactions; native reaction failures report partial state without automatic history replay. Runtime behavior remains unverified.
 
 - Add oriented sampled-box contacts for rope and cloth; fluid/soft-body boxes remain axis-aligned. Runtime and snapshot behavior remain unverified.

@@ -1,4 +1,4 @@
-import type { RopePhysicsSphere } from "../../runtime/src/plugins.ts";
+import type { RopePhysicsBodyState, RopePhysicsBox, RopePhysicsSphere } from "../../runtime/src/plugins.ts";
 import type { RopeDynamicCoupling, Vec3 } from "./rope.ts";
 
 type Matrix = [number, number, number, number, number, number];
@@ -15,9 +15,8 @@ const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2
 const multiply = (m: Matrix, v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[1] * v[0] + m[3] * v[1] + m[4] * v[2], m[2] * v[0] + m[4] * v[1] + m[5] * v[2]];
 
 /** Mutable per-host-tick approximation. Native rigid bodies remain untouched until commit. */
-export class VirtualRopeSphere {
+class VirtualRopeBody {
   center: Vec3;
-  readonly radius: number;
   private centerOfMass: Vec3;
   private linearVelocity: Vec3;
   private angularVelocity: Vec3;
@@ -26,8 +25,8 @@ export class VirtualRopeSphere {
   private impulse: Vec3 = [0, 0, 0];
   private moment: Vec3 = [0, 0, 0];
 
-  constructor(sample: RopePhysicsSphere) {
-    this.center = vector(sample.center, "sphere center");
+  constructor(sample: RopePhysicsBodyState) {
+    this.center = vector(sample.center, "collider center");
     this.centerOfMass = vector(sample.centerOfMass, "center of mass");
     this.linearVelocity = vector(sample.linearVelocity, "linear velocity");
     this.angularVelocity = vector(sample.angularVelocity, "angular velocity");
@@ -38,10 +37,7 @@ export class VirtualRopeSphere {
     this.inverseInertia = [...sample.inverseInertia] as Matrix;
     if (this.inverseInertia[0] < 0 || this.inverseInertia[3] < 0 || this.inverseInertia[5] < 0)
       error("world inverse inertia diagonal cannot be negative.");
-    if (!Number.isFinite(sample.radius) || sample.radius <= 0 || sample.radius > 1e6) error("sphere radius is outside (0, 1e6].");
-    this.radius = sample.radius;
   }
-  private point(normal: Vec3): Vec3 { return add(this.center, scale(normal, this.radius)); }
   private pointVelocity(point: Vec3): Vec3 { return add(this.linearVelocity, cross(this.angularVelocity, sub(point, this.centerOfMass))); }
   private inverseEffectiveMass(point: Vec3, normal: Vec3): number {
     const rCrossN = cross(sub(point, this.centerOfMass), normal);
@@ -58,19 +54,19 @@ export class VirtualRopeSphere {
     const relativeCenter = sub(this.center, this.centerOfMass);
     const translation = scale(deltaLinear, dt);
     // First-order virtual transform update; the actual rigid body moves on its next physics step.
-    this.center = vector(add(add(this.center, translation), cross(scale(deltaAngular, dt), relativeCenter)), "virtual sphere center");
+    this.center = vector(add(add(this.center, translation), cross(scale(deltaAngular, dt), relativeCenter)), "virtual collider center");
     this.centerOfMass = vector(add(this.centerOfMass, translation), "virtual center of mass");
     this.linearVelocity = vector(add(this.linearVelocity, deltaLinear), "virtual linear velocity");
     this.angularVelocity = vector(add(this.angularVelocity, deltaAngular), "virtual angular velocity");
     this.impulse = vector(add(this.impulse, impulse), "accumulated impulse");
     this.moment = vector(add(this.moment, cross(point, impulse)), "accumulated moment");
   }
-  resolve(normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number) {
+  protected resolveContact(normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, point: () => Vec3) {
     const invParticle = 1 / mass;
     if (!Number.isFinite(invParticle) || invParticle <= 0 || !Number.isFinite(dt) || dt <= 0)
       return error("particle mass and substep must be finite and positive.");
     // n·M⁻¹n + (r×n)·I⁻¹(r×n) accounts for translation, rotation and locked axes.
-    const firstPoint = this.point(normal), denominator = invParticle + this.inverseEffectiveMass(firstPoint, normal);
+    const firstPoint = point(), denominator = invParticle + this.inverseEffectiveMass(firstPoint, normal);
     if (!Number.isFinite(denominator) || denominator <= 0) return error("contact inverse mass must be positive and finite.");
     // Position projection is shared between particle and body by effective inverse mass.
     const positionImpulse = depth / (dt * denominator);
@@ -80,7 +76,7 @@ export class VirtualRopeSphere {
     this.apply(firstImpulse, firstPoint, dt);
 
     // Remove remaining closing normal velocity using the virtual body's updated velocity.
-    const secondPoint = this.point(normal);
+    const secondPoint = point();
     const particleVelocity = scale(sub(add(position, correction), previous), 1 / dt);
     const relativeNormal = dot(sub(particleVelocity, this.pointVelocity(secondPoint)), normal);
     const velocityDenominator = invParticle + this.inverseEffectiveMass(secondPoint, normal);
@@ -99,11 +95,44 @@ export class VirtualRopeSphere {
   reaction() { return { impulse: vector(this.impulse, "reaction impulse"), moment: vector(this.moment, "reaction moment") }; }
 }
 
-export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeSphere>): RopeDynamicCoupling {
+export class VirtualRopeSphere extends VirtualRopeBody {
+  readonly kind = "sphere" as const;
+  readonly radius: number;
+  constructor(sample: RopePhysicsSphere) {
+    super(sample);
+    if (!Number.isFinite(sample.radius) || sample.radius <= 0 || sample.radius > 1e6) error("sphere radius is outside (0, 1e6].");
+    this.radius = sample.radius;
+  }
+  resolve(normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number) {
+    return this.resolveContact(normal, depth, position, previous, mass, dt, () => add(this.center, scale(normal, this.radius)));
+  }
+}
+
+export class VirtualRopeBox extends VirtualRopeBody {
+  readonly kind = "box" as const;
+  readonly halfExtents: Vec3;
+  readonly rotation: Vec3;
+  constructor(sample: RopePhysicsBox) {
+    super(sample);
+    this.halfExtents = vector(sample.halfExtents, "box half-extents");
+    this.rotation = vector(sample.rotation, "box rotation");
+    if (this.halfExtents.some(value => value <= 0 || value > 1e6)) error("box half-extents must be in (0, 1e6].");
+  }
+  resolve(normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, surface: Vec3) {
+    const offset = sub(vector(surface, "box contact point"), this.center);
+    // Orientation is held at the sampled pose during this split step; translation is updated.
+    return this.resolveContact(normal, depth, position, previous, mass, dt, () => add(this.center, offset));
+  }
+}
+
+export type VirtualRopeCollider = VirtualRopeSphere | VirtualRopeBox;
+export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeCollider>): RopeDynamicCoupling {
   return {
-    sphere(id) { const body = bodies.get(id); return body ? { center: body.center, radius: body.radius } : undefined; },
-    resolve(id, normal, depth, position, previous, mass, dt) {
-      const body = bodies.get(id) ?? error(`Missing virtual sphere '${id}'.`);
+    sphere(id) { const body = bodies.get(id); return body?.kind === "sphere" ? { center: body.center, radius: body.radius } : undefined; },
+    box(id) { const body = bodies.get(id); return body?.kind === "box" ? { center: body.center, halfExtents: body.halfExtents, rotation: body.rotation } : undefined; },
+    resolve(id, normal, depth, position, previous, mass, dt, surface) {
+      const body = bodies.get(id) ?? error(`Missing virtual body '${id}'.`);
+      if (body.kind === "box") return body.resolve(normal, depth, position, previous, mass, dt, surface ?? error(`Missing box contact point for '${id}'.`));
       return body.resolve(normal, depth, position, previous, mass, dt);
     },
   };

@@ -318,13 +318,13 @@ export interface TilemapService {
   destroy(id: string): void;
 }
 /** CPU particles with sampled sphere, plane and box collisions. Explicit body bindings apply delayed
- * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
+ * contact impulses to dynamic spheres or boxes; there is no full rigid-body coupling. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
   /** Stationary box sampled in world space; rotation is XYZ Euler radians. */
   | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
-/** Explicit connection between a sampled rope collider id and a dynamic sphere body. */
+/** Explicit connection between a sampled rope collider id and a dynamic sphere or box body. */
 export interface RopeBodyCollider { readonly id: string; readonly entity: string }
 /** Optional renderer-owned cylindrical segments following simulated particle positions. */
 export interface RopeVisualOptions {
@@ -354,7 +354,7 @@ export interface RopeDefinition {
   fixedDt?: number;
   /** When true, step once after each physics phase; defaults to false (manual stepping). */
   autoStep?: boolean;
-  /** Automatically sample and react to existing dynamic, non-trigger sphere bodies. Requires autoStep. */
+  /** Automatically sample and react to existing dynamic, non-trigger sphere or box bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
   /** Resolve sampled sphere and box contacts on segment interiors; defaults to true for new ropes. */
   segmentCollisions?: boolean;

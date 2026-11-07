@@ -976,14 +976,14 @@ This is segmented geometry with overlapping caps, not a continuous deformable
 tube. Large ropes may be expensive. Raster, ray-traced modes, GPU resource
 lifecycle and snapshot restoration have not been runtime validated.
 
-To bind a rope to existing dynamic sphere bodies, create it with `autoStep: true`
+To bind a rope to existing dynamic sphere or box bodies, create it with `autoStep: true`
 and `bodyColliders: [{ id: "rope-collider-id", entity: "body-id" }]`. After the
-rigid-body physics phase, the host samples each bound sphere's actual collider
-center, radius, velocity and effective inverse mass/inertia, then steps the rope
+rigid-body physics phase, the host samples each bound collider's actual center,
+shape, orientation, velocity and effective inverse mass/inertia, then steps the rope
 and applies the resulting normal contact impulse to the body. At detected overlaps,
 particle and virtual body corrections share effective mass and address closing
 normal velocity; contacts are not predicted before overlap.
-The actual body's displacement responds on the next body step. Bindings require live dynamic non-trigger spheres and unique
+The actual body's displacement responds on the next body step. Bindings require live dynamic non-trigger spheres or boxes and unique
 collider ids and body entities within each rope. Do not use a bound collider id
 in `setColliders`; its manual colliders remain separate. A destroyed body
 is unbound at the next automatic step, and a new entity with the same id is not
@@ -993,7 +993,9 @@ Do not manually apply the same contact's reaction when using a body binding: the
 host already applies it. A native failure can still leave the host tick partially
 changed, so restore a known-good checkpoint. This is an approximate split-step
 solver: virtual positions use a first-order update and the real body moves on its
-next step. Ropes are processed sequentially, without globally coupled substeps;
+next step. For a box, the virtual center responds during the split step while
+its sampled orientation remains fixed until the next physics step. Ropes are
+processed sequentially, without globally coupled substeps;
 friction, restitution and continuous collision are not included. Penetration
 correction can inject energy; stability, conservation, runtime and snapshot
 compatibility have not been validated.

@@ -1182,27 +1182,33 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const,
     };
   };
-  const sampleClothBody = (id: string): ClothPhysicsBody => {
+  const sampleSimulationBody = (id: string, owner: "CLOTH" | "ROPE"): ClothPhysicsBody => {
     const body = get(id), definition = body.definition.rigidBody;
+    const code = `TC_PHYSICS_${owner}_BODY`;
     if (body.type !== "dynamic" || !definition || body.collider.isSensor())
-      fail("TC_PHYSICS_CLOTH_BODY", `Cloth body '${id}' must be a live dynamic, non-trigger sphere or box.`);
+      fail(code, `${owner} body '${id}' must be a live dynamic, non-trigger sphere or box.`);
     if (definition.collider.shape === "sphere") return { kind: "sphere", ...sampleRopeSphere(id) };
     if (definition.collider.shape !== "box")
-      fail("TC_PHYSICS_CLOTH_BODY", `Cloth body '${id}' must use a sphere or box collider.`);
+      fail(code, `${owner} body '${id}' must use a sphere or box collider.`);
     const halfExtents = body.collider.halfExtents();
     if (!halfExtents || [halfExtents.x, halfExtents.y, halfExtents.z].some(value => !Number.isFinite(value) || value <= 0 || value > 1e6))
-      fail("TC_PHYSICS_CLOTH_BODY", `Cloth body '${id}' has invalid box half-extents.`);
+      fail(code, `${owner} body '${id}' has invalid box half-extents.`);
+    const inertia = body.body.effectiveWorldInvInertia();
     return { kind: "box", center: tuple(body.collider.translation()), halfExtents: tuple(halfExtents),
-      rotation: euler(body.collider.rotation()), centerOfMass: tuple(body.body.worldCom()) };
+      rotation: euler(body.collider.rotation()), centerOfMass: tuple(body.body.worldCom()),
+      linearVelocity: tuple(body.body.linvel()), angularVelocity: tuple(body.body.angvel()), inverseMass: tuple(body.body.effectiveInvMass()),
+      inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] };
   };
-  const applyReactions = (reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[], allowBoxes: boolean) => {
+  const sampleClothBody = (id: string) => sampleSimulationBody(id, "CLOTH");
+  const sampleRopeBody = (id: string) => sampleSimulationBody(id, "ROPE");
+  const applyReactions = (reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[], owner: "SPHERE" | "CLOTH" | "ROPE") => {
     alive();
     const seen = new Set<string>();
     const actions: Action[] = [];
     for (const { entity, impulse, moment } of reactions) {
       if (seen.has(entity)) fail("TC_PHYSICS_ROPE_BODY", `Duplicate reaction body '${entity}'.`);
       seen.add(entity);
-      const sample = allowBoxes ? sampleClothBody(entity) : sampleRopeSphere(entity), j = tuple(vec(impulse, "reaction"));
+      const sample = owner === "SPHERE" ? sampleRopeSphere(entity) : sampleSimulationBody(entity, owner), j = tuple(vec(impulse, "reaction"));
       const m = tuple(vec(moment, "reaction moment")), c = sample.centerOfMass;
       const torque: Vec3 = [m[0] - (c[1] * j[2] - c[2] * j[1]), m[1] - (c[2] * j[0] - c[0] * j[2]), m[2] - (c[0] * j[1] - c[1] * j[0])];
       vec(torque, "reaction torque");
@@ -1225,8 +1231,10 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     ropePhysicsBridge: {
       sampleSphere: sampleRopeSphere,
       sampleClothBody,
-      applySphereReactions(reactions) { applyReactions(reactions, false); },
-      applyClothReactions(reactions) { applyReactions(reactions, true); },
+      sampleRopeBody,
+      applySphereReactions(reactions) { applyReactions(reactions, "SPHERE"); },
+      applyClothReactions(reactions) { applyReactions(reactions, "CLOTH"); },
+      applyRopeReactions(reactions) { applyReactions(reactions, "ROPE"); },
     },
     systems: [
       {

@@ -4,7 +4,7 @@ import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type RopeCollider, type Vec3 } from "./rope.ts";
-import { createRopeBodyCoupling, VirtualRopeSphere } from "./rope-body-coupling.ts";
+import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 
 type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string> };
@@ -83,7 +83,7 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
   } catch (error) { disposeEntries(entries); throw error; }
 }
 function bridgeFor(context: RuntimePluginContext): RopePhysicsBridge {
-  return context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body colliders require the physics plugin and a live dynamic sphere.");
+  return context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body colliders require the physics plugin and a live dynamic sphere or box.");
 }
 function resolveRefs(entry: Entry, context: RuntimePluginContext, checkPhysics: boolean): Map<string, EntityHandle> {
   const refs = new Map<string, EntityHandle>();
@@ -92,7 +92,7 @@ function resolveRefs(entry: Entry, context: RuntimePluginContext, checkPhysics: 
   for (const spec of specs) {
     if (entry.staleBodies.has(spec.id)) continue;
     if (!context.world.isAlive(spec.entity)) fail("BODY_COLLIDER", `Body '${spec.entity}' is not a live entity.`);
-    if (bridge) bridge.sampleSphere(spec.entity);
+    if (bridge) bridge.sampleRopeBody(spec.entity);
     refs.set(spec.id, context.world.resolve(spec.entity));
   }
   return refs;
@@ -104,12 +104,12 @@ function validateWorldBindings(entries: Map<string, Entry>, context: RuntimePlug
     const record = records.get(binding.entity);
     const definition = record && resolveEntityDefinition(context.scene, record);
     const body = definition?.rigidBody;
-    if (!record || !body || body.type !== "dynamic" || body.collider.shape !== "sphere" || body.trigger)
-      fail("SNAPSHOT", `Bound body '${binding.entity}' must exist as a dynamic, non-trigger sphere in the restored world.`);
+    if (!record || !body || body.type !== "dynamic" || !["sphere", "box"].includes(body.collider.shape) || body.trigger)
+      fail("SNAPSHOT", `Bound body '${binding.entity}' must exist as a dynamic, non-trigger sphere or box in the restored world.`);
   }
 }
 
-/** Split-step sphere contact uses virtual mass/velocity state; native commit is deferred. */
+/** Split-step contact uses virtual mass/velocity state; native commit is deferred. */
 export const createRopePlugin: RuntimePluginFactory = (context) => {
   const { fixedDt } = context;
   if (typeof fixedDt !== "number" || !Number.isFinite(fixedDt)) return fail("FIXED_DT", "RuntimeHost must provide a finite fixed interval.");
@@ -184,7 +184,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     afterPhysics() {
       alive(); ensureRefs();
       const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string> }[] = [];
-      const bodies = new Map<string, VirtualRopeSphere>();
+      const bodies = new Map<string, VirtualRopeCollider>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
@@ -203,7 +203,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
             entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.staleBodies = new Set();
           }
-          const coupled = new Map<string, VirtualRopeSphere>();
+          const coupled = new Map<string, VirtualRopeCollider>();
           if (previous.length) {
             const boundIds = new Set(previous.map(item => item.id));
             const manual = snapshot.colliders.filter(collider => !boundIds.has(collider.id));
@@ -211,11 +211,14 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
             const sampled: RopeCollider[] = live.map(binding => {
               let body = bodies.get(binding.entity);
               if (!body) {
-                body = new VirtualRopeSphere(bridge!.sampleSphere(binding.entity));
+                const sample = bridge!.sampleRopeBody(binding.entity);
+                body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
                 bodies.set(binding.entity, body);
               }
               coupled.set(binding.id, body);
-              return { kind: "sphere", id: binding.id, center: [...body.center] as Vec3, radius: body.radius };
+              return body.kind === "sphere"
+                ? { kind: "sphere", id: binding.id, center: [...body.center] as Vec3, radius: body.radius }
+                : { kind: "box", id: binding.id, center: [...body.center] as Vec3, halfExtents: [...body.halfExtents] as Vec3, rotation: [...body.rotation] as Vec3 };
             });
             entry.solver.setColliders([...manual, ...sampled]);
           }
@@ -224,7 +227,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
           .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
-        if (batch.length) bridgeFor(context).applySphereReactions(batch);
+        if (batch.length) bridgeFor(context).applyRopeReactions(batch);
       } catch (error) {
         const failures: string[] = [];
         for (const item of committed.reverse()) {

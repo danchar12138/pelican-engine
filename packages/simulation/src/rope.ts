@@ -3,7 +3,7 @@ import { createBoxFrame, orientedParticleBoxContact, orientedSegmentBoxContact }
 
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
- * only. Optional host coupling can react on dynamic spheres. No tearing.
+ * only. Optional host coupling can react on dynamic spheres and boxes. No tearing.
  */
 export type Vec3 = [number, number, number];
 export type RopeCollider =
@@ -13,7 +13,8 @@ export type RopeCollider =
 /** Private per-tick coupling. The caller owns and discards virtual body state on failure. */
 export interface RopeDynamicCoupling {
   sphere(colliderId: string): { center: Vec3; radius: number } | undefined;
-  resolve(colliderId: string, normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number): {
+  box?(colliderId: string): { center: Vec3; halfExtents: Vec3; rotation: Vec3 } | undefined;
+  resolve(colliderId: string, normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, surface?: Vec3): {
     correction: Vec3; reactionImpulse: Vec3; reactionAngularImpulse: Vec3;
   };
 }
@@ -335,16 +336,19 @@ export class RopeSolver {
           const p = positions[i];
           for (const c of this.colliders) {
             let depth = 0; let normal: Vec3;
-            const dynamic = c.kind === "sphere" ? coupling?.sphere(c.id) : undefined;
+            const dynamicSphere = c.kind === "sphere" ? coupling?.sphere(c.id) : undefined;
+            const dynamicBox = c.kind === "box" ? coupling?.box?.(c.id) : undefined;
             if (c.kind === "plane") {
               depth = c.offset + radius - (p[0] * c.normal[0] + p[1] * c.normal[1] + p[2] * c.normal[2]);
               normal = c.normal;
             } else if (c.kind === "box") {
-              const contact = orientedParticleBoxContact(p, radius, c.center, c.halfExtents, boxFrames.get(c.id));
+              const center = dynamicBox?.center ?? c.center, extents = dynamicBox?.halfExtents ?? c.halfExtents;
+              const frame = dynamicBox ? createBoxFrame(center, dynamicBox.rotation) : boxFrames.get(c.id);
+              const contact = orientedParticleBoxContact(p, radius, center, extents, frame);
               if (!contact) continue;
               normal = contact.normal; depth = contact.depth;
             } else {
-              const center = dynamic?.center ?? c.center, colliderRadius = dynamic?.radius ?? c.radius;
+              const center = dynamicSphere?.center ?? c.center, colliderRadius = dynamicSphere?.radius ?? c.radius;
               const delta: Vec3 = [p[0] - center[0], p[1] - center[1], p[2] - center[2]];
               const distance = length(delta);
               depth = colliderRadius + radius - distance;
@@ -352,8 +356,9 @@ export class RopeSolver {
             }
             if (depth <= 0) continue;
             let reaction: Vec3, moment: Vec3;
-            if (dynamic && coupling) {
-              const result = coupling.resolve(c.id, normal, depth, p, previous[i], mass, h);
+            if ((dynamicSphere || dynamicBox) && coupling) {
+              const surface: Vec3 | undefined = dynamicBox ? [p[0] + normal[0] * (depth - radius), p[1] + normal[1] * (depth - radius), p[2] + normal[2] * (depth - radius)] : undefined;
+              const result = coupling.resolve(c.id, normal, depth, p, previous[i], mass, h, surface);
               if (!finiteVector(result.correction) || !finiteVector(result.reactionImpulse) || !finiteVector(result.reactionAngularImpulse))
                 fail("ROPE_NUMERIC", "coupled contact exceeded finite numeric bounds");
               for (let k = 0; k < 3; k++) p[k] += result.correction[k];
@@ -438,20 +443,33 @@ export class RopeSolver {
             } else segmentContacts.set(key, { tick: this.tickValue + 1, segment: j, colliderId: collider.id, fraction, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
           }
           for (const collider of boxes) {
-            const contact = orientedSegmentBoxContact(a, b, radius, collider.center, collider.halfExtents, boxFrames.get(collider.id));
+            const dynamic = coupling?.box?.(collider.id);
+            const center = dynamic?.center ?? collider.center, extents = dynamic?.halfExtents ?? collider.halfExtents;
+            const frame = dynamic ? createBoxFrame(center, dynamic.rotation) : boxFrames.get(collider.id);
+            const contact = orientedSegmentBoxContact(a, b, radius, center, extents, frame);
             if (!contact) continue;
             const { fraction, point, normal, depth } = contact;
             const first = this.anchors.has(j) ? 0 : 1 - fraction, second = this.anchors.has(j + 1) ? 0 : fraction;
             const inverseWeight = first * first + second * second;
             if (inverseWeight === 0) continue;
-            const magnitude = -mass * depth / (inverseWeight * h);
-            const reaction: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
             const surface: Vec3 = [point[0] + normal[0] * (depth - radius), point[1] + normal[1] * (depth - radius), point[2] + normal[2] * (depth - radius)];
-            const moment: Vec3 = [surface[1] * reaction[2] - surface[2] * reaction[1], surface[2] * reaction[0] - surface[0] * reaction[2], surface[0] * reaction[1] - surface[1] * reaction[0]];
-            if (!finiteVector(reaction) || !finiteVector(moment)) fail("ROPE_NUMERIC", "box segment contact exceeded finite bounds");
+            const contactMass = mass / inverseWeight;
+            if (!Number.isFinite(contactMass) || contactMass <= 0) fail("ROPE_NUMERIC", "box segment contact mass exceeded finite bounds");
+            let correction: Vec3, reaction: Vec3, moment: Vec3;
+            if (dynamic && coupling) {
+              const previousPoint: Vec3 = [0, 1, 2].map(k => previous[j][k] * (1 - fraction) + previous[j + 1][k] * fraction) as Vec3;
+              const resolved = coupling.resolve(collider.id, normal, depth, point, previousPoint, contactMass, h, surface);
+              correction = resolved.correction; reaction = resolved.reactionImpulse; moment = resolved.reactionAngularImpulse;
+            } else {
+              correction = [normal[0] * depth, normal[1] * depth, normal[2] * depth];
+              const magnitude = -contactMass * depth / h;
+              reaction = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+              moment = [surface[1] * reaction[2] - surface[2] * reaction[1], surface[2] * reaction[0] - surface[0] * reaction[2], surface[0] * reaction[1] - surface[1] * reaction[0]];
+            }
+            if (!finiteVector(correction) || !finiteVector(reaction) || !finiteVector(moment)) fail("ROPE_NUMERIC", "box segment contact exceeded finite bounds");
             for (let k = 0; k < 3; k++) {
-              a[k] += normal[k] * depth * first / inverseWeight;
-              b[k] += normal[k] * depth * second / inverseWeight;
+              a[k] += correction[k] * first / inverseWeight;
+              b[k] += correction[k] * second / inverseWeight;
             }
             const key = `${j}:${collider.id}`, existing = segmentContacts.get(key);
             if (existing) {
