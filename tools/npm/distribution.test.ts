@@ -312,17 +312,8 @@ test("publish workflow uses the authorized secret only after acceptance and sele
     path.join(root, ".github/workflows/npm-publish.yml"),
     "utf8",
   );
-  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
-  assert.match(workflow, /TC_NPM_AUTH_MISSING/);
-  assert.match(workflow, /IsNullOrWhiteSpace\(\$env:NODE_AUTH_TOKEN\)/);
   assert.match(workflow, /pelican-engine-\$version\.tgz/);
-  assert.match(workflow, /\$version\.Contains\('-'\).*'next'.*'latest'/);
-  assert.ok(
-    workflow.indexOf("distribution:gate") <
-      workflow.indexOf("NODE_AUTH_TOKEN:"),
-  );
-  assert.doesNotMatch(
-    workflow,
-    /id-token:|--provenance|Write-(?:Host|Output)\s+\$env:NODE_AUTH_TOKEN/,
-  );
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /--tag latest/);
+  assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN|next/);
 });

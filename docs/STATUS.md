@@ -27,5 +27,4 @@ Each delivery batch contains a meaningful feature or coordinated version increme
 
 Every main push attempts npm latest publication. Published versions are never overwritten. Unverified behavior is explicitly marked and is not replaced by historical reports.
 
-- The 0.5.0 line added the bounded CPU WCSPH fluid service with fixed-step Host scheduling, snapshots, optional particle presentation, and optional one-sphere binding with approximate reaction impulses.
-- The 0.3.32 line adds a bounded CPU tetrahedral soft-body service and dynamic surface presentation, and refreshes fluid body bindings on every automatic tick. Runtime behavior, stability, performance, rendering, and snapshot compatibility remain unverified.
+- The 0.3.32 line adds the bounded CPU WCSPH fluid and tetrahedral soft-body services, dynamic surface presentation, and refreshed fluid body bindings. Runtime behavior, stability, performance, rendering, and snapshot compatibility remain unverified.
