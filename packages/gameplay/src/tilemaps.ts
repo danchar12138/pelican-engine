@@ -283,6 +283,38 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
         throw error;
       }
     },
+    setTilesAndSyncWorld(id, input, inputOptions) {
+      const item = get(id), options = cloneSerializable(inputOptions);
+      if (!fields(options, ["grid", "navigation", "body", "physics"]) || !validName(options.grid) || !validName(options.body) ||
+          !Object.hasOwn(options, "navigation") || !Object.hasOwn(options, "physics"))
+        return fail("WORLD_OPTIONS", "Provide a navigation grid, navigation mapping, fixed 2D body and physics mapping.");
+      const plan = planTiles(item, input), oldCells = item.cells, oldRevisions = item.revisions;
+      const cells = [...oldCells], revisions = [...oldRevisions];
+      for (const [index, value] of plan.changes) cells[index] = value;
+      for (const chunk of plan.changedChunks) revisions[chunk]++;
+      const navigation = planNavigation({ ...item, cells }, options.grid, options.navigation as TilemapNavigationOptions);
+      const physics = planPhysics(item, options.body, options.physics as TilemapPhysics2DOptions, cells);
+      const previous = navigation.updates.map(update => ({ cell: update.cell, blocked: navigation.nav.isBlocked(options.grid as string, update.cell) }));
+      try { navigation.nav.setBlockedBatch(options.grid, navigation.updates); }
+      catch (error) {
+        try { navigation.nav.setBlockedBatch(options.grid, previous); }
+        catch (rollback) { throw new AggregateError([error, rollback], "TC_TILEMAP_WORLD_ROLLBACK: Navigation update and rollback failed; partialState=true. Restore a known-good host checkpoint."); }
+        throw error;
+      }
+      try { physics.physics.setCollider(options.body, physics.collider); }
+      catch (error) {
+        const failures: unknown[] = [error];
+        try { navigation.nav.setBlockedBatch(options.grid, previous); } catch (rollback) { failures.push(rollback); }
+        throw new AggregateError(failures, "TC_TILEMAP_WORLD_PHYSICS: Collider replacement failed; partialState=true. Navigation rollback was attempted, but physics or pending replans may have changed. Restore a known-good host checkpoint.");
+      }
+      try { item.cells = cells; item.revisions = revisions; }
+      catch (error) {
+        const failures: unknown[] = [error];
+        try { item.cells = oldCells; item.revisions = oldRevisions; } catch (rollback) { failures.push(rollback); }
+        try { navigation.nav.setBlockedBatch(options.grid, previous); } catch (rollback) { failures.push(rollback); }
+        throw new AggregateError(failures, "TC_TILEMAP_WORLD_COMMIT: Tile commit failed after collider replacement; partialState=true. Restore a known-good host checkpoint.");
+      }
+    },
     inspect(id): TilemapState { return cloneSerializable(saved(get(id))); },
     visuals(): readonly TilemapVisualState[] {
       alive(); prune();

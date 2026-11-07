@@ -408,7 +408,25 @@ The mapping is not persistent: plain tile edits require another explicit sync,
 and deleting a map does not remove its body. Collider replacement loses contact
 event continuity and ray queries require another physics step. If native
 replacement reports `partialState=true`, restore a known-good host checkpoint.
-Navigation, tiles and physics are not one cross-system transaction.
+To edit the map and synchronize both navigation and a fixed 2D collider in
+one operation, use:
+
+```ts
+ctx.tilemaps.setTilesAndSyncWorld("ground", [{ x: 2, y: 1, frame: 2 }], {
+  grid: "level", navigation: { blockedFrames: [2] },
+  body: "ground-body", physics: { solidFrames: [2] },
+});
+```
+
+This plans all changes first, overwrites the entire mapped navigation rectangle
+and replaces the collider before committing tile cells. It does not install a
+persistent binding: later plain tile edits still require synchronization. The
+navigation grid and map transforms must be aligned by game code. Collider
+replacement breaks contact-event continuity and ray queries update after the
+next physics step. A native or post-replacement failure reports
+`partialState=true`; even if navigation rollback was attempted, restore a
+known-good host checkpoint. This is not a transactional rollback of native
+physics history or already queued agent replans. Runtime behavior is unverified.
 
 Automatic streaming and a visual editor are not included.
 Rendering, collision, synchronization, rollback, snapshots, memory use and

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add staged tile, navigation and fixed 2D collider synchronization with explicit partial-state diagnostics; runtime behavior remains unverified.
+
 - Add opt-in nonadjacent particle self-contact for soft bodies; behavior and cost remain unverified.
 
 - Add runtime non-graph material surface overrides and snapshot state; raster/tracing behavior remains unverified.

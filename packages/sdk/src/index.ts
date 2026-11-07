@@ -270,6 +270,10 @@ export interface TilemapPhysics2DOptions {
   solidFrames: readonly number[];
   emptySolid?: boolean;
 }
+export interface TilemapWorldSyncOptions {
+  grid: string; navigation: TilemapNavigationOptions;
+  body: string; physics: TilemapPhysics2DOptions;
+}
 export interface TilemapState {
   id: string; entity: string; material: string; width: number; height: number;
   tileSize: Vec2; offset: Vec2; columns: number; rows: number;
@@ -301,6 +305,8 @@ export interface TilemapService {
   syncPhysics2D(id: string, body: string, options: TilemapPhysics2DOptions): void;
   /** Update tiles and their fixed 2D collider together; see partial-state diagnostics. */
   setTilesAndSyncPhysics2D(id: string, updates: readonly TilemapUpdate[], body: string, options: TilemapPhysics2DOptions): void;
+  /** Update tiles, replace the mapped navigation rectangle and replace the fixed 2D collider. */
+  setTilesAndSyncWorld(id: string, updates: readonly TilemapUpdate[], options: TilemapWorldSyncOptions): void;
   inspect(id: string): TilemapState;
   visuals(): readonly TilemapVisualState[];
   /** Read one 32×32 presentation chunk, including its current revision. */
