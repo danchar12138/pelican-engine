@@ -2,8 +2,8 @@
 
 ## Version and Release
 
-- Current source version: 0.7.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
-- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved; `0.7.0` is the intended development batch version.
+- Current source version: 0.8.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
+- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved; `0.8.0` is the intended development batch version.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. The 0.7.0 development batch removes the duplicate main-push build job and makes an already-published version fail explicitly rather than silently skip. Workflow and registry outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
@@ -11,9 +11,9 @@
 ## Current Scope
 
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
-- The local 0.8 development batch generates asset-free game-author recipe documentation from source examples for both the repository and npm package, and aligns the default `create` template and project directory. It does not ship example projects or assets; the legacy asset-bearing `m2` template remains source-only. Cross-channel use is not runtime-validated.
+- The 0.8.0 development batch generates asset-free game-author recipe documentation from source examples for both the repository and npm package, and aligns the default `create` template and project directory. It does not ship example projects or assets; the legacy asset-bearing `m2` template remains source-only. Cross-channel use is not runtime-validated.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.
-- The local development batch adds an orthographic camera for raster scenes, with an explicit mode restriction for hybrid/path. This is not sprite/tile or 2D physics support; camera rendering, UI projection, fallback and behavior are unverified.
+- The 0.8.0 development batch adds an orthographic camera for raster scenes, with an explicit mode restriction for hybrid/path. This is not sprite/tile or 2D physics support; camera rendering, UI projection, fallback and behavior are unverified.
 - The 0.7.0 batch makes scene, model, texture and audio cleanup best-effort across individual disposal failures, shares in-flight dispose promises and retains cleanup diagnostics. It also adds a plan/apply/restore command for project version locks with backup and hash guards, not API, dependency or save migration. Builds now stage output and retain prior dist in a workspace backup before replacement. Cleanup, build rollback, migration, recovery and absence of leaks are not runtime-validated; failures after a scene commit do not guarantee rollback.
 - Changes after 0.3.35 include spot lights, local light falloff, light and mesh shadow flags in direct tracing, and GLB unlit materials and punctual lights. These changes have not been runtime-validated.
 - The 0.4.1 simulation/API batch also adds runtime gravity control and particle velocity/nearest-particle queries for rope, cloth, fluid and soft bodies; atomic batched impulses and anchor updates; and sphere/box/capsule rigid-body overlap queries. These APIs have only been type-compiled and built, not behavior-validated.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-11-07
+
+- Development batch only: independent usage, tests, runtime behavior, graphics, hardware, performance, recovery and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.
+
 - Add orthographic raster camera configuration for 2D-positioned and 2.5D content; hybrid/path are explicitly unavailable. Runtime behavior is unverified.
 
 - Align the default `create` template and current-directory behavior for source and npm use. Runtime and cross-channel behavior are unverified.
