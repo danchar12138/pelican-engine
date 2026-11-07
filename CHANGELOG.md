@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add dynamic-body rope particle attachments with approximate bilateral reactions and attach/detach operations; runtime and recovery remain unverified.
+
 - Add model-local CCD IK chains with targets, blending and snapshot state; solver and rendering behavior remain unverified.
 
 - Add named additive model animation layers with bone-subtree masks, playback controls and snapshot state; behavior and restoration remain unverified.

@@ -326,6 +326,8 @@ export type RopeCollider =
   | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 /** Explicit connection between a sampled rope collider id and a dynamic sphere or box body. */
 export interface RopeBodyCollider { readonly id: string; readonly entity: string }
+/** A rope particle connected to a point in a dynamic body's local rigid-body frame, in metres. */
+export interface RopeBodyAttachment { readonly index: number; readonly entity: string; readonly localPoint: Vec3 }
 /** Optional renderer-owned cylindrical segments following simulated particle positions. */
 export interface RopeVisualOptions {
   material: string;
@@ -356,6 +358,8 @@ export interface RopeDefinition {
   autoStep?: boolean;
   /** Automatically sample and react to existing dynamic, non-trigger sphere or box bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
+  /** Connect particles to live dynamic sphere/box bodies with delayed two-way reaction impulses. Requires autoStep. */
+  bodyAttachments?: readonly RopeBodyAttachment[];
   /** Resolve sampled sphere and box contacts on segment interiors; defaults to true for new ropes. */
   segmentCollisions?: boolean;
   /** Resolve discrete non-adjacent segment self contacts; defaults to true for new ropes. */
@@ -428,6 +432,12 @@ export interface RopeService {
   visuals(): readonly RopeVisualState[];
   /** Replace sampled colliders. Segment contacts support spheres and boxes when enabled. */
   setColliders(id: string, colliders: readonly RopeCollider[]): void;
+  /** Connect an unpinned particle to a dynamic body; an existing attachment at the index is rejected. */
+  attachBody(id: string, attachment: RopeBodyAttachment): void;
+  /** Disconnect a particle without pinning it; it retains its simulated velocity. */
+  detachBody(id: string, index: number): void;
+  /** Inspect detached attachment definitions. */
+  bodyAttachments(id: string): readonly RopeBodyAttachment[];
   setAnchor(id: string, index: number, position: Vec3): void;
   /** Pin or move the specified anchors atomically; other anchors are unchanged. */
   setAnchors(id: string, anchors: readonly ParticleAnchor[]): void;

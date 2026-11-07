@@ -25,6 +25,7 @@ import type {
   FluidService,
   SoftBodyService,
   Vec3,
+  Vec4,
 } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import type {
@@ -62,6 +63,9 @@ export interface RuntimeServices {
 /** Private bridge; native physics objects never cross this interface. */
 export interface RopePhysicsBodyState {
   center: Vec3;
+  /** Rigid-body origin and quaternion, provided by the physics owner for local attachments. */
+  bodyPosition?: Vec3;
+  bodyOrientation?: Vec4;
   centerOfMass: Vec3;
   linearVelocity: Vec3;
   angularVelocity: Vec3;

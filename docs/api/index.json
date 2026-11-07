@@ -545,10 +545,21 @@
       ]
     },
     {
+      "name": "RopeBodyAttachment",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface RopeBodyAttachment { readonly index: number; readonly entity: string; readonly localPoint: Vec3 }",
+      "line": 330,
+      "fields": [
+        "index",
+        "entity",
+        "localPoint"
+      ]
+    },
+    {
       "name": "RopeVisualOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RopeVisualOptions {\n  material: string;\n  radius?: number;\n  radialSegments?: number;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 330,
+      "line": 332,
       "fields": [
         "material",
         "radius",
@@ -561,7 +572,7 @@
       "name": "RopeVisualState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RopeVisualState {\n  id: string;\n  material: string;\n  radius: number;\n  radialSegments: number;\n  castShadow: boolean;\n  receiveShadow: boolean;\n  positions: Vec3[];\n}",
-      "line": 338,
+      "line": 340,
       "fields": [
         "id",
         "material",
@@ -575,8 +586,8 @@
     {
       "name": "RopeDefinition",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface RopeDefinition {\n  id: string;\n  points: readonly Vec3[];\n  /** Kilograms per particle, positive and at most 1e6. */\n  mass: number;\n  radius?: number;\n  /** Defaults to the host interval; an explicit value must exactly match it. */\n  fixedDt?: number;\n  /** When true, step once after each physics phase; defaults to false (manual stepping). */\n  autoStep?: boolean;\n  /** Automatically sample and react to existing dynamic, non-trigger sphere or box bodies. Requires autoStep. */\n  bodyColliders?: readonly RopeBodyCollider[];\n  /** Resolve sampled sphere and box contacts on segment interiors; defaults to true for new ropes. */\n  segmentCollisions?: boolean;\n  /** Resolve discrete non-adjacent segment self contacts; defaults to true for new ropes. */\n  selfCollisions?: boolean;\n  /** Optional segmented presentation using an already-declared material id. */\n  visual?: RopeVisualOptions;\n  substeps?: number;\n  iterations?: number;\n  damping?: number;\n  gravity?: Vec3;\n  anchors?: readonly { index: number; position: Vec3 }[];\n}",
-      "line": 347,
+      "signature": "export interface RopeDefinition {\n  id: string;\n  points: readonly Vec3[];\n  /** Kilograms per particle, positive and at most 1e6. */\n  mass: number;\n  radius?: number;\n  /** Defaults to the host interval; an explicit value must exactly match it. */\n  fixedDt?: number;\n  /** When true, step once after each physics phase; defaults to false (manual stepping). */\n  autoStep?: boolean;\n  /** Automatically sample and react to existing dynamic, non-trigger sphere or box bodies. Requires autoStep. */\n  bodyColliders?: readonly RopeBodyCollider[];\n  /** Connect particles to live dynamic sphere/box bodies with delayed two-way reaction impulses. Requires autoStep. */\n  bodyAttachments?: readonly RopeBodyAttachment[];\n  /** Resolve sampled sphere and box contacts on segment interiors; defaults to true for new ropes. */\n  segmentCollisions?: boolean;\n  /** Resolve discrete non-adjacent segment self contacts; defaults to true for new ropes. */\n  selfCollisions?: boolean;\n  /** Optional segmented presentation using an already-declared material id. */\n  visual?: RopeVisualOptions;\n  substeps?: number;\n  iterations?: number;\n  damping?: number;\n  gravity?: Vec3;\n  anchors?: readonly { index: number; position: Vec3 }[];\n}",
+      "line": 349,
       "fields": [
         "id",
         "points",
@@ -585,6 +596,7 @@
         "fixedDt",
         "autoStep",
         "bodyColliders",
+        "bodyAttachments",
         "segmentCollisions",
         "selfCollisions",
         "visual",
@@ -599,7 +611,7 @@
       "name": "RopeContact",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RopeContact {\n  tick: number; particle: number; colliderId: string; penetration: number;\n  /** Opposite of particle contact impulses, N·s; absent in older snapshots. */\n  reactionImpulse?: Vec3;\n  /** Angular impulse about the world origin; absent in older snapshots. */\n  reactionAngularImpulse?: Vec3;\n}",
-      "line": 372,
+      "line": 376,
       "fields": [
         "tick",
         "particle",
@@ -613,7 +625,7 @@
       "name": "RopeSegmentContact",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RopeSegmentContact {\n  tick: number;\n  /** Zero-based index of the first endpoint; the second is segment + 1. */\n  segment: number;\n  colliderId: string;\n  /** Last closest-point fraction from the first endpoint toward the second. */\n  fraction: number;\n  penetration: number;\n  reactionImpulse?: Vec3;\n  reactionAngularImpulse?: Vec3;\n}",
-      "line": 380,
+      "line": 384,
       "fields": [
         "tick",
         "segment",
@@ -628,7 +640,7 @@
       "name": "RopeSelfContact",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RopeSelfContact {\n  tick: number;\n  /** Zero-based first endpoint of each non-adjacent segment, ordered ascending. */\n  firstSegment: number; secondSegment: number;\n  /** Last closest-point fractions along the respective segments. */\n  firstFraction: number; secondFraction: number;\n  /** Maximum observed overlap in metres during this tick. */\n  penetration: number;\n}",
-      "line": 392,
+      "line": 396,
       "fields": [
         "tick",
         "firstSegment",
@@ -642,7 +654,7 @@
       "name": "RopeState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RopeState {\n  tick: number; simulatedSeconds: number; disposed: boolean;\n  gravity: Vec3;\n  segmentCollisions: boolean;\n  selfCollisions: boolean;\n  positions: Vec3[]; velocities: Vec3[];\n  anchors: { index: number; position: Vec3 }[];\n  contacts: RopeContact[];\n  segmentContacts: RopeSegmentContact[];\n  selfContacts: RopeSelfContact[];\n  maxDistanceError: number;\n  resources: { particles: number; constraints: number; anchors: number; colliders: number };\n}",
-      "line": 401,
+      "line": 405,
       "fields": [
         "tick",
         "simulatedSeconds",
@@ -664,7 +676,7 @@
       "name": "IndexedParticleImpulse",
       "kind": "InterfaceDeclaration",
       "signature": "export interface IndexedParticleImpulse { index: number; impulse: Vec3 }",
-      "line": 415,
+      "line": 419,
       "fields": [
         "index",
         "impulse"
@@ -674,7 +686,7 @@
       "name": "IndexedParticleHit",
       "kind": "InterfaceDeclaration",
       "signature": "export interface IndexedParticleHit { index: number; position: Vec3; distance: number }",
-      "line": 417,
+      "line": 421,
       "fields": [
         "index",
         "position",
@@ -685,7 +697,7 @@
       "name": "ParticleAnchor",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ParticleAnchor { index: number; position: Vec3 }",
-      "line": 419,
+      "line": 423,
       "fields": [
         "index",
         "position"
@@ -694,8 +706,8 @@
     {
       "name": "RopeService",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface RopeService {\n  create(definition: RopeDefinition): void;\n  /** Explicit ticks for manual ropes only. Auto-stepped ropes reject this call. A failed batch leaves the rope unchanged. */\n  step(id: string, ticks?: number): RopeState;\n  inspect(id: string): RopeState;\n  /** Find the nearest centre within maxDistance, or null; ties use particle order. */\n  nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;\n  /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */\n  visuals(): readonly RopeVisualState[];\n  /** Replace sampled colliders. Segment contacts support spheres and boxes when enabled. */\n  setColliders(id: string, colliders: readonly RopeCollider[]): void;\n  setAnchor(id: string, index: number, position: Vec3): void;\n  /** Pin or move the specified anchors atomically; other anchors are unchanged. */\n  setAnchors(id: string, anchors: readonly ParticleAnchor[]): void;\n  releaseAnchor(id: string, index: number): void;\n  /** Set gravity for subsequent steps; components must be finite and at most 1e6 in magnitude. */\n  setGravity(id: string, gravity: Vec3): void;\n  applyForce(id: string, index: number, force: Vec3): void;\n  applyImpulse(id: string, index: number, impulse: Vec3): void;\n  /** Apply distinct particle impulses atomically; anchored particles are rejected. */\n  applyImpulses(id: string, impulses: readonly IndexedParticleImpulse[]): void;\n  destroy(id: string): void;\n}",
-      "line": 420,
+      "signature": "export interface RopeService {\n  create(definition: RopeDefinition): void;\n  /** Explicit ticks for manual ropes only. Auto-stepped ropes reject this call. A failed batch leaves the rope unchanged. */\n  step(id: string, ticks?: number): RopeState;\n  inspect(id: string): RopeState;\n  /** Find the nearest centre within maxDistance, or null; ties use particle order. */\n  nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;\n  /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */\n  visuals(): readonly RopeVisualState[];\n  /** Replace sampled colliders. Segment contacts support spheres and boxes when enabled. */\n  setColliders(id: string, colliders: readonly RopeCollider[]): void;\n  /** Connect an unpinned particle to a dynamic body; an existing attachment at the index is rejected. */\n  attachBody(id: string, attachment: RopeBodyAttachment): void;\n  /** Disconnect a particle without pinning it; it retains its simulated velocity. */\n  detachBody(id: string, index: number): void;\n  /** Inspect detached attachment definitions. */\n  bodyAttachments(id: string): readonly RopeBodyAttachment[];\n  setAnchor(id: string, index: number, position: Vec3): void;\n  /** Pin or move the specified anchors atomically; other anchors are unchanged. */\n  setAnchors(id: string, anchors: readonly ParticleAnchor[]): void;\n  releaseAnchor(id: string, index: number): void;\n  /** Set gravity for subsequent steps; components must be finite and at most 1e6 in magnitude. */\n  setGravity(id: string, gravity: Vec3): void;\n  applyForce(id: string, index: number, force: Vec3): void;\n  applyImpulse(id: string, index: number, impulse: Vec3): void;\n  /** Apply distinct particle impulses atomically; anchored particles are rejected. */\n  applyImpulses(id: string, impulses: readonly IndexedParticleImpulse[]): void;\n  destroy(id: string): void;\n}",
+      "line": 424,
       "fields": [
         "create",
         "step",
@@ -703,6 +715,9 @@
         "nearestParticle",
         "visuals",
         "setColliders",
+        "attachBody",
+        "detachBody",
+        "bodyAttachments",
         "setAnchor",
         "setAnchors",
         "releaseAnchor",
@@ -717,19 +732,19 @@
       "name": "ClothCollider",
       "kind": "TypeAliasDeclaration",
       "signature": "export type ClothCollider = RopeCollider;",
-      "line": 444
+      "line": 454
     },
     {
       "name": "ClothTriangle",
       "kind": "TypeAliasDeclaration",
       "signature": "export type ClothTriangle = readonly [number, number, number];",
-      "line": 445
+      "line": 455
     },
     {
       "name": "ClothVisualOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothVisualOptions {\n  material: string;\n  /** Optional per-particle UV coordinates; defaults to a planar projection. */\n  uvs?: readonly Vec2[];\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 446,
+      "line": 456,
       "fields": [
         "material",
         "uvs",
@@ -741,7 +756,7 @@
       "name": "ClothBodyCollider",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothBodyCollider { readonly id: string; readonly entity: string }",
-      "line": 453,
+      "line": 463,
       "fields": [
         "id",
         "entity"
@@ -751,7 +766,7 @@
       "name": "ClothDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothDefinition {\n  id: string;\n  points: readonly Vec3[];\n  triangles: readonly ClothTriangle[];\n  /** Kilograms per movable particle. */\n  mass: number;\n  radius?: number;\n  fixedDt?: number;\n  autoStep?: boolean;\n  substeps?: number;\n  iterations?: number;\n  damping?: number;\n  gravity?: Vec3;\n  /** Distance-based bending approximation across shared triangle edges; defaults to true. */\n  bending?: boolean;\n  anchors?: readonly { index: number; position: Vec3 }[];\n  visual?: ClothVisualOptions;\n  /** Discrete non-adjacent particle self-contact; defaults to true for new cloth. */\n  selfCollisions?: boolean;\n  /** Discrete sphere, plane and sampled-box triangle contacts; defaults to true for new cloth. */\n  surfaceCollisions?: boolean;\n  /** Optional live dynamic non-trigger sphere or box bindings; sampled after the physics phase. */\n  bodyColliders?: readonly ClothBodyCollider[];\n  /** Enable approximate split-step, effective-mass contact and delayed reactions to bound bodies. */\n  bodyReactions?: boolean;\n}",
-      "line": 454,
+      "line": 464,
       "fields": [
         "id",
         "points",
@@ -777,7 +792,7 @@
       "name": "ClothContact",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }",
-      "line": 480,
+      "line": 490,
       "fields": [
         "tick",
         "particle",
@@ -791,7 +806,7 @@
       "name": "ClothSelfContact",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothSelfContact { tick: number; firstParticle: number; secondParticle: number; penetration: number }",
-      "line": 481,
+      "line": 491,
       "fields": [
         "tick",
         "firstParticle",
@@ -803,7 +818,7 @@
       "name": "ClothSurfaceContact",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number]; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }",
-      "line": 482,
+      "line": 492,
       "fields": [
         "tick",
         "triangle",
@@ -818,7 +833,7 @@
       "name": "ClothState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothState {\n  tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; surfaceCollisions: boolean;\n  gravity: Vec3;\n  positions: Vec3[]; velocities: Vec3[]; triangles: ClothTriangle[];\n  anchors: { index: number; position: Vec3 }[];\n  contacts: ClothContact[]; selfContacts: ClothSelfContact[]; surfaceContacts: ClothSurfaceContact[];\n  maxDistanceError: number;\n  resources: { particles: number; triangles: number; constraints: number; anchors: number; colliders: number };\n}",
-      "line": 483,
+      "line": 493,
       "fields": [
         "tick",
         "simulatedSeconds",
@@ -841,7 +856,7 @@
       "name": "ClothVisualState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothVisualState {\n  id: string; material: string; positions: Vec3[]; triangles: ClothTriangle[];\n  uvs: Vec2[]; castShadow: boolean; receiveShadow: boolean;\n}",
-      "line": 492,
+      "line": 502,
       "fields": [
         "id",
         "material",
@@ -856,7 +871,7 @@
       "name": "ClothService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ClothService {\n  create(definition: ClothDefinition): void;\n  /** Explicit ticks for manual cloth only; automatic cloth rejects this call. */\n  step(id: string, ticks?: number): ClothState;\n  inspect(id: string): ClothState;\n  /** Find the nearest centre within maxDistance, or null; ties use particle order. */\n  nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;\n  visuals(): readonly ClothVisualState[];\n  /** Replace sampled colliders. Box triangle contacts are discrete samples, not continuous collision. */\n  setColliders(id: string, colliders: readonly ClothCollider[]): void;\n  setAnchor(id: string, index: number, position: Vec3): void;\n  /** Pin or move the specified anchors atomically; other anchors are unchanged. */\n  setAnchors(id: string, anchors: readonly ParticleAnchor[]): void;\n  releaseAnchor(id: string, index: number): void;\n  /** Set gravity for subsequent steps; components must be finite and at most 1e6 in magnitude. */\n  setGravity(id: string, gravity: Vec3): void;\n  applyForce(id: string, index: number, force: Vec3): void;\n  applyImpulse(id: string, index: number, impulse: Vec3): void;\n  /** Apply distinct particle impulses atomically; anchored particles are rejected. */\n  applyImpulses(id: string, impulses: readonly IndexedParticleImpulse[]): void;\n  destroy(id: string): void;\n}",
-      "line": 496,
+      "line": 506,
       "fields": [
         "create",
         "step",
@@ -878,7 +893,7 @@
       "name": "FluidVisualOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidVisualOptions { material: string; radius?: number; castShadow?: boolean; receiveShadow?: boolean }",
-      "line": 519,
+      "line": 529,
       "fields": [
         "material",
         "radius",
@@ -890,7 +905,7 @@
       "name": "FluidBodyCollider",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidBodyCollider { readonly id: string; readonly entity: string }",
-      "line": 521,
+      "line": 531,
       "fields": [
         "id",
         "entity"
@@ -900,7 +915,7 @@
       "name": "SimulationContainer",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SimulationContainer { min: Vec3; max: Vec3 }",
-      "line": 523,
+      "line": 533,
       "fields": [
         "min",
         "max"
@@ -910,7 +925,7 @@
       "name": "FluidDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidDefinition {\n  id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;\n  /** Initial lattice dimensions, each an integer in [1,8]; defaults to [4,4,4]. */\n  particleGrid?: readonly [number, number, number];\n  /** Translates the reference particles and container in world space. */\n  origin?: Vec3;\n  container?: SimulationContainer;\n  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;\n  visual?: FluidVisualOptions;\n  bodyColliders?: readonly FluidBodyCollider[];\n  /** Use approximate split-step effective-mass contacts with delayed reaction impulses; not a unified coupled solve. */\n  bodyReactions?: boolean;\n}",
-      "line": 524,
+      "line": 534,
       "fields": [
         "id",
         "autoStep",
@@ -935,7 +950,7 @@
       "name": "FluidParticle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidParticle {\n  id: string; position: Vec3; radius: number;\n  /** For a sampled box body, radius is the reference particle radius, not the collider dimensions. */\n  collider?: { kind: \"box\"; halfExtents: Vec3; rotation: Vec3 };\n}",
-      "line": 537,
+      "line": 547,
       "fields": [
         "id",
         "position",
@@ -947,7 +962,7 @@
       "name": "FluidState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidState {\n  tick: number; simulatedSeconds: number; disposed: boolean; particles: FluidParticle[]; bodies: FluidParticle[];\n  /** Velocities in metres per second, aligned with particles. */\n  velocities: Vec3[];\n  gravity: Vec3;\n  contacts: { contactCount: number; reactionImpulse: Vec3; reactionMoment?: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };\n  fluid: { method: \"WCSPH\"; restDensity: number; minDensity: number; maxDensity: number; maxPressure: number } | null;\n  resources: { particles: number; bodies: number };\n}",
-      "line": 542,
+      "line": 552,
       "fields": [
         "tick",
         "simulatedSeconds",
@@ -965,7 +980,7 @@
       "name": "FluidVisualState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidVisualState {\n  id: string; material: string; particles: FluidParticle[]; castShadow: boolean; receiveShadow: boolean;\n}",
-      "line": 551,
+      "line": 561,
       "fields": [
         "id",
         "material",
@@ -978,7 +993,7 @@
       "name": "SimulationImpulse",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SimulationImpulse { particle: string; impulse: Vec3 }",
-      "line": 555,
+      "line": 565,
       "fields": [
         "particle",
         "impulse"
@@ -988,7 +1003,7 @@
       "name": "SimulationForce",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SimulationForce { particle: string; force: Vec3 }",
-      "line": 557,
+      "line": 567,
       "fields": [
         "particle",
         "force"
@@ -998,13 +1013,13 @@
       "name": "ParticleSimulationCollider",
       "kind": "TypeAliasDeclaration",
       "signature": "export type ParticleSimulationCollider = RopeCollider;",
-      "line": 559
+      "line": 569
     },
     {
       "name": "SimulationParticleHit",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SimulationParticleHit { particle: string; position: Vec3; distance: number }",
-      "line": 561,
+      "line": 571,
       "fields": [
         "particle",
         "position",
@@ -1015,7 +1030,7 @@
       "name": "FluidService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface FluidService {\n  create(definition: FluidDefinition): void;\n  step(id: string, ticks?: number): FluidState;\n  inspect(id: string): FluidState;\n  /** Find the nearest centre within maxDistance, or null; ties use particle order. */\n  nearestParticle(id: string, position: Vec3, maxDistance: number): SimulationParticleHit | null;\n  visuals(): readonly FluidVisualState[];\n  /** Set gravity for subsequent steps; values must be finite and in [-100,100]. */\n  setGravity(id: string, gravity: Vec3): void;\n  /** Replace up to 64 manual sphere, plane or axis-aligned box colliders. Requires contacts enabled. */\n  setColliders(id: string, colliders: readonly ParticleSimulationCollider[]): void;\n  applyImpulse(id: string, particle: string, impulse: Vec3): void;\n  /** Apply up to 512 impulses atomically; duplicate targets are rejected. */\n  applyImpulses(id: string, impulses: readonly SimulationImpulse[]): void;\n  /** Accumulate a force for the next fixed tick. Components and accumulated values must stay in [-100,100]. */\n  applyForce(id: string, particle: string, force: Vec3): void;\n  /** Atomically queue up to 512 forces on distinct particles for the next fixed tick. */\n  applyForces(id: string, forces: readonly SimulationForce[]): void;\n  destroy(id: string): void;\n}",
-      "line": 562,
+      "line": 572,
       "fields": [
         "create",
         "step",
@@ -1035,7 +1050,7 @@
       "name": "SoftBodyVisualOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoftBodyVisualOptions { material: string; castShadow?: boolean; receiveShadow?: boolean }",
-      "line": 583,
+      "line": 593,
       "fields": [
         "material",
         "castShadow",
@@ -1046,7 +1061,7 @@
       "name": "SoftBodyBodyCollider",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoftBodyBodyCollider { readonly id: string; readonly entity: string }",
-      "line": 585,
+      "line": 595,
       "fields": [
         "id",
         "entity"
@@ -1056,7 +1071,7 @@
       "name": "SoftBodyDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoftBodyDefinition {\n  id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;\n  /** Initial tetrahedral lattice dimensions, each in [2,5]; defaults to [3,3,3]. */\n  softBodyGrid?: readonly [number, number, number];\n  /** Enable discrete contacts between non-edge-adjacent soft-body particles; defaults to false. */\n  selfCollisions?: boolean;\n  /** Translates the reference particles and container in world space. */\n  origin?: Vec3;\n  container?: SimulationContainer;\n  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;\n  visual?: SoftBodyVisualOptions;\n  bodyColliders?: readonly SoftBodyBodyCollider[];\n  /** Use approximate split-step effective-mass contacts with delayed reaction impulses; not a unified coupled solve. */\n  bodyReactions?: boolean;\n}",
-      "line": 586,
+      "line": 596,
       "fields": [
         "id",
         "autoStep",
@@ -1082,7 +1097,7 @@
       "name": "SoftBodyState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoftBodyState {\n  tick: number; simulatedSeconds: number; disposed: boolean;\n  gravity: Vec3;\n  positions: Vec3[]; triangles: [number, number, number][];\n  /** Particle IDs aligned with positions. */\n  particleIds: string[];\n  /** Velocities in metres per second, aligned with positions and particleIds. */\n  velocities: Vec3[];\n  contacts: { contactCount: number; selfContactCorrections?: number; reactionImpulse: Vec3; reactionMoment?: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };\n  maxDistanceError: number; maxVolumeRelativeError: number; minSignedVolumeRatio: number | null;\n  resources: { particles: number; bodies: number; constraints: number; triangles: number };\n}",
-      "line": 601,
+      "line": 611,
       "fields": [
         "tick",
         "simulatedSeconds",
@@ -1103,7 +1118,7 @@
       "name": "SoftBodyVisualState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoftBodyVisualState {\n  id: string; material: string; positions: Vec3[]; triangles: [number, number, number][];\n  uvs: Vec2[]; castShadow: boolean; receiveShadow: boolean;\n}",
-      "line": 613,
+      "line": 623,
       "fields": [
         "id",
         "material",
@@ -1118,7 +1133,7 @@
       "name": "SoftBodyService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoftBodyService {\n  create(definition: SoftBodyDefinition): void;\n  step(id: string, ticks?: number): SoftBodyState;\n  inspect(id: string): SoftBodyState;\n  /** Find the nearest centre within maxDistance, or null; ties use particle order. */\n  nearestParticle(id: string, position: Vec3, maxDistance: number): SimulationParticleHit | null;\n  visuals(): readonly SoftBodyVisualState[];\n  /** Set gravity for subsequent steps; values must be finite and in [-100,100]. */\n  setGravity(id: string, gravity: Vec3): void;\n  /** Replace up to 64 manual sphere, plane or axis-aligned box colliders. Requires contacts enabled. */\n  setColliders(id: string, colliders: readonly ParticleSimulationCollider[]): void;\n  applyImpulse(id: string, particle: string, impulse: Vec3): void;\n  /** Apply up to 512 impulses atomically; duplicate targets are rejected. */\n  applyImpulses(id: string, impulses: readonly SimulationImpulse[]): void;\n  /** Accumulate a force for the next fixed tick. Components and accumulated values must stay in [-100,100]. */\n  applyForce(id: string, particle: string, force: Vec3): void;\n  /** Atomically queue up to 512 forces on distinct particles for the next fixed tick. */\n  applyForces(id: string, forces: readonly SimulationForce[]): void;\n  destroy(id: string): void;\n}",
-      "line": 617,
+      "line": 627,
       "fields": [
         "create",
         "step",
@@ -1138,7 +1153,7 @@
       "name": "NavigationCell",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationCell { readonly x: number; readonly y: number }",
-      "line": 640,
+      "line": 650,
       "fields": [
         "x",
         "y"
@@ -1148,7 +1163,7 @@
       "name": "NavigationObstacleUpdate",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationObstacleUpdate { readonly cell: NavigationCell; readonly blocked: boolean }",
-      "line": 642,
+      "line": 652,
       "fields": [
         "cell",
         "blocked"
@@ -1158,7 +1173,7 @@
       "name": "NavigationCostUpdate",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationCostUpdate { readonly cell: NavigationCell; readonly cost: number }",
-      "line": 644,
+      "line": 654,
       "fields": [
         "cell",
         "cost"
@@ -1168,7 +1183,7 @@
       "name": "NavigationGrid",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationGrid {\n  readonly id: string;\n  readonly owner: string;\n  readonly width: number;\n  readonly height: number;\n  readonly blocked?: readonly NavigationCell[];\n  readonly costs?: readonly NavigationCostUpdate[];\n  /** Maximum distinct search cells, including endpoints; defaults to 65536. Raising it increases memory and CPU use. */\n  readonly searchCellBudget?: number;\n}",
-      "line": 645,
+      "line": 655,
       "fields": [
         "id",
         "owner",
@@ -1183,7 +1198,7 @@
       "name": "NavigationPathOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationPathOptions {\n  readonly allowDiagonal?: boolean;\n  /** Additional blocked cells for this search only; does not modify the grid. */\n  readonly blocked?: readonly NavigationCell[];\n}",
-      "line": 656,
+      "line": 666,
       "fields": [
         "allowDiagonal",
         "blocked"
@@ -1193,7 +1208,7 @@
       "name": "NavigationAgentDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationAgentDefinition {\n  id: string;\n  entity: string;\n  grid: string;\n  /** World coordinates of cell (0,0)'s origin; defaults to [0,0]. */\n  origin?: Vec2;\n  /** X/Z by default; X/Y supports 2D-positioned entities. */\n  plane?: \"xz\" | \"xy\";\n  /** Direction in world space as grid y increases; defaults to positive. */\n  rowDirection?: \"positive\" | \"negative\";\n  /** World units per square cell; defaults to 1. */\n  cellSize?: number;\n  /** World units per second; defaults to 1. */\n  speed?: number;\n  allowDiagonal?: boolean;\n  /** Reserve grid cells against other opted-in agents with the same mapping. */\n  avoidAgents?: boolean;\n}",
-      "line": 662,
+      "line": 672,
       "fields": [
         "id",
         "entity",
@@ -1211,7 +1226,7 @@
       "name": "NavigationAgentState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationAgentState {\n  id: string;\n  entity: string;\n  grid: string;\n  plane: \"xz\" | \"xy\";\n  rowDirection: \"positive\" | \"negative\";\n  target: NavigationCell | null;\n  /** Live root entity followed by this agent, if any. */\n  followEntity?: string;\n  avoidAgents?: boolean;\n  status: \"idle\" | \"planning\" | \"moving\" | \"waiting\" | \"arrived\" | \"blocked\" | \"missing\";\n  /** Stable diagnostic code when movement is blocked or the entity was removed. */\n  error: string | null;\n  path: readonly NavigationCell[];\n  cursor: number;\n}",
-      "line": 680,
+      "line": 690,
       "fields": [
         "id",
         "entity",
@@ -1231,7 +1246,7 @@
       "name": "NavigationService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface NavigationService {\n  createGrid(grid: NavigationGrid): void;\n  /** Returns a detached description, including the current blocked cells. */\n  getGrid(id: string): NavigationGrid;\n  isBlocked(id: string, cell: NavigationCell): boolean;\n  setBlocked(id: string, cell: NavigationCell, blocked: boolean): void;\n  /** Validates the entire batch before committing; the last change for a repeated cell wins. */\n  setBlockedBatch(id: string, updates: readonly NavigationObstacleUpdate[]): void;\n  getCost(id: string, cell: NavigationCell): number;\n  /** Applies all validated updates together; repeated cells use the last cost. */\n  setCostsBatch(id: string, updates: readonly NavigationCostUpdate[]): void;\n  /** Four-directional by default; diagonals cost sqrt(2) times the entered cell cost. */\n  findPath(id: string, start: NavigationCell, end: NavigationCell, options?: NavigationPathOptions): readonly NavigationCell[];\n  /** Movement is processed at fixed-tick boundaries; the entity must be a non-physical root. */\n  createAgent(definition: NavigationAgentDefinition): void;\n  setAgentTarget(id: string, target: NavigationCell): void;\n  /** Follow a live root entity, replanning when it enters a different grid cell. */\n  followAgentTarget(id: string, entity: string): void;\n  stopAgent(id: string): void;\n  inspectAgent(id: string): NavigationAgentState;\n  listAgents(): readonly NavigationAgentState[];\n  destroyAgent(id: string): void;\n  destroyGrid(id: string): void;\n  destroyOwner(owner: string): void;\n}",
-      "line": 696,
+      "line": 706,
       "fields": [
         "createGrid",
         "getGrid",
@@ -1256,7 +1271,7 @@
       "name": "WorldStreamingOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface WorldStreamingOptions {\n  /** World units per chunk. Defaults to 32. */\n  chunkSize?: number;\n  /** Chebyshev radius in chunks to activate. Defaults to 1. */\n  loadRadius?: number;\n  /** Radius beyond which to deactivate; must be at least loadRadius. Defaults to 2. */\n  unloadRadius?: number;\n  /** Maximum chunk transitions per fixed tick. Defaults to 4. */\n  maxChangesPerTick?: number;\n}",
-      "line": 722,
+      "line": 732,
       "fields": [
         "chunkSize",
         "loadRadius",
@@ -1268,7 +1283,7 @@
       "name": "WorldChunkDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface WorldChunkDefinition {\n  x: number;\n  z: number;\n  /** Root entities with declared prefabs and absolute world-space transforms. */\n  entities: readonly SpawnInput[];\n}",
-      "line": 732,
+      "line": 742,
       "fields": [
         "x",
         "z",
@@ -1279,7 +1294,7 @@
       "name": "WorldStreamingService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface WorldStreamingService {\n  configure(options: WorldStreamingOptions): void;\n  defineChunk(chunk: WorldChunkDefinition): void;\n  /** Add a root prefab to a chunk. Active-chunk edits take effect at a later structural boundary. */\n  addEntity(x: number, z: number, entity: SpawnInput): void;\n  /** Remove a chunk-owned root. Active-chunk edits take effect at a later structural boundary. */\n  removeEntity(x: number, z: number, entityId: string): void;\n  /** Detached committed entity data and queued edit identifiers. */\n  getChunk(x: number, z: number): {\n    x: number; z: number; active: boolean;\n    entities: readonly SpawnInput[];\n    pending: readonly { kind: \"add\" | \"remove\"; id: string }[];\n  };\n  /** Set a world-space observer, or null to suspend automatic residency changes. */\n  setFocus(position: Vec3 | null): void;\n  /** Follow a live root entity at fixed-tick boundaries; null suspends automatic residency. */\n  followFocus(entity: string | null): void;\n  /** Removes an inactive definition; loaded chunks must first move out of range. */\n  removeChunk(x: number, z: number): void;\n  inspect(): {\n    focus: Vec3 | null;\n    focusEntity: string | null;\n    focusStatus: \"manual\" | \"following\" | \"missing\" | \"invalid\";\n    options: Required<WorldStreamingOptions>;\n    chunks: readonly { x: number; z: number; active: boolean; entities: number }[];\n  };\n}",
-      "line": 738,
+      "line": 748,
       "fields": [
         "configure",
         "defineChunk",
@@ -1296,13 +1311,13 @@
       "name": "RenderMode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type RenderMode = \"raster\" | \"hybrid\" | \"path\";",
-      "line": 765
+      "line": 775
     },
     {
       "name": "RenderCapabilities",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderCapabilities {\n  backend: \"webgpu\" | \"webgl2\" | \"uninitialized\";\n  compute: boolean;\n  availableModes: readonly RenderMode[];\n  /** Explanation when scene configuration further restricts render modes. */\n  modeLimitation?: string;\n}",
-      "line": 766,
+      "line": 776,
       "fields": [
         "backend",
         "compute",
@@ -1314,7 +1329,7 @@
       "name": "RenderSettings",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderSettings {\n  mode: RenderMode;\n  samplesPerFrame: number;\n  maxBounces: number;\n  denoise: boolean;\n  denoiseIterations: number;\n  exposure: number;\n  directLighting: boolean;\n  indirectLighting: boolean;\n  debug: \"beauty\" | \"albedo\" | \"normal\" | \"depth\" | \"samples\";\n}",
-      "line": 773,
+      "line": 783,
       "fields": [
         "mode",
         "samplesPerFrame",
@@ -1331,7 +1346,7 @@
       "name": "MaterialSurfacePatch",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialSurfacePatch {\n  color?: Vec3; emissive?: Vec3; roughness?: number; metalness?: number; emissiveIntensity?: number;\n}",
-      "line": 785,
+      "line": 795,
       "fields": [
         "color",
         "emissive",
@@ -1344,7 +1359,7 @@
       "name": "RenderService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderService {\n  configure(settings: Partial<RenderSettings>): void;\n  state(): Readonly<RenderSettings>;\n  capabilities(): Readonly<RenderCapabilities>;\n  setMaterialParameter(material: string, name: string, value: GraphValue): void;\n  materialParameters(material: string): Readonly<Record<string, GraphValue>>;\n  /** Merge values for a declared material; graph-controlled channels reject overrides. */\n  setMaterialSurface(material: string, patch: MaterialSurfacePatch): void;\n  materialSurface(material: string): Readonly<MaterialSurfacePatch>;\n  /** Restore all authored surface values for a material. */\n  resetMaterialSurface(material: string): void;\n  readonly effects: PostProcessService;\n  readonly buffers: RenderBufferBindings;\n  readonly textures: RenderTextureBindings;\n}",
-      "line": 788,
+      "line": 798,
       "fields": [
         "configure",
         "state",
@@ -1363,7 +1378,7 @@
       "name": "MaterialBufferInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialBufferInput {\n  /** Shared slot declaration for material and postprocess graphs. */\n  name: string;\n  type: GraphType;\n  /** Optional initial logical compute-buffer ID. */\n  buffer?: string;\n  /** Optional exact element count required by this slot. */\n  count?: number;\n}",
-      "line": 803,
+      "line": 813,
       "fields": [
         "name",
         "type",
@@ -1375,7 +1390,7 @@
       "name": "RenderBufferReference",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderBufferReference {\n  id: string;\n  type: GraphType;\n  count: number;\n}",
-      "line": 812,
+      "line": 822,
       "fields": [
         "id",
         "type",
@@ -1386,7 +1401,7 @@
       "name": "RenderBufferBindings",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderBufferBindings {\n  bind(target: string, name: string, buffer: ComputeBufferHandle): void;\n  unbind(target: string, name: string): void;\n  state(target: string): Readonly<Record<string, RenderBufferReference>>;\n}",
-      "line": 817,
+      "line": 827,
       "fields": [
         "bind",
         "unbind",
@@ -1397,7 +1412,7 @@
       "name": "MaterialTextureInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialTextureInput extends ComputeTextureBinding {\n  /** Initial managed texture ID; asset import uses computeTextures/createTexture. */\n  texture?: string;\n  width?: number;\n  height?: number;\n}",
-      "line": 822,
+      "line": 832,
       "fields": [
         "texture",
         "width",
@@ -1408,7 +1423,7 @@
       "name": "RenderTextureReference",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderTextureReference extends ComputeTextureSize {\n  id: string;\n  format: \"rgba32float\";\n}",
-      "line": 828,
+      "line": 838,
       "fields": [
         "id",
         "format"
@@ -1418,7 +1433,7 @@
       "name": "RenderTextureBindings",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderTextureBindings {\n  bind(target: string, name: string, texture: ComputeTextureHandle): void;\n  unbind(target: string, name: string): void;\n  state(target: string): Readonly<Record<string, RenderTextureReference>>;\n}",
-      "line": 832,
+      "line": 842,
       "fields": [
         "bind",
         "unbind",
@@ -1429,7 +1444,7 @@
       "name": "PostProcessState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessState {\n  id: string;\n  enabled: boolean;\n  parameters: Readonly<Record<string, GraphValue>>;\n}",
-      "line": 837,
+      "line": 847,
       "fields": [
         "id",
         "enabled",
@@ -1440,7 +1455,7 @@
       "name": "PostProcessService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessService {\n  /** Compute-buffer slots declared by definePostProcess, addressed by pass ID. */\n  readonly buffers: RenderBufferBindings;\n  readonly textures: RenderTextureBindings;\n  configure(id: string, settings: { enabled: boolean }): void;\n  state(id: string): Readonly<PostProcessState>;\n  setParameter(id: string, name: string, value: GraphValue): void;\n  /** Clears temporal effect images; it does not modify game or trace accumulation state. */\n  resetHistory(id?: string): void;\n}",
-      "line": 842,
+      "line": 852,
       "fields": [
         "buffers",
         "textures",
@@ -1454,7 +1469,7 @@
       "name": "ComputeBufferHandle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeBufferHandle {\n  readonly owner: number;\n  readonly index: number;\n  readonly generation: number;\n}",
-      "line": 852,
+      "line": 862,
       "fields": [
         "owner",
         "index",
@@ -1465,7 +1480,7 @@
       "name": "ComputeTaskHandle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTaskHandle {\n  readonly owner: number;\n  readonly id: number;\n}",
-      "line": 857,
+      "line": 867,
       "fields": [
         "owner",
         "id"
@@ -1475,7 +1490,7 @@
       "name": "ComputeBufferInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeBufferInput {\n  id: string;\n  type: GraphType;\n  count: number;\n  data?: readonly GraphValue[];\n}",
-      "line": 861,
+      "line": 871,
       "fields": [
         "id",
         "type",
@@ -1487,7 +1502,7 @@
       "name": "ComputeTextureHandle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureHandle {\n  readonly owner: number;\n  readonly index: number;\n  readonly generation: number;\n  readonly kind: \"texture\";\n}",
-      "line": 867,
+      "line": 877,
       "fields": [
         "owner",
         "index",
@@ -1499,7 +1514,7 @@
       "name": "ComputeTextureSize",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureSize {\n  width: number;\n  height: number;\n}",
-      "line": 873,
+      "line": 883,
       "fields": [
         "width",
         "height"
@@ -1509,7 +1524,7 @@
       "name": "ComputeTextureDataInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureDataInput extends ComputeTextureSize {\n  id: string;\n  /** Linear rgba32float texels in row-major order, without color-space conversion. */\n  data?: readonly Vec4[];\n  asset?: never;\n}",
-      "line": 877,
+      "line": 887,
       "fields": [
         "id",
         "data",
@@ -1520,7 +1535,7 @@
       "name": "ComputeTextureAssetInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureAssetInput {\n  id: string;\n  asset: AssetDefinition | string;\n  width?: never;\n  height?: never;\n  data?: never;\n}",
-      "line": 883,
+      "line": 893,
       "fields": [
         "id",
         "asset",
@@ -1533,13 +1548,13 @@
       "name": "ComputeTextureInput",
       "kind": "TypeAliasDeclaration",
       "signature": "export type ComputeTextureInput = ComputeTextureDataInput | ComputeTextureAssetInput;",
-      "line": 890
+      "line": 900
     },
     {
       "name": "ComputeTextureBinding",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureBinding {\n  name: string;\n  filter?: \"nearest\" | \"linear\";\n  wrapU?: \"clamp\" | \"repeat\" | \"mirror\";\n  wrapV?: \"clamp\" | \"repeat\" | \"mirror\";\n}",
-      "line": 891,
+      "line": 901,
       "fields": [
         "name",
         "filter",
@@ -1551,7 +1566,7 @@
       "name": "ComputeDispatchInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDispatchInput {\n  output: ComputeBufferHandle | ComputeTextureHandle;\n  /** Handles capture dispatch-time data; task bindings consume that exact successful output revision. */\n  bindings?: Readonly<Record<string, ComputeBufferHandle | { task: ComputeTaskHandle }>>;\n  /** Named sampled rgba32float textures; task bindings capture that exact texture result. */\n  textures?: Readonly<Record<string, ComputeTextureHandle | { task: ComputeTaskHandle }>>;\n  /** Ordering only. It never silently refreshes ordinary handle bindings. */\n  after?: readonly ComputeTaskHandle[];\n  parameters?: Readonly<Record<string, GraphValue>>;\n  /** Fixed simulation time by default, not wall-clock time. */\n  time?: number;\n}",
-      "line": 897,
+      "line": 907,
       "fields": [
         "output",
         "bindings",
@@ -1565,7 +1580,7 @@
       "name": "ComputeTaskState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTaskState {\n  status: \"queued\" | \"running\" | \"succeeded\" | \"failed\" | \"cancelled\";\n  error?: { code: string; message: string; remediation: string };\n}",
-      "line": 909,
+      "line": 919,
       "fields": [
         "status",
         "error"
@@ -1575,7 +1590,7 @@
       "name": "ComputeService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeService {\n  createTexture(input: ComputeTextureInput): ComputeTextureHandle;\n  resolveTexture(id: string): ComputeTextureHandle;\n  describeTexture(texture: ComputeTextureHandle): Readonly<ComputeTextureSize & { id: string; format: \"rgba32float\"; revision: number }>;\n  readTexture(texture: ComputeTextureHandle): readonly Vec4[];\n  writeTexture(texture: ComputeTextureHandle, data: readonly Vec4[], region?: ComputeTextureSize & { x: number; y: number }): void;\n  releaseTexture(texture: ComputeTextureHandle): void;\n  createBuffer(input: ComputeBufferInput): ComputeBufferHandle;\n  resolve(id: string): ComputeBufferHandle;\n  describeBuffer(buffer: ComputeBufferHandle): Readonly<{ id: string; type: GraphType; count: number; revision: number }>;\n  /** Last committed GPU result; detached CPU data, never a GPU object. */\n  readBuffer(buffer: ComputeBufferHandle): readonly GraphValue[];\n  writeBuffer(buffer: ComputeBufferHandle, values: readonly GraphValue[], offset?: number): void;\n  releaseBuffer(buffer: ComputeBufferHandle): void;\n  dispatch(kernel: ComputeDefinition | string, input: ComputeDispatchInput): ComputeTaskHandle;\n  task(task: ComputeTaskHandle): Readonly<ComputeTaskState>;\n  tasks(): readonly { handle: ComputeTaskHandle; state: ComputeTaskState }[];\n  cancel(task: ComputeTaskHandle): void;\n  releaseTask(task: ComputeTaskHandle): void;\n}",
-      "line": 913,
+      "line": 923,
       "fields": [
         "createTexture",
         "resolveTexture",
@@ -1600,7 +1615,7 @@
       "name": "GamepadState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GamepadState {\n  /** Browser gamepad API is present and readable. */\n  available: boolean;\n  connected: boolean;\n  /** Browser index of the selected standard-mapped pad; no device identifier is exposed. */\n  index: number | null;\n  axes: readonly number[];\n  buttons: readonly number[];\n  /** Gameplay input is suppressed, for example while UI owns the gamepad. */\n  suppressed: boolean;\n}",
-      "line": 933,
+      "line": 943,
       "fields": [
         "available",
         "connected",
@@ -1614,7 +1629,7 @@
       "name": "InputService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InputService {\n  held(action: string): boolean;\n  pressed(action: string): boolean;\n  released(action: string): boolean;\n  axis(negative: string, positive: string): number;\n}",
-      "line": 944,
+      "line": 954,
       "fields": [
         "held",
         "pressed",
@@ -1626,7 +1641,7 @@
       "name": "GamepadInputService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GamepadInputService extends InputService {\n  /** Choose UI navigation or gameplay input; defaults to UI for backward compatibility. */\n  setGamepadMode(mode: \"ui\" | \"game\"): void;\n  /** Analog axis deadzone in [0, 0.95]; defaults to 0.15. */\n  setGamepadDeadzone(value: number): void;\n  gamepad(): GamepadState;\n}",
-      "line": 950,
+      "line": 960,
       "fields": [
         "setGamepadMode",
         "setGamepadDeadzone",
@@ -1637,13 +1652,13 @@
       "name": "PhysicsSweepShape",
       "kind": "TypeAliasDeclaration",
       "signature": "export type PhysicsSweepShape =\n  | { shape: \"sphere\"; radius: number }\n  | { shape: \"box\"; halfExtents: Vec3 }\n  | { shape: \"capsule\"; halfHeight: number; radius: number };",
-      "line": 958
+      "line": 968
     },
     {
       "name": "PhysicsSweepHit",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PhysicsSweepHit { entity: string; fraction: number; distance: number; point: Vec3; normal: Vec3 }",
-      "line": 962,
+      "line": 972,
       "fields": [
         "entity",
         "fraction",
@@ -1656,7 +1671,7 @@
       "name": "PhysicsService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PhysicsService {\n  /** Set 3D rigid-body world gravity; wakes dynamic bodies. Character controllers keep their own gravity. */\n  setGravity(gravity: Vec3): void;\n  /** Current 3D rigid-body world gravity in world units per second squared. */\n  gravity(): Vec3;\n  /** Set or inspect a dynamic rigid body's gravity multiplier; wakes it when changed. */\n  setGravityScale(entity: string, scale: number): void;\n  gravityScale(entity: string): number;\n  moveCharacter(entity: string, displacement: Vec3): void;\n  grounded(entity: string): boolean;\n  velocity(entity: string): Vec3;\n  /** World-space rigid-body center of mass, including collider offsets. */\n  centerOfMass(entity: string): Vec3;\n  setVelocity(entity: string, velocity: Vec3): void;\n  impulse(entity: string, impulse: Vec3): void;\n  /** Angular velocity in world-space radians per second. */\n  angularVelocity(entity: string): Vec3;\n  setAngularVelocity(entity: string, velocity: Vec3): void;\n  /** Instantaneous world-space angular impulse, in angular-momentum units. */\n  torqueImpulse(entity: string, impulse: Vec3): void;\n  /** Apply world-space impulse at a world-space point, changing linear and angular motion. */\n  impulseAtPoint(entity: string, impulse: Vec3, point: Vec3): void;\n  raycast(\n    origin: Vec3,\n    direction: Vec3,\n    maxDistance: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;\n  /** Sweep a shape through a nonzero world-space displacement. Initial overlaps hit at fraction 0. */\n  castShape(shape: PhysicsSweepShape, center: Vec3, displacement: Vec3, rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean }): PhysicsSweepHit | null;\n  /** Find entities whose colliders overlap a world-space sphere, sorted by entity ID. */\n  overlapSphere(\n    center: Vec3,\n    radius: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping an oriented box; halfExtents are positive world units, rotation is XYZ radians. */\n  overlapBox(\n    center: Vec3,\n    halfExtents: Vec3,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping a capsule aligned to local Y; halfHeight excludes the rounded ends. */\n  overlapCapsule(\n    center: Vec3,\n    halfHeight: number,\n    radius: number,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n}",
-      "line": 963,
+      "line": 973,
       "fields": [
         "setGravity",
         "gravity",
@@ -1683,7 +1698,7 @@
       "name": "AnimationService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationService {\n  /** Start at a clip-local time in seconds. Reverse playback defaults to the clip end. */\n  play(\n    entity: string,\n    clip: string,\n    options?: { fade?: number; speed?: number; loop?: boolean; startAt?: number },\n  ): void;\n  state(entity: string): {\n    clip: string | null;\n    time: number;\n    playing: boolean;\n  };\n}",
-      "line": 1016,
+      "line": 1026,
       "fields": [
         "play",
         "state"
@@ -1693,7 +1708,7 @@
       "name": "AdditiveAnimationOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AdditiveAnimationOptions {\n  /** Bone names to include; omitted selects all bone transform tracks. */\n  bones?: readonly string[];\n  /** Include descendant bones of the named bones; defaults to true. */\n  includeChildren?: boolean;\n  weight?: number;\n  speed?: number;\n  loop?: boolean;\n  startAt?: number;\n  referenceTime?: number;\n}",
-      "line": 1030,
+      "line": 1040,
       "fields": [
         "bones",
         "includeChildren",
@@ -1708,7 +1723,7 @@
       "name": "AdditiveAnimationState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AdditiveAnimationState {\n  id: string;\n  clip: string;\n  bones?: readonly string[];\n  includeChildren: boolean;\n  weight: number;\n  speed: number;\n  loop: boolean;\n  referenceTime: number;\n  time: number;\n  paused: boolean;\n  playing: boolean;\n}",
-      "line": 1041,
+      "line": 1051,
       "fields": [
         "id",
         "clip",
@@ -1727,7 +1742,7 @@
       "name": "AnimationIKDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationIKDefinition {\n  id: string;\n  effector: string;\n  /** Parent bones in order from the effector's immediate parent toward the root. */\n  chain: readonly string[];\n  target: Vec3;\n  iterations?: number;\n  weight?: number;\n  /** Maximum radians per joint update; omitted means no additional limit. */\n  maxAngle?: number;\n}",
-      "line": 1055,
+      "line": 1065,
       "fields": [
         "id",
         "effector",
@@ -1742,7 +1757,7 @@
       "name": "AnimationIKState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationIKState {\n  id: string;\n  effector: string;\n  chain: readonly string[];\n  target: Vec3;\n  iterations: number;\n  weight: number;\n  maxAngle?: number;\n}",
-      "line": 1066,
+      "line": 1076,
       "fields": [
         "id",
         "effector",
@@ -1757,7 +1772,7 @@
       "name": "AnimationControlService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationControlService extends AnimationService {\n  /** Play two complete clips together; weight is the second clip's contribution in [0,1]. */\n  blend(entity: string, first: string, second: string, weight: number): void;\n  /** Change the second clip's weight without restarting either clip. */\n  setBlendWeight(entity: string, weight: number): void;\n  /** Align the second blended clip to the first clip's normalized time without changing speed or weights. */\n  synchronizeBlend(entity: string): void;\n  /** List uniquely named bones available for additive masks. */\n  bones(entity: string): readonly string[];\n  /** Play or replace a named additive bone-transform layer without stopping the base animation. */\n  playAdditive(entity: string, id: string, clip: string, options?: AdditiveAnimationOptions): void;\n  /** Set the weight of an existing additive layer in [0,1]. */\n  setAdditiveWeight(entity: string, id: string, weight: number): void;\n  /** Remove an additive layer and release its mixer resources. */\n  stopAdditive(entity: string, id: string): void;\n  /** Inspect the current additive layers, detached from the model. */\n  additiveLayers(entity: string): readonly AdditiveAnimationState[];\n  /** Create or replace a CCD inverse-kinematics chain. */\n  setIK(entity: string, definition: AnimationIKDefinition): void;\n  /** Change an IK target in model-root local coordinates. */\n  setIKTarget(entity: string, id: string, target: Vec3): void;\n  /** Remove a chain; remaining chains are reapplied over the unmodified animation pose. */\n  removeIK(entity: string, id: string): void;\n  /** Inspect active IK chains without exposing renderer objects. */\n  ikChains(entity: string): readonly AnimationIKState[];\n  /** Available model clips and their durations in seconds. */\n  clips(entity: string): readonly { name: string; duration: number }[];\n  /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */\n  pause(entity: string): void;\n  resume(entity: string): void;\n  /** Move the current clip to a local time in [0, duration] without changing pause state. */\n  seek(entity: string, time: number): void;\n  /** Change current clip playback speed; negative values reverse it, zero freezes clip time. */\n  setSpeed(entity: string, speed: number): void;\n}",
-      "line": 1076,
+      "line": 1086,
       "fields": [
         "blend",
         "setBlendWeight",
@@ -1782,7 +1797,7 @@
       "name": "CameraService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface CameraService {\n  /** Set a world-space manual pose, replacing follow mode and any transition. */\n  setPose(position: Vec3, target: Vec3): void;\n  /** Linearly transition from the current manual pose using fixed simulation time. */\n  moveTo(position: Vec3, target: Vec3, duration: number): void;\n  /** Return to the scene's authored camera pose. */\n  reset(): void;\n  follow(\n    entity: string,\n    options?: {\n      distance?: number;\n      height?: number;\n      lookHeight?: number;\n      yaw?: number;\n      smoothing?: number;\n    },\n  ): void;\n  orbit(yaw: number): void;\n}",
-      "line": 1111,
+      "line": 1121,
       "fields": [
         "setPose",
         "moveTo",
@@ -1795,7 +1810,7 @@
       "name": "UIElementState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIElementState {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  text: string;\n  value: number;\n  visible: boolean;\n  /** Missing means enabled, for compatibility with older states. */\n  enabled?: boolean;\n  ariaLabel?: string;\n  anchor: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x: number; y: number; width: number; color: string;\n  world?: { entity: string; offset: Vec3; occlude: boolean };\n  generation?: number;\n}",
-      "line": 1131,
+      "line": 1141,
       "fields": [
         "id",
         "kind",
@@ -1817,7 +1832,7 @@
       "name": "UILayoutPatch",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UILayoutPatch {\n  anchor?: UIElementState[\"anchor\"];\n  x?: number; y?: number; width?: number; color?: string;\n}",
-      "line": 1145,
+      "line": 1155,
       "fields": [
         "anchor",
         "x",
@@ -1830,7 +1845,7 @@
       "name": "UIService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIService {\n  /** Create a dynamic element and return its generation; declared elements remain in game.ui. */\n  create(definition: UIElementDefinition): number;\n  /** Remove a dynamically created element; authored elements can be hidden instead. */\n  remove(id: string): void;\n  get(id: string): UIElementState;\n  /** Atomically update layout properties. World labels use x/y as screen-pixel offsets. */\n  setLayout(id: string, patch: UILayoutPatch): void;\n  /** Bind text or button content to a localization key; setText removes the binding. */\n  bindText(id: string, key: string, variables?: LocalizationVariables): void;\n  /** Remove a localization binding, retaining its currently resolved text. */\n  unbindText(id: string): void;\n  setText(id: string, text: string): void;\n  setProgress(id: string, value: number): void;\n  setVisible(id: string, visible: boolean): void;\n  /** Enable or disable a button or input without hiding it. */\n  setEnabled(id: string, enabled: boolean): void;\n  /** Set an accessible name, or clear it with null. */\n  setAriaLabel(id: string, label: string | null): void;\n}",
-      "line": 1149,
+      "line": 1159,
       "fields": [
         "create",
         "remove",
@@ -1849,7 +1864,7 @@
       "name": "InventoryItemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryItemDefinition {\n  id: string;\n  maxStack?: number;\n  label?: string;\n  tags?: readonly string[];\n}",
-      "line": 1170,
+      "line": 1180,
       "fields": [
         "id",
         "maxStack",
@@ -1861,7 +1876,7 @@
       "name": "InventoryDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryDefinition {\n  id: string;\n  /** Explicit grouping label, not an entity lifetime binding. */\n  owner: string;\n  capacity: number;\n}",
-      "line": 1176,
+      "line": 1186,
       "fields": [
         "id",
         "owner",
@@ -1872,7 +1887,7 @@
       "name": "InventorySlot",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventorySlot { item: string; count: number }",
-      "line": 1182,
+      "line": 1192,
       "fields": [
         "item",
         "count"
@@ -1882,7 +1897,7 @@
       "name": "InventoryState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryState {\n  id: string;\n  owner: string;\n  slots: readonly (InventorySlot | null)[];\n}",
-      "line": 1183,
+      "line": 1193,
       "fields": [
         "id",
         "owner",
@@ -1893,7 +1908,7 @@
       "name": "EquipmentSlotDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EquipmentSlotDefinition { id: string; requiredTag?: string }",
-      "line": 1188,
+      "line": 1198,
       "fields": [
         "id",
         "requiredTag"
@@ -1903,7 +1918,7 @@
       "name": "EquipmentState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EquipmentState {\n  id: string; owner: string;\n  slots: readonly { id: string; requiredTag?: string; item: string | null }[];\n}",
-      "line": 1189,
+      "line": 1199,
       "fields": [
         "id",
         "owner",
@@ -1914,7 +1929,7 @@
       "name": "InventoryService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryService {\n  defineItem(definition: InventoryItemDefinition): void;\n  getItem(id: string): Required<InventoryItemDefinition>;\n  listItems(): readonly Required<InventoryItemDefinition>[];\n  undefineItem(id: string): void;\n  create(definition: InventoryDefinition): void;\n  inspect(id: string): InventoryState;\n  /** Counts all stacks of an item in one inventory. */\n  count(id: string, item: string): number;\n  add(id: string, item: string, count: number): void;\n  remove(id: string, item: string, count: number): void;\n  /** Transfers an entire requested amount or leaves both inventories unchanged. */\n  transfer(from: string, to: string, item: string, count: number): void;\n  /** Split, merge or swap slots; a swap requires the whole source stack. */\n  moveSlot(id: string, from: number, to: number, count?: number): void;\n  /** Define named equipment slots; optional requiredTag restricts compatible items. */\n  createEquipment(id: string, owner: string, slots: readonly EquipmentSlotDefinition[]): void;\n  inspectEquipment(id: string): EquipmentState;\n  /** Move one item from an inventory into a slot; an existing item returns to that inventory atomically. */\n  equip(equipment: string, slot: string, inventory: string, item: string): void;\n  /** Move one equipped item back to an inventory belonging to the same owner. */\n  unequip(equipment: string, slot: string, inventory: string): void;\n  /** Empty all slots before destroying equipment. */\n  destroyEquipment(id: string): void;\n  destroy(id: string): void;\n  destroyOwner(owner: string): void;\n}",
-      "line": 1194,
+      "line": 1204,
       "fields": [
         "defineItem",
         "getItem",
@@ -1940,7 +1955,7 @@
       "name": "QuestObjectiveDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestObjectiveDefinition {\n  id: string;\n  target: number;\n  label?: string;\n}",
-      "line": 1221,
+      "line": 1231,
       "fields": [
         "id",
         "target",
@@ -1951,7 +1966,7 @@
       "name": "QuestDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestDefinition {\n  id: string;\n  title?: string;\n  objectives: readonly QuestObjectiveDefinition[];\n  /** Prerequisites are checked when starting; later resets do not cancel already-started quests. */\n  prerequisites?: readonly string[];\n  /** Completes when all objectives reach their targets; defaults to true. */\n  autoComplete?: boolean;\n}",
-      "line": 1226,
+      "line": 1236,
       "fields": [
         "id",
         "title",
@@ -1964,7 +1979,7 @@
       "name": "QuestState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestState {\n  id: string;\n  title: string;\n  status: \"inactive\" | \"active\" | \"completed\" | \"failed\";\n  prerequisites: readonly string[];\n  autoComplete: boolean;\n  objectives: readonly { id: string; label: string; target: number; progress: number }[];\n}",
-      "line": 1235,
+      "line": 1245,
       "fields": [
         "id",
         "title",
@@ -1978,7 +1993,7 @@
       "name": "QuestProgressUpdate",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestProgressUpdate { objective: string; amount: number }",
-      "line": 1243,
+      "line": 1253,
       "fields": [
         "objective",
         "amount"
@@ -1988,7 +2003,7 @@
       "name": "QuestService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestService {\n  define(definition: QuestDefinition): void;\n  start(id: string): void;\n  advance(id: string, objective: string, amount?: number): void;\n  /** Applies distinct objective increments as one operation. */\n  advanceBatch(id: string, updates: readonly QuestProgressUpdate[]): void;\n  complete(id: string): void;\n  fail(id: string): void;\n  /** Explicitly clears progress and returns this quest to inactive. */\n  reset(id: string): void;\n  inspect(id: string): QuestState;\n  list(): readonly QuestState[];\n}",
-      "line": 1245,
+      "line": 1255,
       "fields": [
         "define",
         "start",
@@ -2005,13 +2020,13 @@
       "name": "DialogueVariable",
       "kind": "TypeAliasDeclaration",
       "signature": "export type DialogueVariable = string | number | boolean;",
-      "line": 1258
+      "line": 1268
     },
     {
       "name": "DialogueChoiceDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueChoiceDefinition {\n  id: string;\n  text: string;\n  /** Omit or use null to end the session. */\n  next?: string | null;\n  /** Enabled only when the session variable exists and equals this value. */\n  when?: { variable: string; equals: DialogueVariable };\n}",
-      "line": 1259,
+      "line": 1269,
       "fields": [
         "id",
         "text",
@@ -2023,7 +2038,7 @@
       "name": "DialogueNodeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueNodeDefinition {\n  id: string;\n  speaker?: string;\n  text: string;\n  /** Linear successor; cannot be combined with nonempty choices. */\n  next?: string | null;\n  choices?: readonly DialogueChoiceDefinition[];\n}",
-      "line": 1267,
+      "line": 1277,
       "fields": [
         "id",
         "speaker",
@@ -2036,7 +2051,7 @@
       "name": "DialogueDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueDefinition {\n  id: string;\n  start: string;\n  nodes: readonly DialogueNodeDefinition[];\n}",
-      "line": 1275,
+      "line": 1285,
       "fields": [
         "id",
         "start",
@@ -2047,7 +2062,7 @@
       "name": "DialogueSessionState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueSessionState {\n  id: string;\n  dialogue: string;\n  status: \"active\" | \"completed\" | \"cancelled\";\n  steps: number;\n  variables: readonly { key: string; value: DialogueVariable }[];\n  node: null | {\n    id: string; speaker: string; text: string; next: string | null;\n    choices: readonly { id: string; text: string; next: string | null; enabled: boolean }[];\n  };\n}",
-      "line": 1280,
+      "line": 1290,
       "fields": [
         "id",
         "dialogue",
@@ -2061,7 +2076,7 @@
       "name": "DialogueService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueService {\n  define(definition: DialogueDefinition): void;\n  undefine(id: string): void;\n  start(session: string, dialogue: string): void;\n  /** Set a session variable, or remove it with null. */\n  setVariable(session: string, key: string, value: DialogueVariable | null): void;\n  /** Advance a node without choices; a terminal node completes the session. */\n  advance(session: string): void;\n  choose(session: string, choice: string): void;\n  cancel(session: string): void;\n  close(session: string): void;\n  inspect(session: string): DialogueSessionState;\n  list(): readonly DialogueSessionState[];\n}",
-      "line": 1292,
+      "line": 1302,
       "fields": [
         "define",
         "undefine",
@@ -2079,7 +2094,7 @@
       "name": "LocalizationPlural",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LocalizationPlural {\n  zero?: string; one?: string; two?: string; few?: string; many?: string; other: string;\n}",
-      "line": 1306,
+      "line": 1316,
       "fields": [
         "zero",
         "one",
@@ -2093,19 +2108,19 @@
       "name": "LocalizationMessage",
       "kind": "TypeAliasDeclaration",
       "signature": "export type LocalizationMessage = string | LocalizationPlural;",
-      "line": 1309
+      "line": 1319
     },
     {
       "name": "LocalizationVariables",
       "kind": "TypeAliasDeclaration",
       "signature": "export type LocalizationVariables = Readonly<Record<string, string | number | boolean>>;",
-      "line": 1310
+      "line": 1320
     },
     {
       "name": "LocalizationService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LocalizationService {\n  define(locale: string, messages: Readonly<Record<string, LocalizationMessage>>): void;\n  remove(locale: string): void;\n  setLocale(locale: string | null): void;\n  setFallback(locale: string | null): void;\n  /** Plural messages require a finite numeric `count` variable. */\n  text(key: string, variables?: LocalizationVariables): string;\n  /** Format a finite number using the active locale's Intl implementation. */\n  number(value: number): string;\n  inspect(): { locale: string | null; fallback: string | null; available: readonly string[] };\n}",
-      "line": 1312,
+      "line": 1322,
       "fields": [
         "define",
         "remove",
@@ -2120,7 +2135,7 @@
       "name": "AudioReverb",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioReverb { wet: number; decay: number; preDelay: number }",
-      "line": 1324,
+      "line": 1334,
       "fields": [
         "wet",
         "decay",
@@ -2131,7 +2146,7 @@
       "name": "AudioVoiceState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioVoiceState {\n  id: string; sound: string; volume: number; loop: boolean; entity: string | null;\n  bus?: string; priority: number; paused: boolean; occlusion: boolean;\n  maxDuration?: number;\n}",
-      "line": 1325,
+      "line": 1335,
       "fields": [
         "id",
         "sound",
@@ -2149,7 +2164,7 @@
       "name": "AudioService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioService {\n  /** Optional occlusion uses a 3D physics ray between the listener and a live entity. */\n  play(\n    id: string,\n    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean; maxDuration?: number },\n  ): string;\n  stop(voice: string): void;\n  /** Pause/resume are idempotent; an unknown valid voice id is a no-op. Playback time follows fixed simulation ticks, even while audio is locked. */\n  pause(voice: string): void;\n  resume(voice: string): void;\n  /** Set one active voice's gain; an unknown valid voice ID is a no-op. */\n  setVoiceVolume(voice: string, volume: number): void;\n  /** Return detached logical state, or null when the voice is no longer present. */\n  voice(voice: string): AudioVoiceState | null;\n  volume(value: number): void;\n  /** Set a declared bus gain, independently of master and voice gain. */\n  busVolume(id: string, value: number): void;\n  /** Fade a declared bus over fixed-tick seconds; busVolume or another fade replaces it. */\n  fadeBus(id: string, target: number, duration: number): void;\n  /** Replace global reverb settings; wet is 0..1, decay 0.1..4s, preDelay 0..0.2s. */\n  setReverb(settings: AudioReverb): void;\n}",
-      "line": 1330,
+      "line": 1340,
       "fields": [
         "play",
         "stop",
@@ -2167,7 +2182,7 @@
       "name": "StorageService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface StorageService {\n  save(slot: string): void;\n  load(slot: string): void;\n  status(): {\n    state: \"idle\" | \"saving\" | \"loading\" | \"saved\" | \"loaded\" | \"failed\";\n    slot: string | null;\n    error: string | null;\n  };\n}",
-      "line": 1352,
+      "line": 1362,
       "fields": [
         "save",
         "load",
@@ -2178,7 +2193,7 @@
       "name": "SceneService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneService {\n  current(): string;\n  load(id: string): void;\n}",
-      "line": 1361,
+      "line": 1371,
       "fields": [
         "current",
         "load"
@@ -2188,7 +2203,7 @@
       "name": "ModelDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ModelDefinition {\n  /** Optional whole-model material override; omitted keeps the asset's original materials. */\n  material?: MaterialDefinition | string;\n  /** Replace all asset material slots with the given exact material name. Mutually exclusive with material. */\n  materialSlots?: Record<string, MaterialDefinition | string>;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n  /** Enable lights embedded in the model; defaults to true. */\n  embeddedLights?: boolean;\n  /** Enable shadows for embedded lights; defaults to false. */\n  embeddedLightShadows?: boolean;\n  asset: AssetDefinition | string;\n  scale?: number;\n  offset?: Vec3;\n  rotation?: Vec3;\n  animation?: { clip: string; speed?: number; loop?: boolean };\n}",
-      "line": 1365,
+      "line": 1375,
       "fields": [
         "material",
         "materialSlots",
@@ -2207,7 +2222,7 @@
       "name": "RigidBodyDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RigidBodyDefinition {\n  type: \"fixed\" | \"dynamic\" | \"kinematic\";\n  collider: {\n    shape: \"box\" | \"sphere\" | \"capsule\";\n    size?: Vec3;\n    radius?: number;\n    halfHeight?: number;\n    offset?: Vec3;\n  };\n  mass?: number;\n  friction?: number;\n  restitution?: number;\n  trigger?: boolean;\n}",
-      "line": 1382,
+      "line": 1392,
       "fields": [
         "type",
         "collider",
@@ -2221,7 +2236,7 @@
       "name": "CharacterDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface CharacterDefinition {\n  radius: number;\n  height: number;\n  speed: number;\n  jumpSpeed?: number;\n  /** Downward acceleration magnitude in world units/s^2; defaults to 9.81. Scene.gravity is a signed vector. */\n  gravity?: number;\n}",
-      "line": 1396,
+      "line": 1406,
       "fields": [
         "radius",
         "height",
@@ -2234,7 +2249,7 @@
       "name": "UIElementDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIElementDefinition {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  /** Input values are limited to 4096 UTF-16 code units. */\n  text?: string;\n  value?: number;\n  visible?: boolean;\n  /** Buttons and inputs default to enabled. */\n  enabled?: boolean;\n  /** Accessible name; input and progress controls fall back to their ID. */\n  ariaLabel?: string;\n  anchor?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x?: number;\n  y?: number;\n  width?: number;\n  color?: string;\n  world?: { entity: string; offset?: Vec3; occlude?: boolean };\n}",
-      "line": 1404,
+      "line": 1414,
       "fields": [
         "id",
         "kind",
@@ -2255,7 +2270,7 @@
       "name": "SoundDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoundDefinition {\n  id: string;\n  asset: AssetDefinition | string;\n  volume?: number;\n  loop?: boolean;\n  bus?: string;\n}",
-      "line": 1422,
+      "line": 1432,
       "fields": [
         "id",
         "asset",
@@ -2268,7 +2283,7 @@
       "name": "AudioBusDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioBusDefinition {\n  id: string;\n  volume?: number;\n}",
-      "line": 1429,
+      "line": 1439,
       "fields": [
         "id",
         "volume"
@@ -2278,43 +2293,43 @@
       "name": "SYSTEM_PHASES",
       "kind": "constant",
       "signature": "SYSTEM_PHASES = [\n  \"input\",\n  \"prePhysics\",\n  \"physics\",\n  \"postPhysics\",\n  \"update\",\n  \"presentation\",\n] as const",
-      "line": 1433
+      "line": 1443
     },
     {
       "name": "SystemPhase",
       "kind": "TypeAliasDeclaration",
       "signature": "export type SystemPhase = (typeof SYSTEM_PHASES)[number];",
-      "line": 1441
+      "line": 1451
     },
     {
       "name": "Geometry",
       "kind": "TypeAliasDeclaration",
       "signature": "export type Geometry =\n  | { kind: \"box\"; size?: Vec3 }\n  | { kind: \"sphere\"; radius?: number; segments?: number }\n  | { kind: \"plane\"; size?: readonly [number, number] };",
-      "line": 1442
+      "line": 1452
     },
     {
       "name": "GRAPH_TYPES",
       "kind": "constant",
       "signature": "GRAPH_TYPES = [\"float\", \"vec2\", \"vec3\", \"vec4\", \"bool\"] as const",
-      "line": 1446
+      "line": 1456
     },
     {
       "name": "GraphType",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphType = typeof GRAPH_TYPES[number];",
-      "line": 1447
+      "line": 1457
     },
     {
       "name": "GraphValue",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;",
-      "line": 1448
+      "line": 1458
     },
     {
       "name": "GraphParameter",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GraphParameter {\n  name: string;\n  type: GraphType;\n  default: GraphValue;\n}",
-      "line": 1449,
+      "line": 1459,
       "fields": [
         "name",
         "type",
@@ -2325,31 +2340,31 @@
       "name": "GRAPH_INPUT_TYPES",
       "kind": "constant",
       "signature": "GRAPH_INPUT_TYPES = {\n  uv: \"vec2\", uv1: \"vec2\", positionWorld: \"vec3\", normalWorld: \"vec3\",\n  viewDirectionWorld: \"vec3\", vertexColor: \"vec4\", index: \"float\",\n  screenSize: \"vec2\", texelSize: \"vec2\",\n  pixelCoord: \"vec2\", outputSize: \"vec2\",\n  positionLocal: \"vec3\", normalLocal: \"vec3\", vertexIndex: \"float\", instanceIndex: \"float\",\n} as const",
-      "line": 1454
+      "line": 1464
     },
     {
       "name": "GraphInputName",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphInputName = keyof typeof GRAPH_INPUT_TYPES;",
-      "line": 1461
+      "line": 1471
     },
     {
       "name": "GRAPH_OPERATIONS",
       "kind": "constant",
       "signature": "GRAPH_OPERATIONS = {\n  unary: [\"sin\", \"cos\", \"abs\", \"floor\", \"ceil\", \"fract\", \"negate\", \"saturate\", \"normalize\", \"length\", \"safeSqrt\"] as const,\n  binary: [\"add\", \"subtract\", \"multiply\", \"safeDivide\", \"min\", \"max\", \"dot\", \"cross\", \"step\", \"lessThan\", \"lessEqual\", \"greaterThan\", \"greaterEqual\", \"equal\", \"and\", \"or\"] as const,\n  ternary: [\"mix\", \"clamp\", \"smoothstep\", \"select\"] as const,\n} as const",
-      "line": 1462
+      "line": 1472
     },
     {
       "name": "GraphNode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphNode =\n  | { id: string; op: \"float\"; value: number }\n  | { id: string; op: \"bool\"; value: boolean }\n  | { id: string; op: \"vec2\"; value: Vec2 }\n  | { id: string; op: \"vec3\"; value: Vec3 }\n  | { id: string; op: \"vec4\"; value: Vec4 }\n  | { id: string; op: \"time\" }\n  | { id: string; op: \"input\"; name: GraphInputName }\n  | { id: string; op: \"parameter\"; name: string }\n  | { id: string; op: typeof GRAPH_OPERATIONS.unary[number] | \"not\"; inputs: readonly [string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.binary[number]; inputs: readonly [string, string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.ternary[number]; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose2\"; inputs: readonly [string, string] }\n  | { id: string; op: \"compose3\"; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose4\"; inputs: readonly [string, string, string, string] }\n  | { id: string; op: \"swizzle\"; inputs: readonly [string]; components: string }\n  | { id: string; op: \"sampleTexture\"; inputs: readonly [string]; texture: AssetDefinition | string }\n  | { id: string; op: \"readBuffer\"; inputs: readonly [string]; buffer: string }\n  | { id: string; op: \"sampleFrame\"; inputs: readonly [string]; channel: string }\n  | { id: string; op: \"sampleHistory\"; inputs: readonly [string]; channel: string };",
-      "line": 1467
+      "line": 1477
     },
     {
       "name": "Graph",
       "kind": "InterfaceDeclaration",
       "signature": "export interface Graph {\n  nodes: readonly GraphNode[];\n  output: string;\n  parameters?: readonly GraphParameter[];\n}",
-      "line": 1487,
+      "line": 1497,
       "fields": [
         "nodes",
         "output",
@@ -2360,7 +2375,7 @@
       "name": "MaterialGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialGraphs {\n  baseColor?: Graph;\n  emissive?: Graph;\n  roughness?: Graph;\n  metalness?: Graph;\n  opacity?: Graph;\n  /** Absolute, unsided world-space normal; engine applies material boundary orientation. */\n  normalWorld?: Graph;\n}",
-      "line": 1492,
+      "line": 1502,
       "fields": [
         "baseColor",
         "emissive",
@@ -2374,7 +2389,7 @@
       "name": "VertexGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface VertexGraphs {\n  /** Absolute object-local position after built-in morph, skin and instance transforms. */\n  position?: Graph;\n  /** Unsided object-local normal in the same domain; zero keeps the normalized input normal. */\n  normal?: Graph;\n}",
-      "line": 1501,
+      "line": 1511,
       "fields": [
         "position",
         "normal"
@@ -2384,7 +2399,7 @@
       "name": "MaterialInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialInput {\n  id: string;\n  color?: string;\n  roughness?: number;\n  metalness?: number;\n  texture?: AssetDefinition | string;\n  graph?: Graph;\n  graphs?: MaterialGraphs;\n  vertex?: VertexGraphs;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  emissive?: string;\n  emissiveIntensity?: number;\n  opacity?: number;\n  /** Enable alpha blending even when opacity is 1, for example for transparent texture pixels. */\n  transparent?: boolean;\n  alphaTest?: number;\n  side?: \"front\" | \"back\" | \"double\";\n  /** Closed-volume dielectric fraction; opacity remains independent stochastic coverage. */\n  transmission?: number;\n  ior?: number;\n  /** Nontransmissive dielectric specular strength in [0,1]. Defaults to 1. */\n  specularIntensity?: number;\n  /** Nontransmissive dielectric specular color, a hex or named sRGB color. Defaults to white. */\n  specularColor?: string;\n  attenuationColor?: string;\n  /** World-space distance for Beer absorption; omitted means no absorption. */\n  attenuationDistance?: number;\n}",
-      "line": 1507,
+      "line": 1517,
       "fields": [
         "id",
         "color",
@@ -2414,7 +2429,7 @@
       "name": "MaterialDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialDefinition extends MaterialInput {\n  readonly kind: \"material\";\n}",
-      "line": 1536,
+      "line": 1546,
       "fields": [
         "kind"
       ]
@@ -2423,7 +2438,7 @@
       "name": "PostProcessInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessInput {\n  id: string;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  /** Linear HDR vec4 output. Frame channels: scene.color, scene.normal, scene.depth, or an earlier pass ID. */\n  graph: Graph;\n  enabled?: boolean;\n}",
-      "line": 1539,
+      "line": 1549,
       "fields": [
         "id",
         "buffers",
@@ -2436,7 +2451,7 @@
       "name": "PostProcessDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessDefinition extends PostProcessInput {\n  readonly kind: \"postprocess\";\n}",
-      "line": 1547,
+      "line": 1557,
       "fields": [
         "kind"
       ]
@@ -2445,7 +2460,7 @@
       "name": "ComputeInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeInput {\n  id: string;\n  graph: Graph;\n  outputType: GraphType;\n  count: number;\n  workgroupSize?: number;\n  buffers?: readonly { name: string; type: GraphType }[];\n  textures?: readonly ComputeTextureBinding[];\n}",
-      "line": 1550,
+      "line": 1560,
       "fields": [
         "id",
         "graph",
@@ -2460,7 +2475,7 @@
       "name": "ComputeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDefinition extends ComputeInput {\n  readonly kind: \"compute\";\n}",
-      "line": 1559,
+      "line": 1569,
       "fields": [
         "kind"
       ]
@@ -2469,7 +2484,7 @@
       "name": "AssetInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\" | \"model\" | \"audio\";\n  source?: string;\n  license?: string;\n  attribution?: string;\n  /** Texture imports only; defaults to sRGB color. Data/normal/ORM textures use linear. */\n  colorSpace?: \"srgb\" | \"linear\";\n}",
-      "line": 1562,
+      "line": 1572,
       "fields": [
         "id",
         "path",
@@ -2484,7 +2499,7 @@
       "name": "AssetDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetDefinition extends AssetInput {\n  readonly kind: \"asset\";\n}",
-      "line": 1572,
+      "line": 1582,
       "fields": [
         "kind"
       ]
@@ -2493,7 +2508,7 @@
       "name": "MeshDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MeshDefinition {\n  geometry: Geometry;\n  material: MaterialDefinition | string;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 1575,
+      "line": 1585,
       "fields": [
         "geometry",
         "material",
@@ -2505,7 +2520,7 @@
       "name": "LightDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\" | \"spot\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n  target?: Vec3;\n  /** Spot cone half-angle in radians, greater than zero and at most PI / 2. */\n  angle?: number;\n  /** Spot cone edge softness from 0 to 1. */\n  penumbra?: number;\n  /** Point/spot cutoff distance; 0 means unlimited. */\n  distance?: number;\n  /** Point/spot distance decay exponent; defaults to 2. */\n  decay?: number;\n  shadow?: {\n    mapSize?: number;\n    extent?: number;\n    bias?: number;\n    normalBias?: number;\n    near?: number;\n    far?: number;\n  };\n}",
-      "line": 1581,
+      "line": 1591,
       "fields": [
         "kind",
         "color",
@@ -2523,7 +2538,7 @@
       "name": "LightPatch",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightPatch { intensity?: number; color?: Vec3; target?: Vec3; visible?: boolean }",
-      "line": 1605,
+      "line": 1615,
       "fields": [
         "intensity",
         "color",
@@ -2535,7 +2550,7 @@
       "name": "LightOverride",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightOverride extends LightPatch { entity: string }",
-      "line": 1606,
+      "line": 1616,
       "fields": [
         "entity"
       ]
@@ -2544,7 +2559,7 @@
       "name": "LightService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightService {\n  /** Merge a patch into a live entity's declared light overrides. */\n  set(entity: string, patch: LightPatch): void;\n  /** Remove overrides, restoring the authored light values. */\n  reset(entity: string): void;\n  /** Detached active overrides for renderer integration. */\n  visuals(): readonly LightOverride[];\n}",
-      "line": 1607,
+      "line": 1617,
       "fields": [
         "set",
         "reset",
@@ -2555,7 +2570,7 @@
       "name": "EntityInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  model?: ModelDefinition;\n  rigidBody?: RigidBodyDefinition;\n  character?: CharacterDefinition;\n  components?: readonly ComponentInstance[];\n}",
-      "line": 1615,
+      "line": 1625,
       "fields": [
         "id",
         "prefab",
@@ -2573,7 +2588,7 @@
       "name": "PrefabInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabInput extends Omit<EntityInput, \"prefab\" | \"parent\"> {\n  extends?: PrefabDefinition | string;\n}",
-      "line": 1627,
+      "line": 1637,
       "fields": [
         "extends"
       ]
@@ -2582,7 +2597,7 @@
       "name": "PrefabDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabDefinition extends PrefabInput {\n  readonly kind: \"prefab\";\n}",
-      "line": 1630,
+      "line": 1640,
       "fields": [
         "kind"
       ]
@@ -2591,7 +2606,7 @@
       "name": "SceneInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    /** Perspective by default. Orthographic tracing and per-ray media are development-stage and unverified. */\n    projection?: \"perspective\" | \"orthographic\";\n    /** Orthographic vertical span in world units; defaults to 10. */\n    orthographicSize?: number;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: {\n    background?: string;\n    /** Optional equirectangular panorama used as the visible background, not scene lighting. */\n    backgroundTexture?: AssetDefinition | string;\n    /** Panorama rotation around the vertical axis in radians; defaults to 0. */\n    backgroundRotation?: number;\n    /** Panorama brightness multiplier; defaults to 1. */\n    backgroundIntensity?: number;\n    /** Equirectangular texture used for image-based lighting; mutually exclusive with lighting presets. */\n    lightingTexture?: AssetDefinition | string;\n    /** Image-based lighting rotation around the vertical axis in radians; defaults to 0. */\n    lightingRotation?: number;\n    /** Image-based lighting intensity multiplier; defaults to 1. */\n    lightingIntensity?: number;\n    ambientIntensity?: number;\n    lighting?: \"none\" | \"studio\";\n  };\n  follow?: {\n    entity: string;\n    distance?: number;\n    height?: number;\n    lookHeight?: number;\n    yaw?: number;\n    smoothing?: number;\n  };\n  gravity?: Vec3;\n  /** Opt into the independent XY physics world; default gravity is [0,-9.81]. */\n  physics2d?: { gravity?: Vec2 };\n  entities: readonly EntityInput[];\n}",
-      "line": 1633,
+      "line": 1643,
       "fields": [
         "id",
         "camera",
@@ -2606,7 +2621,7 @@
       "name": "SceneDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneDefinition extends SceneInput {\n  readonly kind: \"scene\";\n}",
-      "line": 1676,
+      "line": 1686,
       "fields": [
         "kind"
       ]
@@ -2615,7 +2630,7 @@
       "name": "SystemInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemInput {\n  id: string;\n  phase?: SystemPhase;\n  before?: readonly string[];\n  after?: readonly string[];\n  reads?: readonly string[];\n  writes?: readonly string[];\n  structural?: boolean;\n  run: (engine: SystemContext, dt: number) => void;\n}",
-      "line": 1679,
+      "line": 1689,
       "fields": [
         "id",
         "phase",
@@ -2631,7 +2646,7 @@
       "name": "SystemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemDefinition extends SystemInput {\n  readonly kind: \"system\";\n}",
-      "line": 1689,
+      "line": 1699,
       "fields": [
         "kind"
       ]
@@ -2640,7 +2655,7 @@
       "name": "GameInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  computeBuffers?: readonly ComputeBufferInput[];\n  computeTextures?: readonly ComputeTextureInput[];\n  assets?: readonly AssetDefinition[];\n  scenes?: readonly SceneDefinition[];\n  input?: Readonly<Record<string, readonly string[]>>;\n  ui?: readonly UIElementDefinition[];\n  sounds?: readonly SoundDefinition[];\n  audioBuses?: readonly AudioBusDefinition[];\n  render?: Partial<RenderSettings>;\n  postProcesses?: readonly PostProcessDefinition[];\n}",
-      "line": 1692,
+      "line": 1702,
       "fields": [
         "id",
         "scene",
@@ -2665,7 +2680,7 @@
       "name": "GameDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameDefinition extends GameInput {\n  readonly kind: \"game\";\n}",
-      "line": 1711,
+      "line": 1721,
       "fields": [
         "kind"
       ]
@@ -2674,7 +2689,7 @@
       "name": "GameInstance",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInstance {\n  update(dt: number): void;\n  dispose(): void;\n}",
-      "line": 1714,
+      "line": 1724,
       "fields": [
         "update",
         "dispose"
@@ -2684,61 +2699,61 @@
       "name": "defineComponent",
       "kind": "FunctionDeclaration",
       "signature": "export function defineComponent<const S extends ComponentSchema>(input: {\n  id: string;\n  schema: S;\n}): ComponentDefinition<S>;",
-      "line": 1718
+      "line": 1728
     },
     {
       "name": "defineMaterial",
       "kind": "FunctionDeclaration",
       "signature": "export function defineMaterial(input: MaterialInput): MaterialDefinition;",
-      "line": 1724
+      "line": 1734
     },
     {
       "name": "definePostProcess",
       "kind": "FunctionDeclaration",
       "signature": "export function definePostProcess(input: PostProcessInput): PostProcessDefinition;",
-      "line": 1727
+      "line": 1737
     },
     {
       "name": "defineCompute",
       "kind": "FunctionDeclaration",
       "signature": "export function defineCompute(input: ComputeInput): ComputeDefinition;",
-      "line": 1730
+      "line": 1740
     },
     {
       "name": "defineAsset",
       "kind": "FunctionDeclaration",
       "signature": "export function defineAsset(input: AssetInput): AssetDefinition;",
-      "line": 1733
+      "line": 1743
     },
     {
       "name": "definePrefab",
       "kind": "FunctionDeclaration",
       "signature": "export function definePrefab(input: PrefabInput): PrefabDefinition;",
-      "line": 1736
+      "line": 1746
     },
     {
       "name": "defineScene",
       "kind": "FunctionDeclaration",
       "signature": "export function defineScene(input: SceneInput): SceneDefinition;",
-      "line": 1739
+      "line": 1749
     },
     {
       "name": "defineSystem",
       "kind": "FunctionDeclaration",
       "signature": "export function defineSystem(input: SystemInput): SystemDefinition;",
-      "line": 1742
+      "line": 1752
     },
     {
       "name": "defineGame",
       "kind": "FunctionDeclaration",
       "signature": "export function defineGame(input: GameInput): GameDefinition;",
-      "line": 1745
+      "line": 1755
     },
     {
       "name": "instantiateGame",
       "kind": "FunctionDeclaration",
       "signature": "export function instantiateGame(\n  game: GameDefinition,\n  engine: EngineFacade,\n): GameInstance;",
-      "line": 1749
+      "line": 1759
     }
   ]
 }

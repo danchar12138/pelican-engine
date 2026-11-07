@@ -17,6 +17,13 @@ export interface RopeDynamicCoupling {
   resolve(colliderId: string, normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, surface?: Vec3): {
     correction: Vec3; reactionImpulse: Vec3; reactionAngularImpulse: Vec3;
   };
+  /** Optional bilateral constraints for particles attached to dynamic bodies. */
+  readonly attachedParticles?: readonly number[];
+  /** Ignore contact with the body that owns a particle attachment. */
+  ignoreAttachmentContact?(index: number, colliderId: string): boolean;
+  resolveAttachment?(index: number, position: Vec3, previous: Vec3, mass: number, dt: number): {
+    correction: Vec3; reactionImpulse: Vec3; reactionAngularImpulse: Vec3;
+  };
 }
 export interface RopeOptions {
   /** At least two distinct consecutive 3D points, in metres. */
@@ -335,6 +342,7 @@ export class RopeSolver {
           if (this.anchors.has(i)) continue; // anchors cannot be displaced by external colliders
           const p = positions[i];
           for (const c of this.colliders) {
+            if (coupling?.ignoreAttachmentContact?.(i, c.id)) continue;
             let depth = 0; let normal: Vec3;
             const dynamicSphere = c.kind === "sphere" ? coupling?.sphere(c.id) : undefined;
             const dynamicBox = c.kind === "box" ? coupling?.box?.(c.id) : undefined;
@@ -391,6 +399,7 @@ export class RopeSolver {
         for (let j = 0; j < restLengths.length; j++) {
           const a = positions[j], b = positions[j + 1];
           for (const collider of spheres) {
+            if (coupling?.ignoreAttachmentContact?.(j, collider.id) || coupling?.ignoreAttachmentContact?.(j + 1, collider.id)) continue;
             const dynamic = coupling?.sphere(collider.id);
             const center = dynamic?.center ?? collider.center, colliderRadius = dynamic?.radius ?? collider.radius;
             const direction: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
@@ -443,6 +452,7 @@ export class RopeSolver {
             } else segmentContacts.set(key, { tick: this.tickValue + 1, segment: j, colliderId: collider.id, fraction, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
           }
           for (const collider of boxes) {
+            if (coupling?.ignoreAttachmentContact?.(j, collider.id) || coupling?.ignoreAttachmentContact?.(j + 1, collider.id)) continue;
             const dynamic = coupling?.box?.(collider.id);
             const center = dynamic?.center ?? collider.center, extents = dynamic?.halfExtents ?? collider.halfExtents;
             const frame = dynamic ? createBoxFrame(center, dynamic.rotation) : boxFrames.get(collider.id);
@@ -480,6 +490,15 @@ export class RopeSolver {
           }
         }
         if (this.config.selfCollisions && positions.length >= 4) resolveRopeSelfCollisions(positions, this.anchors, radius, this.tickValue + 1, selfContacts);
+        for (const index of coupling?.attachedParticles ?? []) {
+          if (!Number.isSafeInteger(index) || index < 0 || index >= positions.length || this.anchors.has(index))
+            fail("ROPE_ATTACHMENT", "Body attachment requires a valid, unpinned particle and an active physics bridge.");
+          const resolve = coupling?.resolveAttachment ?? fail("ROPE_ATTACHMENT", "Body attachment requires an active physics bridge.");
+          const result = resolve(index, positions[index], previous[index], mass, h);
+          if (!finiteVector(result.correction) || !finiteVector(result.reactionImpulse) || !finiteVector(result.reactionAngularImpulse))
+            fail("ROPE_NUMERIC", "Attachment reaction exceeded finite bounds.");
+          for (let axis = 0; axis < 3; axis++) positions[index][axis] += result.correction[axis];
+        }
       }
       for (let i = 0; i < positions.length; i++) {
         if (this.anchors.has(i)) continue;

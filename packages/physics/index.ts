@@ -1175,8 +1175,10 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     if (b.type !== "dynamic" || b.definition.rigidBody?.collider.shape !== "sphere" || b.collider.isSensor())
       fail("TC_PHYSICS_ROPE_BODY", `Rope body '${id}' must be a live dynamic, non-trigger sphere.`);
     const inertia = b.body.effectiveWorldInvInertia();
+    const rotation = b.body.rotation();
     return {
       center: tuple(b.collider.translation()), radius: b.collider.radius(),
+      bodyPosition: tuple(b.body.translation()), bodyOrientation: [rotation.x, rotation.y, rotation.z, rotation.w] as const,
       centerOfMass: tuple(b.body.worldCom()), linearVelocity: tuple(b.body.linvel()),
       angularVelocity: tuple(b.body.angvel()), inverseMass: tuple(b.body.effectiveInvMass()),
       inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const,
@@ -1194,7 +1196,9 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     if (!halfExtents || [halfExtents.x, halfExtents.y, halfExtents.z].some(value => !Number.isFinite(value) || value <= 0 || value > 1e6))
       fail(code, `${owner} body '${id}' has invalid box half-extents.`);
     const inertia = body.body.effectiveWorldInvInertia();
+    const orientation = body.body.rotation();
     return { kind: "box", center: tuple(body.collider.translation()), halfExtents: tuple(halfExtents),
+      bodyPosition: tuple(body.body.translation()), bodyOrientation: [orientation.x, orientation.y, orientation.z, orientation.w],
       rotation: euler(body.collider.rotation()), centerOfMass: tuple(body.body.worldCom()),
       linearVelocity: tuple(body.body.linvel()), angularVelocity: tuple(body.body.angvel()), inverseMass: tuple(body.body.effectiveInvMass()),
       inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] };

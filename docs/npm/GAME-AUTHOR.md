@@ -1054,6 +1054,43 @@ in `setColliders`; its manual colliders remain separate. A destroyed body
 is unbound at the next automatic step, and a new entity with the same id is not
 implicitly rebound. Bindings are saved with Host snapshots.
 
+To connect a rope particle to a dynamic body rather than only collide with it,
+use a body attachment:
+
+```ts
+ctx.ropes.create({
+  id: "lift-rope",
+  autoStep: true,
+  points: [[0, 3, 0], [0, 2, 0], [0, 1, 0]],
+  mass: 0.1,
+  anchors: [{ index: 0, position: [0, 3, 0] }],
+  bodyAttachments: [{ index: 2, entity: "load", localPoint: [0, 0.5, 0] }],
+});
+ctx.ropes.bodyAttachments("lift-rope");
+ctx.ropes.detachBody("lift-rope", 2);
+ctx.ropes.attachBody("lift-rope", { index: 2, entity: "load", localPoint: [0, 0.5, 0] });
+```
+
+The target must be a live dynamic non-trigger sphere or box. `localPoint` is
+measured in metres in the rigid body's local frame; entity scale is not applied
+again. Each attachment constrains one particle in both directions using sampled
+body mass, inertia and velocity. Resulting impulses are applied after the rope
+pass, so body displacement follows on the next physics step. Start the particle
+near its body-local attachment point; a large initial gap can generate a large
+corrective impulse. If an attachment
+uses particle 0 and `anchors` is omitted, the usual default fixed anchor is not
+created. A particle cannot be both statically anchored and body-attached; release
+the static anchor before attaching it. Up to 64 attachments per rope are allowed.
+
+When the same body is also a `bodyColliders` binding, its attached particle and
+adjacent segments skip contact with that body; other segments still collide.
+A destroyed body detaches at the next automatic step and is not rebound to a
+new entity with the same ID. A snapshot attempted before that step rejects the
+stale attachment; otherwise attachment definitions are saved with the rope.
+The split-step constraint, native impulses, angular response, stability and
+snapshot recovery are unverified. This does not provide continuous collision,
+tearing, friction or a unified simultaneous solve across all simulations.
+
 Do not manually apply the same contact's reaction when using a body binding: the
 host already applies it. A native failure can still leave the host tick partially
 changed, so restore a known-good checkpoint. This is an approximate split-step

@@ -1,4 +1,4 @@
-import type { EntityHandle, RopeBodyCollider, RopeDefinition, RopeService } from "../../sdk/src/index.ts";
+import type { EntityHandle, RopeBodyAttachment, RopeBodyCollider, RopeDefinition, RopeService } from "../../sdk/src/index.ts";
 import type { RuntimePluginContext, RuntimePluginFactory, RopePhysicsBridge } from "../../runtime/src/plugins.ts";
 import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
@@ -7,10 +7,26 @@ import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type 
 import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 
-type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string> };
+type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string>; attachmentRefs: Map<number, EntityHandle> };
 type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_ROPE_${code}: ${detail}`); };
 const validId = (id: unknown): id is string => typeof id === "string" && id.trim() === id && id.length > 0 && id.length <= 128;
+
+function readAttachment(value: RopeBodyAttachment, count: number): RopeBodyAttachment {
+  if (!value || typeof value !== "object" || Array.isArray(value) ||
+      Object.keys(value).some(key => !["index", "entity", "localPoint"].includes(key)) ||
+      !Number.isSafeInteger(value.index) || value.index < 0 || value.index >= count || !validId(value.entity) ||
+      !Array.isArray(value.localPoint) || value.localPoint.length !== 3 ||
+      ![0, 1, 2].every(axis => typeof value.localPoint[axis] === "number" && Number.isFinite(value.localPoint[axis]) && Math.abs(value.localPoint[axis]) <= 1e6))
+    return fail("ATTACHMENT", "Supply a valid particle index, body entity and finite localPoint in [-1e6,1e6].");
+  return { index: value.index, entity: value.entity, localPoint: [...value.localPoint] as Vec3 };
+}
+
+function assertAttachmentsUnpinned(entry: Entry): void {
+  const pinned = new Set(entry.solver.inspect().anchors.map(anchor => anchor.index));
+  for (const attachment of entry.definition.bodyAttachments ?? [])
+    if (pinned.has(attachment.index)) fail("ATTACHMENT", `Particle ${attachment.index} is pinned; release its static anchor first.`);
+}
 
 function createEntry(input: RopeDefinition, fixedDt: number, materials: ReadonlySet<string>, restoredSegmentMode?: boolean, restoredSelfMode?: boolean): Entry {
   const definition = cloneSerializable(input);
@@ -49,9 +65,21 @@ function createEntry(input: RopeDefinition, fixedDt: number, materials: Readonly
       ids.add(binding.id); entities.add(binding.entity);
     }
   }
-  const solver = createRope({ ...definition, fixedDt, ...(restoredSegmentMode === undefined ? {} : { segmentCollisions: restoredSegmentMode }),
+  if (definition.bodyAttachments !== undefined) {
+    if (!Array.isArray(definition.bodyAttachments) || definition.bodyAttachments.length > 64 || !Array.isArray(definition.points))
+      return fail("ATTACHMENT", "bodyAttachments must contain at most 64 bindings for valid rope points.");
+    if (definition.bodyAttachments.length && !definition.autoStep) return fail("ATTACHMENT", "Body attachments require autoStep: true.");
+    const indices = new Set<number>();
+    for (const value of definition.bodyAttachments) {
+      const attachment = readAttachment(value, definition.points.length);
+      if (indices.has(attachment.index)) return fail("ATTACHMENT", `Particle ${attachment.index} already has an attachment.`);
+      indices.add(attachment.index);
+    }
+  }
+  const implicitUnpinned = definition.anchors === undefined && definition.bodyAttachments?.some(item => item.index === 0);
+  const solver = createRope({ ...definition, ...(implicitUnpinned ? { anchors: [] } : {}), fixedDt, ...(restoredSegmentMode === undefined ? {} : { segmentCollisions: restoredSegmentMode }),
     ...(restoredSelfMode === undefined ? {} : { selfCollisions: restoredSelfMode }) } as unknown as RopeOptions);
-  return { definition, solver, bodyRefs: new Map(), staleBodies: new Set() };
+  return { definition, solver, bodyRefs: new Map(), staleBodies: new Set(), attachmentRefs: new Map() };
 }
 function disposeEntries(entries: Map<string, Entry>): void {
   for (const { solver } of entries.values()) solver.dispose();
@@ -78,6 +106,7 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
         fail("SNAPSHOT", "Invalid stale body collider list.");
       entry.staleBodies = new Set(stale);
       entry.solver.restore(item.state);
+      assertAttachmentsUnpinned(entry);
     }
     return entries;
   } catch (error) { disposeEntries(entries); throw error; }
@@ -97,6 +126,16 @@ function resolveRefs(entry: Entry, context: RuntimePluginContext, checkPhysics: 
   }
   return refs;
 }
+function resolveAttachmentRefs(entry: Entry, context: RuntimePluginContext, checkPhysics: boolean): Map<number, EntityHandle> {
+  const refs = new Map<number, EntityHandle>(), specs = entry.definition.bodyAttachments ?? [];
+  const bridge = checkPhysics && specs.length ? bridgeFor(context) : undefined;
+  for (const spec of specs) {
+    if (!context.world.isAlive(spec.entity)) fail("ATTACHMENT", `Body '${spec.entity}' is not a live entity.`);
+    if (bridge) bridge.sampleRopeBody(spec.entity);
+    refs.set(spec.index, context.world.resolve(spec.entity));
+  }
+  return refs;
+}
 function validateWorldBindings(entries: Map<string, Entry>, context: RuntimePluginContext, world: WorldSnapshot): void {
   const records = new Map(world.entities.map(record => [record.id, record]));
   for (const entry of entries.values()) for (const binding of entry.definition.bodyColliders ?? []) {
@@ -106,6 +145,11 @@ function validateWorldBindings(entries: Map<string, Entry>, context: RuntimePlug
     const body = definition?.rigidBody;
     if (!record || !body || body.type !== "dynamic" || !["sphere", "box"].includes(body.collider.shape) || body.trigger)
       fail("SNAPSHOT", `Bound body '${binding.entity}' must exist as a dynamic, non-trigger sphere or box in the restored world.`);
+  }
+  for (const entry of entries.values()) for (const binding of entry.definition.bodyAttachments ?? []) {
+    const record = records.get(binding.entity), body = record && resolveEntityDefinition(context.scene, record)?.rigidBody;
+    if (!record || !body || body.type !== "dynamic" || !["sphere", "box"].includes(body.collider.shape) || body.trigger)
+      fail("SNAPSHOT", `Attached body '${binding.entity}' must exist as a dynamic, non-trigger sphere or box in the restored world.`);
   }
 }
 
@@ -122,8 +166,8 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
   // lazily at the first use, after that World replacement has completed.
   const ensureRefs = () => {
     if (!pendingRefs) return;
-    const staged = [...entries.values()].map(entry => ({ entry, refs: resolveRefs(entry, context, false) }));
-    for (const { entry, refs } of staged) entry.bodyRefs = refs;
+    const staged = [...entries.values()].map(entry => ({ entry, refs: resolveRefs(entry, context, false), attachments: resolveAttachmentRefs(entry, context, false) }));
+    for (const { entry, refs, attachments } of staged) { entry.bodyRefs = refs; entry.attachmentRefs = attachments; }
     pendingRefs = false;
   };
   const get = (id: string): Entry => {
@@ -138,7 +182,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       if (entries.has(definition.id)) return fail("DUPLICATE", `Rope '${definition.id}' already exists.`);
       if (entries.size >= 256) return fail("CAPACITY", "At most 256 ropes per host.");
       const entry = createEntry(definition, hostDt, materials);
-      try { entry.bodyRefs = resolveRefs(entry, context, true); entries.set(entry.definition.id, entry); }
+      try { assertAttachmentsUnpinned(entry); entry.bodyRefs = resolveRefs(entry, context, true); entry.attachmentRefs = resolveAttachmentRefs(entry, context, true); entries.set(entry.definition.id, entry); }
       catch (error) { entry.solver.dispose(); throw error; }
     },
     step(id, ticks) {
@@ -170,8 +214,39 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       }
       entry.solver.setColliders(cloneSerializable(colliders) as RopeCollider[]);
     },
-    setAnchor(id, index, position) { get(id).solver.setAnchor(index, cloneSerializable(position) as Vec3); },
-    setAnchors(id, anchors) { get(id).solver.setAnchors(anchors as readonly { index: number; position: Vec3 }[]); },
+    attachBody(id, value) {
+      const entry = get(id), attachment = readAttachment(cloneSerializable(value), entry.definition.points.length);
+      if (!entry.definition.autoStep) return fail("ATTACHMENT", "Body attachments require autoStep: true.");
+      const attachments = entry.definition.bodyAttachments ?? [];
+      if (attachments.length >= 64 || attachments.some(item => item.index === attachment.index))
+        return fail("ATTACHMENT", `Particle ${attachment.index} is already attached or the 64-attachment limit was reached.`);
+      if (entry.solver.inspect().anchors.some(anchor => anchor.index === attachment.index))
+        return fail("ATTACHMENT", `Particle ${attachment.index} is pinned; release its static anchor first.`);
+      if (!context.world.isAlive(attachment.entity)) return fail("ATTACHMENT", `Body '${attachment.entity}' is not live.`);
+      bridgeFor(context).sampleRopeBody(attachment.entity);
+      const ref = context.world.resolve(attachment.entity);
+      entry.definition = { ...entry.definition, bodyAttachments: [...attachments, attachment] };
+      entry.attachmentRefs = new Map(entry.attachmentRefs).set(attachment.index, ref);
+    },
+    detachBody(id, index) {
+      const entry = get(id), attachments = entry.definition.bodyAttachments ?? [];
+      if (!Number.isSafeInteger(index) || !attachments.some(item => item.index === index))
+        return fail("ATTACHMENT", `Particle ${index} has no body attachment.`);
+      entry.definition = { ...entry.definition, bodyAttachments: attachments.filter(item => item.index !== index) };
+      entry.attachmentRefs = new Map(entry.attachmentRefs); entry.attachmentRefs.delete(index);
+    },
+    bodyAttachments(id) { return cloneSerializable(get(id).definition.bodyAttachments ?? []); },
+    setAnchor(id, index, position) {
+      const entry = get(id);
+      if (entry.definition.bodyAttachments?.some(item => item.index === index)) return fail("ATTACHMENT", `Particle ${index} is attached to a body; detach it first.`);
+      entry.solver.setAnchor(index, cloneSerializable(position) as Vec3);
+    },
+    setAnchors(id, anchors) {
+      const entry = get(id);
+      if (Array.isArray(anchors) && anchors.some(anchor => entry.definition.bodyAttachments?.some(item => item.index === anchor?.index)))
+        return fail("ATTACHMENT", "Detach body-attached particles before pinning them.");
+      entry.solver.setAnchors(anchors as readonly { index: number; position: Vec3 }[]);
+    },
     releaseAnchor(id, index) { get(id).solver.releaseAnchor(index); },
     setGravity(id, gravity) { const entry = get(id); entry.definition.gravity = entry.solver.setGravity(gravity as Vec3); },
     applyForce(id, index, force) { get(id).solver.applyForce(index, cloneSerializable(force) as Vec3); },
@@ -183,14 +258,14 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     id: "$engine.ropes", version: "1", services: { ropes: service },
     afterPhysics() {
       alive(); ensureRefs();
-      const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string> }[] = [];
+      const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string>; attachmentRefs: Map<number, EntityHandle> }[] = [];
       const bodies = new Map<string, VirtualRopeCollider>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
         for (const entry of automatic) {
           const snapshot = entry.solver.snapshot();
-          committed.push({ entry, snapshot, definition: entry.definition, refs: entry.bodyRefs, stale: entry.staleBodies });
+          committed.push({ entry, snapshot, definition: entry.definition, refs: entry.bodyRefs, stale: entry.staleBodies, attachmentRefs: entry.attachmentRefs });
           const previous = entry.definition.bodyColliders ?? [];
           const live: RopeBodyCollider[] = [];
           for (const binding of previous) {
@@ -203,18 +278,33 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
             entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.staleBodies = new Set();
           }
+          const previousAttachments = entry.definition.bodyAttachments ?? [];
+          const liveAttachments: RopeBodyAttachment[] = [];
+          for (const attachment of previousAttachments) {
+            const ref = entry.attachmentRefs.get(attachment.index) ?? fail("ATTACHMENT", `Missing body handle for particle ${attachment.index}; restore a known-good checkpoint.`);
+            if (context.world.isAlive(ref)) liveAttachments.push(attachment);
+          }
+          if (liveAttachments.length !== previousAttachments.length) {
+            entry.definition = { ...entry.definition, bodyAttachments: liveAttachments };
+            entry.attachmentRefs = new Map(liveAttachments.map(attachment => [attachment.index, entry.attachmentRefs.get(attachment.index)!]));
+          }
           const coupled = new Map<string, VirtualRopeCollider>();
+          const attached = new Map<number, { body: VirtualRopeCollider; localPoint: Vec3 }>();
+          const bridge = live.length || liveAttachments.length ? bridgeFor(context) : undefined;
+          const virtualBody = (entity: string): VirtualRopeCollider => {
+            let body = bodies.get(entity);
+            if (!body) {
+              const sample = bridge!.sampleRopeBody(entity);
+              body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
+              bodies.set(entity, body);
+            }
+            return body;
+          };
           if (previous.length) {
             const boundIds = new Set(previous.map(item => item.id));
             const manual = snapshot.colliders.filter(collider => !boundIds.has(collider.id));
-            const bridge = live.length ? bridgeFor(context) : undefined;
             const sampled: RopeCollider[] = live.map(binding => {
-              let body = bodies.get(binding.entity);
-              if (!body) {
-                const sample = bridge!.sampleRopeBody(binding.entity);
-                body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
-                bodies.set(binding.entity, body);
-              }
+              const body = virtualBody(binding.entity);
               coupled.set(binding.id, body);
               return body.kind === "sphere"
                 ? { kind: "sphere", id: binding.id, center: [...body.center] as Vec3, radius: body.radius }
@@ -222,7 +312,9 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
             });
             entry.solver.setColliders([...manual, ...sampled]);
           }
-          entry.solver.step(1, coupled.size ? createRopeBodyCoupling(coupled) : undefined);
+          for (const attachment of liveAttachments)
+            attached.set(attachment.index, { body: virtualBody(attachment.entity), localPoint: [...attachment.localPoint] as Vec3 });
+          entry.solver.step(1, coupled.size || attached.size ? createRopeBodyCoupling(coupled, attached) : undefined);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
@@ -231,7 +323,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       } catch (error) {
         const failures: string[] = [];
         for (const item of committed.reverse()) {
-          item.entry.definition = item.definition; item.entry.bodyRefs = item.refs; item.entry.staleBodies = item.stale;
+          item.entry.definition = item.definition; item.entry.bodyRefs = item.refs; item.entry.staleBodies = item.stale; item.entry.attachmentRefs = item.attachmentRefs;
           try { item.entry.solver.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
         }
         if (failures.length) throw new Error(`TC_ROPE_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`);
@@ -245,6 +337,10 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
         if (!ref && !entry.staleBodies.has(binding.id)) return fail("SNAPSHOT", `Missing handle for '${binding.id}'.`);
         return !ref || !context.world.isAlive(ref);
       }).map(binding => binding.id);
+      for (const attachment of entry.definition.bodyAttachments ?? []) {
+        const ref = entry.attachmentRefs.get(attachment.index);
+        if (!ref || !context.world.isAlive(ref)) return fail("SNAPSHOT", `Attached body '${attachment.entity}' is stale; advance the scene or detach it before saving.`);
+      }
       return { definition: cloneSerializable(entry.definition), state: entry.solver.snapshot(), ...(stale.length ? { staleBodyColliders: stale } : {}) };
     }) }; },
     validateSnapshot(value) { const staged = parseSnapshot(value, hostDt, materials); disposeEntries(staged); },
@@ -255,7 +351,10 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     validatePeers(value, peers) {
       const staged = parseSnapshot(value, hostDt, materials);
       try {
-        const bindings = [...staged.values()].flatMap(entry => (entry.definition.bodyColliders ?? []).filter(binding => !entry.staleBodies.has(binding.id)));
+        const bindings = [...staged.values()].flatMap(entry => [
+          ...(entry.definition.bodyColliders ?? []).filter(binding => !entry.staleBodies.has(binding.id)),
+          ...(entry.definition.bodyAttachments ?? []),
+        ]);
         if (!bindings.length) return;
         const physics = peers["$engine.physics"]?.payload as { bindings?: unknown; entities?: unknown } | undefined;
         if (!physics || !Array.isArray(physics.bindings) || !Array.isArray(physics.entities))

@@ -2,6 +2,7 @@ import type { RopePhysicsBodyState, RopePhysicsBox, RopePhysicsSphere } from "..
 import type { RopeDynamicCoupling, Vec3 } from "./rope.ts";
 
 type Matrix = [number, number, number, number, number, number];
+type Quaternion = [number, number, number, number];
 const error = (message: string): never => { throw new Error(`TC_ROPE_BODY_NUMERIC: ${message}`); };
 const vector = (value: readonly number[], label: string): Vec3 => {
   if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isFinite)) return error(`${label} must be a finite 3D vector.`);
@@ -13,6 +14,16 @@ const scale = (a: Vec3, value: number): Vec3 => [a[0] * value, a[1] * value, a[2
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const multiply = (m: Matrix, v: Vec3): Vec3 => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[1] * v[0] + m[3] * v[1] + m[4] * v[2], m[2] * v[0] + m[4] * v[1] + m[5] * v[2]];
+const multiplyQuaternion = (a: Quaternion, b: Quaternion): Quaternion => [
+  a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+  a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+  a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+  a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+];
+const rotate = (q: Quaternion, value: Vec3): Vec3 => {
+  const xyz: Vec3 = [q[0], q[1], q[2]], twice = scale(cross(xyz, value), 2);
+  return add(value, add(scale(twice, q[3]), cross(xyz, twice)));
+};
 
 /** Mutable per-host-tick approximation. Native rigid bodies remain untouched until commit. */
 class VirtualRopeBody {
@@ -22,6 +33,8 @@ class VirtualRopeBody {
   private angularVelocity: Vec3;
   private readonly inverseMass: Vec3;
   private readonly inverseInertia: Matrix;
+  private orientation?: Quaternion;
+  private localCenterOfMass?: Vec3;
   private impulse: Vec3 = [0, 0, 0];
   private moment: Vec3 = [0, 0, 0];
 
@@ -37,6 +50,15 @@ class VirtualRopeBody {
     this.inverseInertia = [...sample.inverseInertia] as Matrix;
     if (this.inverseInertia[0] < 0 || this.inverseInertia[3] < 0 || this.inverseInertia[5] < 0)
       error("world inverse inertia diagonal cannot be negative.");
+    if (sample.bodyPosition !== undefined || sample.bodyOrientation !== undefined) {
+      const position = vector(sample.bodyPosition ?? error("body origin is missing."), "body origin");
+      const q = sample.bodyOrientation ?? error("body orientation is missing.");
+      if (!Array.isArray(q) || q.length !== 4 || !q.every(Number.isFinite)) error("body orientation must be a finite quaternion.");
+      const magnitude = Math.hypot(...q);
+      if (!Number.isFinite(magnitude) || magnitude < 1e-12) error("body orientation must be nonzero.");
+      this.orientation = [q[0] / magnitude, q[1] / magnitude, q[2] / magnitude, q[3] / magnitude];
+      this.localCenterOfMass = rotate([-this.orientation[0], -this.orientation[1], -this.orientation[2], this.orientation[3]], sub(this.centerOfMass, position));
+    }
   }
   private pointVelocity(point: Vec3): Vec3 { return add(this.linearVelocity, cross(this.angularVelocity, sub(point, this.centerOfMass))); }
   private inverseEffectiveMass(point: Vec3, normal: Vec3): number {
@@ -56,6 +78,17 @@ class VirtualRopeBody {
     // First-order virtual transform update; the actual rigid body moves on its next physics step.
     this.center = vector(add(add(this.center, translation), cross(scale(deltaAngular, dt), relativeCenter)), "virtual collider center");
     this.centerOfMass = vector(add(this.centerOfMass, translation), "virtual center of mass");
+    if (this.orientation) {
+      const angle = Math.hypot(...deltaAngular) * dt;
+      if (!Number.isFinite(angle)) error("virtual rotation exceeded finite bounds.");
+      if (angle > 1e-12) {
+        const factor = Math.sin(angle / 2) * dt / angle;
+        const step: Quaternion = [deltaAngular[0] * factor, deltaAngular[1] * factor, deltaAngular[2] * factor, Math.cos(angle / 2)];
+        const next = multiplyQuaternion(step, this.orientation), norm = Math.hypot(...next);
+        if (!Number.isFinite(norm) || norm < 1e-12) error("virtual orientation became invalid.");
+        this.orientation = [next[0] / norm, next[1] / norm, next[2] / norm, next[3] / norm];
+      }
+    }
     this.linearVelocity = vector(add(this.linearVelocity, deltaLinear), "virtual linear velocity");
     this.angularVelocity = vector(add(this.angularVelocity, deltaAngular), "virtual angular velocity");
     this.impulse = vector(add(this.impulse, impulse), "accumulated impulse");
@@ -92,6 +125,32 @@ class VirtualRopeBody {
     }
     return { correction: vector(correction, "particle correction"), reactionImpulse: vector(reactionImpulse, "reaction impulse"), reactionAngularImpulse: vector(reactionAngularImpulse, "reaction moment") };
   }
+  private attachmentPoint(localPoint: Vec3): Vec3 {
+    if (!this.orientation || !this.localCenterOfMass) return error("body-local attachments require sampled body position and orientation.");
+    return vector(add(this.centerOfMass, rotate(this.orientation, sub(localPoint, this.localCenterOfMass))), "attachment point");
+  }
+  attach(localPoint: Vec3, position: Vec3, previous: Vec3, mass: number, dt: number) {
+    const local = vector(localPoint, "body-local attachment"), invParticle = 1 / mass;
+    if (!Number.isFinite(invParticle) || invParticle <= 0 || !Number.isFinite(dt) || dt <= 0)
+      return error("particle mass and substep must be finite and positive.");
+    let correction: Vec3 = [0, 0, 0], reactionImpulse: Vec3 = [0, 0, 0], reactionAngularImpulse: Vec3 = [0, 0, 0];
+    for (const velocityPass of [false, true]) for (let axis = 0; axis < 3; axis++) {
+      const normal: Vec3 = [0, 0, 0]; normal[axis] = 1;
+      const point = this.attachmentPoint(local), denominator = invParticle + this.inverseEffectiveMass(point, normal);
+      if (!Number.isFinite(denominator) || denominator <= 0) return error("attachment inverse mass must be positive and finite.");
+      const particle = add(position, correction);
+      const difference = velocityPass
+        ? dot(sub(scale(sub(particle, previous), 1 / dt), this.pointVelocity(point)), normal)
+        : dot(sub(particle, point), normal) / dt;
+      if (!Number.isFinite(difference)) return error("attachment state exceeded finite bounds.");
+      const impulse = scale(normal, difference / denominator);
+      correction = add(correction, scale(impulse, -invParticle * dt));
+      reactionImpulse = add(reactionImpulse, impulse);
+      reactionAngularImpulse = add(reactionAngularImpulse, cross(point, impulse));
+      this.apply(impulse, point, dt);
+    }
+    return { correction: vector(correction, "attachment correction"), reactionImpulse: vector(reactionImpulse, "attachment impulse"), reactionAngularImpulse: vector(reactionAngularImpulse, "attachment moment") };
+  }
   reaction() { return { impulse: vector(this.impulse, "reaction impulse"), moment: vector(this.moment, "reaction moment") }; }
 }
 
@@ -126,7 +185,7 @@ export class VirtualRopeBox extends VirtualRopeBody {
 }
 
 export type VirtualRopeCollider = VirtualRopeSphere | VirtualRopeBox;
-export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeCollider>): RopeDynamicCoupling {
+export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeCollider>, attachments: ReadonlyMap<number, { body: VirtualRopeCollider; localPoint: Vec3 }> = new Map()): RopeDynamicCoupling {
   return {
     sphere(id) { const body = bodies.get(id); return body?.kind === "sphere" ? { center: body.center, radius: body.radius } : undefined; },
     box(id) { const body = bodies.get(id); return body?.kind === "box" ? { center: body.center, halfExtents: body.halfExtents, rotation: body.rotation } : undefined; },
@@ -134,6 +193,15 @@ export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeCo
       const body = bodies.get(id) ?? error(`Missing virtual body '${id}'.`);
       if (body.kind === "box") return body.resolve(normal, depth, position, previous, mass, dt, surface ?? error(`Missing box contact point for '${id}'.`));
       return body.resolve(normal, depth, position, previous, mass, dt);
+    },
+    attachedParticles: [...attachments.keys()].sort((a, b) => a - b),
+    ignoreAttachmentContact(index, colliderId) {
+      const attachment = attachments.get(index);
+      return !!attachment && attachment.body === bodies.get(colliderId);
+    },
+    resolveAttachment(index, position, previous, mass, dt) {
+      const binding = attachments.get(index) ?? error(`Missing body attachment for particle ${index}.`);
+      return binding.body.attach(binding.localPoint, position, previous, mass, dt);
     },
   };
 }
