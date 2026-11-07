@@ -335,6 +335,12 @@ creation, removal or restore; pending transform edits are not reflected. Its
 optional `exclude` list contains body IDs, and sensors are excluded unless
 `includeSensors: true` is specified.
 
+`ctx.physics2d.overlapCircle([0, 0], 2, { includeSensors: true })` and
+`ctx.physics2d.overlapBox([0, 0], [1, 0.5], angle)` return sorted body IDs
+for a circle or rotated box. They share the ray query's last-completed-step,
+body exclusion and sensor rules. Native query failure requires restoring a
+known-good checkpoint. Query results and recovery are runtime-unverified.
+
 For one-way character movement, create a non-sensor kinematic body, attach a
 controller, and submit world-space XY displacement for a later fixed step:
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add circle and oriented-box overlap queries to 2D physics; runtime behavior remains unverified.
+
 - Preserve pending tracing recapture across raster frames and mode switches; runtime rendering remains unverified.
 
 - Add optional fixed-clock maximum duration for audio voices; timing and restoration remain unverified.

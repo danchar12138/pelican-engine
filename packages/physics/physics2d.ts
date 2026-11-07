@@ -287,6 +287,24 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
     if (!entry || !context.world.isAlive(entry.handle)) return fail("MISSING", `Body '${id}' or its entity no longer exists.`);
     return entry;
   };
+  const overlap = (center: Vec2, angle: number, shape: RAPIER.Shape, options: { exclude?: readonly string[]; includeSensors?: boolean }): string[] => {
+    alive();
+    if (dirty || tick === 0) return fail("QUERY_PENDING", "Queries require a completed physics step after body creation, removal or restore.");
+    if (!fields(options, ["exclude", "includeSensors"]) || (options.exclude !== undefined && (!Array.isArray(options.exclude) || options.exclude.some(id => !validName(id)))) ||
+        (options.includeSensors !== undefined && typeof options.includeSensors !== "boolean")) return fail("QUERY", "Overlap options require body-id exclusions and an optional includeSensors boolean.");
+    const excluded = new Set(options.exclude ?? []), found = new Set<string>();
+    try {
+      native.world.intersectionsWithShape(vector(center), angle, shape, collider => {
+        const entry = native.colliders.get(collider.handle);
+        if (entry && context.world.isAlive(entry.handle) && !excluded.has(entry.definition.id) && (options.includeSensors === true || !entry.definition.sensor)) found.add(entry.definition.id);
+        return true;
+      });
+    } catch (error) {
+      nativeFault = true;
+      throw new AggregateError([error], "TC_PHYSICS2D_QUERY_NATIVE: Overlap query failed; partialState=true. Restore a known-good host checkpoint.");
+    }
+    return [...found].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+  };
   const checkEntity = (handle: EntityHandle): { transform: Transform; prefab: string | null } => {
     const identity = context.world.identity(handle);
     if (identity.parent !== undefined) return fail("TRANSFORM", `Entity '${identity.id}' must be a root for 2D physics.`);
@@ -405,6 +423,13 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
     setGravity(value) { alive(); const next = pair(value, "gravity"); mutate("Setting gravity", () => { native.world.gravity = vector(next); }); gravity = next; },
     gravity() { alive(); return [...gravity] as Vec2; },
     inspect(id) { return readBody(get(id)); },
+    overlapCircle(center, radius, options = {}) {
+      return overlap(pair(center, "circle center"), 0, new RAPIER.Ball(positive(radius, "circle radius")), options);
+    },
+    overlapBox(center, halfExtents, angle = 0, options = {}) {
+      const size = pair(halfExtents, "box halfExtents", true);
+      return overlap(pair(center, "box center"), scalar(angle, "box angle"), new RAPIER.Cuboid(size[0], size[1]), options);
+    },
     raycast(origin, direction, maxDistance, options = {}) {
       alive();
       if (dirty || tick === 0) return fail("QUERY_PENDING", "Queries require a completed physics step after body creation, removal or restore.");

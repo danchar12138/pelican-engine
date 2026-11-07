@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds 2D circle and oriented-box overlap queries using the last completed physics step. Filtering, native recovery and runtime results are unverified.
+
 - Local development preserves pending path/hybrid scene recapture while raster frames are drawn. Mode switches and failure recovery are unverified.
 
 - Local development adds an optional fixed-clock maximum duration for audio voices, including loops and legacy unknown-duration sounds. Pause timing, reclamation and snapshot restoration remain unverified.

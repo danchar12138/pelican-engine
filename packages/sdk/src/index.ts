@@ -203,6 +203,10 @@ export interface Physics2DService {
   /** Queries the last completed 2D physics step, not pending transform edits. */
   raycast(origin: Vec2, direction: Vec2, maxDistance: number, options?: { exclude?: readonly string[]; includeSensors?: boolean }):
     { body: string; entity: string; distance: number; point: Vec2; normal: Vec2 } | null;
+  /** Find live 2D body IDs overlapping a circle, sorted by ID. Uses the last completed physics step. */
+  overlapCircle(center: Vec2, radius: number, options?: { exclude?: readonly string[]; includeSensors?: boolean }): readonly string[];
+  /** Find live 2D body IDs overlapping a rotated box, sorted by ID. Angle is in radians. */
+  overlapBox(center: Vec2, halfExtents: Vec2, angle?: number, options?: { exclude?: readonly string[]; includeSensors?: boolean }): readonly string[];
 }
 export interface SpriteAnimation {
   first: number;
