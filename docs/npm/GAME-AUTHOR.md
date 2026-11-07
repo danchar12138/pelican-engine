@@ -720,6 +720,15 @@ needed. A failure after a scene replacement has committed does not guarantee
 that the old scene was restored. These failure and release paths have not been
 runtime-validated and do not prove the absence of leaks.
 
+### Build output recovery
+
+`pelican build` stages a new output before replacing `dist`. If a prior `dist`
+exists, it is preserved under `.pelican/dist-backup-*/dist` and returned as
+`previousOutput` in the build report. A failed staging or switch can leave a
+partial stage or backup; inspect the reported paths before retrying or removing
+anything. Do not run concurrent processes that mutate `dist`: recovery and
+concurrency checks are best effort and have not been runtime-validated.
+
 ### Explicit project lock migration
 
 `pelican migrate` produces a read-only plan for the current project's exact

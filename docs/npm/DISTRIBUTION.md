@@ -33,6 +33,15 @@ npx --no-install pelican build
 
 Deploy the resulting `dist/` directory, including its generated assets and notices, to an HTTP(S) static host. For a nested deployment, use `npx --no-install pelican build --base /game/`.
 
+Builds are prepared in a fresh `.pelican/dist-stage-*` directory before the
+final `dist` switch. When an existing `dist` is present, it is retained under
+`.pelican/dist-backup-*/dist`; the build report includes `previousOutput`.
+Failed staging files and backups are not automatically deleted. Inspect and
+retain or remove them according to the game owner's needs, without following
+links. Stop other processes that modify `dist` during a build: concurrent-change
+checks and rollback are best effort, not a cross-process transaction. This new
+path and failure recovery have not been runtime-validated.
+
 Commands use common Node/npm syntax rather than a particular shell. **Engine and game development currently support Windows only**; Linux and macOS development workflows have not been promised or validated. Player platforms are not restricted by brand or OS: actual rendering availability depends on browser and graphics capabilities.
 
 ## Your game

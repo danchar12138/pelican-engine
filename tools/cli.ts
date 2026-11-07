@@ -6,7 +6,6 @@ import {
   writeFile,
   cp,
   access,
-  lstat,
 } from "node:fs/promises";
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
@@ -14,6 +13,7 @@ import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import { generateApiIndex, queryApiSymbol } from "./api-index.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
 import { compressDist } from "./compress-dist.ts";
+import { createBuildOutput } from "./build-output.ts";
 import { doctor } from "./doctor.ts";
 import { setup } from "./setup.ts";
 import { attachControl } from "./control-server.ts";
@@ -92,7 +92,7 @@ async function main() {
           "check --project <directory>",
           "compile --project <directory>",
           "dev --project <directory> [--port 4173]",
-          "build --project <directory>",
+          "build --project <directory> [--base <path>]",
           "optimize --project <directory> --asset <id> [--output <new-project-relative.glb>]",
           "capture [--mode raster|hybrid|path] [--output file.png]",
           "inspect | step --count <n> | pause | resume [--port <dev-port>]",
@@ -439,94 +439,93 @@ async function main() {
         !layout.installed && projectRoot === defaultProject
           ? path.join(engineRoot, "dist")
           : path.join(projectRoot, "dist");
+      const staged = await createBuildOutput(output);
+      const stagingOutput = staged.staging;
       try {
-        if ((await lstat(output)).isSymbolicLink())
-          throw new Error(
-            "TC_BUILD_SYMLINK: dist must be a real output directory.",
-          );
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      }
-      const previousNodeEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
-      try {
-        await viteBuild({
-          root: layout.webRoot,
-          configFile: layout.installed
-            ? false
-            : path.join(engineRoot, "vite.config.ts"),
-          envFile: false,
-          publicDir: path.dirname(target),
-          base: option("base", "./"),
-          logLevel: "silent",
-          build: {
-            outDir: output,
-            emptyOutDir: true,
-            target: "es2023",
-            sourcemap: false,
-          },
-        });
-      } finally {
-        if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-        else process.env.NODE_ENV = previousNodeEnv;
-      }
-      await cp(path.join(engineRoot, "LICENSE"), path.join(output, "LICENSE"));
-      await writeFile(
-        path.join(output, "THIRDPARTY-NOTICES.txt"),
-        "pelican runtime uses Three.js 0.187.0, fast-png 8.0.0, fflate 0.8.3, iobuffer 6.0.1 and ngraph.path 1.6.1 (MIT), and @dimforge/rapier3d-compat 0.21.0 (Apache-2.0). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
-          JSON.stringify(result.ir?.assetNotices ?? [], null, 2) +
-          "\n",
-      );
-      await cp(
-        path.join(
-          engineRoot,
-          layout.installed
-            ? "licenses/three/LICENSE"
-            : "node_modules/three/LICENSE",
-        ),
-        path.join(output, "THREE-LICENSE.txt"),
-      );
-      await cp(
-        path.join(
-          engineRoot,
-          layout.installed
-            ? "licenses/@dimforge/rapier3d-compat/LICENSE"
-            : "node_modules/@dimforge/rapier3d-compat/LICENSE",
-        ),
-        path.join(output, "RAPIER-LICENSE.txt"),
-      );
-      for (const dependency of ["fast-png", "fflate", "iobuffer", "ngraph.path"]) {
-        await cp(
-          path.join(engineRoot, layout.installed ? "licenses" : "node_modules", dependency, "LICENSE"),
-          path.join(output, `${dependency.toUpperCase()}-LICENSE.txt`),
+        const previousNodeEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = "production";
+        try {
+          await viteBuild({
+            root: layout.webRoot,
+            configFile: layout.installed
+              ? false
+              : path.join(engineRoot, "vite.config.ts"),
+            envFile: false,
+            publicDir: path.dirname(target),
+            base: option("base", "./"),
+            logLevel: "silent",
+            build: {
+              outDir: stagingOutput,
+              emptyOutDir: false,
+              target: "es2023",
+              sourcemap: false,
+            },
+          });
+        } finally {
+          if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+          else process.env.NODE_ENV = previousNodeEnv;
+        }
+        await cp(path.join(engineRoot, "LICENSE"), path.join(stagingOutput, "LICENSE"));
+        await writeFile(
+          path.join(stagingOutput, "THIRDPARTY-NOTICES.txt"),
+          "pelican runtime uses Three.js 0.187.0, fast-png 8.0.0, fflate 0.8.3, iobuffer 6.0.1 and ngraph.path 1.6.1 (MIT), and @dimforge/rapier3d-compat 0.21.0 (Apache-2.0). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
+            JSON.stringify(result.ir?.assetNotices ?? [], null, 2) +
+            "\n",
         );
+        await cp(
+          path.join(
+            engineRoot,
+            layout.installed
+              ? "licenses/three/LICENSE"
+              : "node_modules/three/LICENSE",
+          ),
+          path.join(stagingOutput, "THREE-LICENSE.txt"),
+        );
+        await cp(
+          path.join(
+            engineRoot,
+            layout.installed
+              ? "licenses/@dimforge/rapier3d-compat/LICENSE"
+              : "node_modules/@dimforge/rapier3d-compat/LICENSE",
+          ),
+          path.join(stagingOutput, "RAPIER-LICENSE.txt"),
+        );
+        for (const dependency of ["fast-png", "fflate", "iobuffer", "ngraph.path"]) {
+          await cp(
+            path.join(engineRoot, layout.installed ? "licenses" : "node_modules", dependency, "LICENSE"),
+            path.join(stagingOutput, `${dependency.toUpperCase()}-LICENSE.txt`),
+          );
+        }
+        await writeFile(
+          path.join(stagingOutput, "pelican-build.json"),
+          JSON.stringify(
+            {
+              engineVersion: SDK_VERSION,
+              stage: activeManifest.stage,
+              game: result.ir?.gameId,
+              entry: "index.html",
+              renderer: "webgpu-with-webgl2-fallback",
+              limitations: [
+                "M3 rendering is in development; not the complete engine or an accepted M3 release",
+                "Opaque textured surface transport is integrated; unsupported combinations report explicit diagnostics",
+                "Physics snapshots replay operation history and are bounded to 100000 operations",
+                "Compute BVH path tracer, no hardware ray tracing",
+                "Spatial denoising is integrated; temporal motion reconstruction remains work in progress",
+              ],
+            },
+            null,
+            2,
+          ) + "\n",
+        );
+        await compressDist(stagingOutput);
+      } catch (error) {
+        throw new AggregateError([error], `TC_BUILD_STAGING: Build failed before replacing dist; partial files remain at '${stagingOutput}'. Inspect and remove them only when no longer needed.`);
       }
-      await writeFile(
-        path.join(output, "pelican-build.json"),
-        JSON.stringify(
-          {
-            engineVersion: SDK_VERSION,
-            stage: activeManifest.stage,
-            game: result.ir?.gameId,
-            entry: "index.html",
-            renderer: "webgpu-with-webgl2-fallback",
-            limitations: [
-              "M3 rendering is in development; not the complete engine or an accepted M3 release",
-              "Opaque textured surface transport is integrated; unsupported combinations report explicit diagnostics",
-              "Physics snapshots replay operation history and are bounded to 100000 operations",
-              "Compute BVH path tracer, no hardware ray tracing",
-              "Spatial denoising is integrated; temporal motion reconstruction remains work in progress",
-            ],
-          },
-          null,
-          2,
-        ) + "\n",
-      );
-      await compressDist(output);
+      const committed = await staged.commit();
       emit(
         envelope(
           "succeeded",
-          { output: "dist", game: result.ir?.gameId },
+          { output: "dist", game: result.ir?.gameId, ...(committed.backup ? { previousOutput: committed.backup } : {}) },
           [],
           [
             "dist/index.html",
