@@ -929,7 +929,8 @@ For example, `ctx.ropes.setColliders("rope", [{ kind: "box", id: "wall",
 center: [0, 1, 0], halfExtents: [0.5, 1, 2] }])` replaces the rope's manually
 sampled obstacles with a world-space box. `ctx.cloth.setColliders` accepts the
 same shape. Rope boxes resolve individual particles and, when enabled, segment
-interiors; cloth boxes resolve particles only, not triangle interiors. Contacts
+interiors; cloth boxes resolve particles and sampled triangle points when
+`surfaceCollisions` is enabled. Contacts
 are discrete and may tunnel during fast motion. Boxes are static
 samples: update them explicitly when geometry moves; they do not update rigid
 bodies or transfer reactions to them. The colliders are included in simulation
@@ -1122,8 +1123,10 @@ New cloth also resolves detected sphere overlaps against triangle surface interi
 using closest-point barycentric projection. `inspect(id).surfaceContacts` reports
 the triangle and barycentric position. `surfaceCollisions` defaults to true for new
 cloth and can be disabled. Spheres use closest-point surface contact, planes use
-centroid projection, and boxes remain particle-only; there is no edge/face continuous collision or full rigid-body
-reaction. Surface contact state is included in snapshots and invalid state is
+centroid projection, and boxes sample triangle edges and projections of box
+corners. The box samples do not guarantee detection of every surface contact;
+there is no edge/face continuous collision or full rigid-body reaction. Surface
+contact state is included in snapshots and invalid state is
 rejected atomically. It has not been runtime or stability validated.
 
 New cloth also resolves discrete self-contact between non-adjacent particles by

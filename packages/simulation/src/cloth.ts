@@ -1,4 +1,4 @@
-import { particleBoxContact } from "./box-contact.ts";
+import { particleBoxContact, segmentBoxContact } from "./box-contact.ts";
 
 /** CPU position-based triangular cloth. SI units; sampled colliders are one-way. */
 export type Vec3 = [number, number, number];
@@ -123,6 +123,41 @@ function closestTriangle(point: Vec3, a: Vec3, b: Vec3, c: Vec3): { point: Vec3;
   if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) { const edge: Vec3 = [c[0] - b[0], c[1] - b[1], c[2] - b[2]], t = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return { point: [b[0] + edge[0] * t, b[1] + edge[1] * t, b[2] + edge[2] * t], barycentric: [0, 1 - t, t] }; }
   const denominator = 1 / (va + vb + vc), v = vb * denominator, w = vc * denominator;
   return { point: [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w], barycentric: [1 - v - w, v, w] };
+}
+/** Sample actual triangle points from its edges and box-corner projections. */
+function triangleBoxContact(a: Vec3, b: Vec3, c: Vec3, radius: number, box: Extract<ClothCollider, { kind: "box" }>, movable: readonly boolean[]):
+  { point: Vec3; barycentric: [number, number, number]; normal: Vec3; depth: number } | null {
+  for (let axis = 0; axis < 3; axis++) {
+    const min = Math.min(a[axis], b[axis], c[axis]), max = Math.max(a[axis], b[axis], c[axis]);
+    if (max + radius < box.center[axis] - box.halfExtents[axis] || min - radius > box.center[axis] + box.halfExtents[axis]) return null;
+  }
+  type Hit = { point: Vec3; barycentric: [number, number, number]; normal: Vec3; depth: number };
+  let best: Hit | null = null;
+  const consider = (hit: Hit) => {
+    if (!hit.barycentric.every(value => Number.isFinite(value) && value >= -1e-7 && value <= 1 + 1e-7)) return;
+    const weights = hit.barycentric.map(value => Math.max(0, Math.min(1, value)));
+    const sum = weights[0] + weights[1] + weights[2];
+    if (sum <= 0 || !weights.some((value, index) => movable[index] && value > 0)) return;
+    hit.barycentric = [weights[0] / sum, weights[1] / sum, weights[2] / sum];
+    if (!best || hit.depth > best.depth) best = hit;
+  };
+  const edges: [Vec3, Vec3, number, number][] = [[a, b, 0, 1], [b, c, 1, 2], [c, a, 2, 0]];
+  for (const [first, second, i, j] of edges) {
+    const hit = segmentBoxContact(first, second, radius, box.center, box.halfExtents);
+    if (!hit) continue;
+    const barycentric: [number, number, number] = [0, 0, 0];
+    barycentric[i] = 1 - hit.fraction; barycentric[j] = hit.fraction;
+    consider({ point: hit.point, barycentric, normal: hit.normal, depth: hit.depth });
+  }
+  const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac: Vec3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  if (Math.hypot(...cross(ab, ac)) > 1e-10) {
+    for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
+      const corner: Vec3 = [box.center[0] + x * box.halfExtents[0], box.center[1] + y * box.halfExtents[1], box.center[2] + z * box.halfExtents[2]];
+      const closest = closestTriangle(corner, a, b, c), hit = particleBoxContact(closest.point, radius, box.center, box.halfExtents);
+      if (hit) consider({ ...closest, ...hit });
+    }
+  }
+  return best;
 }
 export function createCloth(input: ClothOptions): ClothSolver {
   if (!input || typeof input !== "object" || !Array.isArray(input.points) || input.points.length < 3 || input.points.length > 4096)
@@ -258,14 +293,16 @@ export class ClothSolver {
         if (this.config.surfaceCollisions) for (let triangleIndex = 0; triangleIndex < this.config.triangles.length; triangleIndex++) {
           const triangle = this.config.triangles[triangleIndex], a = positions[triangle[0]], b = positions[triangle[1]], c = positions[triangle[2]];
           for (const collider of this.colliders) {
-            // Box support currently resolves particles only, not triangle interiors.
-            if (collider.kind === "box") continue;
             let closest: { point: Vec3; barycentric: [number, number, number] }, normal: Vec3, depth: number;
             if (collider.kind === "sphere") {
               closest = closestTriangle(collider.center, a, b, c);
               const delta: Vec3 = [closest.point[0] - collider.center[0], closest.point[1] - collider.center[1], closest.point[2] - collider.center[2]], length = Math.hypot(...delta);
               depth = collider.radius + radius - length;
               normal = length < 1e-12 ? [0, 1, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
+            } else if (collider.kind === "box") {
+              const hit = triangleBoxContact(a, b, c, radius, collider, triangle.map(index => !this.anchors.has(index)));
+              if (!hit) continue;
+              closest = { point: hit.point, barycentric: hit.barycentric }; normal = hit.normal; depth = hit.depth;
             } else {
               const centroid: Vec3 = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
               normal = collider.normal;

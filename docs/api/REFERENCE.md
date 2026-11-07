@@ -868,7 +868,7 @@ export interface ClothDefinition {
   visual?: ClothVisualOptions;
   /** Discrete non-adjacent particle self-contact; defaults to true for new cloth. */
   selfCollisions?: boolean;
-  /** Sphere triangle-surface contacts; defaults to true for new cloth. */
+  /** Discrete sphere, plane and sampled-box triangle contacts; defaults to true for new cloth. */
   surfaceCollisions?: boolean;
   /** Optional live dynamic sphere bindings; sampled after the physics phase. */
   bodyColliders?: readonly ClothBodyCollider[];
@@ -941,7 +941,7 @@ export interface ClothService {
   /** Find the nearest centre within maxDistance, or null; ties use particle order. */
   nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;
   visuals(): readonly ClothVisualState[];
-  /** Replace sampled colliders. Boxes resolve particles only, not triangle interiors. */
+  /** Replace sampled colliders. Box triangle contacts are discrete samples, not continuous collision. */
   setColliders(id: string, colliders: readonly ClothCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
   /** Pin or move the specified anchors atomically; other anchors are unchanged. */
