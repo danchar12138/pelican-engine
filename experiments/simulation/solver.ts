@@ -12,6 +12,7 @@
   volume,
 } from "./math.ts";
 import { allPoints, DEFAULT_SIMULATION_CONTAINER, makeScene, resolveOptions } from "./scenes.ts";
+import { createBoxFrame, orientedParticleBoxContact, type BoxFrame } from "../../packages/simulation/src/box-contact.ts";
 import type {
   PointState,
   Simulation,
@@ -77,6 +78,8 @@ export function createSimulation(
   let adjacentParticles = excludedPairs(state);
   let disposed = false;
   const sampledRadii = new Map<string, number>();
+  const sampledBoxes = new Map<string, { halfExtents: Vec3; rotation: Vec3; frame: BoxFrame }>();
+  const isSampled = (id: string) => sampledRadii.has(id) || sampledBoxes.has(id);
   const particleForces = new Map<string, Vec3>();
   let colliders: SimulationCollider[] = [];
   let solverWallMs = 0,
@@ -215,16 +218,25 @@ export function createSimulation(
 
   function solveContacts(h: number): void {
     if (!state.options.contacts) return;
-    for (const body of state.bodies)
+    for (const body of state.bodies) {
+      const box = sampledBoxes.get(body.id);
       for (const p of state.particles) {
         if (p.inverseMass === 0) continue;
-        const delta = sub(p.position, body.position),
-          r = length(delta),
-          penetration = (sampledRadii.get(body.id) ?? body.radius) + p.radius - r;
+        let normal: Vec3, penetration: number, point: Vec3;
+        if (box) {
+          const hit = orientedParticleBoxContact(p.position, p.radius, body.position, box.halfExtents, box.frame);
+          if (!hit) continue;
+          normal = hit.normal; penetration = hit.depth;
+          point = add(p.position, mul(normal, penetration - p.radius));
+        } else {
+          const delta = sub(p.position, body.position), r = length(delta), colliderRadius = sampledRadii.get(body.id) ?? body.radius;
+          penetration = colliderRadius + p.radius - r;
+          normal = r > 1e-12 ? mul(delta, 1 / r) : [1, 0, 0];
+          point = add(body.position, mul(normal, colliderRadius));
+        }
         if (penetration <= 0) continue;
-        const normal: Vec3 = r > 1e-12 ? mul(delta, 1 / r) : [1, 0, 0];
         // Bound bodies are owned by the physics plugin, not integrated a second time here.
-        const sampled = sampledRadii.has(body.id);
+        const sampled = isSampled(body.id);
         const bodyWeight = state.options.twoWayCoupling && !sampled ? body.inverseMass : 0;
         const weight = p.inverseMass + bodyWeight;
         accumulate(p.position, normal, (penetration * p.inverseMass) / weight);
@@ -237,9 +249,14 @@ export function createSimulation(
         if (state.options.twoWayCoupling && (bodyWeight > 0 || sampled)) {
           const impulse = mul(normal, -penetration / (weight * h));
           accumulate(state.counters.reactionImpulse, impulse);
+          state.counters.reactionMoment ??= [0, 0, 0];
+          accumulate(state.counters.reactionMoment, cross(point, impulse));
           state.counters.absoluteReactionImpulse += length(impulse);
+          if (!isVec3(state.counters.reactionImpulse) || !isVec3(state.counters.reactionMoment) || !Number.isFinite(state.counters.absoluteReactionImpulse))
+            fail("SIM_NONFINITE", "Contact reaction exceeded finite bounds; restore a known-good snapshot.");
         }
       }
+    }
     for (const collider of colliders) for (const particle of state.particles) {
       if (particle.inverseMass === 0) continue;
       let normal: Vec3, penetration: number;
@@ -309,7 +326,7 @@ export function createSimulation(
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (p.inverseMass === 0) continue;
-      if (i < state.bodies.length && sampledRadii.has(p.id)) continue;
+      if (i < state.bodies.length && isSampled(p.id)) continue;
       accumulate(p.velocity, state.options.gravity, h);
       const appliedForce = particleForces.get(p.id);
       if (appliedForce) accumulate(p.velocity, appliedForce, p.inverseMass * h);
@@ -329,12 +346,12 @@ export function createSimulation(
       solveVolumes(h, volumeLambdas);
       solveContacts(h);
       solveSoftBodySelfContacts();
-      for (const p of points) if (!sampledRadii.has(p.id)) constrainWalls(p);
+      for (const p of points) if (!isSampled(p.id)) constrainWalls(p);
     }
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (p.inverseMass === 0) continue;
-      if (i < state.bodies.length && sampledRadii.has(p.id)) continue;
+      if (i < state.bodies.length && isSampled(p.id)) continue;
       p.velocity = mul(sub(p.position, oldPositions[i]), 1 / h);
       state.counters.maxObservedSpeed = Math.max(
         state.counters.maxObservedSpeed,
@@ -512,8 +529,22 @@ export function createSimulation(
         fail("SIM_BODY", "Sampled radius must be finite and in (0, 1e6].");
       body.position = copy(position);
       body.velocity = copy(velocity);
+      sampledBoxes.delete(id);
       if (radius === undefined) sampledRadii.delete(id);
       else sampledRadii.set(id, radius);
+    },
+    setBodyBoxState(id: string, position: Vec3, velocity: Vec3, halfExtents: Vec3, rotation: Vec3) {
+      alive();
+      const body = state.bodies.find(item => item.id === id);
+      if (!body) return fail("SIM_BODY", `Unknown body '${id}'.`);
+      if (!isVec3(position) || !isVec3(velocity) || !isVec3(halfExtents) || !isVec3(rotation) ||
+          halfExtents.some(value => value <= 0 || value > 1e6) || rotation.some(value => Math.abs(value) > 1e6))
+        return fail("SIM_BODY", "Sampled box needs finite position, velocity and rotation, and half-extents in (0, 1e6].");
+      const nextPosition = copy(position), extents = copy(halfExtents), angles = copy(rotation);
+      const frame = createBoxFrame(nextPosition, angles);
+      body.position = nextPosition; body.velocity = copy(velocity);
+      sampledRadii.delete(id);
+      sampledBoxes.set(id, { halfExtents: extents, rotation: angles, frame });
     },
     setTwoWayCoupling(enabled: boolean) {
       alive();
@@ -535,6 +566,7 @@ export function createSimulation(
       return copy({
         ...state,
         ...(sampledRadii.size ? { sampledBodies: [...sampledRadii].map(([id, radius]) => ({ id, radius })).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) } : {}),
+        ...(sampledBoxes.size ? { sampledBoxes: [...sampledBoxes].map(([id, box]) => ({ id, halfExtents: box.halfExtents, rotation: box.rotation })).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) } : {}),
         ...(particleForces.size ? { particleForces: [...particleForces].map(([id, force]) => ({ id, force: [...force] as Vec3 })).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) } : {}),
         ...(colliders.length ? { colliders: copy(colliders) } : {}),
       });
@@ -542,11 +574,18 @@ export function createSimulation(
     restore(snapshot: SimulationSnapshot) {
       alive();
       const validated = validateSnapshot(snapshot, kind);
-      const { sampledBodies, particleForces: savedForces, colliders: savedColliders, ...next } = validated;
+      const { sampledBodies, sampledBoxes: savedBoxes, particleForces: savedForces, colliders: savedColliders, ...next } = validated;
+      const nextBoxes = new Map<string, { halfExtents: Vec3; rotation: Vec3; frame: BoxFrame }>();
+      for (const box of savedBoxes ?? []) {
+        const body = next.bodies.find(item => item.id === box.id)!;
+        nextBoxes.set(box.id, { halfExtents: box.halfExtents, rotation: box.rotation, frame: createBoxFrame(body.position, box.rotation) });
+      }
       state = next;
       adjacentParticles = excludedPairs(state);
       sampledRadii.clear();
       for (const body of sampledBodies ?? []) sampledRadii.set(body.id, body.radius);
+      sampledBoxes.clear();
+      for (const [id, box] of nextBoxes) sampledBoxes.set(id, box);
       particleForces.clear();
       for (const item of savedForces ?? []) particleForces.set(item.id, item.force);
       colliders = savedColliders ?? [];
@@ -569,7 +608,11 @@ export function createSimulation(
       return {
         kind,
         tick: state.tick,
-        bodies: state.bodies.map((body) => ({ ...renderPoint(body), radius: sampledRadii.get(body.id) ?? body.radius })),
+        bodies: state.bodies.map((body) => {
+          const box = sampledBoxes.get(body.id);
+          return { ...renderPoint(body), radius: sampledRadii.get(body.id) ?? body.radius,
+            ...(box ? { collider: { kind: "box" as const, halfExtents: copy(box.halfExtents), rotation: copy(box.rotation) } } : {}) };
+        }),
         particles: state.particles.map(renderPoint),
         links: state.distances.map((c) => [c.a, c.b]),
         triangles: state.triangles.map((t) => [...t]),
@@ -583,6 +626,7 @@ export function createSimulation(
     dispose() {
       if (disposed) return;
       sampledRadii.clear();
+      sampledBoxes.clear();
       particleForces.clear();
       colliders = [];
       state.bodies.length = 0;
@@ -646,16 +690,28 @@ function validateSnapshot(
     for (const key of ["distances", "volumes", "triangles"] as const)
       if (JSON.stringify(input[key]) !== JSON.stringify(expected[key]))
         throw new Error(`invalid ${key} topology`);
+    const sampledIds = new Set<string>();
     if (input.sampledBodies !== undefined) {
       if (!Array.isArray(input.sampledBodies) || input.sampledBodies.length > expected.bodies.length)
         throw new Error("invalid sampled bodies");
-      const ids = new Set<string>();
       for (const body of input.sampledBodies) {
-        if (!body || typeof body !== "object" || typeof body.id !== "string" || ids.has(body.id) ||
+        if (!body || typeof body !== "object" || typeof body.id !== "string" || sampledIds.has(body.id) ||
             !expected.bodies.some(item => item.id === body.id) || typeof body.radius !== "number" ||
             !Number.isFinite(body.radius) || body.radius <= 0 || body.radius > 1e6)
           throw new Error("invalid sampled body radius or identity");
-        ids.add(body.id);
+        sampledIds.add(body.id);
+      }
+    }
+    if (input.sampledBoxes !== undefined) {
+      if (!Array.isArray(input.sampledBoxes) || input.sampledBoxes.length > expected.bodies.length)
+        throw new Error("invalid sampled boxes");
+      for (const box of input.sampledBoxes) {
+        if (!box || typeof box !== "object" || typeof box.id !== "string" || sampledIds.has(box.id) ||
+            !expected.bodies.some(item => item.id === box.id) || !isVec3(box.halfExtents) ||
+            box.halfExtents.some(value => value <= 0 || value > 1e6) || !isVec3(box.rotation) ||
+            box.rotation.some(value => Math.abs(value) > 1e6))
+          throw new Error("invalid sampled box shape or identity");
+        sampledIds.add(box.id);
       }
     }
     if (input.particleForces !== undefined) {
@@ -678,7 +734,8 @@ function validateSnapshot(
       !Number.isSafeInteger(c.contactCount) ||
       c.contactCount < 0 ||
       (c.selfContactCorrections !== undefined && (!Number.isSafeInteger(c.selfContactCorrections) || c.selfContactCorrections < 0)) ||
-      !isVec3(c.reactionImpulse)
+      !isVec3(c.reactionImpulse) ||
+      (c.reactionMoment !== undefined && !isVec3(c.reactionMoment))
     )
       throw new Error("invalid contact counters");
     for (const n of [

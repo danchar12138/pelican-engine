@@ -66,7 +66,7 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       const expected = entry.simulation.snapshot().options;
       entry.simulation.restore(item.state);
       checkColliderBindings(item.state.colliders, entry.definition.bodyColliders ?? [], "TC_SOFTBODY_SNAPSHOT");
-      if (!entry.definition.bodyColliders?.length && item.state.sampledBodies?.length)
+      if (!entry.definition.bodyColliders?.length && (item.state.sampledBodies?.length || item.state.sampledBoxes?.length))
         fail("SNAPSHOT", `Soft body '${entry.definition.id}' has sampled bodies but no binding.`);
       const differing = differingSimulationOption(entry.simulation.snapshot().options, expected, "softbody", !!entry.definition.bodyColliders?.length);
       if (differing) fail("SNAPSHOT", `Soft body '${entry.definition.id}' option '${differing}' differs from its definition.`);
@@ -93,7 +93,9 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     const binding = entry.definition.bodyColliders?.[0];
     if (!binding) return;
     const sample = requireSampledBody(context, binding, entry.bodyRef, "TC_SOFTBODY_BODY_COLLIDER");
-    entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], sample.radius);
+    if (sample.kind === "sphere")
+      entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], sample.radius);
+    else entry.simulation.setBodyBoxState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], [...sample.halfExtents] as [number, number, number], [...sample.rotation] as [number, number, number]);
     entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
   };
   const service: SoftBodyService = {
@@ -116,7 +118,7 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
       alive();
       ensureRefs();
       const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = [];
-      const reactions = new Map<string, [number, number, number]>();
+      const reactions = new Map<string, { impulse: [number, number, number]; moment: [number, number, number] }>();
       try {
         for (const entry of [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id))) {
           const snapshot = entry.simulation.snapshot();
@@ -125,18 +127,17 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
           const state = entry.simulation.step(1);
           const binding = entry.definition.bodyColliders?.[0];
           if (entry.definition.bodyReactions && binding) {
-            const impulse = reactions.get(binding.entity) ?? [0, 0, 0];
-            for (let i = 0; i < 3; i++) impulse[i] += state.contacts.reactionImpulse[i] - snapshot.counters.reactionImpulse[i];
-            reactions.set(binding.entity, impulse);
+            const reaction = reactions.get(binding.entity) ?? { impulse: [0, 0, 0], moment: [0, 0, 0] };
+            for (let i = 0; i < 3; i++) {
+              reaction.impulse[i] += state.contacts.reactionImpulse[i] - snapshot.counters.reactionImpulse[i];
+              reaction.moment[i] += (state.contacts.reactionMoment?.[i] ?? 0) - (snapshot.counters.reactionMoment?.[i] ?? 0);
+            }
+            reactions.set(binding.entity, reaction);
           }
         }
         if (reactions.size) {
           const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
-          bridge.applySphereReactions([...reactions].sort(([a], [b]) => a.localeCompare(b)).map(([entity, impulse]) => {
-            // Normal impulses on a sphere pass through its collider center, which can differ from its body's center of mass.
-            const c = bridge.sampleSphere(entity).center;
-            return { entity, impulse, moment: [c[1] * impulse[2] - c[2] * impulse[1], c[2] * impulse[0] - c[0] * impulse[2], c[0] * impulse[1] - c[1] * impulse[0]] as Vec3 };
-          }));
+          bridge.applyParticleReactions([...reactions].sort(([a], [b]) => a.localeCompare(b)).map(([entity, reaction]) => ({ entity, ...reaction })));
         }
       } catch (error) {
         const failures: string[] = [];

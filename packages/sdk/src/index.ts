@@ -517,6 +517,7 @@ export interface ClothService {
 }
 /** CPU WCSPH fluid prototype exposed as a bounded development service. */
 export interface FluidVisualOptions { material: string; radius?: number; castShadow?: boolean; receiveShadow?: boolean }
+/** One live dynamic non-trigger sphere or box sampled after each physics step. */
 export interface FluidBodyCollider { readonly id: string; readonly entity: string }
 /** Axis-aligned container bounds relative to the simulation origin. */
 export interface SimulationContainer { min: Vec3; max: Vec3 }
@@ -530,15 +531,20 @@ export interface FluidDefinition {
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
   bodyColliders?: readonly FluidBodyCollider[];
+  /** Submit delayed, projection-derived contact impulses; not full two-way coupling. */
   bodyReactions?: boolean;
 }
-export interface FluidParticle { id: string; position: Vec3; radius: number }
+export interface FluidParticle {
+  id: string; position: Vec3; radius: number;
+  /** For a sampled box body, radius is the reference particle radius, not the collider dimensions. */
+  collider?: { kind: "box"; halfExtents: Vec3; rotation: Vec3 };
+}
 export interface FluidState {
   tick: number; simulatedSeconds: number; disposed: boolean; particles: FluidParticle[]; bodies: FluidParticle[];
   /** Velocities in metres per second, aligned with particles. */
   velocities: Vec3[];
   gravity: Vec3;
-  contacts: { contactCount: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
+  contacts: { contactCount: number; reactionImpulse: Vec3; reactionMoment?: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
   fluid: { method: "WCSPH"; restDensity: number; minDensity: number; maxDensity: number; maxPressure: number } | null;
   resources: { particles: number; bodies: number };
 }
@@ -575,6 +581,7 @@ export interface FluidService {
 }
 /** CPU tetrahedral soft-body service backed by the bounded XPBD reference solver. */
 export interface SoftBodyVisualOptions { material: string; castShadow?: boolean; receiveShadow?: boolean }
+/** One live dynamic non-trigger sphere or box sampled after each physics step. */
 export interface SoftBodyBodyCollider { readonly id: string; readonly entity: string }
 export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
@@ -588,6 +595,7 @@ export interface SoftBodyDefinition {
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: SoftBodyVisualOptions;
   bodyColliders?: readonly SoftBodyBodyCollider[];
+  /** Submit delayed, projection-derived contact impulses; not full two-way coupling. */
   bodyReactions?: boolean;
 }
 export interface SoftBodyState {
@@ -598,7 +606,7 @@ export interface SoftBodyState {
   particleIds: string[];
   /** Velocities in metres per second, aligned with positions and particleIds. */
   velocities: Vec3[];
-  contacts: { contactCount: number; selfContactCorrections?: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
+  contacts: { contactCount: number; selfContactCorrections?: number; reactionImpulse: Vec3; reactionMoment?: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
   maxDistanceError: number; maxVolumeRelativeError: number; minSignedVolumeRatio: number | null;
   resources: { particles: number; bodies: number; constraints: number; triangles: number };
 }

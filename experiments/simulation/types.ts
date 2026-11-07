@@ -67,6 +67,8 @@ export interface SimulationCounters {
   /** Cumulative particle-pair projection count, not unique contact events. */
   selfContactCorrections?: number;
   reactionImpulse: Vec3;
+  /** Cumulative reaction angular impulse about the world origin. */
+  reactionMoment?: Vec3;
   absoluteReactionImpulse: number;
   maxContactCorrection: number;
   maxObservedSpeed: number;
@@ -85,6 +87,8 @@ export interface SimulationSnapshot {
   counters: SimulationCounters;
   /** Optional sampled collider radii; absent in snapshots created before this field. */
   sampledBodies?: { id: string; radius: number }[];
+  /** Optional sampled boxes; mutually exclusive with sampledBodies for each body. */
+  sampledBoxes?: { id: string; halfExtents: Vec3; rotation: Vec3 }[];
   /** Forces queued for one fixed tick; absent in older snapshots. */
   particleForces?: { id: string; force: Vec3 }[];
   /** Manually configured particle colliders; absent in older snapshots. */
@@ -93,7 +97,7 @@ export interface SimulationSnapshot {
 export interface SimulationRenderState {
   kind: SimulationKind;
   tick: number;
-  bodies: { id: string; position: Vec3; radius: number }[];
+  bodies: { id: string; position: Vec3; radius: number; collider?: { kind: "box"; halfExtents: Vec3; rotation: Vec3 } }[];
   particles: { id: string; position: Vec3; radius: number }[];
   /** Every index in links / triangles addresses particles, never bodies. */
   links: [number, number][];
@@ -140,6 +144,8 @@ export interface Simulation {
   step(steps?: number): SimulationInspection;
   /** Updates the built-in sampled sphere body used by the CPU reference scenes. */
   setBodyState(id: string, position: Vec3, velocity: Vec3, radius?: number): void;
+  /** Updates a physics-owned oriented box, without integrating it in the reference solver. */
+  setBodyBoxState(id: string, position: Vec3, velocity: Vec3, halfExtents: Vec3, rotation: Vec3): void;
   setTwoWayCoupling(enabled: boolean): void;
   setGravity(gravity: Vec3): void;
   setColliders(colliders: readonly SimulationCollider[]): void;

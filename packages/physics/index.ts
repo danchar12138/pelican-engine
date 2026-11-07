@@ -1182,7 +1182,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const,
     };
   };
-  const sampleSimulationBody = (id: string, owner: "CLOTH" | "ROPE"): ClothPhysicsBody => {
+  const sampleSimulationBody = (id: string, owner: "CLOTH" | "ROPE" | "PARTICLE"): ClothPhysicsBody => {
     const body = get(id), definition = body.definition.rigidBody;
     const code = `TC_PHYSICS_${owner}_BODY`;
     if (body.type !== "dynamic" || !definition || body.collider.isSensor())
@@ -1201,7 +1201,8 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   };
   const sampleClothBody = (id: string) => sampleSimulationBody(id, "CLOTH");
   const sampleRopeBody = (id: string) => sampleSimulationBody(id, "ROPE");
-  const applyReactions = (reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[], owner: "SPHERE" | "CLOTH" | "ROPE") => {
+  const sampleParticleBody = (id: string) => sampleSimulationBody(id, "PARTICLE");
+  const applyReactions = (reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[], owner: "SPHERE" | "CLOTH" | "ROPE" | "PARTICLE") => {
     alive();
     const seen = new Set<string>();
     const actions: Action[] = [];
@@ -1232,9 +1233,11 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       sampleSphere: sampleRopeSphere,
       sampleClothBody,
       sampleRopeBody,
+      sampleParticleBody,
       applySphereReactions(reactions) { applyReactions(reactions, "SPHERE"); },
       applyClothReactions(reactions) { applyReactions(reactions, "CLOTH"); },
       applyRopeReactions(reactions) { applyReactions(reactions, "ROPE"); },
+      applyParticleReactions(reactions) { applyReactions(reactions, "PARTICLE"); },
     },
     systems: [
       {

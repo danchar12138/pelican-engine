@@ -15,8 +15,8 @@ export function requireSampledBody(context: RuntimePluginContext, binding: Sampl
   if (!ref || !context.world.isAlive(ref))
     throw new Error(`${code}: Body '${binding.entity}' is stale. Destroy and recreate the simulation binding.`);
   const bridge = context.getRopePhysicsBridge?.();
-  if (!bridge) throw new Error(`${code}: A physics plugin with a live dynamic sphere is required.`);
-  return bridge.sampleSphere(binding.entity);
+  if (!bridge) throw new Error(`${code}: A physics plugin with a live dynamic sphere or box is required.`);
+  return bridge.sampleParticleBody(binding.entity);
 }
 
 export function validateSampledBodyWorld(context: RuntimePluginContext, world: WorldSnapshot, bindings: Iterable<SampledBodyBinding>, code: string): void {
@@ -24,8 +24,8 @@ export function validateSampledBodyWorld(context: RuntimePluginContext, world: W
   for (const binding of bindings) {
     const record = records.get(binding.entity);
     const body = record && resolveEntityDefinition(context.scene, record)?.rigidBody;
-    if (!body || body.type !== "dynamic" || body.trigger || body.collider.shape !== "sphere")
-      throw new Error(`${code}: Restored body '${binding.entity}' must be a live dynamic, non-trigger sphere.`);
+    if (!body || body.type !== "dynamic" || body.trigger || !["sphere", "box"].includes(body.collider.shape))
+      throw new Error(`${code}: Restored body '${binding.entity}' must be a live dynamic, non-trigger sphere or box.`);
   }
 }
 
