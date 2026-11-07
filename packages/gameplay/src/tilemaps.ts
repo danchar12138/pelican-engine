@@ -1,4 +1,4 @@
-import type { EntityHandle, NavigationObstacleUpdate, NavigationService, TilemapDefinition, TilemapNavigationOptions, TilemapService, TilemapState, TilemapUpdate, TilemapVisualState, Vec2 } from "../../sdk/src/index.ts";
+import type { EntityHandle, NavigationObstacleUpdate, NavigationService, Physics2DCollider, Physics2DService, TilemapDefinition, TilemapNavigationOptions, TilemapPhysics2DOptions, TilemapService, TilemapState, TilemapUpdate, TilemapVisualState, Vec2 } from "../../sdk/src/index.ts";
 import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
@@ -7,7 +7,7 @@ type SavedMap = { id: string; entity: string; material: string; width: number; h
   columns: number; rows: number; castShadow: boolean; receiveShadow: boolean; cells: (number | null)[] };
 type Entry = SavedMap & { token: number; revisions: number[] };
 type Snapshot = { format: "pelican.tilemaps"; version: 1; maps: SavedMap[] };
-const CHUNK = 32, MAX_MAPS = 64, MAX_DIMENSION = 512, MAX_CELLS = 65536, MAX_TOTAL_CELLS = 262144, MAX_ATLAS_DIM = 256, MAX_FRAMES = 4096, MAX_UPDATES = 4096;
+const CHUNK = 32, MAX_MAPS = 64, MAX_DIMENSION = 512, MAX_CELLS = 65536, MAX_TOTAL_CELLS = 262144, MAX_ATLAS_DIM = 256, MAX_FRAMES = 4096, MAX_UPDATES = 4096, MAX_COLLIDER_PARTS = 2048;
 const fail = (code: string, message: string): never => { throw new Error(`TC_TILEMAP_${code}: ${message}`); };
 const validName = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value);
 const fields = (value: unknown, allowed: readonly string[]): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every(key => allowed.includes(key));
@@ -128,6 +128,47 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
     else for (let index = 0; index < item.cells.length; index++) append(index, item.cells[index]);
     return { nav, updates };
   }
+  function planPhysics(item: Entry, bodyId: string, input: TilemapPhysics2DOptions, cells: readonly (number | null)[] = item.cells) {
+    const physics: Physics2DService = context.getPhysics2DService?.() ?? fail("PHYSICS2D_UNAVAILABLE", "Enable scene.physics2d before synchronizing tile collisions.");
+    const body = physics.inspect(bodyId);
+    if (body.type !== "fixed" || body.entity !== item.entity)
+      return fail("PHYSICS2D_BODY", `Body '${bodyId}' must be fixed and bound to tilemap entity '${item.entity}'.`);
+    const options = cloneSerializable(input);
+    if (!fields(options, ["solidFrames", "emptySolid"]) || !Array.isArray(options.solidFrames) || options.solidFrames.length > MAX_FRAMES ||
+        (options.emptySolid !== undefined && typeof options.emptySolid !== "boolean"))
+      return fail("PHYSICS2D_OPTIONS", "Provide solidFrames and optional emptySolid.");
+    const solidFrames = new Set<number>();
+    for (const candidate of options.solidFrames) {
+      const selected = frame(candidate, item.columns * item.rows);
+      if (selected === null || solidFrames.has(selected)) return fail("PHYSICS2D_OPTIONS", "solidFrames must contain distinct atlas frame indices.");
+      solidFrames.add(selected);
+    }
+    const solid = (index: number) => cells[index] === null ? options.emptySolid === true : solidFrames.has(cells[index] as number);
+    const visited = new Uint8Array(cells.length), parts: { halfExtents: Vec2; offset: Vec2 }[] = [];
+    for (let y = 0; y < item.height; y++) for (let x = 0; x < item.width; x++) {
+      const index = y * item.width + x;
+      if (visited[index] || !solid(index)) continue;
+      let width = 0;
+      while (x + width < item.width && !visited[index + width] && solid(index + width)) width++;
+      let height = 1;
+      while (y + height < item.height) {
+        let complete = true;
+        for (let dx = 0; dx < width; dx++) {
+          const candidate = (y + height) * item.width + x + dx;
+          if (visited[candidate] || !solid(candidate)) { complete = false; break; }
+        }
+        if (!complete) break;
+        height++;
+      }
+      if (parts.length >= MAX_COLLIDER_PARTS) return fail("PHYSICS2D_CAPACITY", `Tilemap '${item.id}' needs more than ${MAX_COLLIDER_PARTS} collision rectangles; simplify or split it.`);
+      for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) visited[(y + dy) * item.width + x + dx] = 1;
+      const halfX = width * item.tileSize[0] / 2, halfY = height * item.tileSize[1] / 2;
+      const centerX = item.offset[0] + (x + width / 2) * item.tileSize[0], centerY = item.offset[1] - (y + height / 2) * item.tileSize[1];
+      parts.push({ halfExtents: [halfX, halfY], offset: [centerX, centerY] });
+    }
+    const collider: Physics2DCollider = { shape: "compound", parts };
+    return { physics, collider };
+  }
   const service: TilemapService = {
     create(input) {
       alive(); prune();
@@ -175,6 +216,27 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
         try { navigation.nav.setBlockedBatch(grid, previous); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
         if (rollbackErrors.length)
           throw new AggregateError([error, ...rollbackErrors], "TC_TILEMAP_NAVIGATION_ROLLBACK: Tile/navigation update failed and rollback failed; partialState=true. Restore a known-good host checkpoint.");
+        throw error;
+      }
+    },
+    syncPhysics2D(id, body, options) {
+      const item = get(id), planned = planPhysics(item, body, options);
+      planned.physics.setCollider(body, planned.collider);
+    },
+    setTilesAndSyncPhysics2D(id, input, body, options) {
+      const item = get(id), plan = planTiles(item, input), oldCells = item.cells, oldRevisions = item.revisions;
+      const cells = [...oldCells], revisions = [...oldRevisions];
+      for (const [index, value] of plan.changes) cells[index] = value;
+      for (const chunk of plan.changedChunks) revisions[chunk]++;
+      const planned = planPhysics(item, body, options, cells), previous = planned.physics.collider(body);
+      // A failed native replacement already reports partialState; do not retry it blindly.
+      planned.physics.setCollider(body, planned.collider);
+      try { item.cells = cells; item.revisions = revisions; }
+      catch (error) {
+        const failures: unknown[] = [error];
+        try { item.cells = oldCells; item.revisions = oldRevisions; } catch (rollback) { failures.push(rollback); }
+        try { planned.physics.setCollider(body, previous); } catch (rollback) { failures.push(rollback); }
+        if (failures.length > 1) throw new AggregateError(failures, "TC_TILEMAP_PHYSICS2D_ROLLBACK: Tile/collider update failed and rollback failed; partialState=true. Restore a known-good checkpoint.");
         throw error;
       }
     },

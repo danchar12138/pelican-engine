@@ -80,6 +80,8 @@ export interface RuntimePluginContext {
   /** Internal lazy bridge; tile maps may be registered before or after navigation. */
   getNavigationService?(): NavigationService | undefined;
   getPhysics2DBridge?(): Physics2DBridge | undefined;
+  /** Internal lazy service bridge for explicit tile collision synchronization. */
+  getPhysics2DService?(): Physics2DService | undefined;
   /** Host interval; supplied by RuntimeHost to engine plugins. */
   readonly fixedDt?: number;
   world: RuntimeWorld;

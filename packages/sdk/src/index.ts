@@ -132,7 +132,9 @@ export interface SystemContext extends EngineFacade {
 }
 export type Physics2DCollider =
   | { shape: "box"; halfExtents: Vec2; offset?: Vec2 }
-  | { shape: "circle"; radius: number; offset?: Vec2 };
+  | { shape: "circle"; radius: number; offset?: Vec2 }
+  /** Fixed bodies only; an empty list represents no collider. */
+  | { shape: "compound"; parts: readonly { halfExtents: Vec2; offset: Vec2 }[] };
 export interface Physics2DBodyDefinition {
   id: string; entity: string; type: "fixed" | "dynamic" | "kinematic";
   collider: Physics2DCollider;
@@ -147,6 +149,9 @@ export interface Physics2DBodyState {
 export interface Physics2DService {
   create(definition: Physics2DBodyDefinition): void;
   destroy(id: string): void;
+  /** Replace a fixed body's collider; collision event continuity is not preserved. */
+  setCollider(id: string, collider: Physics2DCollider): void;
+  collider(id: string): Physics2DCollider;
   setVelocity(id: string, velocity: Vec2): void;
   setAngularVelocity(id: string, velocity: number): void;
   applyImpulse(id: string, impulse: Vec2): void;
@@ -216,6 +221,10 @@ export interface TilemapNavigationOptions {
   blockedFrames: readonly number[];
   emptyBlocked?: boolean;
 }
+export interface TilemapPhysics2DOptions {
+  solidFrames: readonly number[];
+  emptySolid?: boolean;
+}
 export interface TilemapState {
   id: string; entity: string; material: string; width: number; height: number;
   tileSize: Vec2; offset: Vec2; columns: number; rows: number;
@@ -240,6 +249,10 @@ export interface TilemapService {
   syncNavigation(id: string, grid: string, options: TilemapNavigationOptions): void;
   /** Update tiles and their mapped navigation cells together; see rollback diagnostics. */
   setTilesAndSyncNavigation(id: string, updates: readonly TilemapUpdate[], grid: string, options: TilemapNavigationOptions): void;
+  /** Replace a fixed 2D body's compound collider from current tile data. */
+  syncPhysics2D(id: string, body: string, options: TilemapPhysics2DOptions): void;
+  /** Update tiles and their fixed 2D collider together; see partial-state diagnostics. */
+  setTilesAndSyncPhysics2D(id: string, updates: readonly TilemapUpdate[], body: string, options: TilemapPhysics2DOptions): void;
   inspect(id: string): TilemapState;
   visuals(): readonly TilemapVisualState[];
   /** Read one 32×32 presentation chunk, including its current revision. */

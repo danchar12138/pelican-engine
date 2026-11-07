@@ -8,9 +8,9 @@ import { resolveEntityDefinition } from "../runtime/src/prefabs.ts";
 type Definition = Physics2DBodyDefinition & { friction: number; restitution: number; sensor: boolean; continuous: boolean };
 type BodySnapshot = { definition: Definition; prefab: string | null; lastTransform: Transform; position: Vec2; angle: number; velocity: Vec2; angularVelocity: number; sleeping: boolean };
 type Snapshot = { format: "pelican.physics2d"; version: 1; gravity: Vec2; tick: number; bodies: BodySnapshot[] };
-type Body = { definition: Definition; prefab: string | null; handle: EntityHandle; lastTransform: Transform; body: RAPIER.RigidBody; collider: RAPIER.Collider };
+type Body = { definition: Definition; prefab: string | null; handle: EntityHandle; lastTransform: Transform; body: RAPIER.RigidBody; collider?: RAPIER.Collider };
 type Native = { world: RAPIER.World; queue: RAPIER.EventQueue; bodies: Map<string, Body>; colliders: Map<number, Body> };
-const MAX_BODIES = 512, LIMIT = 1e6;
+const MAX_BODIES = 512, MAX_COMPOUND_PARTS = 2048, LIMIT = 1e6;
 const fail = (code: string, message: string): never => { throw new Error(`TC_PHYSICS2D_${code}: ${message}`); };
 const validName = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value);
 const fields = (value: unknown, allowed: readonly string[]): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every(key => allowed.includes(key));
@@ -46,12 +46,20 @@ function normalize(input: Physics2DBodyDefinition): Definition {
       !validName(input.id) || !validName(input.entity) || !["fixed", "dynamic", "kinematic"].includes(input.type) || !input.collider)
     return fail("DEFINITION", "Body needs nonempty id/entity, fixed/dynamic/kinematic type and a collider.");
   const raw = input.collider;
-  if (!fields(raw, raw.shape === "box" ? ["shape", "halfExtents", "offset"] : ["shape", "radius", "offset"]) || !["box", "circle"].includes(raw.shape as string))
-    return fail("COLLIDER", "Collider must be a box or circle with an optional XY offset.");
-  const offset = raw.offset === undefined ? undefined : pair(raw.offset, "collider offset");
-  const collider: Physics2DBodyDefinition["collider"] = raw.shape === "box"
-    ? { shape: "box", halfExtents: pair(raw.halfExtents, "halfExtents", true), ...(offset ? { offset } : {}) }
-    : { shape: "circle", radius: positive(raw.radius, "radius"), ...(offset ? { offset } : {}) };
+  let collider: Physics2DBodyDefinition["collider"];
+  if (raw.shape === "box" && fields(raw, ["shape", "halfExtents", "offset"])) {
+    const offset = raw.offset === undefined ? undefined : pair(raw.offset, "collider offset");
+    collider = { shape: "box", halfExtents: pair(raw.halfExtents, "halfExtents", true), ...(offset ? { offset } : {}) };
+  } else if (raw.shape === "circle" && fields(raw, ["shape", "radius", "offset"])) {
+    const offset = raw.offset === undefined ? undefined : pair(raw.offset, "collider offset");
+    collider = { shape: "circle", radius: positive(raw.radius, "radius"), ...(offset ? { offset } : {}) };
+  } else if (raw.shape === "compound" && fields(raw, ["shape", "parts"]) && Array.isArray(raw.parts) && raw.parts.length <= MAX_COMPOUND_PARTS) {
+    if (input.type !== "fixed") return fail("COLLIDER", "Compound colliders currently require a fixed body.");
+    collider = { shape: "compound", parts: raw.parts.map(part => {
+      if (!fields(part, ["halfExtents", "offset"])) return fail("COLLIDER", "Each compound part needs halfExtents and offset.");
+      return { halfExtents: pair(part.halfExtents, "halfExtents", true), offset: pair(part.offset, "collider offset") };
+    }) };
+  } else return fail("COLLIDER", `Collider must be a box, circle or fixed-body compound with at most ${MAX_COMPOUND_PARTS} boxes.`);
   if ((input.sensor !== undefined && typeof input.sensor !== "boolean") || (input.continuous !== undefined && typeof input.continuous !== "boolean"))
     return fail("DEFINITION", "sensor and continuous must be boolean.");
   if (input.type !== "dynamic" && (input.mass !== undefined || input.continuous === true))
@@ -78,6 +86,22 @@ function freeNative(native: Native): void {
   native.bodies.clear(); native.colliders.clear();
   if (errors.length) throw new AggregateError(errors, "TC_PHYSICS2D_DISPOSE: Some 2D physics resources could not be released; inspect causes and restart the scene.");
 }
+function colliderDescriptor(definition: Definition): RAPIER.ColliderDesc | null {
+  const shape = definition.collider;
+  let descriptor: RAPIER.ColliderDesc;
+  if (shape.shape === "box") descriptor = RAPIER.ColliderDesc.cuboid(shape.halfExtents[0], shape.halfExtents[1]);
+  else if (shape.shape === "circle") descriptor = RAPIER.ColliderDesc.ball(shape.radius);
+  else {
+    if (!shape.parts.length) return null;
+    descriptor = RAPIER.ColliderDesc.compound(shape.parts.map(part => new RAPIER.Cuboid(part.halfExtents[0], part.halfExtents[1])),
+      shape.parts.map(part => vector(part.offset)), shape.parts.map(() => 0));
+  }
+  const offset = shape.shape === "compound" ? [0, 0] : shape.offset ?? [0, 0];
+  descriptor.setTranslation(offset[0], offset[1]).setFriction(definition.friction).setRestitution(definition.restitution)
+    .setSensor(definition.sensor).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS).setActiveCollisionTypes(RAPIER.ActiveCollisionTypes.ALL);
+  if (definition.mass !== undefined) descriptor.setMass(definition.mass);
+  return descriptor;
+}
 function addNative(native: Native, definition: Definition, handle: EntityHandle, transform: Transform, prefab: string | null, saved?: BodySnapshot): Body {
   const position = saved?.position ?? [transform.position[0], transform.position[1]], angle = saved?.angle ?? transform.rotation[2];
   const descriptor = definition.type === "dynamic" ? RAPIER.RigidBodyDesc.dynamic() :
@@ -86,19 +110,14 @@ function addNative(native: Native, definition: Definition, handle: EntityHandle,
   if (definition.continuous) descriptor.setCcdEnabled(true);
   const body = native.world.createRigidBody(descriptor);
   try {
-    const shape = definition.collider;
-    const colliderDescriptor = shape.shape === "box" ? RAPIER.ColliderDesc.cuboid(shape.halfExtents[0], shape.halfExtents[1]) : RAPIER.ColliderDesc.ball(shape.radius);
-    const offset = shape.offset ?? [0, 0];
-    colliderDescriptor.setTranslation(offset[0], offset[1]).setFriction(definition.friction).setRestitution(definition.restitution)
-      .setSensor(definition.sensor).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS).setActiveCollisionTypes(RAPIER.ActiveCollisionTypes.ALL);
-    if (definition.mass !== undefined) colliderDescriptor.setMass(definition.mass);
-    const collider = native.world.createCollider(colliderDescriptor, body);
+    const descriptor = colliderDescriptor(definition);
+    const collider = descriptor ? native.world.createCollider(descriptor, body) : undefined;
     if (saved && definition.type === "dynamic") {
       body.setLinvel(vector(saved.velocity), true); body.setAngvel(saved.angularVelocity, true);
       if (saved.sleeping) body.sleep();
     }
-    const entry: Body = { definition, handle, prefab, lastTransform: saved?.lastTransform ?? transform, body, collider };
-    native.bodies.set(definition.id, entry); native.colliders.set(collider.handle, entry);
+    const entry: Body = { definition, handle, prefab, lastTransform: saved?.lastTransform ?? transform, body, ...(collider ? { collider } : {}) };
+    native.bodies.set(definition.id, entry); if (collider) native.colliders.set(collider.handle, entry);
     return entry;
   } catch (error) {
     try { native.world.removeRigidBody(body); }
@@ -173,9 +192,10 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
     return { transform: planar(context.world.getTransform(handle), identity.id), prefab: identity.prefab ?? null };
   };
   const remove = (entry: Body) => {
-    const colliderHandle = entry.collider.handle;
+    const colliderHandle = entry.collider?.handle;
     native.world.removeRigidBody(entry.body);
-    native.colliders.delete(colliderHandle); native.bodies.delete(entry.definition.id); dirty = true;
+    if (colliderHandle !== undefined) native.colliders.delete(colliderHandle);
+    native.bodies.delete(entry.definition.id); dirty = true;
   };
   const service: Physics2DService = {
     create(input) {
@@ -190,6 +210,27 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       addNative(native, definition, handle, checked.transform, checked.prefab); dirty = true;
     },
     destroy(id) { remove(get(id)); },
+    setCollider(id, input) {
+      const entry = get(id);
+      if (entry.definition.type !== "fixed") return fail("BODY_TYPE", "Collider replacement currently requires a fixed body.");
+      const next = normalize({ ...entry.definition, collider: cloneSerializable(input) });
+      const descriptor = colliderDescriptor(next), previous = entry.collider, previousHandle = previous?.handle;
+      let replacement: RAPIER.Collider | undefined;
+      try { if (descriptor) replacement = native.world.createCollider(descriptor, entry.body); }
+      catch (error) { dirty = true; throw new AggregateError([error], `TC_PHYSICS2D_COLLIDER_REPLACE: Could not create collider for '${id}'; partialState=true. Restore a known-good checkpoint.`); }
+      try { if (previous) native.world.removeCollider(previous, true); }
+      catch (error) {
+        const failures: unknown[] = [error];
+        if (replacement) try { native.world.removeCollider(replacement, true); } catch (cleanup) { failures.push(cleanup); }
+        dirty = true;
+        throw new AggregateError(failures, `TC_PHYSICS2D_COLLIDER_REPLACE: Could not remove the previous collider for '${id}'; partialState=true. Restore a known-good checkpoint.`);
+      }
+      if (previousHandle !== undefined) native.colliders.delete(previousHandle);
+      entry.collider = replacement;
+      if (replacement) native.colliders.set(replacement.handle, entry);
+      entry.definition = next; dirty = true;
+    },
+    collider(id) { return cloneSerializable(get(id).definition.collider); },
     setVelocity(id, value) { const entry = get(id), velocity = pair(value, "velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Velocity requires a dynamic body."); entry.body.setLinvel(vector(velocity), true); },
     setAngularVelocity(id, value) { const entry = get(id), velocity = scalar(value, "angular velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Angular velocity requires a dynamic body."); entry.body.setAngvel(velocity, true); },
     applyImpulse(id, value) { const entry = get(id), impulse = pair(value, "impulse"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Impulse requires a dynamic body."); entry.body.applyImpulse(vector(impulse), true); },

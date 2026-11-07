@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add fixed 2D compound colliders and explicit tile-to-physics synchronization. Collision behavior and failure recovery are unverified.
+
 - Add opt-in 2D rigid-body simulation with box/circle colliders, sensors, impulses, events and structured-state restoration. Runtime behavior is unverified.
 
 - Add explicit tile-to-navigation synchronization and XY-plane grid agents. Runtime behavior and rollback are unverified.

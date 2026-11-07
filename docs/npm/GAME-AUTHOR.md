@@ -199,7 +199,11 @@ ctx.physics2d.applyImpulse("hero-body", [0, 5]);
 ```
 
 Bodies may be fixed, dynamic or position-based kinematic; box and circle
-colliders support offsets, friction, restitution and sensors. Dynamic bodies
+colliders support offsets, friction, restitution and sensors. Fixed bodies may
+also use a compound of up to 2048 boxes; an empty compound has no collider.
+`setCollider` replaces a fixed body's collider and invalidates pending queries;
+contact event continuity is not preserved. A native replacement failure reports
+`partialState=true`; restore a known-good host checkpoint. Dynamic bodies
 support linear/angular velocity, impulses and optional continuous collision
 detection. Entity X/Y and Z-axis rotation are synchronized at the physics fixed
 step; Z position is preserved. Kinematic movement is supplied by changing the
@@ -218,8 +222,8 @@ optional `exclude` list contains body IDs, and sensors are excluded unless
 Snapshots save validated body definitions and state, then reconstruct a new 2D
 world; they do **not** use native snapshot deserialization. Contact caches,
 kinematic velocity and exact deterministic continuation are not preserved.
-Joints, character controllers, automatic tilemap colliders, 2D/3D coupling and
-complete 2D physics are not included. Runtime, collision, events, queries,
+Joints, character controllers, automatic tilemap collider bindings, 2D/3D
+coupling and complete 2D physics are not included. Runtime, collision, events, queries,
 resource cleanup and restoration have not been validated; the known separate
 3D first-step deletion issue remains open. See the asset-free
 `examples/physics2d` or the corresponding installed recipe.
@@ -259,9 +263,23 @@ failure reports `partialState=true` and requires a known-good host checkpoint.
 The mapping is explicit, not a persistent binding: repeat a full synchronization
 when using plain `setTiles` or changing the rules, and clean up the old grid
 region when changing origin or removing a map. It maps indices only, not entity
-transforms. Tile collision, animated tiles, automatic streaming and a
-full editor are not included. Rendering, synchronization, rollback, snapshots,
-memory use and perspective tracing are unverified; orthographic hybrid/path remain unavailable. A source checkout
+transforms.
+
+For explicit 2D tile collision, create a fixed `physics2d` body bound to the same
+root entity, initially with `{ shape: "compound", parts: [] }`, then call
+`ctx.tilemaps.syncPhysics2D("ground", "ground-body", { solidFrames: [2] })`.
+The service merges adjacent solid cells into at most 2048 box parts and replaces
+that body's collider; the body must not be shared with other collision content.
+`setTilesAndSyncPhysics2D` stages tile edits and replaces the collider together.
+The mapping is not persistent: plain tile edits require another explicit sync,
+and deleting a map does not remove its body. Collider replacement loses contact
+event continuity and ray queries require another physics step. If native
+replacement reports `partialState=true`, restore a known-good host checkpoint.
+Navigation, tiles and physics are not one cross-system transaction.
+
+Animated tiles, automatic streaming and a full editor are not included.
+Rendering, collision, synchronization, rollback, snapshots, memory use and
+perspective tracing are unverified; orthographic hybrid/path remain unavailable. A source checkout
 includes `examples/tilemap` and its MIT demonstration texture; npm games
 provide their own assets.
 

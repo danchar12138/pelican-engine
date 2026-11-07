@@ -168,6 +168,7 @@ export class RuntimeHost {
           getRopePhysicsBridge: () => this.plugins.find((plugin) => plugin.id === "$engine.physics")?.ropePhysicsBridge,
           getNavigationService: () => this.services.navigation,
           getPhysics2DBridge: () => this.plugins.find((plugin) => plugin.id === "$engine.physics2d")?.physics2DBridge,
+          getPhysics2DService: () => this.services.physics2d,
           world: this.world,
           scene: this.scene,
           events: (type) => this.scheduler.events(type),
