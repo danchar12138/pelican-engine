@@ -193,6 +193,14 @@ exhaustion returns `TC_NAVIGATION_CAPACITY`, not an unreachable result. Owners
 are explicit strings, not entities. This is a development-stage grid service,
 not continuous-world, flying or underwater navigation.
 
+Pass `{ allowDiagonal: true }` as the fourth `findPath` argument to allow eight
+movement directions. A diagonal cannot cross a corner if either adjacent
+orthogonal cell is blocked. Orthogonal steps cost the entered cell's cost;
+diagonal steps cost that amount multiplied by the square root of two. The
+search uses an octile lower-bound heuristic and still enforces the same search
+budget. This option changes only that search, not the grid or snapshot, and has
+not been runtime-validated.
+
 Use `ctx.navigation.setBlockedBatch(id, updates)` to change multiple cells in
 one grid. Each update has `{ cell: { x, y }, blocked: boolean }`. The service
 validates every entry before changing the grid; a bad entry rejects the whole

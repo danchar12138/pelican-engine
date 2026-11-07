@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add optional diagonal weighted grid paths with blocked-corner protection. Runtime behavior is unverified.
+
 - Add model animation clip discovery, pause/resume, seeking and speed control, including snapshot suspension state. Runtime behavior is unverified.
 
 ## 0.4.1 - 2026-11-07

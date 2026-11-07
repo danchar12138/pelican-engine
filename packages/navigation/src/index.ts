@@ -126,8 +126,13 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
         if (cost === 1) grid.costs.delete(index); else grid.costs.set(index, cost);
       }
     },
-    findPath(id, start, end) {
+    findPath(id, start, end, options) {
       const grid = get(id), from = cell(grid, start), to = cell(grid, end);
+      if (options !== undefined && (!options || typeof options !== "object" || Array.isArray(options) ||
+          Object.keys(options).some(key => key !== "allowDiagonal") ||
+          (options.allowDiagonal !== undefined && typeof options.allowDiagonal !== "boolean")))
+        fail("OPTIONS", "Path options require an optional boolean allowDiagonal.");
+      const diagonal = options?.allowDiagonal === true;
       const blocked = new Set(grid.blocked);
       if (blocked.has(from) || blocked.has(to)) fail("BLOCKED", "Start or destination is blocked.");
       const budget = grid.searchCellBudget ?? DEFAULT_SEARCH_CELLS;
@@ -153,12 +158,30 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
           if (x > 0) visitCell(index - 1);
           if (x + 1 < grid.width) visitCell(index + 1);
           if (y + 1 < grid.height) visitCell(index + grid.width);
+          if (diagonal) {
+            // Requiring both adjoining cells prevents cutting through a blocked corner.
+            const visitDiagonal = (dx: number, dy: number) => {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) return;
+              if (!blocked.has(index + dx) && !blocked.has(index + dy * grid.width))
+                visitCell(index + dx + dy * grid.width);
+            };
+            visitDiagonal(-1, -1);
+            visitDiagonal(1, -1);
+            visitDiagonal(-1, 1);
+            visitDiagonal(1, 1);
+          }
         },
       };
       const finder = aStar(graph as Parameters<typeof aStar>[0], {
-        heuristic: (a: Node, b: Node) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y),
+        heuristic: (a: Node, b: Node) => {
+          const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+          return diagonal ? Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy) : dx + dy;
+        },
         // ngraph.path passes the neighbor first; movement pays the entered cell's cost.
-        distance: (neighbor: Node) => grid.costs.get(neighbor.id) ?? 1,
+        distance: (neighbor: Node, current: Node) =>
+          (grid.costs.get(neighbor.id) ?? 1) *
+          (neighbor.x !== current.x && neighbor.y !== current.y ? Math.SQRT2 : 1),
       });
       const path = finder.find(from, to) as unknown as Node[];
       if (!path.length) return fail("UNREACHABLE", `Destination is unreachable on grid '${id}'.`);

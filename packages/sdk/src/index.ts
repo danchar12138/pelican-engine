@@ -424,7 +424,7 @@ export interface SoftBodyService {
   applyForces(id: string, forces: readonly SimulationForce[]): void;
   destroy(id: string): void;
 }
-/** Integer cells on a finite 2D orthogonal grid; not continuous, flying or underwater navigation.
+/** Integer cells on a finite 2D grid; not continuous, flying or underwater navigation.
  * Searches allocate sparse state and depend on available memory. At most 2^32-1 cells may be defined.
  * Owners are explicit strings and are not automatically tied to entities. */
 export interface NavigationCell { readonly x: number; readonly y: number }
@@ -442,6 +442,8 @@ export interface NavigationGrid {
   /** Maximum distinct search cells, including endpoints; defaults to 65536. Raising it increases memory and CPU use. */
   readonly searchCellBudget?: number;
 }
+/** Options for one grid search. Diagonal movement never crosses blocked corners. */
+export interface NavigationPathOptions { readonly allowDiagonal?: boolean }
 export interface NavigationService {
   createGrid(grid: NavigationGrid): void;
   /** Returns a detached description, including the current blocked cells. */
@@ -453,7 +455,8 @@ export interface NavigationService {
   getCost(id: string, cell: NavigationCell): number;
   /** Applies all validated updates together; repeated cells use the last cost. */
   setCostsBatch(id: string, updates: readonly NavigationCostUpdate[]): void;
-  findPath(id: string, start: NavigationCell, end: NavigationCell): readonly NavigationCell[];
+  /** Four-directional by default; diagonals cost sqrt(2) times the entered cell cost. */
+  findPath(id: string, start: NavigationCell, end: NavigationCell, options?: NavigationPathOptions): readonly NavigationCell[];
   destroyGrid(id: string): void;
   destroyOwner(owner: string): void;
 }
