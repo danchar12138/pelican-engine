@@ -1757,6 +1757,8 @@ export interface SceneInput {
   };
   environment?: {
     background?: string;
+    /** Optional equirectangular panorama used as the visible background, not scene lighting. */
+    backgroundTexture?: AssetDefinition | string;
     ambientIntensity?: number;
     lighting?: "none" | "studio";
   };
@@ -1775,7 +1777,7 @@ export interface SceneInput {
 
 ## SceneDefinition
 
-来源：`packages/sdk/src/index.ts:915`
+来源：`packages/sdk/src/index.ts:917`
 
 ```ts
 export interface SceneDefinition extends SceneInput {
@@ -1785,7 +1787,7 @@ export interface SceneDefinition extends SceneInput {
 
 ## SystemInput
 
-来源：`packages/sdk/src/index.ts:918`
+来源：`packages/sdk/src/index.ts:920`
 
 ```ts
 export interface SystemInput {
@@ -1802,7 +1804,7 @@ export interface SystemInput {
 
 ## SystemDefinition
 
-来源：`packages/sdk/src/index.ts:928`
+来源：`packages/sdk/src/index.ts:930`
 
 ```ts
 export interface SystemDefinition extends SystemInput {
@@ -1812,7 +1814,7 @@ export interface SystemDefinition extends SystemInput {
 
 ## GameInput
 
-来源：`packages/sdk/src/index.ts:931`
+来源：`packages/sdk/src/index.ts:933`
 
 ```ts
 export interface GameInput {
@@ -1838,7 +1840,7 @@ export interface GameInput {
 
 ## GameDefinition
 
-来源：`packages/sdk/src/index.ts:950`
+来源：`packages/sdk/src/index.ts:952`
 
 ```ts
 export interface GameDefinition extends GameInput {
@@ -1848,7 +1850,7 @@ export interface GameDefinition extends GameInput {
 
 ## GameInstance
 
-来源：`packages/sdk/src/index.ts:953`
+来源：`packages/sdk/src/index.ts:955`
 
 ```ts
 export interface GameInstance {
@@ -1859,7 +1861,7 @@ export interface GameInstance {
 
 ## defineComponent
 
-来源：`packages/sdk/src/index.ts:957`
+来源：`packages/sdk/src/index.ts:959`
 
 ```ts
 export function defineComponent<const S extends ComponentSchema>(input: {
@@ -1870,7 +1872,7 @@ export function defineComponent<const S extends ComponentSchema>(input: {
 
 ## defineMaterial
 
-来源：`packages/sdk/src/index.ts:963`
+来源：`packages/sdk/src/index.ts:965`
 
 ```ts
 export function defineMaterial(input: MaterialInput): MaterialDefinition;
@@ -1878,7 +1880,7 @@ export function defineMaterial(input: MaterialInput): MaterialDefinition;
 
 ## definePostProcess
 
-来源：`packages/sdk/src/index.ts:966`
+来源：`packages/sdk/src/index.ts:968`
 
 ```ts
 export function definePostProcess(input: PostProcessInput): PostProcessDefinition;
@@ -1886,7 +1888,7 @@ export function definePostProcess(input: PostProcessInput): PostProcessDefinitio
 
 ## defineCompute
 
-来源：`packages/sdk/src/index.ts:969`
+来源：`packages/sdk/src/index.ts:971`
 
 ```ts
 export function defineCompute(input: ComputeInput): ComputeDefinition;
@@ -1894,7 +1896,7 @@ export function defineCompute(input: ComputeInput): ComputeDefinition;
 
 ## defineAsset
 
-来源：`packages/sdk/src/index.ts:972`
+来源：`packages/sdk/src/index.ts:974`
 
 ```ts
 export function defineAsset(input: AssetInput): AssetDefinition;
@@ -1902,7 +1904,7 @@ export function defineAsset(input: AssetInput): AssetDefinition;
 
 ## definePrefab
 
-来源：`packages/sdk/src/index.ts:975`
+来源：`packages/sdk/src/index.ts:977`
 
 ```ts
 export function definePrefab(input: PrefabInput): PrefabDefinition;
@@ -1910,7 +1912,7 @@ export function definePrefab(input: PrefabInput): PrefabDefinition;
 
 ## defineScene
 
-来源：`packages/sdk/src/index.ts:978`
+来源：`packages/sdk/src/index.ts:980`
 
 ```ts
 export function defineScene(input: SceneInput): SceneDefinition;
@@ -1918,7 +1920,7 @@ export function defineScene(input: SceneInput): SceneDefinition;
 
 ## defineSystem
 
-来源：`packages/sdk/src/index.ts:981`
+来源：`packages/sdk/src/index.ts:983`
 
 ```ts
 export function defineSystem(input: SystemInput): SystemDefinition;
@@ -1926,7 +1928,7 @@ export function defineSystem(input: SystemInput): SystemDefinition;
 
 ## defineGame
 
-来源：`packages/sdk/src/index.ts:984`
+来源：`packages/sdk/src/index.ts:986`
 
 ```ts
 export function defineGame(input: GameInput): GameDefinition;
@@ -1934,7 +1936,7 @@ export function defineGame(input: GameInput): GameDefinition;
 
 ## instantiateGame
 
-来源：`packages/sdk/src/index.ts:988`
+来源：`packages/sdk/src/index.ts:990`
 
 ```ts
 export function instantiateGame(

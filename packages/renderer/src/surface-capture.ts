@@ -88,6 +88,13 @@ export function createSurfaceCapture() {
     return copy;
   };
   return {
+    captureTexture(texture: THREE.Texture): SurfaceTexture {
+      if (disposed) throw new Error("TC_TRACE_CAPTURE_DISPOSED");
+      const diagnostics: SurfaceDiagnostic[] = [];
+      const result = textureCache.getSnapshot(texture, pixels.decode, diagnostics);
+      if (!result.pixels) throw new Error(`TC_TRACE_BACKGROUND_PIXELS: Cannot read panorama ${texture.uuid}; use a decoded, accessible image.`);
+      return result;
+    },
     capture(
       scene: THREE.Scene,
       knownColorGraphs: ReadonlySet<THREE.Material> = new Set(),

@@ -898,6 +898,8 @@ export interface SceneInput {
   };
   environment?: {
     background?: string;
+    /** Optional equirectangular panorama used as the visible background, not scene lighting. */
+    backgroundTexture?: AssetDefinition | string;
     ambientIntensity?: number;
     lighting?: "none" | "studio";
   };

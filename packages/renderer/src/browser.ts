@@ -732,6 +732,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       ir.sounds ||
       ir.scene.follow ||
       ir.scene.environment.lighting === "studio" ||
+      ir.scene.environment.backgroundTexture ||
       [...ir.scene.entities, ...ir.prefabs].some(
         (entity) => entity.model || entity.rigidBody || entity.character,
       ) ||
@@ -919,7 +920,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     for (const [id, node] of nextObjects) gameObjects.set(id, node);
     materialGraphs.splice(0, materialGraphs.length, ...nextGraphs);
     authoredCamera = nextCamera;
-    scene.background = nextBackground;
+    scene.background = nextGameplay?.background ?? nextBackground;
     scene.environment = nextGameplay?.environment ?? null;
     camera.fov = ir.scene.camera.fov;
     camera.near = ir.scene.camera.near;
@@ -1111,7 +1112,7 @@ function cameraFrame() {
       intensity: definition?.intensity ?? 55,
       directional: definition?.kind === "directional",
     },
-    environment: (scene.background as THREE.Color).toArray(),
+    environment: scene.background instanceof THREE.Color ? scene.background.toArray() : [0, 0, 0],
     ambient: compiledIR?.scene.environment.ambientIntensity ?? 1,
   };
 }

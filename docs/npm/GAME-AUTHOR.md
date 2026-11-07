@@ -35,6 +35,11 @@ with `TC_MODEL_EXTENSION_UNSUPPORTED`; pointer-driven material animation is not
 implemented. A merely declared optional extension without such a channel does
 not cause this runtime rejection.
 
+Set `environment.backgroundTexture` to a declared texture asset to display an
+equirectangular panorama. It replaces the visible background color but does not
+provide environment lighting. PNG and JPEG follow the texture asset's color-space
+setting. Raster, path, hybrid and device-recovery behavior are not runtime-validated.
+
 GLB `KHR_materials_unlit` materials use their base color and texture without
 lighting; they do not emit light into the scene. Import, optimization and
 raster/path/hybrid behavior for this addition have not been runtime-validated.

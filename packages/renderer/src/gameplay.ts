@@ -36,6 +36,7 @@ export async function prepareGameplay(
   const textures = new Map<string, THREE.Texture>();
   let physics: PhysicsService | undefined;
   let environmentTarget: THREE.RenderTarget | undefined;
+  let background: THREE.Texture | undefined;
   const diagnostics: string[] = [];
   let audio: AudioContext | undefined;
   if ((ir.sounds?.length ?? 0) > 0) {
@@ -84,6 +85,7 @@ export async function prepareGameplay(
     busFadeKeys.clear();
     masterGain?.disconnect();
     environmentTarget?.dispose();
+    background?.dispose();
     for (const texture of textures.values()) texture.dispose();
     textures.clear();
     buffers.clear();
@@ -107,6 +109,15 @@ export async function prepareGameplay(
       );
       texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
       textures.set(asset.id, texture);
+    }
+    if (ir.scene.environment.backgroundTexture) {
+      const source = textures.get(ir.scene.environment.backgroundTexture);
+      if (!source) throw new Error(`TC_BACKGROUND_TEXTURE: Missing panorama '${ir.scene.environment.backgroundTexture}'.`);
+      background = source.clone();
+      background.mapping = THREE.EquirectangularReflectionMapping;
+      background.wrapS = THREE.RepeatWrapping;
+      background.wrapT = THREE.ClampToEdgeWrapping;
+      background.needsUpdate = true;
     }
     if (audio)
       for (const sound of ir.sounds ?? []) {
@@ -294,6 +305,7 @@ export async function prepareGameplay(
         return environmentTarget?.texture;
       },
       environment: environmentTarget?.texture,
+      background,
       textures,
       plugins,
       services,

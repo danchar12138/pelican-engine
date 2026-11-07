@@ -222,6 +222,7 @@ export class SurfaceTracer {
   private environmentRevision: EnvironmentRevision | undefined;
   private environmentImage: THREE.DataTexture | undefined;
   private environmentIndex = -1;
+  private backgroundIndex = -1;
   private environmentProposal:
     | ReturnType<typeof buildEnvironmentImportance>
     | undefined;
@@ -767,6 +768,7 @@ export class SurfaceTracer {
     this.environmentSource = null;
     this.environmentRevision = undefined;
     this.environmentIndex = -1;
+    this.backgroundIndex = -1;
     this.environmentProposal = undefined;
     this.buffers.get("environmentImportance")?.buffer.destroy();
     this.buffers.delete("environmentImportance");
@@ -801,9 +803,12 @@ export class SurfaceTracer {
       throw new Error(
         "TC_TRACE_FOG_STAGE: Fog transport is not integrated yet.",
       );
-    if (scene.background && !(scene.background instanceof THREE.Color))
+    if (scene.background && !(scene.background instanceof THREE.Color) &&
+        (!(scene.background instanceof THREE.Texture) || scene.background.mapping !== THREE.EquirectangularReflectionMapping ||
+          scene.backgroundBlurriness !== 0 || scene.backgroundIntensity !== 1 ||
+          scene.backgroundRotation.x !== 0 || scene.backgroundRotation.y !== 0 || scene.backgroundRotation.z !== 0))
       throw new Error(
-        "TC_TRACE_BACKGROUND_STAGE: Textured background needs explicit directional sampling.",
+        "TC_TRACE_BACKGROUND_STAGE: Use an unrotated equirectangular background without blur or intensity adjustment.",
       );
     const source = scene.environment,
       revision = source ? describeEnvironment(source) : undefined;
@@ -870,6 +875,16 @@ export class SurfaceTracer {
     }
     const start = performance.now(),
       captured = this.capture.capture(scene, knownGraphs, graphs);
+    this.backgroundIndex = -1;
+    if (scene.background instanceof THREE.Texture) {
+      const background = this.capture.captureTexture(scene.background);
+      const existing = captured.surface.textures.findIndex(texture => texture.uuid === background.uuid);
+      this.backgroundIndex = existing >= 0 ? existing : captured.surface.textures.length;
+      if (existing < 0) captured.surface = Object.freeze({
+        ...captured.surface,
+        textures: Object.freeze([...captured.surface.textures, background]),
+      });
+    }
     this.environmentIndex = -1;
     if (this.environmentImage) {
       const diagnostics = [] as (typeof captured.surface.diagnostics)[number][];
@@ -896,6 +911,7 @@ export class SurfaceTracer {
       .transpose();
     const environmentState = JSON.stringify([
       this.environmentIndex,
+      this.backgroundIndex,
       this.environmentIntensity,
       ...this.environmentRotation.elements,
     ]);
@@ -1426,7 +1442,7 @@ export class SurfaceTracer {
       ...up.toArray(),
       this.emissiveCount ? 1 : 0,
       ...this.environment,
-      0,
+      this.backgroundIndex + 1,
       this.width,
       this.height,
       this.serial++,
