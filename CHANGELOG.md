@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-11-07
+
+- Development batch only: tests, runtime behavior, browser input, graphics, hardware, performance, stability and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.
+
 - Add explicit localization catalogs, locale fallback, template substitution and Intl plural/number formatting. Runtime behavior is unverified.
 
 - Add branching text dialogue definitions, choices and snapshot-preserved sessions. Runtime behavior is unverified.
