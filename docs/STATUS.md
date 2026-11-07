@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- The local next batch exposes 3D sphere, box and capsule linear shape casts with live-entity and trigger filters. Query results, initial overlap handling and runtime behavior are unverified; this does not fix the 3D first-step removal defect.
+
 - The local next batch adds fixed-step navigation following for live root entities, including grid-boundary diagnostics, target lifetime tracking and snapshot state. This remains point-agent movement without physics integration or crowd avoidance; following and restoration are unverified.
 
 - The local next batch adds runtime intensity, linear RGB, visibility and directional/spot target overrides for declared entity/prefab lights, with snapshot state. It does not control embedded model lights. Raster, tracing, entity lifecycle and restoration behavior have not been runtime-validated.

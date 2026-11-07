@@ -43,6 +43,16 @@ radians. The box query is also runtime-unverified.
 the same filters with a local-Y capsule; half-height excludes its rounded ends.
 It has not been runtime-validated.
 
+`ctx.physics.castShape({ shape: "sphere", radius: 0.25 }, start, displacement)`
+sweeps a sphere through the current 3D physics query state. Box
+`{ shape: "box", halfExtents: [x, y, z] }` and local-Y capsule
+`{ shape: "capsule", halfHeight, radius }` are also supported. Optional XYZ
+rotation and the same exclude/trigger filters follow the displacement argument.
+The first hit returns its entity, travel fraction and distance, plus the hit
+collider's world-space point and outward normal; a starting overlap reports
+fraction zero. Use overlap queries for zero displacement. This query does not
+move a body or resolve collisions and has not been runtime-validated.
+
 Models using `KHR_animation_pointer` animation channels are currently rejected
 with `TC_MODEL_EXTENSION_UNSUPPORTED`; pointer-driven material animation is not
 implemented. A merely declared optional extension without such a channel does

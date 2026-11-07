@@ -910,6 +910,12 @@ export interface GamepadInputService extends InputService {
   setGamepadDeadzone(value: number): void;
   gamepad(): GamepadState;
 }
+/** Shape for a 3D linear sweep; box dimensions are half-extents and capsule is aligned to local Y. */
+export type PhysicsSweepShape =
+  | { shape: "sphere"; radius: number }
+  | { shape: "box"; halfExtents: Vec3 }
+  | { shape: "capsule"; halfHeight: number; radius: number };
+export interface PhysicsSweepHit { entity: string; fraction: number; distance: number; point: Vec3; normal: Vec3 }
 export interface PhysicsService {
   moveCharacter(entity: string, displacement: Vec3): void;
   grounded(entity: string): boolean;
@@ -931,6 +937,9 @@ export interface PhysicsService {
     maxDistance: number,
     options?: { exclude?: readonly string[]; includeTriggers?: boolean },
   ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;
+  /** Sweep a shape through a nonzero world-space displacement. Initial overlaps hit at fraction 0. */
+  castShape(shape: PhysicsSweepShape, center: Vec3, displacement: Vec3, rotation?: Vec3,
+    options?: { exclude?: readonly string[]; includeTriggers?: boolean }): PhysicsSweepHit | null;
   /** Find entities whose colliders overlap a world-space sphere, sorted by entity ID. */
   overlapSphere(
     center: Vec3,

@@ -3,6 +3,7 @@ import type {
   CharacterDefinition,
   EntityHandle,
   PhysicsService,
+  PhysicsSweepShape,
   RigidBodyDefinition,
   Transform,
   Vec3,
@@ -1062,6 +1063,45 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         point: tuple(ray.pointAt(hit.timeOfImpact)),
         normal: tuple(hit.normal),
       };
+    },
+    castShape(input: PhysicsSweepShape, center, displacement, angles = [0, 0, 0], options) {
+      alive();
+      ensureRefs();
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        fail("TC_PHYSICS_SWEEP", "Supply a sphere, box or capsule sweep shape.");
+      let shape: RAPIER.Shape;
+      const validRadius = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 1e6 && Math.fround(value) > 0;
+      if (input.shape === "sphere" && Object.keys(input).every(key => ["shape", "radius"].includes(key)) && validRadius(input.radius)) {
+        shape = new RAPIER.Ball(input.radius);
+      } else if (input.shape === "box" && Object.keys(input).every(key => ["shape", "halfExtents"].includes(key))) {
+        const size = vec(input.halfExtents, "sweep box halfExtents");
+        if ([size.x, size.y, size.z].some(value => value <= 0 || value > 1e6 || Math.fround(value) === 0))
+          fail("TC_PHYSICS_SWEEP", "Box half-extents must be positive, float32-representable and at most 1e6.");
+        shape = new RAPIER.Cuboid(size.x, size.y, size.z);
+      } else if (input.shape === "capsule" && Object.keys(input).every(key => ["shape", "radius", "halfHeight"].includes(key)) && validRadius(input.radius) &&
+          typeof input.halfHeight === "number" && Number.isFinite(input.halfHeight) && input.halfHeight >= 0 && input.halfHeight <= 1e6 &&
+          (input.halfHeight === 0 || Math.fround(input.halfHeight) > 0)) {
+        shape = new RAPIER.Capsule(input.halfHeight, input.radius);
+      } else return fail("TC_PHYSICS_SWEEP", "Invalid sweep shape or dimensions; use positive float32-representable dimensions up to 1e6.");
+      const position = vec(center, "sweep center"), travel = vec(displacement, "sweep displacement");
+      vec(angles, "sweep rotation");
+      const length = Math.hypot(travel.x, travel.y, travel.z);
+      if (!length || !Math.hypot(Math.fround(travel.x), Math.fround(travel.y), Math.fround(travel.z)))
+        fail("TC_PHYSICS_SWEEP", "Displacement must be nonzero and representable as float32; use overlap queries for a stationary shape.");
+      if (options !== undefined && (!options || typeof options !== "object" || Array.isArray(options) ||
+          Object.keys(options).some(key => key !== "exclude" && key !== "includeTriggers") ||
+          (options.exclude !== undefined && (!Array.isArray(options.exclude) || !options.exclude.every(id => typeof id === "string"))) ||
+          (options.includeTriggers !== undefined && typeof options.includeTriggers !== "boolean")))
+        fail("TC_PHYSICS_SWEEP", "Options require exclude string IDs and includeTriggers boolean.");
+      const excluded = new Set(options?.exclude ?? []);
+      const hit = state.world.castShape(position, rotation(angles), travel, shape, 0, 1, true,
+        undefined, undefined, undefined, undefined, collider => {
+          const id = state.byCollider.get(collider.handle), ref = id ? refs.get(id) : undefined;
+          return !!id && !!ref && context.world.isAlive(ref) && !excluded.has(id) &&
+            (options?.includeTriggers === true || !collider.isSensor());
+        });
+      return hit ? { entity: state.byCollider.get(hit.collider.handle)!, fraction: hit.time_of_impact,
+        distance: hit.time_of_impact * length, point: tuple(hit.witness1), normal: tuple(hit.normal1) } : null;
     },
     overlapSphere(center, radius, options) {
       alive();
