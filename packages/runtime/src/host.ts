@@ -301,6 +301,9 @@ export class RuntimeHost {
       get tilemaps() {
         return host.service("tilemaps");
       },
+      get lights() {
+        return host.service("lights");
+      },
       get ropes() {
         return host.service("ropes");
       },

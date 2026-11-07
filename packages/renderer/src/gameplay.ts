@@ -15,6 +15,7 @@ import { createDialoguePlugin } from "../../gameplay/src/dialogue.ts";
 import { createLocalizationPlugin } from "../../gameplay/src/localization.ts";
 import { createSpritePlugin } from "../../gameplay/src/sprites.ts";
 import { createTilemapPlugin } from "../../gameplay/src/tilemaps.ts";
+import { createLightPlugin } from "../../gameplay/src/lights.ts";
 import { createRopePlugin } from "../../simulation/src/rope-plugin.ts";
 import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
 import { createFluidPlugin } from "../../simulation/src/fluid-plugin.ts";
@@ -249,6 +250,7 @@ export async function prepareGameplay(
       createLocalizationPlugin,
       createSpritePlugin,
       createTilemapPlugin,
+      createLightPlugin,
       createRopePlugin,
       createClothPlugin,
       createFluidPlugin,

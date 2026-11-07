@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- The local next batch adds runtime intensity, linear RGB, visibility and directional/spot target overrides for declared entity/prefab lights, with snapshot state. It does not control embedded model lights. Raster, tracing, entity lifecycle and restoration behavior have not been runtime-validated.
+
 - The local next batch adds locale-aware UI text/button bindings with snapshot persistence and explicit missing-translation diagnostics. Input controls are excluded; rendering, locale changes and restoration remain unverified.
 
 - The local next batch adds opt-in direct-path spatial audio occlusion using 3D physics rays, gain and low-pass filtering. It is not diffraction or reverb; audio output, diagnostics and snapshot restoration have not been runtime-validated.

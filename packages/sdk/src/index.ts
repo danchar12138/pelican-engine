@@ -125,6 +125,7 @@ export interface SystemContext extends EngineFacade {
   readonly i18n: LocalizationService;
   readonly sprites: SpriteService;
   readonly tilemaps: TilemapService;
+  readonly lights: LightService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -1414,6 +1415,17 @@ export interface LightDefinition {
     near?: number;
     far?: number;
   };
+}
+/** Runtime overrides for an entity's declared light. Colors use linear RGB. */
+export interface LightPatch { intensity?: number; color?: Vec3; target?: Vec3; visible?: boolean }
+export interface LightOverride extends LightPatch { entity: string }
+export interface LightService {
+  /** Merge a patch into a live entity's declared light overrides. */
+  set(entity: string, patch: LightPatch): void;
+  /** Remove overrides, restoring the authored light values. */
+  reset(entity: string): void;
+  /** Detached active overrides for renderer integration. */
+  visuals(): readonly LightOverride[];
 }
 export interface EntityInput {
   id: string;

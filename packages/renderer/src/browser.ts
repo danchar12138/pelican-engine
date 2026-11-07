@@ -503,6 +503,7 @@ function syncRuntime(): boolean {
   transforms.clear();
   componentState.clear();
   const records = runtime.world.records();
+  const lightOverrides = new Map((gameplay ? runtime.facade.lights.visuals() : []).map(item => [item.entity, item]));
   const live = new Set(records.map((record) => record.id));
   const modelRecords = compiledIR
     ? records.filter(
@@ -559,6 +560,17 @@ function syncRuntime(): boolean {
     }
     if (modelRecords.some((model) => model.id === record.id))
       gameplay?.models.attach(record.id, object);
+    const definition = compiledIR ? resolveEntityDefinition(compiledIR, record)?.light : undefined;
+    const light = object.children.find((child): child is THREE.Light => child instanceof THREE.Light);
+    if (definition && light) {
+      const override = lightOverrides.get(record.id);
+      light.intensity = override?.intensity ?? definition.intensity ?? 1;
+      light.color.set(definition.color ?? "#ffffff");
+      if (override?.color) light.color.setRGB(...override.color);
+      light.visible = override?.visible ?? true;
+      if (light instanceof THREE.DirectionalLight || light instanceof THREE.SpotLight)
+        light.target.position.fromArray(override?.target ?? definition.target ?? [0, 0, 0]);
+    }
     object.position.fromArray(record.transform.position);
     object.rotation.set(...record.transform.rotation);
     object.scale.fromArray(record.transform.scale);
@@ -1137,7 +1149,8 @@ function cameraFrame() {
     ? light.object.getWorldPosition(new THREE.Vector3()).toArray()
     : [-3, 6, 3];
   const definition = light?.definition;
-  const color = new THREE.Color(definition?.color ?? 0xffdfb0);
+  const actualLight = light?.object instanceof THREE.Light ? light.object : undefined;
+  const color = actualLight?.color ?? new THREE.Color(0xffdfb0);
   return {
     origin: camera.position.toArray(),
     forward: forward.toArray(),
@@ -1148,7 +1161,7 @@ function cameraFrame() {
     light: {
       position,
       color: color.toArray(),
-      intensity: definition?.intensity ?? 55,
+      intensity: actualLight ? (actualLight.visible ? actualLight.intensity : 0) : 55,
       directional: definition?.kind === "directional",
     },
     environment: scene.background instanceof THREE.Color ? scene.background.toArray() : [0, 0, 0],

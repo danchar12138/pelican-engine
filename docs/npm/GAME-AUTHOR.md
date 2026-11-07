@@ -83,6 +83,14 @@ in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Point and spot
 lights accept a cutoff `distance` (0 means unlimited) and a `decay` exponent
 (default 2). Keep the target distinct from the light position. Raster, path and
 hybrid behavior has not been runtime-validated.
+For a live entity with a scene or prefab light, `ctx.lights.set("lamp", {
+intensity: 4, color: [1, 0.5, 0.2], visible: true })` changes its runtime
+appearance. Colors are linear RGB in [0,1]; directional and spot lights also
+accept a world-space `target`. Patches merge with existing overrides, and
+`ctx.lights.reset("lamp")` restores authored values. Overrides are saved in
+snapshots and removed when the entity is destroyed; an entity with a reused ID
+does not inherit them. Embedded model lights are not exposed by this API.
+Raster, tracing, lifecycle and snapshot behavior remain unverified.
 Direct light tracing respects light and mesh `castShadow` and mesh
 `receiveShadow` settings. Indirect rays still interact with visible geometry;
 this distinction and cross-mode shadow behavior have not been runtime-validated.
