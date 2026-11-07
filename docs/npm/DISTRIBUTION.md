@@ -55,7 +55,7 @@ const scene = defineScene({
 export default defineGame({ id: "my-game", scene });
 ```
 
-Save it as `game.ts` in a project created by the CLI. The exact engine version is recorded in `pelican.project.json`: migrate the game and update its lock explicitly when changing engine versions. Do not edit `node_modules` or import engine internals.
+Save it as `game.ts` in a project created by the CLI. The exact engine version is recorded in `pelican.project.json`. `pelican migrate` can plan an explicit lock update and, with `--apply --from`, create a recovery backup before changing it; see GAME-AUTHOR for the restore protocol. This lock-only command does not migrate game code, dependencies or saves and has not been runtime-validated. Do not edit `node_modules` or import engine internals.
 
 Useful commands:
 
@@ -63,6 +63,7 @@ Useful commands:
 npx --no-install pelican help
 npx --no-install pelican api
 npx --no-install pelican api --symbol defineGame
+npx --no-install pelican migrate
 npx --no-install pelican dev --port 4173
 npx --no-install pelican build
 ```

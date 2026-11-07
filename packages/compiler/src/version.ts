@@ -8,6 +8,11 @@ export interface ProjectManifest {
   engine?: { version?: string; path?: string };
 }
 
+/** Parse a project manifest while accepting an optional UTF-8 BOM. */
+export function parseProjectManifest(text: string): unknown {
+  return JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+}
+
 /** Absolute cross-drive Windows paths are retained; relative paths use the project root. */
 export function resolveEnginePath(
   projectRoot: string,

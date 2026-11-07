@@ -19,6 +19,7 @@ import { setup } from "./setup.ts";
 import { attachControl } from "./control-server.ts";
 import { createControlClient } from "./control-client.ts";
 import { diagnosticCode } from "./diagnostic-code.ts";
+import { migrateProject, restoreProjectManifest } from "./migrate.ts";
 import {
   cliLayout,
   createMinimalProject,
@@ -86,6 +87,8 @@ async function main() {
           "doctor",
           "setup [--install-browser] [--offline]",
           "create --project <directory> [--template minimal|m2]",
+          "migrate [--project <directory>] [--apply --from <version|unlocked>]",
+          "migrate [--project <directory>] --restore <backup-name> --expect-current <sha256> --expect-backup <sha256>",
           "check --project <directory>",
           "compile --project <directory>",
           "dev --project <directory> [--port 4173]",
@@ -101,6 +104,17 @@ async function main() {
         stage: activeManifest.stage,
       }),
     );
+    return;
+  }
+  if (command === "migrate") {
+    const root = path.resolve(option("project", process.cwd())!);
+    const restore = args.includes("--restore");
+    if (restore && (args.includes("--apply") || args.includes("--from")))
+      throw new Error("TC_MIGRATE_OPTIONS: Use restore or apply, not both; run migrate without options to review the plan.");
+    const result = restore
+      ? await restoreProjectManifest(root, option("restore", "")!, option("expect-current", "")!, option("expect-backup", "")!)
+      : await migrateProject(root, engineRoot, { apply: args.includes("--apply"), ...(option("from") === undefined ? {} : { from: option("from") }) });
+    emit(envelope("succeeded", result, [], "backup" in result && typeof result.backup === "string" ? [path.join(root, result.backup)] : []));
     return;
   }
   if (command === "doctor") {

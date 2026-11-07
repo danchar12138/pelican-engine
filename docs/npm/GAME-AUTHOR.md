@@ -720,6 +720,36 @@ needed. A failure after a scene replacement has committed does not guarantee
 that the old scene was restored. These failure and release paths have not been
 runtime-validated and do not prove the absence of leaks.
 
-For project-version mismatches, migrate via public API, then explicitly update
-the lock. For package integrity/dependency errors, reinstall one exact package
-version. Never work around a diagnostic by importing an internal dependency.
+### Explicit project lock migration
+
+`pelican migrate` produces a read-only plan for the current project's exact
+engine lock. It reports the selected engine version, existing lock, manifest
+hash and limitations. In an installed project, for example:
+
+```sh
+npx --no-install pelican migrate
+npx --no-install pelican migrate --apply --from 0.5.1
+```
+
+Replace `0.5.1` with the exact `from` value in the plan; use `unlocked` for a
+manifest without a version lock. Applying changes only the relevant JSON lock
+strings or adds an `engineVersion` lock, preserving other manifest bytes. It
+writes a uniquely named backup beside `pelican.project.json` when a change is
+needed and reports the backup filename, `backupSha256` and new
+`currentSha256`. An optional UTF-8 BOM is preserved. Conflicting version
+fields, a mismatched `engine.path`, symlinked manifest or concurrent detected
+change are rejected. Stop editors and dev servers before applying: the
+concurrency guard is best effort, not a cross-process transaction.
+
+To restore a reported backup, call `pelican migrate --restore BACKUP_FILENAME
+--expect-current CURRENT_HASH --expect-backup BACKUP_HASH`, replacing the
+capitalized values with the filename and hashes from the apply report. Restore
+backs up the current manifest first and refuses changed hashes. Keep these
+recovery files until the game owner decides they are no longer needed.
+
+**This only changes the project lock.** It does not update package dependencies,
+rewrite game APIs, migrate saved games/replays or establish compatibility. The
+new command and recovery path have not been runtime-validated. When validation
+is authorized later, independently build and assess the migrated game. For
+package integrity/dependency errors, reinstall one exact package version;
+never work around a diagnostic by importing an internal dependency.

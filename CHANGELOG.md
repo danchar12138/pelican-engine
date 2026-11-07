@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit project version-lock planning, backup-based apply and guarded restoration. API and save migration are not included; runtime behavior is unverified.
+
 - Make scene, model and audio teardown continue after individual cleanup errors and preserve diagnostics. Runtime lifecycle and leak behavior are unverified.
 
 - Avoid duplicate main-push build jobs and report immutable npm version collisions as workflow failures. Workflow behavior is unverified.

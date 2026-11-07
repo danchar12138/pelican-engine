@@ -53,11 +53,14 @@ Phases are reexported from the public SDK, in this order:
 
 ## Version and path locks
 
-`pelican.project.json` accepts `entry`, `engineVersion`, and `engine: { version?, path? }`.
+`pelican.project.json` accepts `entry`, `engineVersion`, and `engine: { version?, path? }`; an optional UTF-8 BOM is accepted.
 Each supplied version must exactly equal `SDK_VERSION`, including prerelease identifiers.
 Ranges, conflicting declarations and old `0.0.1-m0.0` locks fail with `TC_ENGINE_VERSION_MISMATCH`
 and explicit migration advice. A manifest-less/unlocked legacy project still builds with
-`TC_ENGINE_VERSION_UNLOCKED`; new projects should lock their version.
+`TC_ENGINE_VERSION_UNLOCKED`; new projects should lock their version. The CLI's
+`migrate` command can plan and explicitly update these locks with a preserved
+backup; it does not migrate APIs, dependencies or saves, and its behavior is
+not runtime-validated.
 
 The selected engine SDK version is read from its AST without executing that SDK. A compiler/SDK mismatch fails
 with `TC_ENGINE_SDK_VERSION`. When `engine.path` is present, it resolves from the project root and must identify

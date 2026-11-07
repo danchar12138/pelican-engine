@@ -12,6 +12,7 @@ import { hash, normalize } from "./normalize.ts";
 import {
   readSDKVersion,
   resolveEnginePath,
+  parseProjectManifest,
   validateManifest,
 } from "./version.ts";
 import type { AssetCopy } from "./normalize.ts";
@@ -267,7 +268,7 @@ export async function compileProject(
     const manifestPath = path.join(projectRoot, "pelican.project.json");
     let rawManifest: unknown = {};
     try {
-      rawManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+      rawManifest = parseProjectManifest(await fs.readFile(manifestPath, "utf8"));
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
         diagnostics.push({
