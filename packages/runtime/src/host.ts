@@ -856,7 +856,7 @@ export class RuntimeHost {
     }
     // A failed settle may leave in-flight sidecars, not a capturable checkpoint.
     // Recovery can restore a known-good checkpoint, but cannot roll back to it.
-    const faulted = this.scheduler.inspect().fault !== null;
+    const faulted = this.scheduler.inspect().fault !== null || this.plugins.some(plugin => plugin.requiresRecovery?.() === true);
     const previousScheduler = faulted ? undefined : this.scheduler.snapshot();
     const previousPlugins =
       !faulted && this.plugins.length ? this.pluginSnapshot() : undefined;

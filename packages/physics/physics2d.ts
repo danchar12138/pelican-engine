@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier2d-compat";
-import type { EntityHandle, Physics2DBodyDefinition, Physics2DBodyState, Physics2DService, Transform, Vec2 } from "../sdk/src/index.ts";
+import type { EntityHandle, Physics2DBodyDefinition, Physics2DBodyState, Physics2DJointDefinition, Physics2DService, Transform, Vec2 } from "../sdk/src/index.ts";
 import type { WorldSnapshot } from "../runtime/src/contracts.ts";
 import type { RuntimePluginContext, RuntimePluginFactory } from "../runtime/src/plugins.ts";
 import { cloneSerializable } from "../runtime/src/random.ts";
@@ -7,10 +7,12 @@ import { resolveEntityDefinition } from "../runtime/src/prefabs.ts";
 
 type Definition = Physics2DBodyDefinition & { friction: number; restitution: number; sensor: boolean; continuous: boolean };
 type BodySnapshot = { definition: Definition; prefab: string | null; lastTransform: Transform; position: Vec2; angle: number; velocity: Vec2; angularVelocity: number; sleeping: boolean };
-type Snapshot = { format: "pelican.physics2d"; version: 1; gravity: Vec2; tick: number; bodies: BodySnapshot[] };
+type JointDefinition = Physics2DJointDefinition & { anchorA: Vec2; anchorB: Vec2; contactsEnabled: boolean };
+type Snapshot = { format: "pelican.physics2d"; version: 1; gravity: Vec2; tick: number; bodies: BodySnapshot[]; joints?: JointDefinition[] };
 type Body = { definition: Definition; prefab: string | null; handle: EntityHandle; lastTransform: Transform; body: RAPIER.RigidBody; collider?: RAPIER.Collider };
-type Native = { world: RAPIER.World; queue: RAPIER.EventQueue; bodies: Map<string, Body>; colliders: Map<number, Body> };
-const MAX_BODIES = 512, MAX_COMPOUND_PARTS = 2048, LIMIT = 1e6;
+type Joint = { definition: JointDefinition; joint: RAPIER.ImpulseJoint };
+type Native = { world: RAPIER.World; queue: RAPIER.EventQueue; bodies: Map<string, Body>; colliders: Map<number, Body>; joints: Map<string, Joint> };
+const MAX_BODIES = 512, MAX_JOINTS = 512, MAX_COMPOUND_PARTS = 2048, LIMIT = 1e6;
 const fail = (code: string, message: string): never => { throw new Error(`TC_PHYSICS2D_${code}: ${message}`); };
 const validName = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value);
 const fields = (value: unknown, allowed: readonly string[]): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every(key => allowed.includes(key));
@@ -70,9 +72,27 @@ function normalize(input: Physics2DBodyDefinition): Definition {
     restitution: input.restitution === undefined ? 0 : scalar(input.restitution, "restitution", 0, 1),
     sensor: input.sensor === true, continuous: input.continuous === true };
 }
+function jointDefinition(input: Physics2DJointDefinition): JointDefinition {
+  if (!input || typeof input !== "object" || Array.isArray(input) || !validName(input.id) || !validName(input.bodyA) || !validName(input.bodyB) || input.bodyA === input.bodyB)
+    return fail("JOINT_DEFINITION", "Joint needs a nonempty id and two distinct body ids.");
+  const baseKeys = ["id", "kind", "bodyA", "bodyB", "anchorA", "anchorB", "contactsEnabled"];
+  const extra = input.kind === "fixed" ? ["frameA", "frameB"] : input.kind === "rope" ? ["length"] : input.kind === "spring" ? ["restLength", "stiffness", "damping"] : [];
+  if (!fields(input, [...baseKeys, ...extra]) || !["fixed", "revolute", "rope", "spring"].includes(input.kind) ||
+      (input.contactsEnabled !== undefined && typeof input.contactsEnabled !== "boolean"))
+    return fail("JOINT_DEFINITION", "Use fixed, revolute, rope or spring joint fields and a boolean contactsEnabled.");
+  const base = { id: input.id, bodyA: input.bodyA, bodyB: input.bodyB,
+    anchorA: input.anchorA === undefined ? [0, 0] as Vec2 : pair(input.anchorA, "anchorA"),
+    anchorB: input.anchorB === undefined ? [0, 0] as Vec2 : pair(input.anchorB, "anchorB"),
+    contactsEnabled: input.contactsEnabled === true };
+  if (input.kind === "fixed") return { ...base, kind: "fixed", frameA: input.frameA === undefined ? 0 : scalar(input.frameA, "frameA"), frameB: input.frameB === undefined ? 0 : scalar(input.frameB, "frameB") };
+  if (input.kind === "revolute") return { ...base, kind: "revolute" };
+  if (input.kind === "rope") return { ...base, kind: "rope", length: positive(input.length, "rope length") };
+  return { ...base, kind: "spring", restLength: scalar(input.restLength, "spring restLength", 0),
+    stiffness: scalar(input.stiffness, "spring stiffness", 0), damping: scalar(input.damping, "spring damping", 0) };
+}
 function makeNative(gravity: Vec2): Native {
   const world = new RAPIER.World(vector(gravity));
-  try { return { world, queue: new RAPIER.EventQueue(true), bodies: new Map(), colliders: new Map() }; }
+  try { return { world, queue: new RAPIER.EventQueue(true), bodies: new Map(), colliders: new Map(), joints: new Map() }; }
   catch (error) {
     try { world.free(); }
     catch (cleanup) { throw new AggregateError([error, cleanup], "TC_PHYSICS2D_INIT_CLEANUP: 2D world initialization and cleanup failed; inspect the causes."); }
@@ -83,7 +103,7 @@ function freeNative(native: Native): void {
   const errors: unknown[] = [];
   try { native.world.free(); } catch (error) { errors.push(error); }
   try { native.queue.free(); } catch (error) { errors.push(error); }
-  native.bodies.clear(); native.colliders.clear();
+  native.bodies.clear(); native.colliders.clear(); native.joints.clear();
   if (errors.length) throw new AggregateError(errors, "TC_PHYSICS2D_DISPOSE: Some 2D physics resources could not be released; inspect causes and restart the scene.");
 }
 function colliderDescriptor(definition: Definition): RAPIER.ColliderDesc | null {
@@ -125,6 +145,25 @@ function addNative(native: Native, definition: Definition, handle: EntityHandle,
     throw error;
   }
 }
+function addNativeJoint(native: Native, definition: JointDefinition): Joint {
+  const a = native.bodies.get(definition.bodyA), b = native.bodies.get(definition.bodyB);
+  if (!a || !b) return fail("JOINT_BODY", `Joint '${definition.id}' requires both existing 2D bodies.`);
+  const anchorA = vector(definition.anchorA), anchorB = vector(definition.anchorB);
+  const descriptor = definition.kind === "fixed" ? RAPIER.JointData.fixed(anchorA, definition.frameA ?? 0, anchorB, definition.frameB ?? 0) :
+    definition.kind === "revolute" ? RAPIER.JointData.revolute(anchorA, anchorB) :
+    definition.kind === "rope" ? RAPIER.JointData.rope(definition.length, anchorA, anchorB) :
+    RAPIER.JointData.spring(definition.restLength, definition.stiffness, definition.damping, anchorA, anchorB);
+  let joint: RAPIER.ImpulseJoint | undefined;
+  try {
+    joint = native.world.createImpulseJoint(descriptor, a.body, b.body, true);
+    joint.setContactsEnabled(definition.contactsEnabled);
+    const entry = { definition, joint }; native.joints.set(definition.id, entry); return entry;
+  } catch (error) {
+    const failures: unknown[] = [error];
+    if (joint) try { native.world.removeImpulseJoint(joint, true); } catch (cleanup) { failures.push(cleanup); }
+    throw new AggregateError(failures, `TC_PHYSICS2D_JOINT_CREATE: Joint '${definition.id}' could not be created safely; partialState=true. Restore a known-good checkpoint.`);
+  }
+}
 function bodyState(entry: Body): Physics2DBodyState {
   const position = entry.body.translation(), velocity = entry.body.linvel();
   return { id: entry.definition.id, entity: entry.definition.entity, type: entry.definition.type,
@@ -134,8 +173,9 @@ function bodyState(entry: Body): Physics2DBodyState {
 }
 function parse(value: unknown): Snapshot {
   const data = cloneSerializable(value) as Snapshot;
-  if (!fields(data, ["format", "version", "gravity", "tick", "bodies"]) || data.format !== "pelican.physics2d" || data.version !== 1 ||
-      !Number.isSafeInteger(data.tick) || data.tick < 0 || !Array.isArray(data.bodies) || data.bodies.length > MAX_BODIES)
+  if (!fields(data, ["format", "version", "gravity", "tick", "bodies", "joints"]) || data.format !== "pelican.physics2d" || data.version !== 1 ||
+      !Number.isSafeInteger(data.tick) || data.tick < 0 || !Array.isArray(data.bodies) || data.bodies.length > MAX_BODIES ||
+      (data.joints !== undefined && (!Array.isArray(data.joints) || data.joints.length > MAX_JOINTS)))
     return fail("SNAPSHOT", "Expected a bounded version 1 2D physics snapshot.");
   const ids = new Set<string>(), entities = new Set<string>();
   const bodies = data.bodies.map(item => {
@@ -151,7 +191,14 @@ function parse(value: unknown): Snapshot {
     return { definition, prefab: item.prefab, lastTransform: planar(item.lastTransform, definition.entity),
       position: pair(item.position, "body position"), angle: scalar(item.angle, "body angle"), velocity, angularVelocity, sleeping: item.sleeping };
   });
-  return { format: "pelican.physics2d", version: 1, gravity: pair(data.gravity, "gravity"), tick: data.tick, bodies };
+  const jointIds = new Set<string>();
+  const joints = (data.joints ?? []).map(value => {
+    const joint = jointDefinition(value);
+    if (jointIds.has(joint.id) || !ids.has(joint.bodyA) || !ids.has(joint.bodyB))
+      return fail("SNAPSHOT", `Joint '${joint.id}' must be unique and reference two saved bodies.`);
+    jointIds.add(joint.id); return joint;
+  });
+  return { format: "pelican.physics2d", version: 1, gravity: pair(data.gravity, "gravity"), tick: data.tick, bodies, joints };
 }
 function validateWorld(snapshot: Snapshot, world: WorldSnapshot, context: RuntimePluginContext): void {
   const records = new Map(world.entities.map(record => [record.id, record]));
@@ -175,8 +222,17 @@ export function createPhysics2DFactory(): Promise<RuntimePluginFactory> {
 }
 const createPhysics2DPlugin: RuntimePluginFactory = context => {
   if (!context.scene.scene.physics2d) return fail("DISABLED", "Enable scene.physics2d before creating the 2D physics plugin.");
-  let gravity = pair(context.scene.scene.physics2d.gravity, "gravity"), tick = 0, native = makeNative(gravity), disposed = false, dirty = true;
-  const alive = () => { if (disposed) fail("DISPOSED", "Create a new host before using 2D physics."); };
+  let gravity = pair(context.scene.scene.physics2d.gravity, "gravity"), tick = 0, native = makeNative(gravity), disposed = false, dirty = true, nativeFault = false;
+  const ensureOpen = () => { if (disposed) fail("DISPOSED", "Create a new host before using 2D physics."); };
+  const alive = () => { ensureOpen(); if (nativeFault) fail("FAULTED", "2D physics may be partially changed; restore a known-good host checkpoint or restart the scene."); };
+  const mutate = (label: string, action: () => void) => {
+    try { action(); }
+    catch (error) { nativeFault = true; throw new AggregateError([error], `TC_PHYSICS2D_NATIVE: ${label} failed; partialState=true. Restore a known-good host checkpoint.`); }
+  };
+  const readBody = (entry: Body): Physics2DBodyState => {
+    try { return bodyState(entry); }
+    catch (error) { nativeFault = true; throw new AggregateError([error], `TC_PHYSICS2D_NATIVE: Reading body '${entry.definition.id}' failed; partialState=true. Restore a known-good host checkpoint.`); }
+  };
   const get = (id: string): Body => {
     alive();
     if (!validName(id)) return fail("ID", "Expected a nonempty body id.");
@@ -193,8 +249,10 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
   };
   const remove = (entry: Body) => {
     const colliderHandle = entry.collider?.handle;
-    native.world.removeRigidBody(entry.body);
+    mutate(`Removing body '${entry.definition.id}'`, () => native.world.removeRigidBody(entry.body));
     if (colliderHandle !== undefined) native.colliders.delete(colliderHandle);
+    for (const [id, joint] of native.joints)
+      if (joint.definition.bodyA === entry.definition.id || joint.definition.bodyB === entry.definition.id) native.joints.delete(id);
     native.bodies.delete(entry.definition.id); dirty = true;
   };
   const service: Physics2DService = {
@@ -207,7 +265,7 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       if (native.bodies.size >= MAX_BODIES) return fail("CAPACITY", `At most ${MAX_BODIES} 2D bodies may exist.`);
       if (!context.world.isAlive(definition.entity)) return fail("ENTITY", `Entity '${definition.entity}' is not alive.`);
       const handle = context.world.resolve(definition.entity), checked = checkEntity(handle);
-      addNative(native, definition, handle, checked.transform, checked.prefab); dirty = true;
+      mutate(`Creating body '${definition.id}'`, () => { addNative(native, definition, handle, checked.transform, checked.prefab); }); dirty = true;
     },
     destroy(id) { remove(get(id)); },
     setCollider(id, input) {
@@ -217,12 +275,12 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       const descriptor = colliderDescriptor(next), previous = entry.collider, previousHandle = previous?.handle;
       let replacement: RAPIER.Collider | undefined;
       try { if (descriptor) replacement = native.world.createCollider(descriptor, entry.body); }
-      catch (error) { dirty = true; throw new AggregateError([error], `TC_PHYSICS2D_COLLIDER_REPLACE: Could not create collider for '${id}'; partialState=true. Restore a known-good checkpoint.`); }
+      catch (error) { dirty = true; nativeFault = true; throw new AggregateError([error], `TC_PHYSICS2D_COLLIDER_REPLACE: Could not create collider for '${id}'; partialState=true. Restore a known-good checkpoint.`); }
       try { if (previous) native.world.removeCollider(previous, true); }
       catch (error) {
         const failures: unknown[] = [error];
         if (replacement) try { native.world.removeCollider(replacement, true); } catch (cleanup) { failures.push(cleanup); }
-        dirty = true;
+        dirty = true; nativeFault = true;
         throw new AggregateError(failures, `TC_PHYSICS2D_COLLIDER_REPLACE: Could not remove the previous collider for '${id}'; partialState=true. Restore a known-good checkpoint.`);
       }
       if (previousHandle !== undefined) native.colliders.delete(previousHandle);
@@ -231,12 +289,41 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       entry.definition = next; dirty = true;
     },
     collider(id) { return cloneSerializable(get(id).definition.collider); },
-    setVelocity(id, value) { const entry = get(id), velocity = pair(value, "velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Velocity requires a dynamic body."); entry.body.setLinvel(vector(velocity), true); },
-    setAngularVelocity(id, value) { const entry = get(id), velocity = scalar(value, "angular velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Angular velocity requires a dynamic body."); entry.body.setAngvel(velocity, true); },
-    applyImpulse(id, value) { const entry = get(id), impulse = pair(value, "impulse"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Impulse requires a dynamic body."); entry.body.applyImpulse(vector(impulse), true); },
-    setGravity(value) { alive(); const next = pair(value, "gravity"); native.world.gravity = vector(next); gravity = next; },
+    createJoint(input) {
+      alive();
+      const definition = jointDefinition(cloneSerializable(input));
+      if (native.joints.has(definition.id)) return fail("JOINT_DUPLICATE", `Joint '${definition.id}' already exists.`);
+      if (native.joints.size >= MAX_JOINTS) return fail("CAPACITY", `At most ${MAX_JOINTS} 2D joints may exist.`);
+      get(definition.bodyA); get(definition.bodyB);
+      try { addNativeJoint(native, definition); } catch (error) { nativeFault = true; throw error; }
+    },
+    destroyJoint(id) {
+      alive();
+      if (!validName(id)) return fail("JOINT_DEFINITION", "Expected a nonempty joint id.");
+      const entry = native.joints.get(id);
+      if (!entry) return fail("JOINT_MISSING", `Joint '${id}' does not exist.`);
+      try { native.world.removeImpulseJoint(entry.joint, true); }
+      catch (error) { nativeFault = true; throw new AggregateError([error], `TC_PHYSICS2D_JOINT_REMOVE: Joint '${id}' could not be removed; partialState=true. Restore a known-good checkpoint.`); }
+      native.joints.delete(id);
+    },
+    inspectJoint(id) {
+      alive();
+      const entry = native.joints.get(id);
+      if (!entry || !context.world.isAlive(native.bodies.get(entry.definition.bodyA)!.handle) || !context.world.isAlive(native.bodies.get(entry.definition.bodyB)!.handle))
+        return fail("JOINT_MISSING", `Joint '${id}' or one of its bodies no longer exists.`);
+      return cloneSerializable(entry.definition);
+    },
+    listJoints() {
+      alive();
+      return [...native.joints.values()].filter(entry => context.world.isAlive(native.bodies.get(entry.definition.bodyA)!.handle) && context.world.isAlive(native.bodies.get(entry.definition.bodyB)!.handle))
+        .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(entry => cloneSerializable(entry.definition));
+    },
+    setVelocity(id, value) { const entry = get(id), velocity = pair(value, "velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Velocity requires a dynamic body."); mutate(`Setting velocity for '${id}'`, () => entry.body.setLinvel(vector(velocity), true)); },
+    setAngularVelocity(id, value) { const entry = get(id), velocity = scalar(value, "angular velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Angular velocity requires a dynamic body."); mutate(`Setting angular velocity for '${id}'`, () => entry.body.setAngvel(velocity, true)); },
+    applyImpulse(id, value) { const entry = get(id), impulse = pair(value, "impulse"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Impulse requires a dynamic body."); mutate(`Applying impulse to '${id}'`, () => entry.body.applyImpulse(vector(impulse), true)); },
+    setGravity(value) { alive(); const next = pair(value, "gravity"); mutate("Setting gravity", () => { native.world.gravity = vector(next); }); gravity = next; },
     gravity() { alive(); return [...gravity] as Vec2; },
-    inspect(id) { return bodyState(get(id)); },
+    inspect(id) { return readBody(get(id)); },
     raycast(origin, direction, maxDistance, options = {}) {
       alive();
       if (dirty || tick === 0) return fail("QUERY_PENDING", "Queries require a completed physics step after body creation, removal or restore.");
@@ -246,8 +333,14 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       const length = Math.hypot(dir[0], dir[1]);
       if (!Number.isFinite(length) || length === 0) return fail("QUERY", "Ray direction must be nonzero.");
       const normalized: Vec2 = [dir[0] / length, dir[1] / length], excluded = new Set(options.exclude ?? []);
-      const hit = native.world.castRayAndGetNormal(new RAPIER.Ray(vector(start), vector(normalized)), distance, true, undefined, undefined, undefined, undefined,
-        collider => { const entry = native.colliders.get(collider.handle); return !!entry && context.world.isAlive(entry.handle) && !excluded.has(entry.definition.id) && (options.includeSensors === true || !entry.definition.sensor); });
+      let hit: ReturnType<RAPIER.World["castRayAndGetNormal"]>;
+      try {
+        hit = native.world.castRayAndGetNormal(new RAPIER.Ray(vector(start), vector(normalized)), distance, true, undefined, undefined, undefined, undefined,
+          collider => { const entry = native.colliders.get(collider.handle); return !!entry && context.world.isAlive(entry.handle) && !excluded.has(entry.definition.id) && (options.includeSensors === true || !entry.definition.sensor); });
+      } catch (error) {
+        nativeFault = true;
+        throw new AggregateError([error], "TC_PHYSICS2D_QUERY_NATIVE: Ray query failed; partialState=true. Restore a known-good host checkpoint.");
+      }
       if (!hit) return null;
       const entry = native.colliders.get(hit.collider.handle);
       if (!entry) return fail("QUERY", "Query returned an unknown collider; reload the scene.");
@@ -259,6 +352,8 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
   const empty = (): Snapshot => ({ format: "pelican.physics2d", version: 1, gravity: pair(context.scene.scene.physics2d!.gravity, "gravity"), tick: 0, bodies: [] });
   return {
     id: "$engine.physics2d", version: "1", services: { physics2d: service },
+    requiresRecovery: () => nativeFault,
+    inspect: () => ({ faulted: nativeFault, bodies: native.bodies.size, joints: native.joints.size }),
     physics2DBridge: { hasEntity(entity) { alive(); return [...native.bodies.values()].some(entry => entry.definition.entity === entity && context.world.isAlive(entry.handle)); } },
     systems: [{ id: "$engine.physics2d.step", phase: "physics", writes: ["Transform"], run(dt) {
       alive(); positive(dt, "fixedDt");
@@ -272,6 +367,7 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
           live.push({ entry, transform: checked.transform });
         }
       }
+      try {
       for (const entry of removed) remove(entry);
       for (const { entry, transform } of live) {
         const before = entry.lastTransform;
@@ -295,33 +391,47 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
           { a: left.definition.id, b: right.definition.id, entityA: left.definition.entity, entityB: right.definition.entity });
       });
       for (const { entry, transform } of live) {
-        const state = bodyState(entry);
+        const state = readBody(entry);
         const next: Transform = { position: [state.position[0], state.position[1], transform.position[2]], rotation: [0, 0, state.angle], scale: transform.scale };
         context.world.setTransform(entry.handle, next); entry.lastTransform = next;
+      }
+      } catch (error) {
+        nativeFault = true;
+        throw new AggregateError([error], "TC_PHYSICS2D_STEP: Physics step failed; partialState=true. Restore a known-good host checkpoint.");
       }
     } }],
     snapshot() {
       alive();
       const bodies = [...native.bodies.values()].filter(entry => context.world.isAlive(entry.handle)).sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0)
-        .map(entry => { const state = bodyState(entry); return { definition: entry.definition, prefab: entry.prefab, lastTransform: entry.lastTransform,
+        .map(entry => { const state = readBody(entry); return { definition: entry.definition, prefab: entry.prefab, lastTransform: entry.lastTransform,
           position: state.position, angle: state.angle, velocity: state.velocity, angularVelocity: state.angularVelocity, sleeping: state.sleeping }; });
-      return cloneSerializable({ format: "pelican.physics2d", version: 1, gravity, tick, bodies });
+      const liveIds = new Set(bodies.map(item => item.definition.id));
+      const joints = [...native.joints.values()].filter(item => liveIds.has(item.definition.bodyA) && liveIds.has(item.definition.bodyB))
+        .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(item => item.definition);
+      return cloneSerializable({ format: "pelican.physics2d", version: 1, gravity, tick, bodies, joints });
     },
     legacySnapshot: empty,
     validateSnapshot(value) { parse(value); },
     validateWorld(value, world) { validateWorld(parse(value), world, context); },
     restore(value) {
-      alive();
+      ensureOpen();
       const data = parse(value); validateWorld(data, context.world.snapshot(), context);
       const staged = makeNative(data.gravity);
-      try { for (const item of data.bodies) addNative(staged, item.definition, context.world.resolve(item.definition.entity), item.lastTransform, item.prefab, item); }
+      try {
+        for (const item of data.bodies) addNative(staged, item.definition, context.world.resolve(item.definition.entity), item.lastTransform, item.prefab, item);
+        for (const joint of data.joints ?? []) addNativeJoint(staged, joint);
+        // Joint creation wakes connected bodies; restore saved sleep intent afterward.
+        for (const item of data.bodies) if (item.definition.type === "dynamic" && item.sleeping)
+          staged.bodies.get(item.definition.id)!.body.sleep();
+      }
       catch (error) {
         try { freeNative(staged); } catch (cleanup) { throw new AggregateError([error, cleanup], "TC_PHYSICS2D_RESTORE_CLEANUP: Candidate restore and cleanup failed; inspect causes."); }
         throw error;
       }
       const previous = native; native = staged; gravity = data.gravity; tick = data.tick; dirty = true;
       try { freeNative(previous); }
-      catch (error) { throw new AggregateError([error], "TC_PHYSICS2D_RESTORE_CLEANUP: Previous physics resources could not be released; partialState=true. Restore a known-good checkpoint."); }
+      catch (error) { nativeFault = true; throw new AggregateError([error], "TC_PHYSICS2D_RESTORE_CLEANUP: Previous physics resources could not be released; partialState=true. Restore a known-good checkpoint."); }
+      nativeFault = false;
     },
     dispose() { if (disposed) return; disposed = true; freeNative(native); },
   };

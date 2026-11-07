@@ -96,6 +96,8 @@ export interface RuntimePlugin {
   services?: Partial<RuntimeServices>;
   systems?: readonly ScheduledSystem[];
   inspect?(): unknown;
+  /** A failed native owner cannot provide a trustworthy rollback snapshot. */
+  requiresRecovery?(): boolean;
   snapshot(): unknown;
   validateSnapshot(value: unknown): void;
   validateWorld?(value: unknown, world: WorldSnapshot): void;

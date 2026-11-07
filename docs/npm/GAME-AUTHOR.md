@@ -219,11 +219,24 @@ creation, removal or restore; pending transform edits are not reflected. Its
 optional `exclude` list contains body IDs, and sensors are excluded unless
 `includeSensors: true` is specified.
 
-Snapshots save validated body definitions and state, then reconstruct a new 2D
-world; they do **not** use native snapshot deserialization. Contact caches,
-kinematic velocity and exact deterministic continuation are not preserved.
-Joints, character controllers, automatic tilemap collider bindings, 2D/3D
-coupling and complete 2D physics are not included. Runtime, collision, events, queries,
+Create a 2D fixed, revolute, rope or spring joint between existing body IDs:
+
+```ts
+ctx.physics2d.createJoint({ id: "hinge", kind: "revolute", bodyA: "pivot-body", bodyB: "arm-body", anchorB: [0, 0.9] });
+```
+
+Anchors are body-local; connected-body contacts default to disabled. Use
+`inspectJoint`, `listJoints` and `destroyJoint`; removing a body removes its
+attached joints. Up to 512 joints are supported. Native operation failures
+mark the 2D owner faulted: further operations are rejected until a known-good
+host checkpoint is restored or the scene is restarted. A failed recovery may
+itself leave partial state.
+
+Snapshots save validated body and joint definitions, then reconstruct a new 2D
+world; they do **not** use native snapshot deserialization. Solver warm-start
+and contact caches, kinematic velocity and exact deterministic continuation are
+not preserved. Joint limits/motors, 2D character controllers, automatic tilemap
+collider bindings, 2D/3D coupling and complete 2D physics are not included. Runtime, collision, events, queries,
 resource cleanup and restoration have not been validated; the known separate
 3D first-step deletion issue remains open. See the asset-free
 `examples/physics2d` or the corresponding installed recipe.

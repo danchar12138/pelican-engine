@@ -145,6 +145,19 @@ export interface Physics2DBodyState {
   id: string; entity: string; type: Physics2DBodyDefinition["type"];
   position: Vec2; angle: number; velocity: Vec2; angularVelocity: number; sleeping: boolean;
 }
+export interface Physics2DJointBase {
+  id: string; bodyA: string; bodyB: string;
+  /** Anchor coordinates are local to each body. */
+  anchorA?: Vec2; anchorB?: Vec2;
+  /** Defaults to false for connected-body contacts. */
+  contactsEnabled?: boolean;
+}
+export type Physics2DJointDefinition = Physics2DJointBase & (
+  | { kind: "fixed"; frameA?: number; frameB?: number }
+  | { kind: "revolute" }
+  | { kind: "rope"; length: number }
+  | { kind: "spring"; restLength: number; stiffness: number; damping: number }
+);
 /** Independent XY rigid-body world. No native physics objects cross this API. */
 export interface Physics2DService {
   create(definition: Physics2DBodyDefinition): void;
@@ -152,6 +165,10 @@ export interface Physics2DService {
   /** Replace a fixed body's collider; collision event continuity is not preserved. */
   setCollider(id: string, collider: Physics2DCollider): void;
   collider(id: string): Physics2DCollider;
+  createJoint(definition: Physics2DJointDefinition): void;
+  destroyJoint(id: string): void;
+  inspectJoint(id: string): Physics2DJointDefinition;
+  listJoints(): readonly Physics2DJointDefinition[];
   setVelocity(id: string, velocity: Vec2): void;
   setAngularVelocity(id: string, velocity: number): void;
   applyImpulse(id: string, impulse: Vec2): void;
