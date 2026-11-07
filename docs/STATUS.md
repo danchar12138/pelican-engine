@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds explicit normalized-time alignment for two blended model clips. It is not automatic phase matching or root-motion correction; playback and restoration remain unverified.
+
 - Local development adds opt-in grid-cell reservations and waiting for navigation agents with identical mappings. This is not continuous crowd avoidance, physics collision, dynamic path planning or deadlock resolution; behavior and snapshot restoration are unverified.
 
 - Local development adds disabled button/input states and accessible labels, persisted in UI state. Keyboard, gamepad, IME, screen reader and snapshot behavior remain unverified; this is not a complete accessibility system.

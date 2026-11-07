@@ -280,6 +280,16 @@ class ModelLibraryImpl implements ModelLibrary {
       blend.weight = weight;
       state.mixer.update(0);
     },
+    synchronizeBlend: (entity) => {
+      const state = this.instance(entity), blend = state.blend;
+      if (!blend) throw new Error(`TC_MODEL_BLEND_MISSING: ${entity}; start a blend first.`);
+      const first = state.clips.get(blend.first)!, second = state.clips.get(blend.second)!;
+      if (!Number.isFinite(first.duration) || first.duration <= 0 || !Number.isFinite(second.duration) || second.duration <= 0)
+        throw new Error(`TC_MODEL_BLEND_DURATION: ${entity}; both clips need positive finite durations to synchronize.`);
+      const source = state.actions.get(blend.first)!, destination = state.actions.get(blend.second)!;
+      destination.time = Math.max(0, Math.min(1, source.time / first.duration)) * second.duration;
+      state.mixer.update(0);
+    },
     state: (entity) => {
       const instance = this.instance(entity);
       return {

@@ -209,6 +209,12 @@ state is included in snapshots. This uses normal full-clip blending, not
 bone masks, additive layers, automatic phase synchronization or root-motion
 correction. Animation and snapshot behavior have not been runtime-validated.
 
+Call `ctx.animation.synchronizeBlend("actor")` to align the second clip to
+the first clip's normalized time without changing their weights or speeds.
+Both clips must have positive finite durations. This is a one-time alignment;
+clips with different durations or speeds drift again unless the game aligns
+them as needed. Playback, phase continuity and snapshots are unverified.
+
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
 resumed with `ctx.audio.pause(voice)` and `ctx.audio.resume(voice)`. Both are
 idempotent; a valid unknown voice is a no-op. Playback position follows fixed

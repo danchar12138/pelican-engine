@@ -559,6 +559,11 @@ export function createGameServices(
         if (!animation.setBlendWeight) throw new Error("TC_ANIMATION_ADAPTER: Clip blending is unavailable in this animation adapter.");
         animation.setBlendWeight(entity, weight);
       },
+      synchronizeBlend(entity) {
+        alive();
+        if (!animation.synchronizeBlend) throw new Error("TC_ANIMATION_ADAPTER: Clip blend synchronization is unavailable in this animation adapter.");
+        animation.synchronizeBlend(entity);
+      },
       play(entity, clip, options) {
         alive();
         animation.play(entity, clip, options);

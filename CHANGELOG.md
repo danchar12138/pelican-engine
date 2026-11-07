@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit normalized-time alignment for blended animation clips; runtime behavior remains unverified.
+
 - Add opt-in grid-cell reservations and waiting for navigation agents; runtime behavior remains unverified.
 
 - Add disabled button/input states and accessible UI labels; runtime and assistive-technology behavior remain unverified.

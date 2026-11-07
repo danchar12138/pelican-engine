@@ -1009,6 +1009,8 @@ export interface AnimationControlService extends AnimationService {
   blend(entity: string, first: string, second: string, weight: number): void;
   /** Change the second clip's weight without restarting either clip. */
   setBlendWeight(entity: string, weight: number): void;
+  /** Align the second blended clip to the first clip's normalized time without changing speed or weights. */
+  synchronizeBlend(entity: string): void;
   /** Available model clips and their durations in seconds. */
   clips(entity: string): readonly { name: string; duration: number }[];
   /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */
