@@ -4,6 +4,7 @@ import type { EntityHandle } from "../../sdk/src/index.ts";
 import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, validateSampledBodyWorld } from "./sampled-body-binding.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationOptions, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
+import { sameSimulationContainer } from "../../../experiments/simulation/scenes.ts";
 
 type Entry = { definition: FluidDefinition; simulation: Simulation; bodyRef?: EntityHandle };
 type Saved = { definition: FluidDefinition; state: SimulationSnapshot };
@@ -45,6 +46,7 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       result.set(entry.definition.id, entry);
       const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
       if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Fluid origin differs from its definition.");
+      if (!sameSimulationContainer(item.state?.options?.container, entry.definition.container)) fail("SNAPSHOT", "Fluid container differs from its definition.");
       entry.simulation.restore(item.state);
     }
     return result;

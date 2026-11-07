@@ -253,6 +253,13 @@ configured `bodyPosition` and bound rigid bodies remain in world coordinates.
 This positions the bounded reference simulation, not a general fluid volume or
 arbitrary soft-body mesh. Runtime and snapshot behavior remain unverified.
 
+Set `container: { min: [x, y, z], max: [x, y, z] }` to change the axis-aligned
+reference container relative to `origin`. Each coordinate must be in `[-100, 100]`
+and each span must exceed 0.5 units. The default bounds remain `[-1.35, -1.05,
+-1.1]` to `[1.35, 1.65, 1.1]`. These are reference-solver walls, not colliders
+in the physics world; bound rigid bodies are not confined by them. This feature
+and its snapshot behavior have not been runtime-validated.
+
 Manual fluid and soft-body `step` calls attempt to restore the pre-call solver snapshot if stepping fails. If restoration also fails, the diagnostic reports `partialState=true`; a host-level checkpoint may still be needed for other systems. This rollback path has not been runtime-validated.
 
 ### Development-stage tetrahedral soft body

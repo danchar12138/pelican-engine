@@ -16,6 +16,15 @@ import type {
   Vec3,
 } from "./types.ts";
 export const KINDS: SimulationKind[] = ["rope", "cloth", "softbody", "fluid"];
+export const DEFAULT_SIMULATION_CONTAINER = { min: [-1.35, -1.05, -1.1], max: [1.35, 1.65, 1.1] } as const;
+export function sameSimulationContainer(first: unknown, second: unknown): boolean {
+  const a = (first ?? DEFAULT_SIMULATION_CONTAINER) as { min?: unknown; max?: unknown };
+  const b = (second ?? DEFAULT_SIMULATION_CONTAINER) as { min?: unknown; max?: unknown };
+  return !!a && !!b && Array.isArray(a.min) && Array.isArray(a.max) && Array.isArray(b.min) && Array.isArray(b.max) &&
+    a.min.length === 3 && a.max.length === 3 && b.min.length === 3 && b.max.length === 3 &&
+    a.min.every((value, axis) => value === (b.min as number[])[axis]) &&
+    a.max.every((value, axis) => value === (b.max as number[])[axis]);
+}
 export function resolveOptions(
   kind: SimulationKind,
   options: SimulationOptions = {},
@@ -31,6 +40,7 @@ export function resolveOptions(
     contacts: options.contacts ?? true,
     gravity: copy(options.gravity ?? [0, -2, 0]),
     ...(options.origin === undefined ? {} : { origin: copy(options.origin) }),
+    ...(options.container === undefined ? {} : { container: copy(options.container) }),
     bodyPosition: copy(
       options.bodyPosition ??
         (kind === "cloth" ? [0.08, 0.15, -0.72] : [-0.78, 0.15, 0]).map((value, axis) => value + (options.origin?.[axis] ?? 0)) as Vec3,
@@ -68,6 +78,9 @@ export function resolveOptions(
         `${key} must contain three finite values in [-100,100].`,
       );
   }
+  if (result.container !== undefined && (!result.container || !isVec3(result.container.min) || !isVec3(result.container.max) ||
+      result.container.min.some((value, axis) => Math.abs(value) > 100 || Math.abs(result.container!.max[axis]) > 100 || result.container!.max[axis] - value <= 0.5)))
+    fail("SIM_OPTIONS", "container bounds must be finite vectors in [-100,100], with each span greater than 0.5.");
   return result;
 }
 export function makeScene(

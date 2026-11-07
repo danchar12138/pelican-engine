@@ -1,6 +1,7 @@
 ﻿/** M0 CPU experiments, not the production physics API. All coordinates are 3D. */
 export type Vec3 = [number, number, number];
 export type SimulationKind = "rope" | "cloth" | "softbody" | "fluid";
+export interface SimulationContainer { min: Vec3; max: Vec3 }
 export interface SimulationOptions {
   seed?: number;
   fixedDt?: number;
@@ -12,6 +13,8 @@ export interface SimulationOptions {
   gravity?: Vec3;
   /** World-space translation of the reference particles and container. */
   origin?: Vec3;
+  /** Axis-aligned bounds relative to origin. */
+  container?: SimulationContainer;
   bodyPosition?: Vec3;
   bodyVelocity?: Vec3;
 }
@@ -24,6 +27,7 @@ export interface ResolvedOptions {
   contacts: boolean;
   gravity: Vec3;
   origin?: Vec3;
+  container?: SimulationContainer;
   bodyPosition: Vec3;
   bodyVelocity: Vec3;
 }

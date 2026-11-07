@@ -294,10 +294,13 @@ export interface ClothService {
 /** CPU WCSPH fluid prototype exposed as a bounded development service. */
 export interface FluidVisualOptions { material: string; radius?: number; castShadow?: boolean; receiveShadow?: boolean }
 export interface FluidBodyCollider { readonly id: string; readonly entity: string }
+/** Axis-aligned container bounds relative to the simulation origin. */
+export interface SimulationContainer { min: Vec3; max: Vec3 }
 export interface FluidDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
+  container?: SimulationContainer;
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
   bodyColliders?: readonly FluidBodyCollider[];
@@ -328,6 +331,7 @@ export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
+  container?: SimulationContainer;
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: SoftBodyVisualOptions;
   bodyColliders?: readonly SoftBodyBodyCollider[];

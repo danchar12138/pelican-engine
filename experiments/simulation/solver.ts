@@ -11,7 +11,7 @@
   sub,
   volume,
 } from "./math.ts";
-import { allPoints, makeScene, resolveOptions } from "./scenes.ts";
+import { allPoints, DEFAULT_SIMULATION_CONTAINER, makeScene, resolveOptions } from "./scenes.ts";
 import type {
   PointState,
   Simulation,
@@ -27,8 +27,6 @@ const REST_DENSITY = 1;
 const SMOOTHING_LENGTH = 0.34;
 const PRESSURE_STIFFNESS = 12;
 const VISCOSITY = 0.025;
-const LOWER: Vec3 = [-1.35, -1.05, -1.1];
-const UPPER: Vec3 = [1.35, 1.65, 1.1];
 
 /** Pure synchronous CPU reference solver; intentionally small O(n²) fluid neighbor search. */
 export function createSimulation(
@@ -175,10 +173,11 @@ export function createSimulation(
 
   function constrainWalls(p: PointState): void {
     if (p.inverseMass === 0) return;
+    const container = state.options.container ?? DEFAULT_SIMULATION_CONTAINER;
     for (let k = 0; k < 3; k++)
       p.position[k] = Math.max(
-        LOWER[k] + (state.options.origin?.[k] ?? 0) + p.radius,
-        Math.min(UPPER[k] + (state.options.origin?.[k] ?? 0) - p.radius, p.position[k]),
+        container.min[k] + (state.options.origin?.[k] ?? 0) + p.radius,
+        Math.min(container.max[k] + (state.options.origin?.[k] ?? 0) - p.radius, p.position[k]),
       );
   }
 

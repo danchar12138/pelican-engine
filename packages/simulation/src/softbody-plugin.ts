@@ -4,6 +4,7 @@ import type { EntityHandle } from "../../sdk/src/index.ts";
 import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, validateSampledBodyWorld } from "./sampled-body-binding.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
+import { sameSimulationContainer } from "../../../experiments/simulation/scenes.ts";
 
 type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
@@ -36,6 +37,7 @@ function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: Read
     fixedDt,
     ...(definition.bodyColliders?.length ? { twoWayCoupling: definition.bodyReactions ?? false } : {}),
     origin: definition.origin ? [...definition.origin] as [number, number, number] : undefined,
+    container: definition.container ? { min: [...definition.container.min] as [number, number, number], max: [...definition.container.max] as [number, number, number] } : undefined,
     gravity: definition.gravity ? [...definition.gravity] as [number, number, number] : undefined,
     bodyPosition: definition.bodyPosition ? [...definition.bodyPosition] as [number, number, number] : undefined,
     bodyVelocity: definition.bodyVelocity ? [...definition.bodyVelocity] as [number, number, number] : undefined,
@@ -58,6 +60,7 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       result.set(entry.definition.id, entry);
       const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
       if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Soft-body origin differs from its definition.");
+      if (!sameSimulationContainer(item.state?.options?.container, entry.definition.container)) fail("SNAPSHOT", "Soft-body container differs from its definition.");
       entry.simulation.restore(item.state);
     }
     return result;
