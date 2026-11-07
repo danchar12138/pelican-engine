@@ -36,6 +36,7 @@ export interface EnvironmentRevision {
   source: THREE.Texture["source"];
   sourceVersion: number;
   image: unknown;
+  imageState: readonly unknown[];
   pmremVersion: number;
   mapping: number;
   width: number;
@@ -90,6 +91,15 @@ export function describeEnvironment(input: THREE.Texture): EnvironmentRevision {
     unsupported(
       "Use an uncompressed RGBA byte/half/float environment in linear-sRGB or sRGB without premultiplied alpha.",
     );
+  const imageState: unknown[] = [];
+  const captureImage = (value: unknown) => {
+    const image = value as { image?: unknown; width?: number; height?: number; src?: string; currentSrc?: string; complete?: boolean; version?: number; data?: unknown } | null | undefined;
+    imageState.push(value, image?.width, image?.height, image?.src, image?.currentSrc, image?.complete, image?.version, image?.data);
+    if (image?.image !== undefined) {
+      const nested = image.image as { width?: number; height?: number; src?: string; currentSrc?: string; complete?: boolean; data?: unknown } | null;
+      imageState.push(nested, nested?.width, nested?.height, nested?.src, nested?.currentSrc, nested?.complete, nested?.data);
+    }
+  };
   let width: number, height: number;
   if (flags.isCubeTexture) {
     if (input.mapping !== THREE.CubeReflectionMapping)
@@ -101,6 +111,7 @@ export function describeEnvironment(input: THREE.Texture): EnvironmentRevision {
     }[];
     if (!Array.isArray(faces) || faces.length !== 6)
       unsupported("CubeTexture must have six ready faces.");
+    for (const face of faces) captureImage(face);
     const size = faces[0]?.image ?? faces[0];
     const side = size?.width ?? 0;
     if (
@@ -118,6 +129,7 @@ export function describeEnvironment(input: THREE.Texture): EnvironmentRevision {
         "Use EquirectangularReflectionMapping or the locked WebGPU PMREM CubeTexture. Legacy CubeUV atlases are not supported by r187 TSL.",
       );
     const image = input.image as { width?: number; height?: number } | null;
+    captureImage(image);
     width = image?.width ?? 0;
     height = image?.height ?? 0;
   }
@@ -138,6 +150,7 @@ export function describeEnvironment(input: THREE.Texture): EnvironmentRevision {
     source: input.source,
     sourceVersion: input.source.version,
     image: input.image,
+    imageState,
     pmremVersion: input.pmremVersion,
     mapping: input.mapping,
     width,
@@ -157,7 +170,9 @@ export function describeEnvironment(input: THREE.Texture): EnvironmentRevision {
 
 export function sameEnvironmentRevision(a: EnvironmentRevision, b: EnvironmentRevision): boolean {
   return (Object.keys(a) as (keyof EnvironmentRevision)[]).every(
-    (key) => a[key] === b[key],
+    (key) => key === "imageState"
+      ? a.imageState.length === b.imageState.length && a.imageState.every((value, index) => Object.is(value, b.imageState[index]))
+      : Object.is(a[key], b[key]),
   );
 }
 
