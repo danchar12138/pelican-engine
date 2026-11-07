@@ -1026,6 +1026,31 @@ export interface AnimationService {
     playing: boolean;
   };
 }
+/** An additive layer uses the clip pose at referenceTime as its zero offset. */
+export interface AdditiveAnimationOptions {
+  /** Bone names to include; omitted selects all bone transform tracks. */
+  bones?: readonly string[];
+  /** Include descendant bones of the named bones; defaults to true. */
+  includeChildren?: boolean;
+  weight?: number;
+  speed?: number;
+  loop?: boolean;
+  startAt?: number;
+  referenceTime?: number;
+}
+export interface AdditiveAnimationState {
+  id: string;
+  clip: string;
+  bones?: readonly string[];
+  includeChildren: boolean;
+  weight: number;
+  speed: number;
+  loop: boolean;
+  referenceTime: number;
+  time: number;
+  paused: boolean;
+  playing: boolean;
+}
 /** Full model animation controls exposed by system contexts. */
 export interface AnimationControlService extends AnimationService {
   /** Play two complete clips together; weight is the second clip's contribution in [0,1]. */
@@ -1034,6 +1059,16 @@ export interface AnimationControlService extends AnimationService {
   setBlendWeight(entity: string, weight: number): void;
   /** Align the second blended clip to the first clip's normalized time without changing speed or weights. */
   synchronizeBlend(entity: string): void;
+  /** List uniquely named bones available for additive masks. */
+  bones(entity: string): readonly string[];
+  /** Play or replace a named additive bone-transform layer without stopping the base animation. */
+  playAdditive(entity: string, id: string, clip: string, options?: AdditiveAnimationOptions): void;
+  /** Set the weight of an existing additive layer in [0,1]. */
+  setAdditiveWeight(entity: string, id: string, weight: number): void;
+  /** Remove an additive layer and release its mixer resources. */
+  stopAdditive(entity: string, id: string): void;
+  /** Inspect the current additive layers, detached from the model. */
+  additiveLayers(entity: string): readonly AdditiveAnimationState[];
   /** Available model clips and their durations in seconds. */
   clips(entity: string): readonly { name: string; duration: number }[];
   /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */

@@ -7,11 +7,14 @@ import {
   releaseEmbeddedImage,
 } from "./embedded-image-pixels.ts";
 import type {
+  AdditiveAnimationOptions,
+  AdditiveAnimationState,
   AnimationService,
   AnimationControlService,
   AssetDefinition,
   ModelDefinition,
 } from "../../sdk/src/index.ts";
+import { additiveConfiguration, createAdditiveClip, listAdditiveBones, type AdditiveConfiguration } from "./model-additive.ts";
 
 export type ModelSource = string | { id: string; url?: string; path?: string };
 export interface ModelFadeSnapshot {
@@ -37,6 +40,8 @@ export interface ModelAnimationSnapshot {
   /** Optional for compatibility with snapshots created before animation suspension. */
   suspended?: boolean;
   blend?: { first: string; second: string; weight: number };
+  /** Absent in snapshots created before additive animation layers. */
+  additives?: Omit<AdditiveAnimationState, "playing">[];
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
@@ -144,6 +149,14 @@ interface InstanceState {
   suspended: boolean;
   fades: Map<string, ModelFadeSnapshot>;
   blend: { first: string; second: string; weight: number } | null;
+  additives: Map<string, AdditiveLayer>;
+}
+interface AdditiveLayer {
+  id: string;
+  source: string;
+  config: AdditiveConfiguration;
+  clip: THREE.AnimationClip;
+  action: THREE.AnimationAction;
 }
 
 function attemptCleanup(failures: unknown[], action: () => void): void {
@@ -290,6 +303,24 @@ class ModelLibraryImpl implements ModelLibrary {
       destination.time = Math.max(0, Math.min(1, source.time / first.duration)) * second.duration;
       state.mixer.update(0);
     },
+    bones: (entity) => listAdditiveBones(this.instance(entity).root),
+    playAdditive: (entity, id, clip, options) => this.playAdditive(this.instance(entity), id, clip, options),
+    setAdditiveWeight: (entity, id, weight) => {
+      const state = this.instance(entity), layer = state.additives.get(id);
+      if (!layer) throw new Error(`TC_MODEL_LAYER_MISSING: ${entity}/${id}; start the layer first.`);
+      if (!Number.isFinite(weight) || weight < 0 || weight > 1) throw new Error("TC_MODEL_LAYER_WEIGHT: Weight must be within [0,1].");
+      layer.action.setEffectiveWeight(weight);
+      layer.config.weight = weight;
+      state.mixer.update(0);
+    },
+    stopAdditive: (entity, id) => {
+      const state = this.instance(entity), layer = state.additives.get(id);
+      if (!layer) throw new Error(`TC_MODEL_LAYER_MISSING: ${entity}/${id}; start the layer first.`);
+      this.releaseAdditive(state, layer);
+      state.additives.delete(id);
+      state.mixer.update(0);
+    },
+    additiveLayers: (entity) => this.additiveStates(this.instance(entity)),
     state: (entity) => {
       const instance = this.instance(entity);
       return {
@@ -707,6 +738,7 @@ class ModelLibraryImpl implements ModelLibrary {
       suspended: false,
       fades: new Map(),
       blend: null,
+      additives: new Map(),
     };
     state.handle = Object.freeze({
       entity: entityId,
@@ -808,6 +840,7 @@ class ModelLibraryImpl implements ModelLibrary {
             currentClip: state.clip,
             ...(state.suspended ? { suspended: true } : {}),
             ...(state.blend ? { blend: { ...state.blend } } : {}),
+            ...(state.additives.size ? { additives: this.additiveStates(state).map(({ playing: _playing, ...saved }) => saved) } : {}),
             actions: [...state.actions.entries()].map(([clip, action]) => ({
               clip,
               time: action.time,
@@ -919,6 +952,21 @@ class ModelLibraryImpl implements ModelLibrary {
       if (item.currentClip !== null && !actionNames.has(item.currentClip))
         throw invalid();
       if (item.currentClip === null && actionNames.size) throw invalid();
+      if (item.additives !== undefined) {
+        if (!Array.isArray(item.additives) || item.additives.length > 16) throw invalid();
+        const layerIds = new Set<string>();
+        for (const layer of item.additives) {
+          if (!layer || typeof layer.id !== "string" || !layer.id.trim() || layer.id.length > 128 ||
+              layerIds.has(layer.id) || typeof layer.clip !== "string" || !clips.has(layer.clip) ||
+              typeof layer.paused !== "boolean" || typeof layer.includeChildren !== "boolean" || typeof layer.loop !== "boolean" ||
+              !Number.isFinite(layer.weight) || !Number.isFinite(layer.speed) || !Number.isFinite(layer.time) || !Number.isFinite(layer.referenceTime)) throw invalid();
+          layerIds.add(layer.id);
+          const source = clips.get(layer.clip)!;
+          const config = additiveConfiguration({ bones: layer.bones, includeChildren: layer.includeChildren, weight: layer.weight,
+            speed: layer.speed, loop: layer.loop, startAt: layer.time, referenceTime: layer.referenceTime }, source.duration);
+          createAdditiveClip(template.scene, source, config);
+        }
+      }
     }
     return structuredClone(data);
   }
@@ -1001,6 +1049,8 @@ class ModelLibraryImpl implements ModelLibrary {
   }
 
   private restoreAnimation(state: InstanceState, item: ModelAnimationSnapshot): void {
+    for (const layer of state.additives.values()) this.releaseAdditive(state, layer);
+    state.additives.clear();
     for (const action of state.actions.values()) action.stop();
     state.actions.clear();
     state.fades.clear();
@@ -1028,6 +1078,11 @@ class ModelLibraryImpl implements ModelLibrary {
     state.action =
       item.currentClip === null ? null : state.actions.get(item.currentClip)!;
     state.clip = item.currentClip;
+    for (const saved of item.additives ?? []) {
+      this.playAdditive(state, saved.id, saved.clip, { bones: saved.bones, includeChildren: saved.includeChildren,
+        weight: saved.weight, speed: saved.speed, loop: saved.loop, startAt: saved.time, referenceTime: saved.referenceTime }, false);
+      state.additives.get(saved.id)!.action.paused = saved.paused;
+    }
     state.mixer.update(0);
   }
 
@@ -1056,7 +1111,7 @@ class ModelLibraryImpl implements ModelLibrary {
       instances: this.instances.size,
       definitions: this.definitions.size,
       playing: [...this.instances.values()].filter((state) =>
-        state.action?.isRunning(),
+        !state.suspended && (state.action?.isRunning() || [...state.additives.values()].some(layer => layer.action.isRunning())),
       ).length,
       owned: {
         geometries: geometries.size,
@@ -1094,6 +1149,59 @@ class ModelLibraryImpl implements ModelLibrary {
     const value = this.instances.get(entity);
     if (!value) throw new Error(`TC_MODEL_ENTITY_MISSING: ${entity}`);
     return value;
+  }
+
+  private additiveStates(state: InstanceState): AdditiveAnimationState[] {
+    return [...state.additives.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(layer => ({
+      id: layer.id, clip: layer.source, ...(layer.config.bones ? { bones: [...layer.config.bones] } : {}),
+      includeChildren: layer.config.includeChildren, weight: layer.action.getEffectiveWeight(), speed: layer.action.timeScale,
+      loop: layer.config.loop, referenceTime: layer.config.referenceTime, time: layer.action.time,
+      paused: layer.action.paused, playing: !state.suspended && layer.action.isRunning(),
+    }));
+  }
+
+  private releaseAdditive(state: InstanceState, layer: AdditiveLayer): void {
+    layer.action.stop();
+    state.mixer.uncacheClip(layer.clip);
+  }
+
+  private playAdditive(state: InstanceState, id: string, name: string, options?: AdditiveAnimationOptions, update = true): void {
+    if (typeof id !== "string" || !id.trim() || id.length > 128)
+      throw new Error("TC_MODEL_LAYER_ID: Supply a nonempty layer ID of at most 128 characters.");
+    const previous = state.additives.get(id), source = state.clips.get(name);
+    if (!source) throw new Error(`TC_MODEL_LAYER_CLIP: ${state.entity}/${name}; choose an existing model clip.`);
+    if (!previous && state.additives.size >= 16)
+      throw new Error(`TC_MODEL_LAYER_CAPACITY: ${state.entity} already has 16 layers.`);
+    const config = additiveConfiguration(options, source.duration);
+    const clip = createAdditiveClip(state.root, source, config);
+    const action = state.mixer.clipAction(clip);
+    const before = previous && { time: previous.action.time, speed: previous.action.timeScale,
+      weight: previous.action.getEffectiveWeight(), paused: previous.action.paused, enabled: previous.action.enabled };
+    try {
+      action.reset().setEffectiveTimeScale(config.speed);
+      action.setLoop(config.loop ? THREE.LoopRepeat : THREE.LoopOnce, config.loop ? Infinity : 1);
+      action.clampWhenFinished = !config.loop;
+      action.setEffectiveWeight(config.weight).play();
+      action.time = config.startAt;
+      previous?.action.stop();
+      state.additives.set(id, { id, source: name, config, clip, action });
+      if (update) state.mixer.update(0);
+    } catch (error) {
+      const failures: unknown[] = [];
+      attemptCleanup(failures, () => { action.stop(); state.mixer.uncacheClip(clip); });
+      if (previous && before) {
+        state.additives.set(id, previous);
+        attemptCleanup(failures, () => {
+          previous.action.play(); previous.action.time = before.time;
+          previous.action.setEffectiveTimeScale(before.speed).setEffectiveWeight(before.weight);
+          previous.action.paused = before.paused; previous.action.enabled = before.enabled;
+          state.mixer.update(0);
+        });
+      } else state.additives.delete(id);
+      if (failures.length) throw new AggregateError([error, ...failures], "TC_MODEL_LAYER_ROLLBACK: Layer replacement failed and rollback may be partial; restore a known-good snapshot.");
+      throw error;
+    }
+    if (previous) state.mixer.uncacheClip(previous.clip);
   }
 
   private play(

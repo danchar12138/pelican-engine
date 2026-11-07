@@ -213,14 +213,42 @@ adjust the second clip's contribution without restarting. Both clips loop at
 normal speed when blending starts. `pause` and `resume` affect both; `seek` and
 `setSpeed` affect the first clip. Calling `play` exits blend mode, and blend
 state is included in snapshots. This uses normal full-clip blending, not
-bone masks, additive layers, automatic phase synchronization or root-motion
-correction. Animation and snapshot behavior have not been runtime-validated.
+automatic phase synchronization or root-motion correction. Animation and
+snapshot behavior have not been runtime-validated.
 
 Call `ctx.animation.synchronizeBlend("actor")` to align the second clip to
 the first clip's normalized time without changing their weights or speeds.
 Both clips must have positive finite durations. This is a one-time alignment;
 clips with different durations or speeds drift again unless the game aligns
 them as needed. Playback, phase continuity and snapshots are unverified.
+
+Use `ctx.animation.bones("actor")` to discover uniquely named model bones.
+An additive layer applies the selected clip's change relative to its reference
+pose, on top of `play` or `blend`:
+
+```ts
+ctx.animation.play("actor", "walk");
+ctx.animation.playAdditive("actor", "aim", "raise-arm", {
+  bones: ["Spine"],
+  includeChildren: true,
+  weight: 0.7,
+  referenceTime: 0,
+});
+ctx.animation.setAdditiveWeight("actor", "aim", 0.4);
+const layers = ctx.animation.additiveLayers("actor");
+ctx.animation.stopAdditive("actor", "aim");
+```
+
+Bone names must be unique in the model. Omit `bones` to use all bone transform
+tracks; explicit masks include descendants by default. The layer is additive,
+not an override: author the reference time as a suitable neutral pose. Each
+model supports up to 16 named layers. `loop`, `speed` and `startAt` control
+layer playback; `pause` and `resume` affect the entire model, while `seek` and
+`setSpeed` change the base clip only. Playing a new base clip does not remove
+layers. Snapshots retain layers and their playback state; older snapshots have
+no layers. This does not implement IK, retargeting, root-motion correction or a
+complete animation state machine. Playback, interpolation, snapshots and
+rendering have not been runtime-validated.
 
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
 resumed with `ctx.audio.pause(voice)` and `ctx.audio.resume(voice)`. Both are

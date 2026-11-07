@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local development adds named additive model animation layers with optional bone-subtree masks, independent weight and playback controls, and snapshot state. This does not complete IK, retargeting, root-motion handling or animation state machines; playback, interpolation, resource lifecycle and restoration are unverified.
+
 - Local tracing development conservatively detects when a perspective camera’s near frustum may meet a medium bound and initializes media per primary sample at the near plane. Alpha-filtered transmissive shells in this case are explicitly rejected; GPU correctness, additional cost and hardware behavior are unverified.
 
 - Local tracing development propagates each closed medium shell’s world winding to packed GPU geometry and orients physical shading normals against the outward boundary. Both authored global windings, including mirrors, have development implementations; GPU classification, graph normals, shading and hardware behavior remain unverified.
@@ -78,7 +80,7 @@
 
 - The 0.10.0 development batch adds runtime surface overrides for declared non-graph material channels, with snapshot persistence and graph ownership checks. Shared-material propagation, raster/tracing consistency and restoration are unverified.
 
-- The 0.10.0 development batch adds two-clip weighted model animation blending and snapshot state. Bone masks, additive layers, phase synchronization and IK remain incomplete; blending and restoration are unverified.
+- The 0.10.0 development batch adds two-clip weighted model animation blending and snapshot state. Local additive bone masks extend this, but automatic phase matching and IK remain incomplete; blending and restoration are unverified.
 
 - The 0.10.0 development batch adds optional global convolution reverb with deterministic generated impulse responses, dry fallback and snapshot-preserved settings. It is not room acoustics or per-bus sends; sound output, failure recovery, resource cleanup and restoration remain unverified.
 

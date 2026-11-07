@@ -565,6 +565,31 @@ export function createGameServices(
         if (!animation.synchronizeBlend) throw new Error("TC_ANIMATION_ADAPTER: Clip blend synchronization is unavailable in this animation adapter.");
         animation.synchronizeBlend(entity);
       },
+      bones(entity) {
+        alive();
+        if (!animation.bones) throw new Error("TC_ANIMATION_ADAPTER: Bone inspection is unavailable in this animation adapter.");
+        return animation.bones(entity);
+      },
+      playAdditive(entity, id, clip, options) {
+        alive();
+        if (!animation.playAdditive) throw new Error("TC_ANIMATION_ADAPTER: Additive animation is unavailable in this animation adapter.");
+        animation.playAdditive(entity, id, clip, options);
+      },
+      setAdditiveWeight(entity, id, weight) {
+        alive();
+        if (!animation.setAdditiveWeight) throw new Error("TC_ANIMATION_ADAPTER: Additive animation is unavailable in this animation adapter.");
+        animation.setAdditiveWeight(entity, id, weight);
+      },
+      stopAdditive(entity, id) {
+        alive();
+        if (!animation.stopAdditive) throw new Error("TC_ANIMATION_ADAPTER: Additive animation is unavailable in this animation adapter.");
+        animation.stopAdditive(entity, id);
+      },
+      additiveLayers(entity) {
+        alive();
+        if (!animation.additiveLayers) throw new Error("TC_ANIMATION_ADAPTER: Additive animation is unavailable in this animation adapter.");
+        return animation.additiveLayers(entity);
+      },
       play(entity, clip, options) {
         alive();
         animation.play(entity, clip, options);

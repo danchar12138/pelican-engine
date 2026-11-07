@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add named additive model animation layers with bone-subtree masks, playback controls and snapshot state; behavior and restoration remain unverified.
+
 - Initialize perspective near-plane media per sample when the camera’s near region may intersect a volume; GPU behavior and cost remain unverified.
 
 - Track closed-medium world winding and orient physical normals for either consistent shell winding, including mirrored instances; GPU behavior remains unverified.
