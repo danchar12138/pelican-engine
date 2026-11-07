@@ -38,6 +38,7 @@ not cause this runtime rejection.
 GLB `KHR_materials_unlit` materials use their base color and texture without
 lighting; they do not emit light into the scene. Import, optimization and
 raster/path/hybrid behavior for this addition have not been runtime-validated.
+Ambient occlusion maps on other unlit materials are not supported by the tracer.
 
 ## Standalone Rendering Recipe
 

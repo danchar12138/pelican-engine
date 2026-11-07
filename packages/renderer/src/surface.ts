@@ -831,6 +831,12 @@ function snapshotMaterial(
       m.uuid,
     );
   const s = m as THREE.MeshStandardMaterial;
+  if (unlit && (m as THREE.MeshBasicMaterial).aoMap)
+    fail(
+      "SURFACE_MATERIAL_MAP_UNSUPPORTED",
+      "Ambient occlusion on an unlit material is not supported by the surface tracer; remove aoMap or use a standard material",
+      m.uuid,
+    );
   if (s.wireframe)
     fail(
       "SURFACE_MATERIAL_MODE_UNSUPPORTED",
