@@ -119,6 +119,7 @@ export interface SystemContext extends EngineFacade {
   readonly streaming: WorldStreamingService;
   readonly inventory: InventoryService;
   readonly quests: QuestService;
+  readonly dialogue: DialogueService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -880,6 +881,48 @@ export interface QuestService {
   reset(id: string): void;
   inspect(id: string): QuestState;
   list(): readonly QuestState[];
+}
+export interface DialogueChoiceDefinition {
+  id: string;
+  text: string;
+  /** Omit or use null to end the session. */
+  next?: string | null;
+}
+export interface DialogueNodeDefinition {
+  id: string;
+  speaker?: string;
+  text: string;
+  /** Linear successor; cannot be combined with nonempty choices. */
+  next?: string | null;
+  choices?: readonly DialogueChoiceDefinition[];
+}
+export interface DialogueDefinition {
+  id: string;
+  start: string;
+  nodes: readonly DialogueNodeDefinition[];
+}
+export interface DialogueSessionState {
+  id: string;
+  dialogue: string;
+  status: "active" | "completed" | "cancelled";
+  steps: number;
+  node: null | {
+    id: string; speaker: string; text: string; next: string | null;
+    choices: readonly { id: string; text: string; next: string | null }[];
+  };
+}
+/** Branching text state only; game code owns UI, conditions and consequences. */
+export interface DialogueService {
+  define(definition: DialogueDefinition): void;
+  undefine(id: string): void;
+  start(session: string, dialogue: string): void;
+  /** Advance a node without choices; a terminal node completes the session. */
+  advance(session: string): void;
+  choose(session: string, choice: string): void;
+  cancel(session: string): void;
+  close(session: string): void;
+  inspect(session: string): DialogueSessionState;
+  list(): readonly DialogueSessionState[];
 }
 export interface AudioService {
   play(

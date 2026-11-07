@@ -280,6 +280,9 @@ export class RuntimeHost {
       get quests() {
         return host.service("quests");
       },
+      get dialogue() {
+        return host.service("dialogue");
+      },
       get ropes() {
         return host.service("ropes");
       },

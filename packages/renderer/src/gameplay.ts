@@ -11,6 +11,7 @@ import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createWorldStreamingPlugin } from "../../runtime/src/world-streaming.ts";
 import { createInventoryPlugin } from "../../gameplay/src/inventory.ts";
 import { createQuestPlugin } from "../../gameplay/src/quests.ts";
+import { createDialoguePlugin } from "../../gameplay/src/dialogue.ts";
 import { createRopePlugin } from "../../simulation/src/rope-plugin.ts";
 import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
 import { createFluidPlugin } from "../../simulation/src/fluid-plugin.ts";
@@ -228,6 +229,7 @@ export async function prepareGameplay(
       createWorldStreamingPlugin,
       createInventoryPlugin,
       createQuestPlugin,
+      createDialoguePlugin,
       createRopePlugin,
       createClothPlugin,
       createFluidPlugin,

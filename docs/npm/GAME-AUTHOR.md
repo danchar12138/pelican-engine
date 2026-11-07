@@ -184,6 +184,41 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Branching dialogue
+
+Define a graph of text nodes and start a named session. A node either has a
+linear `next` or choices; an omitted or null successor completes the session
+when advanced or chosen:
+
+```ts
+ctx.dialogue.define({ id: "guide", start: "hello", nodes: [
+  { id: "hello", speaker: "Guide", text: "Can you help?", choices: [
+    { id: "yes", text: "Yes", next: "thanks" },
+    { id: "no", text: "Not now" },
+  ] },
+  { id: "thanks", speaker: "Guide", text: "Thank you." },
+] });
+ctx.dialogue.start("talk", "guide");
+const session = ctx.dialogue.inspect("talk");
+// Game UI displays session.node; selecting Yes calls ctx.dialogue.choose("talk", "yes").
+```
+
+Use `advance` for a node without choices, `choose` for a listed choice,
+`cancel` to end an active session, and `close` to remove any session. A session
+must be closed before reusing its ID or undefining its dialogue. Graph edges
+must reference defined nodes; loops are allowed. The game decides which choices
+to display and applies quest, inventory and other consequences itself; those
+operations are not a shared transaction. `inspect` and `list` return detached
+state. Definitions and session progress are included in host snapshots; older
+snapshots have an empty dialogue service.
+
+The service permits 512 dialogue definitions, 256 nodes per graph, 16 choices
+per node and 128 concurrent sessions, with additional total node, choice and
+text budgets. This is a basic branching text-state system, not a dialogue
+editor, voice/lip-sync, localization system or automatic condition/reward
+engine. Runtime behavior and snapshot restoration have not been validated.
+`examples/dialogue` connects a conversation to a quest through game code.
+
 ### Quest objectives
 
 `ctx.quests` tracks game-defined objectives and prerequisites. The game

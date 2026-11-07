@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add branching text dialogue definitions, choices and snapshot-preserved sessions. Runtime behavior is unverified.
+
 - Add game-driven quest objectives, prerequisite tracking, completion and snapshots. Runtime behavior is unverified.
 
 - Add stackable items and bounded inventory containers with atomic operations and snapshot state. Runtime behavior is unverified.
