@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds opt-in discrete non-edge-adjacent particle self-contact for tetrahedral soft bodies, with a cumulative projection counter. It does not handle continuous, surface or edge self-collision; stability, performance and snapshot behavior remain unverified.
+
 - Local development adds runtime surface overrides for declared non-graph material channels, with snapshot persistence and graph ownership checks. Shared-material propagation, raster/tracing consistency and restoration are unverified.
 
 - Local development adds two-clip weighted model animation blending and snapshot state. Bone masks, additive layers, phase synchronization and IK remain incomplete; blending and restoration are unverified.

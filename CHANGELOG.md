@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add opt-in nonadjacent particle self-contact for soft bodies; behavior and cost remain unverified.
+
 - Add runtime non-graph material surface overrides and snapshot state; raster/tracing behavior remains unverified.
 
 - Add weighted two-clip model animation blending with snapshot state; runtime behavior remains unverified.

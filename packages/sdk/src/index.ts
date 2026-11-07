@@ -566,6 +566,8 @@ export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
   /** Initial tetrahedral lattice dimensions, each in [2,5]; defaults to [3,3,3]. */
   softBodyGrid?: readonly [number, number, number];
+  /** Enable discrete contacts between non-edge-adjacent soft-body particles; defaults to false. */
+  selfCollisions?: boolean;
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
   container?: SimulationContainer;
@@ -582,7 +584,7 @@ export interface SoftBodyState {
   particleIds: string[];
   /** Velocities in metres per second, aligned with positions and particleIds. */
   velocities: Vec3[];
-  contacts: { contactCount: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
+  contacts: { contactCount: number; selfContactCorrections?: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
   maxDistanceError: number; maxVolumeRelativeError: number; minSignedVolumeRatio: number | null;
   resources: { particles: number; bodies: number; constraints: number; triangles: number };
 }

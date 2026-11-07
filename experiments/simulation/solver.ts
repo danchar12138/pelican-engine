@@ -68,6 +68,11 @@ export function createSimulation(
   options: SimulationOptions = {},
 ): Simulation {
   let state = makeScene(kind, resolveOptions(kind, options));
+  const excludedPairs = (snapshot: SimulationSnapshot): Set<number> => {
+    const count = snapshot.particles.length;
+    return new Set(snapshot.distances.map(({ a, b }) => Math.min(a, b) * count + Math.max(a, b)));
+  };
+  let adjacentParticles = excludedPairs(state);
   let disposed = false;
   const sampledRadii = new Map<string, number>();
   const particleForces = new Map<string, Vec3>();
@@ -267,6 +272,24 @@ export function createSimulation(
     }
   }
 
+  function solveSoftBodySelfContacts(): void {
+    if (kind !== "softbody" || !state.options.selfCollisions) return;
+    const particles = state.particles, count = particles.length;
+    for (let i = 0; i < count; i++) for (let j = i + 1; j < count; j++) {
+      if (adjacentParticles.has(i * count + j)) continue;
+      const a = particles[i], b = particles[j], totalWeight = a.inverseMass + b.inverseMass;
+      if (totalWeight === 0) continue;
+      const delta = sub(a.position, b.position), distance = length(delta), penetration = a.radius + b.radius - distance;
+      if (penetration <= 0) continue;
+      const normal: Vec3 = distance > 1e-12 ? mul(delta, 1 / distance) : [1, 0, 0];
+      accumulate(a.position, normal, penetration * a.inverseMass / totalWeight);
+      accumulate(b.position, normal, -penetration * b.inverseMass / totalWeight);
+      const previous = state.counters.selfContactCorrections ?? 0;
+      if (previous >= Number.MAX_SAFE_INTEGER) fail("SIM_CAPACITY", "Self-contact correction counter exhausted; create a new simulation.");
+      state.counters.selfContactCorrections = previous + 1;
+    }
+  }
+
   function constrainWalls(p: PointState): void {
     if (p.inverseMass === 0) return;
     const container = state.options.container ?? DEFAULT_SIMULATION_CONTAINER;
@@ -303,6 +326,7 @@ export function createSimulation(
       solveDistances(h, distanceLambdas);
       solveVolumes(h, volumeLambdas);
       solveContacts(h);
+      solveSoftBodySelfContacts();
       for (const p of points) if (!sampledRadii.has(p.id)) constrainWalls(p);
     }
     for (let i = 0; i < points.length; i++) {
@@ -518,6 +542,7 @@ export function createSimulation(
       const validated = validateSnapshot(snapshot, kind);
       const { sampledBodies, particleForces: savedForces, colliders: savedColliders, ...next } = validated;
       state = next;
+      adjacentParticles = excludedPairs(state);
       sampledRadii.clear();
       for (const body of sampledBodies ?? []) sampledRadii.set(body.id, body.radius);
       particleForces.clear();
@@ -650,6 +675,7 @@ function validateSnapshot(
       !c ||
       !Number.isSafeInteger(c.contactCount) ||
       c.contactCount < 0 ||
+      (c.selfContactCorrections !== undefined && (!Number.isSafeInteger(c.selfContactCorrections) || c.selfContactCorrections < 0)) ||
       !isVec3(c.reactionImpulse)
     )
       throw new Error("invalid contact counters");

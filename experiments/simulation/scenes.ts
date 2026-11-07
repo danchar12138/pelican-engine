@@ -43,6 +43,7 @@ export function resolveOptions(
     ...(options.container === undefined ? {} : { container: copy(options.container) }),
     ...(options.particleGrid === undefined ? {} : { particleGrid: copy(options.particleGrid) }),
     ...(options.softBodyGrid === undefined ? {} : { softBodyGrid: copy(options.softBodyGrid) }),
+    ...(options.selfCollisions === undefined ? {} : { selfCollisions: options.selfCollisions }),
     bodyPosition: copy(
       options.bodyPosition ??
         (kind === "cloth" ? [0.08, 0.15, -0.72] : [-0.78, 0.15, 0]).map((value, axis) => value + (options.origin?.[axis] ?? 0)) as Vec3,
@@ -89,6 +90,8 @@ export function resolveOptions(
   if (result.softBodyGrid !== undefined && (kind !== "softbody" || !isVec3(result.softBodyGrid) ||
       result.softBodyGrid.some(value => !Number.isSafeInteger(value) || value < 2 || value > 5)))
     fail("SIM_OPTIONS", "softBodyGrid is soft-body-only and requires three integer dimensions in [2,5].");
+  if (result.selfCollisions !== undefined && (kind !== "softbody" || typeof result.selfCollisions !== "boolean"))
+    fail("SIM_OPTIONS", "selfCollisions is a soft-body-only boolean option.");
   return result;
 }
 export function makeScene(

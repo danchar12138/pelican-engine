@@ -23,6 +23,8 @@ export interface SimulationOptions {
   particleGrid?: Vec3;
   /** Initial soft-body lattice dimensions; omitted means 3 by 3 by 3. */
   softBodyGrid?: Vec3;
+  /** Soft-body nonadjacent particle contacts, disabled by default. */
+  selfCollisions?: boolean;
   bodyPosition?: Vec3;
   bodyVelocity?: Vec3;
 }
@@ -38,6 +40,7 @@ export interface ResolvedOptions {
   container?: SimulationContainer;
   particleGrid?: Vec3;
   softBodyGrid?: Vec3;
+  selfCollisions?: boolean;
   bodyPosition: Vec3;
   bodyVelocity: Vec3;
 }
@@ -61,6 +64,8 @@ export interface VolumeConstraint {
 }
 export interface SimulationCounters {
   contactCount: number;
+  /** Cumulative particle-pair projection count, not unique contact events. */
+  selfContactCorrections?: number;
   reactionImpulse: Vec3;
   absoluteReactionImpulse: number;
   maxContactCorrection: number;

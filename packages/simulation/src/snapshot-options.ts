@@ -20,5 +20,6 @@ export function differingSimulationOption(
   if (!sameSimulationContainer(actual.container, expected.container)) return "container";
   if (kind === "fluid" && !sameVector(actual.particleGrid ?? [4, 4, 4], expected.particleGrid ?? [4, 4, 4])) return "particleGrid";
   if (kind === "softbody" && !sameVector(actual.softBodyGrid ?? [3, 3, 3], expected.softBodyGrid ?? [3, 3, 3])) return "softBodyGrid";
+  if (kind === "softbody" && (actual.selfCollisions ?? false) !== (expected.selfCollisions ?? false)) return "selfCollisions";
   return undefined;
 }

@@ -974,6 +974,15 @@ Use `ctx.softBodies.create({ id, autoStep: true, visual: { material: "material-i
 
 An automatic soft body can bind one live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The sphere is sampled after physics before each soft-body step. Set `bodyReactions: true` to submit approximate contact impulses back through the physics bridge; this is delayed and projection-derived, not complete mass-coupled rigid-body simulation. Destroyed bindings fail the owning step rather than silently becoming a different collider.
 
+Set `selfCollisions: true` when creating a soft body to enable discrete
+particle-pair separation for particles that do not share a tetrahedral edge.
+`inspect(id).contacts.selfContactCorrections` counts cumulative solver
+projections, not unique collision events. The option and counter are retained
+in snapshots; older snapshots default to disabled. This bounded CPU pass is
+quadratic in particle count per solver iteration. It is not continuous
+collision detection, triangle/edge contact, tearing or a guarantee against
+self-intersection; runtime stability, cost and restoration are unverified.
+
 Fluid and soft-body bindings retain an entity-generation handle. Destroying a bound entity invalidates the binding even if another entity later uses the same ID; destroy and recreate the simulation to bind the replacement. A snapshot with a stale binding is rejected, and restore requires a matching dynamic sphere in both world and physics state. These lifecycle paths are not runtime-validated.
 
 Soft-body surface UVs use the initial particle positions and remain fixed as the body deforms; they are not recalculated from the current pose.
