@@ -45,7 +45,8 @@ Model metadata has:
   target count, and local bounds computed from vertex bytes.
 - `materials[]`: index/name, `pbr` with base color/metallic/roughness factors,
   emissive factor, alpha mode, double-sided flag, and `textures` slots
-  `baseColor`, `metallicRoughness`, `normal`, `occlusion`, `emissive`. Slots hold
+`baseColor`, `metallicRoughness`, `normal`, `occlusion`, `emissive`. Supported
+`KHR_materials_emissive_strength` factors are also included in material metadata. Slots hold
   glTF texture indices or null; defaults are glTF 2.0 defaults.
 - `textures[]`: index/name, `image` index, and sampler index or null.
 - `images[]`: index/name, encoded image bytes, `format`, `width`, `height`,
@@ -151,8 +152,8 @@ Float WAVE uses `encoding: "ieee-float"` and requires a matching `fact` frame co
   and 8 million JPEG blocks. Exceeding these gives an explicit unsupported error.
 
 Remaining gaps deliberately return unsupported: `.gltf`, external/data resources,
-glTF extensions other than the `KHR_materials_specular` factor and UV0 texture subset
-and material constants of `KHR_materials_ior` (including Draco/Meshopt/KTX2), sparse accessors,
+glTF extensions other than the `KHR_materials_specular` factor and UV0 texture subset,
+`KHR_materials_ior`, and `KHR_materials_emissive_strength` (including Draco/Meshopt/KTX2),
 sub-32-bit matrix accessors, cameras, joint/weight sets beyond 0, APNG,
 progressive/lossless/arithmetic/multiple-scan/CMYK JPEG, RF64/RIFX/WAVE extensible,
 compressed WAVE, MP3/Ogg/AAC and other image/audio codecs. The package does not

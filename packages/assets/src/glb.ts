@@ -128,7 +128,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         "Expected a nonempty array of objects.",
       );
   }
-  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior"]);
+  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength"]);
   for (const key of ["extensionsUsed", "extensionsRequired"] as const)
     if (json[key] !== undefined) {
       ctx.check(
@@ -190,13 +190,15 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
               continue;
             }
             const allowed = name === "KHR_materials_specular"
-              ? ["specularFactor", "specularColorFactor"] : ["ior"];
+              ? ["specularFactor", "specularColorFactor"]
+              : name === "KHR_materials_ior" ? ["ior"] : ["emissiveStrength"];
             ctx.check(allowed.includes(field), at + "/" + field, "Unknown extension property.");
             const validNumber = (v: unknown, min: number, max: number) =>
               typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
             ctx.check(field === "specularColorFactor"
               ? Array.isArray(fieldValue) && fieldValue.length === 3 && fieldValue.every(v => validNumber(v, 0, 1))
-              : validNumber(fieldValue, field === "ior" ? 1 : 0, field === "ior" ? Infinity : 1),
+              : validNumber(fieldValue, field === "ior" ? 1 : 0, field === "ior" || field === "emissiveStrength" ? Infinity : 1) &&
+                (field !== "emissiveStrength" || Number.isFinite(Math.fround(fieldValue as number))),
               at + "/" + field, "Invalid extension factor or IOR.");
           }
         }

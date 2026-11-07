@@ -1,6 +1,6 @@
 ﻿import { NodeIO, type GLTF } from "@gltf-transform/core";
 import { InspectionContext } from "./errors.ts";
-import { KHRMaterialsIOR, KHRMaterialsSpecular } from "@gltf-transform/extensions";
+import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular } from "@gltf-transform/extensions";
 import { parseGLB, type AccessorData } from "./glb.ts";
 import { normalizeSparseGLB } from "./glb-sparse.ts";
 import { inspectTexture } from "./texture.ts";
@@ -206,6 +206,7 @@ export async function inspectModel(
       name: m.name ?? "",
       ...(m.extensions?.KHR_materials_specular ? { specular: m.extensions.KHR_materials_specular } : {}),
       ...(m.extensions?.KHR_materials_ior ? { ior: m.extensions.KHR_materials_ior } : {}),
+      ...(m.extensions?.KHR_materials_emissive_strength ? { emissiveStrength: m.extensions.KHR_materials_emissive_strength } : {}),
       pbr: {
         baseColorFactor: vector(
           p?.baseColorFactor ?? [1, 1, 1, 1],
@@ -880,7 +881,7 @@ export async function inspectModel(
   });
   // The mature reader is used only after resource and semantic validation; no URI is read.
   const document = await new NodeIO()
-    .registerExtensions([KHRMaterialsIOR, KHRMaterialsSpecular])
+    .registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular])
     .setStrictResources(true).readBinary(normalizeSparseGLB(data));
   const sceneIndex = json.scene ?? (json.scenes?.length ? 0 : null);
   let bounds: { min: number[]; max: number[] } | null = null;

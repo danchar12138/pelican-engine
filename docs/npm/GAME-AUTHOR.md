@@ -73,6 +73,8 @@ export default defineGame({
 Use `npx --no-install pelican check` and `npx --no-install pelican dev` in an
 installed project, then `npx --no-install pelican build`. A repository-based
 project uses the same source and equivalent engine CLI commands listed below.
+GLB `KHR_materials_emissive_strength` factors are accepted and retained by
+asset optimization; their runtime rendering behavior remains unverified.
 Imported opaque GLB materials support `KHR_materials_specular` intensity and
 color textures with `TEXCOORD_0`. Positive transmission combined with specular
 textures or non-default specular remains unsupported. The tracer rejects PNG
