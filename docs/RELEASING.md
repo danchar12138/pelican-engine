@@ -10,7 +10,7 @@ For each substantial release batch:
 
 1. Increment the standard version consistently across the files listed above. Never reuse a version already published to npm or an existing release tag; these identities are immutable. If the intended version is occupied, use the next unoccupied patch version in the same minor line (D59).
 2. Keep changes focused in the single `main` worktree. Related features and fixes may have separate Chinese Conventional Commits, accumulated locally until a substantial minor-version batch is ready.
-3. Push `main`. Inspect the Actions publish step and actual registry state: a failed workflow can occur after npm accepts a package, and npm processing may delay public visibility. If the version is already present, the workflow reports `TC_NPM_VERSION_PUBLISHED` and fails instead of presenting a skipped publication as success. Never overwrite it; use a new version for the next release batch.
+3. Push `main` and inspect the Actions publish result. A failed workflow can occur after npm accepts a package, so do not infer registry state from the failure. Under the current build-only policy, registry verification is not run; report an uncertain outcome as uncertain. The publishing command itself rejects an already-published version instead of silently skipping it. Never overwrite a version; use a new one for the next release batch.
 
 GitHub Releases are separate milestone announcements. They do not trigger npm publishing. Assets may be prepared after the allowed build with `node --import tsx tools/release.ts pack --compile-only-unverified`; this inventory does not establish runtime correctness or acceptance. Publish notes must state what was built and what remains unverified.
 

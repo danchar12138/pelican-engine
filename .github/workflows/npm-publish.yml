@@ -33,11 +33,4 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content .pelican/npm/package/package.json -Raw | ConvertFrom-Json).version
-          $metadata = npm view ('pelican-engine@' + $version) version --json --silent 2>&1
-          if ($LASTEXITCODE -eq 0) {
-            throw ('TC_NPM_VERSION_PUBLISHED: pelican-engine@' + $version + ' already exists. Increment the repository version in the next release batch; published versions cannot be overwritten.')
-          }
-          if (-not ($metadata -match 'E404|404 Not Found|No match found')) {
-            throw ('Unable to determine whether pelican-engine@' + $version + ' is published: ' + ($metadata -join ' '))
-          }
           npm publish (Join-Path .pelican/npm/artifacts ('pelican-engine-' + $version + '.tgz')) --access public --tag latest
