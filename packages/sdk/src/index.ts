@@ -118,6 +118,7 @@ export interface SystemContext extends EngineFacade {
   readonly navigation: NavigationService;
   readonly streaming: WorldStreamingService;
   readonly inventory: InventoryService;
+  readonly quests: QuestService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -842,6 +843,43 @@ export interface InventoryService {
   moveSlot(id: string, from: number, to: number, count?: number): void;
   destroy(id: string): void;
   destroyOwner(owner: string): void;
+}
+export interface QuestObjectiveDefinition {
+  id: string;
+  target: number;
+  label?: string;
+}
+export interface QuestDefinition {
+  id: string;
+  title?: string;
+  objectives: readonly QuestObjectiveDefinition[];
+  /** Prerequisites are checked when starting; later resets do not cancel already-started quests. */
+  prerequisites?: readonly string[];
+  /** Completes when all objectives reach their targets; defaults to true. */
+  autoComplete?: boolean;
+}
+export interface QuestState {
+  id: string;
+  title: string;
+  status: "inactive" | "active" | "completed" | "failed";
+  prerequisites: readonly string[];
+  autoComplete: boolean;
+  objectives: readonly { id: string; label: string; target: number; progress: number }[];
+}
+export interface QuestProgressUpdate { objective: string; amount: number }
+/** Game-driven objective tracking. Rewards and event interpretation remain game rules. */
+export interface QuestService {
+  define(definition: QuestDefinition): void;
+  start(id: string): void;
+  advance(id: string, objective: string, amount?: number): void;
+  /** Applies distinct objective increments as one operation. */
+  advanceBatch(id: string, updates: readonly QuestProgressUpdate[]): void;
+  complete(id: string): void;
+  fail(id: string): void;
+  /** Explicitly clears progress and returns this quest to inactive. */
+  reset(id: string): void;
+  inspect(id: string): QuestState;
+  list(): readonly QuestState[];
 }
 export interface AudioService {
   play(

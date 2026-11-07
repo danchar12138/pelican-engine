@@ -184,6 +184,40 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Quest objectives
+
+`ctx.quests` tracks game-defined objectives and prerequisites. The game
+chooses which events advance an objective; no particular combat, collection or
+dialogue rules are imposed:
+
+```ts
+ctx.quests.define({ id: "gather", title: "Gather supplies", objectives: [
+  { id: "herbs", label: "Collect herbs", target: 3 },
+] });
+ctx.quests.start("gather");
+ctx.quests.advance("gather", "herbs", 1);
+const quest = ctx.quests.inspect("gather");
+```
+
+Objectives accept positive integer increments and clamp at their target.
+`advanceBatch` applies distinct objective updates together or leaves progress
+unchanged on an invalid update. Quests complete automatically by default once
+all objectives reach their targets; set `autoComplete: false` and call
+`complete` for an explicit completion step. `fail` changes an active quest to
+failed, and `reset` explicitly clears progress and returns it to inactive.
+`inspect` and `list` return detached state. Prerequisites are checked at start;
+forward references are allowed, but missing, incomplete or cyclic dependencies
+cannot start. Resetting a prerequisite later does not cancel an already-started
+quest.
+
+Up to 1024 quests, 64 objectives per quest and 16 prerequisites per quest are
+supported. Definitions, status and progress are saved in host snapshots; older
+snapshots start with no quests. The game must grant rewards and update UI itself;
+quest and inventory operations are not a shared transaction. This is a basic
+objective tracker, not dialogue graphs, quest scripting, automatic gameplay
+event matching or a complete journal. Runtime behavior and snapshot restoration
+have not been validated. `examples/quests` shows manual progress and a reward.
+
 ### Inventory and item stacks
 
 `ctx.inventory` supplies bounded, game-defined item containers without exposing

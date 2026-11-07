@@ -277,6 +277,9 @@ export class RuntimeHost {
       get inventory() {
         return host.service("inventory");
       },
+      get quests() {
+        return host.service("quests");
+      },
       get ropes() {
         return host.service("ropes");
       },

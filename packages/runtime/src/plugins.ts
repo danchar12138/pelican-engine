@@ -12,6 +12,7 @@ import type {
   NavigationService,
   WorldStreamingService,
   InventoryService,
+  QuestService,
   RopeService,
   ClothService,
   FluidService,
@@ -39,6 +40,7 @@ export interface RuntimeServices {
   navigation: NavigationService;
   streaming: WorldStreamingService;
   inventory: InventoryService;
+  quests: QuestService;
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;
