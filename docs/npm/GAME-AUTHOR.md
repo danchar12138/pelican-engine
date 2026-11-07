@@ -228,7 +228,9 @@ Use `ctx.fluid.create({ id, autoStep: true, visual: { material: "material-id" } 
 
 ### Development-stage tetrahedral soft body
 
-Use `ctx.softBodies.create({ id, autoStep: true, visual: { material: material-id } })` for the bounded CPU tetrahedral soft-body service. The built-in reference scene provides a small deformable solid with fixed-step scheduling, inspection, snapshots, particle impulses and dynamic surface presentation. Use `ctx.softBodies.step` for manual stepping, and `inspect`, `visuals` or `destroy` for lifecycle management. This service does not provide complete soft-body physics, cloth materials, tearing, continuous collision, GPU solving or rigid-body coupling; runtime, stability, performance, rendering and snapshot compatibility remain unverified.
+Use `ctx.softBodies.create({ id, autoStep: true, visual: { material: "material-id" } })` for the bounded CPU tetrahedral soft-body service. The built-in reference scene provides a small deformable solid with fixed-step scheduling, inspection, snapshots, particle impulses and dynamic surface presentation. Use `ctx.softBodies.step` for manual stepping, and `inspect`, `visuals` or `destroy` for lifecycle management. This service does not provide complete soft-body physics, cloth materials, tearing, continuous collision, GPU solving or rigid-body coupling; runtime, stability, performance, rendering and snapshot compatibility remain unverified.
+
+An automatic soft body can bind one live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The sphere is sampled after physics before each soft-body step. Set `bodyReactions: true` to submit approximate contact impulses back through the physics bridge; this is delayed and projection-derived, not complete mass-coupled rigid-body simulation. Destroyed bindings fail the owning step rather than silently becoming a different collider.
 
 ### Development-stage triangular cloth
 

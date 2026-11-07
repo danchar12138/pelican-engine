@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.32";
+export const SDK_VERSION = "0.3.33";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -321,10 +321,13 @@ export interface FluidService {
 }
 /** CPU tetrahedral soft-body service backed by the bounded XPBD reference solver. */
 export interface SoftBodyVisualOptions { material: string; castShadow?: boolean; receiveShadow?: boolean }
+export interface SoftBodyBodyCollider { readonly id: string; readonly entity: string }
 export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: SoftBodyVisualOptions;
+  bodyColliders?: readonly SoftBodyBodyCollider[];
+  bodyReactions?: boolean;
 }
 export interface SoftBodyState {
   tick: number; simulatedSeconds: number; disposed: boolean;
