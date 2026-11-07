@@ -1,5 +1,6 @@
 import * as THREE from "three/webgpu";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
+import { normalizeSparseGLB } from "../../assets/src/glb-sparse.ts";
 import { clone as cloneSkeleton } from "three/addons/utils/SkeletonUtils.js";
 import {
   associateEmbeddedImage,
@@ -1178,7 +1179,12 @@ class ModelLibraryImpl implements ModelLibrary {
               },
             };
           });
-          const gltf = await loader.parseAsync(bytes, new URL(".", url).href);
+          const normalized = normalizeSparseGLB(bytes);
+          const normalizedBytes = normalized.buffer.slice(
+            normalized.byteOffset,
+            normalized.byteOffset + normalized.byteLength,
+          ) as ArrayBuffer;
+          const gltf = await loader.parseAsync(normalizedBytes, new URL(".", url).href);
           resources.collect(gltf.scenes);
           const template = this.makeTemplate(id, gltf, resources);
           if (controller.signal.aborted || this.closed)

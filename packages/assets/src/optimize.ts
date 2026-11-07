@@ -6,6 +6,7 @@ import path from "node:path";
 import { inspectAsset } from "./index.ts";
 import { createHash } from "node:crypto";
 import { parseGLB } from "./glb.ts";
+import { normalizeSparseGLB } from "./glb-sparse.ts";
 import { InspectionContext } from "./errors.ts";
 
 /** Explicit lossless preprocessing. Source files and existing outputs are never overwritten. */
@@ -17,7 +18,7 @@ export async function optimizeModel(input: string, output: string) {
   const before = await inspectAsset(input, "model");
   const sourceBytes = await readFile(input);
   const io = new NodeIO().registerExtensions([KHRMaterialsIOR, KHRMaterialsSpecular]);
-  const document = await io.readBinary(sourceBytes);
+  const document = await io.readBinary(normalizeSparseGLB(sourceBytes));
   document.setLogger(new Logger(Logger.Verbosity.SILENT));
   // Weld compares the complete vertex stream bit-for-bit; names remain stable for animations and author references.
   await document.transform(dedup({ keepUniqueNames: true }), weld());

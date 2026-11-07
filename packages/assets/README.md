@@ -21,7 +21,7 @@ installed or changed by this package.
 
 The CLI exposes `optimize --project <game> --asset <model-id> --output <new-project-relative.glb>`. Keep the asset's source/license/attribution when updating its path. `build` also emits lossless HTTP Brotli/Gzip companions and a manifest; identity files remain available for ordinary static deployment.
 
-Self-contained GLB sparse accessors with packed or zero-initialized bases and up to four components are inspected after applying their indexed replacements. Indices must be strictly increasing and in range; offsets and buffer views are validated. Sparse matrices and sparse accessors with an interleaved base are currently rejected with `TC_ASSET_UNSUPPORTED`, because the locked Three.js loader cannot reliably decode those layouts. Convert such data to packed, non-sparse accessors before import. The existing sub-32-bit matrix restriction remains.
+Self-contained GLB sparse accessors with packed or zero-initialized bases are inspected after applying their indexed replacements. Indices must be strictly increasing and in range; offsets and buffer views are validated. The runtime model loader expands sparse accessors, including interleaved bases and 32-bit matrix accessors, into tightly packed buffer views before handing bytes to Three.js. Sparse normalization is bounded to 128 MiB of expanded accessor data and preserves the original asset bytes on disk. Sub-32-bit matrix accessors remain unsupported. This development change has only been compiled, not runtime-validated.
 
 ## Metadata contract for compiler and services
 

@@ -352,10 +352,6 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
     if (a.sparse !== undefined) {
       const sparse = a.sparse, sparseAt = at + "/sparse";
       ctx.check(sparse && typeof sparse === "object" && !Array.isArray(sparse), sparseAt, "Expected a sparse object.");
-      if (components > 4)
-        ctx.unsupported(sparseAt, "Sparse matrices are not supported by the current model loader.");
-      if (a.bufferView !== undefined && json.bufferViews![a.bufferView].byteStride !== undefined)
-        ctx.unsupported(sparseAt, "Sparse accessors with interleaved base data are not supported by the current model loader.");
       const count = ctx.integer(sparse.count, sparseAt + "/count", 1, a.count);
       ctx.check(sparse.indices && typeof sparse.indices === "object" && !Array.isArray(sparse.indices), sparseAt + "/indices", "Expected sparse indices.");
       ctx.check(sparse.values && typeof sparse.values === "object" && !Array.isArray(sparse.values), sparseAt + "/values", "Expected sparse values.");

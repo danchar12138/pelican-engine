@@ -17,8 +17,8 @@ or full renderer acceptance evidence. Generate the fixtures into a new empty
 directory using the exported prepareSparseAssets function; the generator will
 not overwrite existing assets.
 
-This example verifies only its zero-base VEC3 sparse positions. The locked
-Three.js GLTFLoader rejects sparse MAT4 and silently decodes sparse accessors
-with an interleaved base incorrectly. The browser probe reproduces both issues;
-asset inspection support is not a claim of renderer support for these cases.
-Until the runtime loading path is fixed, do not feed those assets to it.
+The runtime model loader normalizes sparse accessors into tightly packed GLB
+buffer views before invoking Three.js. This keeps the source asset lossless and
+allows 32-bit sparse matrix and interleaved-base layouts to follow the same loader path.
+The normalization is bounded and reports a stable asset error when the expanded
+data cannot be represented safely. This change has not been runtime-validated.

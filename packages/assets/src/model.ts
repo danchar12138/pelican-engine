@@ -2,6 +2,7 @@
 import { InspectionContext } from "./errors.ts";
 import { KHRMaterialsIOR, KHRMaterialsSpecular } from "@gltf-transform/extensions";
 import { parseGLB, type AccessorData } from "./glb.ts";
+import { normalizeSparseGLB } from "./glb-sparse.ts";
 import { inspectTexture } from "./texture.ts";
 
 export async function inspectModel(
@@ -880,7 +881,7 @@ export async function inspectModel(
   // The mature reader is used only after resource and semantic validation; no URI is read.
   const document = await new NodeIO()
     .registerExtensions([KHRMaterialsIOR, KHRMaterialsSpecular])
-    .setStrictResources(true).readBinary(data);
+    .setStrictResources(true).readBinary(normalizeSparseGLB(data));
   const sceneIndex = json.scene ?? (json.scenes?.length ? 0 : null);
   let bounds: { min: number[]; max: number[] } | null = null;
   if (sceneIndex !== null) {
