@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development improves the cold-reload watcher when file events overlap compilation and a later compilation hits cache or fails. This is not state-preserving hot reload; file watching and browser behavior remain unverified.
+
 - Local development adds a staged tile/navigation/2D-collider update with full mapped-grid synchronization and explicit partial-state diagnostics. It is not a persistent binding or guaranteed native rollback; behavior and restoration remain unverified.
 
 - Local development adds opt-in discrete non-edge-adjacent particle self-contact for tetrahedral soft bodies, with a cumulative projection counter. It does not handle continuous, surface or edge self-collision; stability, performance and snapshot behavior remain unverified.

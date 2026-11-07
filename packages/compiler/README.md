@@ -93,6 +93,13 @@ Optional source/license/attribution fields remain verbatim declarations. `asset-
 
 Asset-package sources and compiler package metadata participate in cache invalidation. Whole-project reuse remains the current policy. A compatible-schema report is update guidance, not a promise of live state migration: the development server still performs a cold reload.
 
+The development watcher coalesces concurrent file events and retains a pending
+reload after a successful rebuild until the event queue is drained, including
+when the last compilation is a cache hit. Failed rebuilds are reported without
+reloading; queued events continue to be processed. Project-root `node_modules`,
+`.pelican` and `dist` are excluded from source watching. Watcher behavior and
+browser reloads have not been runtime-validated under the build-only policy.
+
 ## Validation
 
 ```powershell

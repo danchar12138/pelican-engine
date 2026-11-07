@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retain pending development reloads across coalesced file events and cache hits; watcher behavior remains unverified.
+
 - Add staged tile, navigation and fixed 2D collider synchronization with explicit partial-state diagnostics; runtime behavior remains unverified.
 
 - Add opt-in nonadjacent particle self-contact for soft bodies; behavior and cost remain unverified.

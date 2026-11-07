@@ -628,14 +628,15 @@ async function main() {
     }
     server.watcher.add(projectRoot);
     let pending = false,
-      dirty = false;
+      dirty = false,
+      reloadPending = false;
     server.watcher.on("all", async (event, filename) => {
       const relative = path.relative(projectRoot, filename);
+      const firstSegment = relative.split(path.sep)[0];
       if (
-        relative.startsWith("..") ||
+        relative === ".." || relative.startsWith(`..${path.sep}`) ||
         path.isAbsolute(relative) ||
-        filename.includes(`${path.sep}.pelican${path.sep}`) ||
-        filename.includes(`${path.sep}dist${path.sep}`)
+        firstSegment === ".pelican" || firstSegment === "dist" || firstSegment === "node_modules"
       )
         return;
       dirty = true;
@@ -644,18 +645,22 @@ async function main() {
       try {
         while (dirty) {
           dirty = false;
-          const next = await compile();
-          if (next.success && !dirty && !next.report.incremental.cacheHit)
-            server.ws.send({ type: "full-reload" });
-          else if (!next.success)
-            emit(envelope("failed", next.report, next.diagnostics));
+          try {
+            const next = await compile();
+            if (next.success && !next.report.incremental.cacheHit) reloadPending = true;
+            if (next.success && !dirty && reloadPending) {
+              server.ws.send({ type: "full-reload" });
+              reloadPending = false;
+            } else if (!next.success)
+              emit(envelope("failed", next.report, next.diagnostics));
+          } catch (error) {
+            emit(
+              envelope("failed", null, [
+                { code: "TC_DEV_REBUILD", message: String(error) },
+              ]),
+            );
+          }
         }
-      } catch (error) {
-        emit(
-          envelope("failed", null, [
-            { code: "TC_DEV_REBUILD", message: String(error) },
-          ]),
-        );
       } finally {
         pending = false;
       }
