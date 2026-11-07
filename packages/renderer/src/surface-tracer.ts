@@ -998,6 +998,9 @@ export class SurfaceTracer {
         this.textures.some(
           (texture, index) => texture !== captured.surface.textures[index],
         );
+    // A failed upload can advance the acceleration without committing this.frame.
+    const accelerationOutOfSync = !!this.frame &&
+      frame.revision !== this.frame.revision + (frame.changes.kind === "none" ? 0 : 1);
     if (textureChanged || !this.materialData) {
       const resources = packSurfaceResources(captured.surface);
       if (this.frame && frame.changes.kind === "none")
@@ -1031,7 +1034,7 @@ export class SurfaceTracer {
       }
     }
     this.copyFragmentBuffers(fragmentPlan);
-    if (!this.frame || frame.changes.kind !== "none") {
+    if (!this.frame || accelerationOutOfSync || frame.changes.kind !== "none") {
       const geometry = packSurfaceGeometry(
           captured.surface,
           frame.orderedTriangles,
@@ -1042,7 +1045,7 @@ export class SurfaceTracer {
       if (!motionEnabled) this.put("triangles", geometry);
       const old = this.buffers.get("nodes"),
         buffer = this.ensure("nodes", traversalNodes.byteLength);
-      if (!old || old.buffer !== buffer || frame.changes.kind === "rebuild")
+      if (!this.frame || accelerationOutOfSync || !old || old.buffer !== buffer || frame.changes.kind === "rebuild")
         this.put("nodes", traversalNodes);
       else
         for (const range of frame.changes.nodeRanges) {
