@@ -329,6 +329,15 @@ rather than persistent identities. Destroying the entity invalidates its map;
 a replacement with the same ID is not silently rebound. Host snapshots preserve
 the map and cells.
 
+Loop atlas frames for all cells using a tile with
+`ctx.tilemaps.setAnimations("ground", [{ tile: 1, frames: [1, 2, 3], fps: 6 }])`.
+Animations can also be supplied in `create`; replacing them restarts playback.
+They advance on fixed simulation steps and their phases are saved in snapshots.
+`getTile`, navigation and collision retain the original tile index, while
+`readChunk` supplies the current visual frame. At most 256 animations and 256
+frames per animation are supported; animated chunks are rebuilt when their
+visible frame changes, which can be costly for large or fast-changing maps.
+
 Maps are bounded to 512 per dimension, 65536 cells per map, 64 maps and 262144
 cells overall; each update batch has at most 4096 distinct cells. Atlas
 filtering may sample neighboring frames, so provide suitable padding.
@@ -355,7 +364,7 @@ event continuity and ray queries require another physics step. If native
 replacement reports `partialState=true`, restore a known-good host checkpoint.
 Navigation, tiles and physics are not one cross-system transaction.
 
-Animated tiles, automatic streaming and a full editor are not included.
+Automatic streaming and a visual editor are not included.
 Rendering, collision, synchronization, rollback, snapshots, memory use and
 perspective tracing are unverified; orthographic hybrid/path remain unavailable. A source checkout
 includes `examples/tilemap` and its MIT demonstration texture; npm games

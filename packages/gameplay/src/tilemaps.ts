@@ -4,7 +4,8 @@ import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 
 type SavedMap = { id: string; entity: string; material: string; width: number; height: number; tileSize: Vec2; offset: Vec2;
-  columns: number; rows: number; castShadow: boolean; receiveShadow: boolean; cells: (number | null)[] };
+  columns: number; rows: number; castShadow: boolean; receiveShadow: boolean; cells: (number | null)[];
+  animations: { tile: number; frames: number[]; fps: number; phase: number }[] };
 type Entry = SavedMap & { token: number; revisions: number[] };
 type Snapshot = { format: "pelican.tilemaps"; version: 1; maps: SavedMap[] };
 const CHUNK = 32, MAX_MAPS = 64, MAX_DIMENSION = 512, MAX_CELLS = 65536, MAX_TOTAL_CELLS = 262144, MAX_ATLAS_DIM = 256, MAX_FRAMES = 4096, MAX_UPDATES = 4096, MAX_COLLIDER_PARTS = 2048;
@@ -33,7 +34,42 @@ function chunkRows(item: SavedMap): number { return Math.ceil(item.height / CHUN
 function saved(item: Entry): SavedMap {
   return { id: item.id, entity: item.entity, material: item.material, width: item.width, height: item.height,
     tileSize: item.tileSize, offset: item.offset, columns: item.columns, rows: item.rows,
-    castShadow: item.castShadow, receiveShadow: item.receiveShadow, cells: item.cells };
+    castShadow: item.castShadow, receiveShadow: item.receiveShadow, cells: item.cells, animations: item.animations };
+}
+function animations(input: unknown, total: number, strict: boolean): SavedMap["animations"] {
+  if (!Array.isArray(input) || input.length > 256) return fail("ANIMATION", "Expected at most 256 tile animations.");
+  const seen = new Set<number>();
+  return input.map(raw => {
+    if (!fields(raw, strict ? ["tile", "frames", "fps", "phase"] : ["tile", "frames", "fps"]) ||
+        !Array.isArray(raw.frames) || raw.frames.length < 1 || raw.frames.length > 256 ||
+        typeof raw.fps !== "number" || !Number.isFinite(raw.fps) || raw.fps <= 0 || raw.fps > 120)
+      return fail("ANIMATION", "Each animation needs a tile, 1..256 frames and fps in (0, 120].");
+    const tile = frame(raw.tile, total), frames = raw.frames.map(value => frame(value, total));
+    if (tile === null || frames.some(value => value === null) || seen.has(tile)) return fail("ANIMATION", "Animation tiles must be unique and frames must be nonempty atlas indices.");
+    const phase = strict ? raw.phase : 0;
+    if (typeof phase !== "number" || !Number.isFinite(phase) || phase < 0 || phase >= frames.length)
+      return fail("ANIMATION", "Animation phase must be within its frame sequence.");
+    seen.add(tile);
+    return { tile, frames: frames as number[], fps: raw.fps, phase };
+  });
+}
+function displayed(animations: SavedMap["animations"]): Map<number, number> {
+  return new Map(animations.map(item => [item.tile, item.frames[Math.floor(item.phase)]]));
+}
+function changedAnimationChunks(item: Entry, next: SavedMap["animations"]): Set<number> {
+  const before = displayed(item.animations), after = displayed(next), changed = new Set<number>();
+  const tiles = new Set([...before.keys(), ...after.keys()]);
+  for (const tile of tiles) if ((before.get(tile) ?? tile) !== (after.get(tile) ?? tile)) changed.add(tile);
+  const chunks = new Set<number>();
+  if (!changed.size) return chunks;
+  const across = chunkColumns(item);
+  for (let i = 0; i < item.cells.length; i++) {
+    const value = item.cells[i];
+    if (value !== null && changed.has(value)) chunks.add(Math.floor(Math.floor(i / item.width) / CHUNK) * across + Math.floor((i % item.width) / CHUNK));
+  }
+  for (const chunk of chunks) if (item.revisions[chunk] >= Number.MAX_SAFE_INTEGER)
+    return fail("CAPACITY", `Tilemap '${item.id}' chunk revision exhausted; recreate the map.`);
+  return chunks;
 }
 export const createTilemapPlugin: RuntimePluginFactory = context => {
   let entries = new Map<string, Entry>(), handles = new Map<string, EntityHandle>(), nextToken = 1, disposed = false;
@@ -46,7 +82,7 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
   };
   const materialExists = (id: string) => context.scene.materials.some(material => material.id === id && !!material.texture);
   function normalize(input: TilemapDefinition, strict = false): SavedMap {
-    if (!fields(input, ["id", "entity", "material", "width", "height", "tileSize", "offset", "columns", "rows", "cells", "castShadow", "receiveShadow"]) ||
+    if (!fields(input, ["id", "entity", "material", "width", "height", "tileSize", "offset", "columns", "rows", "cells", "castShadow", "receiveShadow", "animations"]) ||
         !validName(input.id) || !validName(input.entity) || !validName(input.material) || !materialExists(input.material) ||
         typeof input.width !== "number" || !Number.isSafeInteger(input.width) || input.width < 1 || input.width > MAX_DIMENSION ||
         typeof input.height !== "number" || !Number.isSafeInteger(input.height) || input.height < 1 || input.height > MAX_DIMENSION || input.width * input.height > MAX_CELLS ||
@@ -62,7 +98,8 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
     const cells = input.cells === undefined ? Array.from({ length: count }, () => null) : input.cells.map(value => frame(value, input.columns * input.rows));
     return { id: input.id, entity: input.entity, material: input.material, width: input.width, height: input.height,
       tileSize: pair(input.tileSize, "tileSize", true), offset: input.offset === undefined ? [0, 0] : pair(input.offset, "offset", false),
-      columns: input.columns, rows: input.rows, castShadow: input.castShadow === true, receiveShadow: input.receiveShadow === true, cells };
+      columns: input.columns, rows: input.rows, castShadow: input.castShadow === true, receiveShadow: input.receiveShadow === true, cells,
+      animations: animations(input.animations === undefined ? [] : input.animations, input.columns * input.rows, strict) };
   }
   function parse(value: unknown): SavedMap[] {
     const data = cloneSerializable(value) as Snapshot;
@@ -189,6 +226,12 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
       for (const [index, value] of changes) item.cells[index] = value;
       for (const chunk of changedChunks) item.revisions[chunk]++;
     },
+    setAnimations(id, input) {
+      const item = get(id), next = animations(cloneSerializable(input), item.columns * item.rows, false);
+      const chunks = changedAnimationChunks(item, next);
+      item.animations = next;
+      for (const chunk of chunks) item.revisions[chunk]++;
+    },
     syncNavigation(id, grid, options) {
       const item = get(id), planned = planNavigation(item, grid, options);
       const previous = planned.updates.map(update => ({ cell: update.cell, blocked: planned.nav.isBlocked(grid, update.cell) }));
@@ -255,7 +298,11 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
       if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y) || x < 0 || y < 0 || x >= across || y >= down)
         return fail("CHUNK", `Chunk coordinates must be within tilemap '${id}'.`);
       const width = Math.min(CHUNK, item.width - x * CHUNK), height = Math.min(CHUNK, item.height - y * CHUNK), cells: (number | null)[] = [];
-      for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) cells.push(item.cells[(y * CHUNK + row) * item.width + x * CHUNK + col]);
+      const frames = displayed(item.animations);
+      for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) {
+        const value = item.cells[(y * CHUNK + row) * item.width + x * CHUNK + col];
+        cells.push(value === null ? null : frames.get(value) ?? value);
+      }
       return { x, y, width, height, revision: item.revisions[y * across + x], cells };
     },
     destroy(id) { get(id); entries.delete(id); handles.delete(id); },
@@ -263,6 +310,24 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
   const empty = (): Snapshot => ({ format: "pelican.tilemaps", version: 1, maps: [] });
   return {
     id: "$engine.tilemaps", version: "1", services: { tilemaps: service },
+    systems: [{ id: "$engine.tilemaps.animate", phase: "presentation", run(dt) {
+      alive(); prune();
+      if (!Number.isFinite(dt) || dt <= 0) return fail("ANIMATION", "Animation requires a positive finite fixed step.");
+      const updates: { item: Entry; next: SavedMap["animations"]; chunks: Set<number> }[] = [];
+      for (const item of entries.values()) {
+        if (!item.animations.length) continue;
+        const next = item.animations.map(animation => {
+          const advance = dt * animation.fps;
+          if (!Number.isFinite(advance)) return fail("ANIMATION", "Animation time overflow; use a smaller fixed step.");
+          return { ...animation, phase: (animation.phase + advance % animation.frames.length) % animation.frames.length };
+        });
+        updates.push({ item, next, chunks: changedAnimationChunks(item, next) });
+      }
+      for (const { item, next, chunks } of updates) {
+        item.animations = next;
+        for (const chunk of chunks) item.revisions[chunk]++;
+      }
+    } }],
     snapshot() { alive(); prune(); return cloneSerializable({ format: "pelican.tilemaps", version: 1,
       maps: [...entries.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(saved) }); },
     legacySnapshot: empty,

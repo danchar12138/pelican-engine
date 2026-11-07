@@ -245,6 +245,8 @@ export interface SpriteService {
   visuals(): readonly SpriteState[];
   destroy(id: string): void;
 }
+/** All cells using tile share a looping presentation animation; gameplay retains tile. */
+export interface TilemapAnimation { tile: number; frames: readonly number[]; fps: number }
 export interface TilemapDefinition {
   id: string; entity: string; material: string;
   width: number; height: number; tileSize: Vec2;
@@ -253,6 +255,7 @@ export interface TilemapDefinition {
   columns: number; rows: number;
   /** Row-major atlas frame indices; null means an empty cell. */
   cells?: readonly (number | null)[];
+  animations?: readonly TilemapAnimation[];
   castShadow?: boolean; receiveShadow?: boolean;
 }
 export interface TilemapUpdate { x: number; y: number; frame: number | null }
@@ -270,6 +273,7 @@ export interface TilemapState {
   id: string; entity: string; material: string; width: number; height: number;
   tileSize: Vec2; offset: Vec2; columns: number; rows: number;
   castShadow: boolean; receiveShadow: boolean; cells: readonly (number | null)[];
+  animations: readonly (TilemapAnimation & { phase: number })[];
 }
 /** Chunk revision and token are presentation hints, not persistent identities. */
 export interface TilemapVisualState extends Omit<TilemapState, "cells"> {
@@ -286,6 +290,8 @@ export interface TilemapService {
   setTile(id: string, x: number, y: number, frame: number | null): void;
   /** Validates the entire batch before changing any cell; duplicate cells are rejected. */
   setTiles(id: string, updates: readonly TilemapUpdate[]): void;
+  /** Replace animations and restart them from their first frame. */
+  setAnimations(id: string, animations: readonly TilemapAnimation[]): void;
   /** Overwrite the mapped grid rectangle based on the current tile frames. */
   syncNavigation(id: string, grid: string, options: TilemapNavigationOptions): void;
   /** Update tiles and their mapped navigation cells together; see rollback diagnostics. */
