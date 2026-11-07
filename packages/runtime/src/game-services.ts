@@ -590,6 +590,26 @@ export function createGameServices(
         if (!animation.additiveLayers) throw new Error("TC_ANIMATION_ADAPTER: Additive animation is unavailable in this animation adapter.");
         return animation.additiveLayers(entity);
       },
+      setIK(entity, definition) {
+        alive();
+        if (!animation.setIK) throw new Error("TC_ANIMATION_ADAPTER: Inverse kinematics is unavailable in this animation adapter.");
+        animation.setIK(entity, cloneSerializable(definition));
+      },
+      setIKTarget(entity, id, target) {
+        alive();
+        if (!animation.setIKTarget) throw new Error("TC_ANIMATION_ADAPTER: Inverse kinematics is unavailable in this animation adapter.");
+        animation.setIKTarget(entity, id, cloneSerializable(target));
+      },
+      removeIK(entity, id) {
+        alive();
+        if (!animation.removeIK) throw new Error("TC_ANIMATION_ADAPTER: Inverse kinematics is unavailable in this animation adapter.");
+        animation.removeIK(entity, id);
+      },
+      ikChains(entity) {
+        alive();
+        if (!animation.ikChains) throw new Error("TC_ANIMATION_ADAPTER: Inverse kinematics is unavailable in this animation adapter.");
+        return animation.ikChains(entity);
+      },
       play(entity, clip, options) {
         alive();
         animation.play(entity, clip, options);

@@ -1051,6 +1051,27 @@ export interface AdditiveAnimationState {
   paused: boolean;
   playing: boolean;
 }
+/** CCD inverse-kinematics chain; target coordinates are local to the loaded model root. */
+export interface AnimationIKDefinition {
+  id: string;
+  effector: string;
+  /** Parent bones in order from the effector's immediate parent toward the root. */
+  chain: readonly string[];
+  target: Vec3;
+  iterations?: number;
+  weight?: number;
+  /** Maximum radians per joint update; omitted means no additional limit. */
+  maxAngle?: number;
+}
+export interface AnimationIKState {
+  id: string;
+  effector: string;
+  chain: readonly string[];
+  target: Vec3;
+  iterations: number;
+  weight: number;
+  maxAngle?: number;
+}
 /** Full model animation controls exposed by system contexts. */
 export interface AnimationControlService extends AnimationService {
   /** Play two complete clips together; weight is the second clip's contribution in [0,1]. */
@@ -1069,6 +1090,14 @@ export interface AnimationControlService extends AnimationService {
   stopAdditive(entity: string, id: string): void;
   /** Inspect the current additive layers, detached from the model. */
   additiveLayers(entity: string): readonly AdditiveAnimationState[];
+  /** Create or replace a CCD inverse-kinematics chain. */
+  setIK(entity: string, definition: AnimationIKDefinition): void;
+  /** Change an IK target in model-root local coordinates. */
+  setIKTarget(entity: string, id: string, target: Vec3): void;
+  /** Remove a chain; remaining chains are reapplied over the unmodified animation pose. */
+  removeIK(entity: string, id: string): void;
+  /** Inspect active IK chains without exposing renderer objects. */
+  ikChains(entity: string): readonly AnimationIKState[];
   /** Available model clips and their durations in seconds. */
   clips(entity: string): readonly { name: string; duration: number }[];
   /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */

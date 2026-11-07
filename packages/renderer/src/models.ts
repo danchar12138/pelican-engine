@@ -9,12 +9,15 @@ import {
 import type {
   AdditiveAnimationOptions,
   AdditiveAnimationState,
+  AnimationIKDefinition,
+  AnimationIKState,
   AnimationService,
   AnimationControlService,
   AssetDefinition,
   ModelDefinition,
 } from "../../sdk/src/index.ts";
 import { additiveConfiguration, createAdditiveClip, listAdditiveBones, type AdditiveConfiguration } from "./model-additive.ts";
+import { createModelIK, ikTarget, prepareModelIK, type ModelIKRig } from "./model-ik.ts";
 
 export type ModelSource = string | { id: string; url?: string; path?: string };
 export interface ModelFadeSnapshot {
@@ -42,6 +45,8 @@ export interface ModelAnimationSnapshot {
   blend?: { first: string; second: string; weight: number };
   /** Absent in snapshots created before additive animation layers. */
   additives?: Omit<AdditiveAnimationState, "playing">[];
+  /** Absent in snapshots created before inverse-kinematics chains. */
+  iks?: AnimationIKState[];
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
@@ -150,6 +155,8 @@ interface InstanceState {
   fades: Map<string, ModelFadeSnapshot>;
   blend: { first: string; second: string; weight: number } | null;
   additives: Map<string, AdditiveLayer>;
+  iks: Map<string, ModelIKRig>;
+  ikBase: Map<THREE.Bone, THREE.Quaternion>;
 }
 interface AdditiveLayer {
   id: string;
@@ -282,7 +289,7 @@ class ModelLibraryImpl implements ModelLibrary {
       secondAction.setEffectiveWeight(weight).play();
       state.actions.set(first, firstAction); state.actions.set(second, secondAction);
       state.action = firstAction; state.clip = first; state.blend = { first, second, weight };
-      state.mixer.update(0);
+      this.refreshPose(state);
     },
     setBlendWeight: (entity, weight) => {
       const state = this.instance(entity), blend = state.blend;
@@ -291,7 +298,7 @@ class ModelLibraryImpl implements ModelLibrary {
       state.actions.get(blend.first)!.setEffectiveWeight(1 - weight);
       state.actions.get(blend.second)!.setEffectiveWeight(weight);
       blend.weight = weight;
-      state.mixer.update(0);
+      this.refreshPose(state);
     },
     synchronizeBlend: (entity) => {
       const state = this.instance(entity), blend = state.blend;
@@ -301,7 +308,7 @@ class ModelLibraryImpl implements ModelLibrary {
         throw new Error(`TC_MODEL_BLEND_DURATION: ${entity}; both clips need positive finite durations to synchronize.`);
       const source = state.actions.get(blend.first)!, destination = state.actions.get(blend.second)!;
       destination.time = Math.max(0, Math.min(1, source.time / first.duration)) * second.duration;
-      state.mixer.update(0);
+      this.refreshPose(state);
     },
     bones: (entity) => listAdditiveBones(this.instance(entity).root),
     playAdditive: (entity, id, clip, options) => this.playAdditive(this.instance(entity), id, clip, options),
@@ -311,16 +318,30 @@ class ModelLibraryImpl implements ModelLibrary {
       if (!Number.isFinite(weight) || weight < 0 || weight > 1) throw new Error("TC_MODEL_LAYER_WEIGHT: Weight must be within [0,1].");
       layer.action.setEffectiveWeight(weight);
       layer.config.weight = weight;
-      state.mixer.update(0);
+      this.refreshPose(state);
     },
     stopAdditive: (entity, id) => {
       const state = this.instance(entity), layer = state.additives.get(id);
       if (!layer) throw new Error(`TC_MODEL_LAYER_MISSING: ${entity}/${id}; start the layer first.`);
       this.releaseAdditive(state, layer);
       state.additives.delete(id);
-      state.mixer.update(0);
+      this.refreshPose(state);
     },
     additiveLayers: (entity) => this.additiveStates(this.instance(entity)),
+    setIK: (entity, definition) => this.setIK(this.instance(entity), definition),
+    setIKTarget: (entity, id, target) => {
+      const state = this.instance(entity), rig = state.iks.get(id);
+      if (!rig) throw new Error(`TC_MODEL_IK_MISSING: ${entity}/${id}; create the chain first.`);
+      const next = ikTarget(target), previous = rig.definition.target;
+      this.reconfigureIK(state, () => { rig.definition.target = next; }, () => { rig.definition.target = previous; });
+    },
+    removeIK: (entity, id) => {
+      const state = this.instance(entity), rig = state.iks.get(id);
+      if (!rig) throw new Error(`TC_MODEL_IK_MISSING: ${entity}/${id}; create the chain first.`);
+      this.reconfigureIK(state, () => { state.iks.delete(id); }, () => { state.iks.set(id, rig); });
+      rig.dispose();
+    },
+    ikChains: (entity) => this.ikStates(this.instance(entity)),
     state: (entity) => {
       const instance = this.instance(entity);
       return {
@@ -342,7 +363,7 @@ class ModelLibraryImpl implements ModelLibrary {
       if (!Number.isFinite(time) || time < 0 || time > clip.duration)
         throw new Error(`TC_MODEL_ANIMATION_TIME: ${entity}; time must be within [0, ${clip.duration}] seconds.`);
       action.time = time;
-      state.mixer.update(0);
+      this.refreshPose(state);
     },
     setSpeed: (entity, speed) => {
       const state = this.instance(entity);
@@ -739,6 +760,8 @@ class ModelLibraryImpl implements ModelLibrary {
       fades: new Map(),
       blend: null,
       additives: new Map(),
+      iks: new Map(),
+      ikBase: new Map(),
     };
     state.handle = Object.freeze({
       entity: entityId,
@@ -759,6 +782,8 @@ class ModelLibraryImpl implements ModelLibrary {
 
   private releaseInstance(state: InstanceState): void {
     const failures: unknown[] = [];
+    for (const rig of state.iks.values()) attemptCleanup(failures, () => rig.dispose());
+    state.iks.clear(); state.ikBase.clear();
     attemptCleanup(failures, () => state.mixer.stopAllAction());
     attemptCleanup(failures, () => state.mixer.uncacheRoot(state.root));
     attemptCleanup(failures, () => state.node.removeFromParent());
@@ -809,20 +834,23 @@ class ModelLibraryImpl implements ModelLibrary {
     this.assertOpen();
     if (!Number.isFinite(dt) || dt < 0) throw new Error("TC_MODEL_INVALID_DT");
     for (const state of this.instances.values()) {
-      if (state.suspended) continue;
-      for (const [name, fade] of state.fades) {
-        fade.elapsed = Math.min(fade.duration, fade.elapsed + dt);
-        state.actions.get(name)!.setEffectiveWeight(this.fadeWeight(fade));
-      }
-      state.mixer.update(dt);
-      for (const [name, fade] of state.fades) {
-        if (fade.elapsed < fade.duration) continue;
-        state.fades.delete(name);
-        if (fade.to === 0) {
-          state.actions.get(name)!.stop();
-          state.actions.delete(name);
+      this.resetIKPose(state);
+      if (!state.suspended) {
+        for (const [name, fade] of state.fades) {
+          fade.elapsed = Math.min(fade.duration, fade.elapsed + dt);
+          state.actions.get(name)!.setEffectiveWeight(this.fadeWeight(fade));
+        }
+        state.mixer.update(dt);
+        for (const [name, fade] of state.fades) {
+          if (fade.elapsed < fade.duration) continue;
+          state.fades.delete(name);
+          if (fade.to === 0) {
+            state.actions.get(name)!.stop();
+            state.actions.delete(name);
+          }
         }
       }
+      this.solveIKPose(state);
     }
   }
 
@@ -841,6 +869,7 @@ class ModelLibraryImpl implements ModelLibrary {
             ...(state.suspended ? { suspended: true } : {}),
             ...(state.blend ? { blend: { ...state.blend } } : {}),
             ...(state.additives.size ? { additives: this.additiveStates(state).map(({ playing: _playing, ...saved }) => saved) } : {}),
+            ...(state.iks.size ? { iks: this.ikStates(state) } : {}),
             actions: [...state.actions.entries()].map(([clip, action]) => ({
               clip,
               time: action.time,
@@ -967,6 +996,16 @@ class ModelLibraryImpl implements ModelLibrary {
           createAdditiveClip(template.scene, source, config);
         }
       }
+      if (item.iks !== undefined) {
+        if (!Array.isArray(item.iks) || item.iks.length > 16) throw invalid();
+        const ids = new Set<string>();
+        for (const ik of item.iks) {
+          if (!ik || typeof ik.id !== "string" || ids.has(ik.id) ||
+              typeof ik.iterations !== "number" || typeof ik.weight !== "number") throw invalid();
+          ids.add(ik.id);
+          prepareModelIK(template.scene, ik);
+        }
+      }
     }
     return structuredClone(data);
   }
@@ -982,6 +1021,7 @@ class ModelLibraryImpl implements ModelLibrary {
       setValue(values: number[], offset: number): void;
     };
     const poses: Array<{ binding: PoseBinding; values: number[] }> = [];
+    const bonePoses: Array<{ bone: THREE.Bone; quaternion: THREE.Quaternion }> = [];
     const touched: InstanceState[] = [];
     let committed = false;
     let commitStarted = false;
@@ -992,6 +1032,9 @@ class ModelLibraryImpl implements ModelLibrary {
         staged.get(item.entity) ?? this.instances.get(item.entity)!,
       );
       for (const state of affected) {
+        state.root.traverse(object => {
+          if (object instanceof THREE.Bone) bonePoses.push({ bone: object, quaternion: object.quaternion.clone() });
+        });
         const tracks = new Map<string, THREE.KeyframeTrack>();
         for (const clip of state.clips.values())
           for (const track of clip.tracks) tracks.set(track.name, track);
@@ -1036,6 +1079,7 @@ class ModelLibraryImpl implements ModelLibrary {
         try { pose.binding.setValue(pose.values, 0); }
         catch (rollbackError) { failures.push(rollbackError); }
       }
+      for (const pose of bonePoses) pose.bone.quaternion.copy(pose.quaternion);
       if (commitStarted)
         throw new AggregateError([error, ...failures], "TC_MODEL_RESTORE_COMMIT_FAILED: commit may be partial; model state is not guaranteed atomic");
       if (failures.length)
@@ -1049,6 +1093,9 @@ class ModelLibraryImpl implements ModelLibrary {
   }
 
   private restoreAnimation(state: InstanceState, item: ModelAnimationSnapshot): void {
+    this.resetIKPose(state);
+    for (const rig of state.iks.values()) rig.dispose();
+    state.iks.clear();
     for (const layer of state.additives.values()) this.releaseAdditive(state, layer);
     state.additives.clear();
     for (const action of state.actions.values()) action.stop();
@@ -1083,7 +1130,8 @@ class ModelLibraryImpl implements ModelLibrary {
         weight: saved.weight, speed: saved.speed, loop: saved.loop, startAt: saved.time, referenceTime: saved.referenceTime }, false);
       state.additives.get(saved.id)!.action.paused = saved.paused;
     }
-    state.mixer.update(0);
+    for (const saved of item.iks ?? []) state.iks.set(saved.id, createModelIK(state.root, saved));
+    this.refreshPose(state);
   }
 
   inspect(): ModelInspection {
@@ -1151,6 +1199,66 @@ class ModelLibraryImpl implements ModelLibrary {
     return value;
   }
 
+  private ikStates(state: InstanceState): AnimationIKState[] {
+    return [...state.iks.values()].map(rig => structuredClone(rig.definition))
+      .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  }
+
+  private resetIKPose(state: InstanceState): void {
+    for (const [bone, pose] of state.ikBase) bone.quaternion.copy(pose);
+    state.ikBase.clear();
+  }
+
+  private solveIKPose(state: InstanceState): void {
+    if (!state.iks.size) return;
+    state.root.updateWorldMatrix(true, true);
+    const rigs = [...state.iks.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
+    for (const rig of rigs) for (const bone of rig.links)
+      if (!state.ikBase.has(bone)) state.ikBase.set(bone, bone.quaternion.clone());
+    for (const rig of rigs) {
+      rig.solve(state.root);
+      for (const bone of rig.links) {
+        const q = bone.quaternion;
+        if (![q.x, q.y, q.z, q.w].every(Number.isFinite) || q.lengthSq() < 1e-12)
+          throw new Error(`TC_MODEL_IK_NUMERIC: ${state.entity}/${rig.definition.id}; choose a different target or chain and restore a known-good snapshot.`);
+      }
+    }
+  }
+
+  private refreshPose(state: InstanceState): void {
+    this.resetIKPose(state);
+    state.mixer.update(0);
+    this.solveIKPose(state);
+  }
+
+  private reconfigureIK(state: InstanceState, change: () => void, undo: () => void): void {
+    this.resetIKPose(state);
+    try { change(); this.solveIKPose(state); }
+    catch (error) {
+      this.resetIKPose(state);
+      undo();
+      try { this.solveIKPose(state); }
+      catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], "TC_MODEL_IK_ROLLBACK: IK update and rollback failed; restore a known-good snapshot.");
+      }
+      throw error;
+    }
+  }
+
+  private setIK(state: InstanceState, definition: AnimationIKDefinition): void {
+    const rig = createModelIK(state.root, definition), previous = state.iks.get(rig.definition.id);
+    if (!previous && state.iks.size >= 16) {
+      rig.dispose();
+      throw new Error(`TC_MODEL_IK_CAPACITY: ${state.entity} already has 16 IK chains.`);
+    }
+    try {
+      this.reconfigureIK(state, () => { state.iks.set(rig.definition.id, rig); }, () => {
+        if (previous) state.iks.set(rig.definition.id, previous); else state.iks.delete(rig.definition.id);
+      });
+    } catch (error) { rig.dispose(); throw error; }
+    previous?.dispose();
+  }
+
   private additiveStates(state: InstanceState): AdditiveAnimationState[] {
     return [...state.additives.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(layer => ({
       id: layer.id, clip: layer.source, ...(layer.config.bones ? { bones: [...layer.config.bones] } : {}),
@@ -1185,7 +1293,7 @@ class ModelLibraryImpl implements ModelLibrary {
       action.time = config.startAt;
       previous?.action.stop();
       state.additives.set(id, { id, source: name, config, clip, action });
-      if (update) state.mixer.update(0);
+      if (update) this.refreshPose(state);
     } catch (error) {
       const failures: unknown[] = [];
       attemptCleanup(failures, () => { action.stop(); state.mixer.uncacheClip(clip); });
@@ -1195,7 +1303,7 @@ class ModelLibraryImpl implements ModelLibrary {
           previous.action.play(); previous.action.time = before.time;
           previous.action.setEffectiveTimeScale(before.speed).setEffectiveWeight(before.weight);
           previous.action.paused = before.paused; previous.action.enabled = before.enabled;
-          state.mixer.update(0);
+          this.refreshPose(state);
         });
       } else state.additives.delete(id);
       if (failures.length) throw new AggregateError([error, ...failures], "TC_MODEL_LAYER_ROLLBACK: Layer replacement failed and rollback may be partial; restore a known-good snapshot.");
@@ -1268,7 +1376,7 @@ class ModelLibraryImpl implements ModelLibrary {
     state.actions.set(clipName, action);
     state.action = action;
     state.clip = clipName;
-    state.mixer.update(0);
+    this.refreshPose(state);
   }
 
   private fadeWeight(fade: ModelFadeSnapshot): number {

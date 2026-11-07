@@ -246,9 +246,36 @@ model supports up to 16 named layers. `loop`, `speed` and `startAt` control
 layer playback; `pause` and `resume` affect the entire model, while `seek` and
 `setSpeed` change the base clip only. Playing a new base clip does not remove
 layers. Snapshots retain layers and their playback state; older snapshots have
-no layers. This does not implement IK, retargeting, root-motion correction or a
+no layers. Additive layers alone do not provide retargeting, root-motion correction or a
 complete animation state machine. Playback, interpolation, snapshots and
 rendering have not been runtime-validated.
+
+Use a CCD inverse-kinematics chain to aim an effector at a model-local target:
+
+```ts
+ctx.animation.setIK("actor", {
+  id: "hand-reach",
+  effector: "Hand",
+  chain: ["Forearm", "UpperArm"],
+  target: [0.4, 1.2, 0.3],
+  iterations: 8,
+  weight: 1,
+});
+ctx.animation.setIKTarget("actor", "hand-reach", [0.5, 1.1, 0.3]);
+const chains = ctx.animation.ikChains("actor");
+ctx.animation.removeIK("actor", "hand-reach");
+```
+
+Chain names are unique model bones ordered from the effector's immediate parent
+upwards; all must belong to one skinned mesh. Targets use the loaded model
+root's local coordinates. Up to 16 chains per model can be active, evaluated in
+ID order after base and additive animation. `weight` blends the solved pose;
+`iterations` controls CCD iterations and optional `maxAngle` limits each joint
+update in radians. IK continues to apply while clip playback is paused; use
+`removeIK` to remove its influence. Snapshots retain the definitions and targets.
+This does not provide automatic ground contact, physical joint constraints,
+retargeting, root motion or a full-body solver. IK, animation interaction,
+snapshot restoration and rendered poses have not been runtime-validated.
 
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
 resumed with `ctx.audio.pause(voice)` and `ctx.audio.resume(voice)`. Both are

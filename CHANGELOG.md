@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add model-local CCD IK chains with targets, blending and snapshot state; solver and rendering behavior remain unverified.
+
 - Add named additive model animation layers with bone-subtree masks, playback controls and snapshot state; behavior and restoration remain unverified.
 
 - Initialize perspective near-plane media per sample when the camera’s near region may intersect a volume; GPU behavior and cost remain unverified.

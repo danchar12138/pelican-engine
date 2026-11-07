@@ -1914,9 +1914,43 @@ export interface AdditiveAnimationState {
 }
 ```
 
-## AnimationControlService
+## AnimationIKDefinition
 
 来源：`packages/sdk/src/index.ts:1055`
+
+```ts
+export interface AnimationIKDefinition {
+  id: string;
+  effector: string;
+  /** Parent bones in order from the effector's immediate parent toward the root. */
+  chain: readonly string[];
+  target: Vec3;
+  iterations?: number;
+  weight?: number;
+  /** Maximum radians per joint update; omitted means no additional limit. */
+  maxAngle?: number;
+}
+```
+
+## AnimationIKState
+
+来源：`packages/sdk/src/index.ts:1066`
+
+```ts
+export interface AnimationIKState {
+  id: string;
+  effector: string;
+  chain: readonly string[];
+  target: Vec3;
+  iterations: number;
+  weight: number;
+  maxAngle?: number;
+}
+```
+
+## AnimationControlService
+
+来源：`packages/sdk/src/index.ts:1076`
 
 ```ts
 export interface AnimationControlService extends AnimationService {
@@ -1936,6 +1970,14 @@ export interface AnimationControlService extends AnimationService {
   stopAdditive(entity: string, id: string): void;
   /** Inspect the current additive layers, detached from the model. */
   additiveLayers(entity: string): readonly AdditiveAnimationState[];
+  /** Create or replace a CCD inverse-kinematics chain. */
+  setIK(entity: string, definition: AnimationIKDefinition): void;
+  /** Change an IK target in model-root local coordinates. */
+  setIKTarget(entity: string, id: string, target: Vec3): void;
+  /** Remove a chain; remaining chains are reapplied over the unmodified animation pose. */
+  removeIK(entity: string, id: string): void;
+  /** Inspect active IK chains without exposing renderer objects. */
+  ikChains(entity: string): readonly AnimationIKState[];
   /** Available model clips and their durations in seconds. */
   clips(entity: string): readonly { name: string; duration: number }[];
   /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */
@@ -1950,7 +1992,7 @@ export interface AnimationControlService extends AnimationService {
 
 ## CameraService
 
-来源：`packages/sdk/src/index.ts:1082`
+来源：`packages/sdk/src/index.ts:1111`
 
 ```ts
 export interface CameraService {
@@ -1976,7 +2018,7 @@ export interface CameraService {
 
 ## UIElementState
 
-来源：`packages/sdk/src/index.ts:1102`
+来源：`packages/sdk/src/index.ts:1131`
 
 ```ts
 export interface UIElementState {
@@ -1997,7 +2039,7 @@ export interface UIElementState {
 
 ## UILayoutPatch
 
-来源：`packages/sdk/src/index.ts:1116`
+来源：`packages/sdk/src/index.ts:1145`
 
 ```ts
 export interface UILayoutPatch {
@@ -2008,7 +2050,7 @@ export interface UILayoutPatch {
 
 ## UIService
 
-来源：`packages/sdk/src/index.ts:1120`
+来源：`packages/sdk/src/index.ts:1149`
 
 ```ts
 export interface UIService {
@@ -2035,7 +2077,7 @@ export interface UIService {
 
 ## InventoryItemDefinition
 
-来源：`packages/sdk/src/index.ts:1141`
+来源：`packages/sdk/src/index.ts:1170`
 
 ```ts
 export interface InventoryItemDefinition {
@@ -2048,7 +2090,7 @@ export interface InventoryItemDefinition {
 
 ## InventoryDefinition
 
-来源：`packages/sdk/src/index.ts:1147`
+来源：`packages/sdk/src/index.ts:1176`
 
 ```ts
 export interface InventoryDefinition {
@@ -2061,7 +2103,7 @@ export interface InventoryDefinition {
 
 ## InventorySlot
 
-来源：`packages/sdk/src/index.ts:1153`
+来源：`packages/sdk/src/index.ts:1182`
 
 ```ts
 export interface InventorySlot { item: string; count: number }
@@ -2069,7 +2111,7 @@ export interface InventorySlot { item: string; count: number }
 
 ## InventoryState
 
-来源：`packages/sdk/src/index.ts:1154`
+来源：`packages/sdk/src/index.ts:1183`
 
 ```ts
 export interface InventoryState {
@@ -2081,7 +2123,7 @@ export interface InventoryState {
 
 ## EquipmentSlotDefinition
 
-来源：`packages/sdk/src/index.ts:1159`
+来源：`packages/sdk/src/index.ts:1188`
 
 ```ts
 export interface EquipmentSlotDefinition { id: string; requiredTag?: string }
@@ -2089,7 +2131,7 @@ export interface EquipmentSlotDefinition { id: string; requiredTag?: string }
 
 ## EquipmentState
 
-来源：`packages/sdk/src/index.ts:1160`
+来源：`packages/sdk/src/index.ts:1189`
 
 ```ts
 export interface EquipmentState {
@@ -2100,7 +2142,7 @@ export interface EquipmentState {
 
 ## InventoryService
 
-来源：`packages/sdk/src/index.ts:1165`
+来源：`packages/sdk/src/index.ts:1194`
 
 ```ts
 export interface InventoryService {
@@ -2134,7 +2176,7 @@ export interface InventoryService {
 
 ## QuestObjectiveDefinition
 
-来源：`packages/sdk/src/index.ts:1192`
+来源：`packages/sdk/src/index.ts:1221`
 
 ```ts
 export interface QuestObjectiveDefinition {
@@ -2146,7 +2188,7 @@ export interface QuestObjectiveDefinition {
 
 ## QuestDefinition
 
-来源：`packages/sdk/src/index.ts:1197`
+来源：`packages/sdk/src/index.ts:1226`
 
 ```ts
 export interface QuestDefinition {
@@ -2162,7 +2204,7 @@ export interface QuestDefinition {
 
 ## QuestState
 
-来源：`packages/sdk/src/index.ts:1206`
+来源：`packages/sdk/src/index.ts:1235`
 
 ```ts
 export interface QuestState {
@@ -2177,7 +2219,7 @@ export interface QuestState {
 
 ## QuestProgressUpdate
 
-来源：`packages/sdk/src/index.ts:1214`
+来源：`packages/sdk/src/index.ts:1243`
 
 ```ts
 export interface QuestProgressUpdate { objective: string; amount: number }
@@ -2185,7 +2227,7 @@ export interface QuestProgressUpdate { objective: string; amount: number }
 
 ## QuestService
 
-来源：`packages/sdk/src/index.ts:1216`
+来源：`packages/sdk/src/index.ts:1245`
 
 ```ts
 export interface QuestService {
@@ -2205,7 +2247,7 @@ export interface QuestService {
 
 ## DialogueVariable
 
-来源：`packages/sdk/src/index.ts:1229`
+来源：`packages/sdk/src/index.ts:1258`
 
 ```ts
 export type DialogueVariable = string | number | boolean;
@@ -2213,7 +2255,7 @@ export type DialogueVariable = string | number | boolean;
 
 ## DialogueChoiceDefinition
 
-来源：`packages/sdk/src/index.ts:1230`
+来源：`packages/sdk/src/index.ts:1259`
 
 ```ts
 export interface DialogueChoiceDefinition {
@@ -2228,7 +2270,7 @@ export interface DialogueChoiceDefinition {
 
 ## DialogueNodeDefinition
 
-来源：`packages/sdk/src/index.ts:1238`
+来源：`packages/sdk/src/index.ts:1267`
 
 ```ts
 export interface DialogueNodeDefinition {
@@ -2243,7 +2285,7 @@ export interface DialogueNodeDefinition {
 
 ## DialogueDefinition
 
-来源：`packages/sdk/src/index.ts:1246`
+来源：`packages/sdk/src/index.ts:1275`
 
 ```ts
 export interface DialogueDefinition {
@@ -2255,7 +2297,7 @@ export interface DialogueDefinition {
 
 ## DialogueSessionState
 
-来源：`packages/sdk/src/index.ts:1251`
+来源：`packages/sdk/src/index.ts:1280`
 
 ```ts
 export interface DialogueSessionState {
@@ -2273,7 +2315,7 @@ export interface DialogueSessionState {
 
 ## DialogueService
 
-来源：`packages/sdk/src/index.ts:1263`
+来源：`packages/sdk/src/index.ts:1292`
 
 ```ts
 export interface DialogueService {
@@ -2294,7 +2336,7 @@ export interface DialogueService {
 
 ## LocalizationPlural
 
-来源：`packages/sdk/src/index.ts:1277`
+来源：`packages/sdk/src/index.ts:1306`
 
 ```ts
 export interface LocalizationPlural {
@@ -2304,7 +2346,7 @@ export interface LocalizationPlural {
 
 ## LocalizationMessage
 
-来源：`packages/sdk/src/index.ts:1280`
+来源：`packages/sdk/src/index.ts:1309`
 
 ```ts
 export type LocalizationMessage = string | LocalizationPlural;
@@ -2312,7 +2354,7 @@ export type LocalizationMessage = string | LocalizationPlural;
 
 ## LocalizationVariables
 
-来源：`packages/sdk/src/index.ts:1281`
+来源：`packages/sdk/src/index.ts:1310`
 
 ```ts
 export type LocalizationVariables = Readonly<Record<string, string | number | boolean>>;
@@ -2320,7 +2362,7 @@ export type LocalizationVariables = Readonly<Record<string, string | number | bo
 
 ## LocalizationService
 
-来源：`packages/sdk/src/index.ts:1283`
+来源：`packages/sdk/src/index.ts:1312`
 
 ```ts
 export interface LocalizationService {
@@ -2338,7 +2380,7 @@ export interface LocalizationService {
 
 ## AudioReverb
 
-来源：`packages/sdk/src/index.ts:1295`
+来源：`packages/sdk/src/index.ts:1324`
 
 ```ts
 export interface AudioReverb { wet: number; decay: number; preDelay: number }
@@ -2346,7 +2388,7 @@ export interface AudioReverb { wet: number; decay: number; preDelay: number }
 
 ## AudioVoiceState
 
-来源：`packages/sdk/src/index.ts:1296`
+来源：`packages/sdk/src/index.ts:1325`
 
 ```ts
 export interface AudioVoiceState {
@@ -2358,7 +2400,7 @@ export interface AudioVoiceState {
 
 ## AudioService
 
-来源：`packages/sdk/src/index.ts:1301`
+来源：`packages/sdk/src/index.ts:1330`
 
 ```ts
 export interface AudioService {
@@ -2387,7 +2429,7 @@ export interface AudioService {
 
 ## StorageService
 
-来源：`packages/sdk/src/index.ts:1323`
+来源：`packages/sdk/src/index.ts:1352`
 
 ```ts
 export interface StorageService {
@@ -2403,7 +2445,7 @@ export interface StorageService {
 
 ## SceneService
 
-来源：`packages/sdk/src/index.ts:1332`
+来源：`packages/sdk/src/index.ts:1361`
 
 ```ts
 export interface SceneService {
@@ -2414,7 +2456,7 @@ export interface SceneService {
 
 ## ModelDefinition
 
-来源：`packages/sdk/src/index.ts:1336`
+来源：`packages/sdk/src/index.ts:1365`
 
 ```ts
 export interface ModelDefinition {
@@ -2438,7 +2480,7 @@ export interface ModelDefinition {
 
 ## RigidBodyDefinition
 
-来源：`packages/sdk/src/index.ts:1353`
+来源：`packages/sdk/src/index.ts:1382`
 
 ```ts
 export interface RigidBodyDefinition {
@@ -2459,7 +2501,7 @@ export interface RigidBodyDefinition {
 
 ## CharacterDefinition
 
-来源：`packages/sdk/src/index.ts:1367`
+来源：`packages/sdk/src/index.ts:1396`
 
 ```ts
 export interface CharacterDefinition {
@@ -2474,7 +2516,7 @@ export interface CharacterDefinition {
 
 ## UIElementDefinition
 
-来源：`packages/sdk/src/index.ts:1375`
+来源：`packages/sdk/src/index.ts:1404`
 
 ```ts
 export interface UIElementDefinition {
@@ -2499,7 +2541,7 @@ export interface UIElementDefinition {
 
 ## SoundDefinition
 
-来源：`packages/sdk/src/index.ts:1393`
+来源：`packages/sdk/src/index.ts:1422`
 
 ```ts
 export interface SoundDefinition {
@@ -2513,7 +2555,7 @@ export interface SoundDefinition {
 
 ## AudioBusDefinition
 
-来源：`packages/sdk/src/index.ts:1400`
+来源：`packages/sdk/src/index.ts:1429`
 
 ```ts
 export interface AudioBusDefinition {
@@ -2524,7 +2566,7 @@ export interface AudioBusDefinition {
 
 ## SYSTEM_PHASES
 
-来源：`packages/sdk/src/index.ts:1404`
+来源：`packages/sdk/src/index.ts:1433`
 
 ```ts
 SYSTEM_PHASES = [
@@ -2539,7 +2581,7 @@ SYSTEM_PHASES = [
 
 ## SystemPhase
 
-来源：`packages/sdk/src/index.ts:1412`
+来源：`packages/sdk/src/index.ts:1441`
 
 ```ts
 export type SystemPhase = (typeof SYSTEM_PHASES)[number];
@@ -2547,7 +2589,7 @@ export type SystemPhase = (typeof SYSTEM_PHASES)[number];
 
 ## Geometry
 
-来源：`packages/sdk/src/index.ts:1413`
+来源：`packages/sdk/src/index.ts:1442`
 
 ```ts
 export type Geometry =
@@ -2558,7 +2600,7 @@ export type Geometry =
 
 ## GRAPH_TYPES
 
-来源：`packages/sdk/src/index.ts:1417`
+来源：`packages/sdk/src/index.ts:1446`
 
 ```ts
 GRAPH_TYPES = ["float", "vec2", "vec3", "vec4", "bool"] as const
@@ -2566,7 +2608,7 @@ GRAPH_TYPES = ["float", "vec2", "vec3", "vec4", "bool"] as const
 
 ## GraphType
 
-来源：`packages/sdk/src/index.ts:1418`
+来源：`packages/sdk/src/index.ts:1447`
 
 ```ts
 export type GraphType = typeof GRAPH_TYPES[number];
@@ -2574,7 +2616,7 @@ export type GraphType = typeof GRAPH_TYPES[number];
 
 ## GraphValue
 
-来源：`packages/sdk/src/index.ts:1419`
+来源：`packages/sdk/src/index.ts:1448`
 
 ```ts
 export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;
@@ -2582,7 +2624,7 @@ export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;
 
 ## GraphParameter
 
-来源：`packages/sdk/src/index.ts:1420`
+来源：`packages/sdk/src/index.ts:1449`
 
 ```ts
 export interface GraphParameter {
@@ -2594,7 +2636,7 @@ export interface GraphParameter {
 
 ## GRAPH_INPUT_TYPES
 
-来源：`packages/sdk/src/index.ts:1425`
+来源：`packages/sdk/src/index.ts:1454`
 
 ```ts
 GRAPH_INPUT_TYPES = {
@@ -2608,7 +2650,7 @@ GRAPH_INPUT_TYPES = {
 
 ## GraphInputName
 
-来源：`packages/sdk/src/index.ts:1432`
+来源：`packages/sdk/src/index.ts:1461`
 
 ```ts
 export type GraphInputName = keyof typeof GRAPH_INPUT_TYPES;
@@ -2616,7 +2658,7 @@ export type GraphInputName = keyof typeof GRAPH_INPUT_TYPES;
 
 ## GRAPH_OPERATIONS
 
-来源：`packages/sdk/src/index.ts:1433`
+来源：`packages/sdk/src/index.ts:1462`
 
 ```ts
 GRAPH_OPERATIONS = {
@@ -2628,7 +2670,7 @@ GRAPH_OPERATIONS = {
 
 ## GraphNode
 
-来源：`packages/sdk/src/index.ts:1438`
+来源：`packages/sdk/src/index.ts:1467`
 
 ```ts
 export type GraphNode =
@@ -2655,7 +2697,7 @@ export type GraphNode =
 
 ## Graph
 
-来源：`packages/sdk/src/index.ts:1458`
+来源：`packages/sdk/src/index.ts:1487`
 
 ```ts
 export interface Graph {
@@ -2667,7 +2709,7 @@ export interface Graph {
 
 ## MaterialGraphs
 
-来源：`packages/sdk/src/index.ts:1463`
+来源：`packages/sdk/src/index.ts:1492`
 
 ```ts
 export interface MaterialGraphs {
@@ -2683,7 +2725,7 @@ export interface MaterialGraphs {
 
 ## VertexGraphs
 
-来源：`packages/sdk/src/index.ts:1472`
+来源：`packages/sdk/src/index.ts:1501`
 
 ```ts
 export interface VertexGraphs {
@@ -2696,7 +2738,7 @@ export interface VertexGraphs {
 
 ## MaterialInput
 
-来源：`packages/sdk/src/index.ts:1478`
+来源：`packages/sdk/src/index.ts:1507`
 
 ```ts
 export interface MaterialInput {
@@ -2732,7 +2774,7 @@ export interface MaterialInput {
 
 ## MaterialDefinition
 
-来源：`packages/sdk/src/index.ts:1507`
+来源：`packages/sdk/src/index.ts:1536`
 
 ```ts
 export interface MaterialDefinition extends MaterialInput {
@@ -2742,7 +2784,7 @@ export interface MaterialDefinition extends MaterialInput {
 
 ## PostProcessInput
 
-来源：`packages/sdk/src/index.ts:1510`
+来源：`packages/sdk/src/index.ts:1539`
 
 ```ts
 export interface PostProcessInput {
@@ -2757,7 +2799,7 @@ export interface PostProcessInput {
 
 ## PostProcessDefinition
 
-来源：`packages/sdk/src/index.ts:1518`
+来源：`packages/sdk/src/index.ts:1547`
 
 ```ts
 export interface PostProcessDefinition extends PostProcessInput {
@@ -2767,7 +2809,7 @@ export interface PostProcessDefinition extends PostProcessInput {
 
 ## ComputeInput
 
-来源：`packages/sdk/src/index.ts:1521`
+来源：`packages/sdk/src/index.ts:1550`
 
 ```ts
 export interface ComputeInput {
@@ -2783,7 +2825,7 @@ export interface ComputeInput {
 
 ## ComputeDefinition
 
-来源：`packages/sdk/src/index.ts:1530`
+来源：`packages/sdk/src/index.ts:1559`
 
 ```ts
 export interface ComputeDefinition extends ComputeInput {
@@ -2793,7 +2835,7 @@ export interface ComputeDefinition extends ComputeInput {
 
 ## AssetInput
 
-来源：`packages/sdk/src/index.ts:1533`
+来源：`packages/sdk/src/index.ts:1562`
 
 ```ts
 export interface AssetInput {
@@ -2810,7 +2852,7 @@ export interface AssetInput {
 
 ## AssetDefinition
 
-来源：`packages/sdk/src/index.ts:1543`
+来源：`packages/sdk/src/index.ts:1572`
 
 ```ts
 export interface AssetDefinition extends AssetInput {
@@ -2820,7 +2862,7 @@ export interface AssetDefinition extends AssetInput {
 
 ## MeshDefinition
 
-来源：`packages/sdk/src/index.ts:1546`
+来源：`packages/sdk/src/index.ts:1575`
 
 ```ts
 export interface MeshDefinition {
@@ -2833,7 +2875,7 @@ export interface MeshDefinition {
 
 ## LightDefinition
 
-来源：`packages/sdk/src/index.ts:1552`
+来源：`packages/sdk/src/index.ts:1581`
 
 ```ts
 export interface LightDefinition {
@@ -2863,7 +2905,7 @@ export interface LightDefinition {
 
 ## LightPatch
 
-来源：`packages/sdk/src/index.ts:1576`
+来源：`packages/sdk/src/index.ts:1605`
 
 ```ts
 export interface LightPatch { intensity?: number; color?: Vec3; target?: Vec3; visible?: boolean }
@@ -2871,7 +2913,7 @@ export interface LightPatch { intensity?: number; color?: Vec3; target?: Vec3; v
 
 ## LightOverride
 
-来源：`packages/sdk/src/index.ts:1577`
+来源：`packages/sdk/src/index.ts:1606`
 
 ```ts
 export interface LightOverride extends LightPatch { entity: string }
@@ -2879,7 +2921,7 @@ export interface LightOverride extends LightPatch { entity: string }
 
 ## LightService
 
-来源：`packages/sdk/src/index.ts:1578`
+来源：`packages/sdk/src/index.ts:1607`
 
 ```ts
 export interface LightService {
@@ -2894,7 +2936,7 @@ export interface LightService {
 
 ## EntityInput
 
-来源：`packages/sdk/src/index.ts:1586`
+来源：`packages/sdk/src/index.ts:1615`
 
 ```ts
 export interface EntityInput {
@@ -2913,7 +2955,7 @@ export interface EntityInput {
 
 ## PrefabInput
 
-来源：`packages/sdk/src/index.ts:1598`
+来源：`packages/sdk/src/index.ts:1627`
 
 ```ts
 export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
@@ -2923,7 +2965,7 @@ export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
 
 ## PrefabDefinition
 
-来源：`packages/sdk/src/index.ts:1601`
+来源：`packages/sdk/src/index.ts:1630`
 
 ```ts
 export interface PrefabDefinition extends PrefabInput {
@@ -2933,7 +2975,7 @@ export interface PrefabDefinition extends PrefabInput {
 
 ## SceneInput
 
-来源：`packages/sdk/src/index.ts:1604`
+来源：`packages/sdk/src/index.ts:1633`
 
 ```ts
 export interface SceneInput {
@@ -2983,7 +3025,7 @@ export interface SceneInput {
 
 ## SceneDefinition
 
-来源：`packages/sdk/src/index.ts:1647`
+来源：`packages/sdk/src/index.ts:1676`
 
 ```ts
 export interface SceneDefinition extends SceneInput {
@@ -2993,7 +3035,7 @@ export interface SceneDefinition extends SceneInput {
 
 ## SystemInput
 
-来源：`packages/sdk/src/index.ts:1650`
+来源：`packages/sdk/src/index.ts:1679`
 
 ```ts
 export interface SystemInput {
@@ -3010,7 +3052,7 @@ export interface SystemInput {
 
 ## SystemDefinition
 
-来源：`packages/sdk/src/index.ts:1660`
+来源：`packages/sdk/src/index.ts:1689`
 
 ```ts
 export interface SystemDefinition extends SystemInput {
@@ -3020,7 +3062,7 @@ export interface SystemDefinition extends SystemInput {
 
 ## GameInput
 
-来源：`packages/sdk/src/index.ts:1663`
+来源：`packages/sdk/src/index.ts:1692`
 
 ```ts
 export interface GameInput {
@@ -3046,7 +3088,7 @@ export interface GameInput {
 
 ## GameDefinition
 
-来源：`packages/sdk/src/index.ts:1682`
+来源：`packages/sdk/src/index.ts:1711`
 
 ```ts
 export interface GameDefinition extends GameInput {
@@ -3056,7 +3098,7 @@ export interface GameDefinition extends GameInput {
 
 ## GameInstance
 
-来源：`packages/sdk/src/index.ts:1685`
+来源：`packages/sdk/src/index.ts:1714`
 
 ```ts
 export interface GameInstance {
@@ -3067,7 +3109,7 @@ export interface GameInstance {
 
 ## defineComponent
 
-来源：`packages/sdk/src/index.ts:1689`
+来源：`packages/sdk/src/index.ts:1718`
 
 ```ts
 export function defineComponent<const S extends ComponentSchema>(input: {
@@ -3078,7 +3120,7 @@ export function defineComponent<const S extends ComponentSchema>(input: {
 
 ## defineMaterial
 
-来源：`packages/sdk/src/index.ts:1695`
+来源：`packages/sdk/src/index.ts:1724`
 
 ```ts
 export function defineMaterial(input: MaterialInput): MaterialDefinition;
@@ -3086,7 +3128,7 @@ export function defineMaterial(input: MaterialInput): MaterialDefinition;
 
 ## definePostProcess
 
-来源：`packages/sdk/src/index.ts:1698`
+来源：`packages/sdk/src/index.ts:1727`
 
 ```ts
 export function definePostProcess(input: PostProcessInput): PostProcessDefinition;
@@ -3094,7 +3136,7 @@ export function definePostProcess(input: PostProcessInput): PostProcessDefinitio
 
 ## defineCompute
 
-来源：`packages/sdk/src/index.ts:1701`
+来源：`packages/sdk/src/index.ts:1730`
 
 ```ts
 export function defineCompute(input: ComputeInput): ComputeDefinition;
@@ -3102,7 +3144,7 @@ export function defineCompute(input: ComputeInput): ComputeDefinition;
 
 ## defineAsset
 
-来源：`packages/sdk/src/index.ts:1704`
+来源：`packages/sdk/src/index.ts:1733`
 
 ```ts
 export function defineAsset(input: AssetInput): AssetDefinition;
@@ -3110,7 +3152,7 @@ export function defineAsset(input: AssetInput): AssetDefinition;
 
 ## definePrefab
 
-来源：`packages/sdk/src/index.ts:1707`
+来源：`packages/sdk/src/index.ts:1736`
 
 ```ts
 export function definePrefab(input: PrefabInput): PrefabDefinition;
@@ -3118,7 +3160,7 @@ export function definePrefab(input: PrefabInput): PrefabDefinition;
 
 ## defineScene
 
-来源：`packages/sdk/src/index.ts:1710`
+来源：`packages/sdk/src/index.ts:1739`
 
 ```ts
 export function defineScene(input: SceneInput): SceneDefinition;
@@ -3126,7 +3168,7 @@ export function defineScene(input: SceneInput): SceneDefinition;
 
 ## defineSystem
 
-来源：`packages/sdk/src/index.ts:1713`
+来源：`packages/sdk/src/index.ts:1742`
 
 ```ts
 export function defineSystem(input: SystemInput): SystemDefinition;
@@ -3134,7 +3176,7 @@ export function defineSystem(input: SystemInput): SystemDefinition;
 
 ## defineGame
 
-来源：`packages/sdk/src/index.ts:1716`
+来源：`packages/sdk/src/index.ts:1745`
 
 ```ts
 export function defineGame(input: GameInput): GameDefinition;
@@ -3142,7 +3184,7 @@ export function defineGame(input: GameInput): GameDefinition;
 
 ## instantiateGame
 
-来源：`packages/sdk/src/index.ts:1720`
+来源：`packages/sdk/src/index.ts:1749`
 
 ```ts
 export function instantiateGame(

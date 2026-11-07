@@ -11,7 +11,9 @@
 
 ## Current Scope
 
-- Local development adds named additive model animation layers with optional bone-subtree masks, independent weight and playback controls, and snapshot state. This does not complete IK, retargeting, root-motion handling or animation state machines; playback, interpolation, resource lifecycle and restoration are unverified.
+- Local development adds model-local CCD inverse-kinematics chains with selectable bones, target, weight, iterations, angular step limit and snapshot state. Chains run after base/additive animation; automatic grounding, retargeting, physical constraints and full-body IK remain incomplete. Solver behavior, rendering and restoration are unverified.
+
+- Local development adds named additive model animation layers with optional bone-subtree masks, independent weight and playback controls, and snapshot state. This does not complete retargeting, root-motion handling or animation state machines; playback, interpolation, resource lifecycle and restoration are unverified.
 
 - Local tracing development conservatively detects when a perspective camera’s near frustum may meet a medium bound and initializes media per primary sample at the near plane. Alpha-filtered transmissive shells in this case are explicitly rejected; GPU correctness, additional cost and hardware behavior are unverified.
 
@@ -80,7 +82,7 @@
 
 - The 0.10.0 development batch adds runtime surface overrides for declared non-graph material channels, with snapshot persistence and graph ownership checks. Shared-material propagation, raster/tracing consistency and restoration are unverified.
 
-- The 0.10.0 development batch adds two-clip weighted model animation blending and snapshot state. Local additive bone masks extend this, but automatic phase matching and IK remain incomplete; blending and restoration are unverified.
+- The 0.10.0 development batch adds two-clip weighted model animation blending and snapshot state. Local additive bone masks and basic CCD IK extend this, but automatic phase matching and full IK remain incomplete; blending and restoration are unverified.
 
 - The 0.10.0 development batch adds optional global convolution reverb with deterministic generated impulse responses, dry fallback and snapshot-preserved settings. It is not room acoustics or per-bus sends; sound output, failure recovery, resource cleanup and restoration remain unverified.
 
@@ -119,7 +121,7 @@
 - The 0.4.1 batch adds one-tick forces and manually sampled sphere/plane/axis-aligned box colliders to fluid and soft bodies, improves sampled-collider snapshot restoration, and tightens HDR metadata and scanline diagnostics. It has not been behavior-validated; manual colliders are discrete and do not react on rigid bodies.
 - A known rigid-body first-step removal issue remains open. A conservative live-path guard rejects removing moving bodies before the first physics step; it does not protect historical replay and is not runtime-validated. Historical candidates and risky snapshots are archived evidence, not current acceptance evidence.
 - The 0.5.1 development batch adds bounded focus-based residency and runtime construction/removal for static prefab roots, with transform/component preservation, queued edits and host snapshots. It does not stream assets, dynamic physics, animation state, terrain or cross-system transactions; runtime behavior is unverified.
-- Model animation adds clip listing, pause/resume of active clips and fades, current-clip seek and speed control, and snapshot suspension persistence. These controls have not been runtime-validated; IK, layering and advanced animation systems remain incomplete.
+- Model animation adds clip listing, pause/resume of active clips and fades, current-clip seek and speed control, and snapshot suspension persistence. These controls have not been runtime-validated; advanced animation systems remain incomplete.
 - The 0.6.1 development batch adds dynamic text, bar, button and input creation/removal, runtime layout changes and snapshot-preserved control generations. A bounded inventory service adds stackable item definitions, containers, split/merge, atomic transfers and snapshots; a quest service tracks prerequisites, objectives and statuses; a dialogue service tracks branching text sessions; localization adds explicit catalogs, fallback, placeholders and Intl plural/number formatting. DOM input, gameplay/localization behavior and restoration are unverified; advanced dialogue, full layout and accessibility remain incomplete.
 - Navigation supports batch obstacle and weighted cell-cost updates, optional diagonal paths, and fixed-step movement of non-physical root entities with bounded automatic replanning. It is not continuous-world streaming, physics integration or crowd avoidance. Routing, agent motion and snapshots are not runtime-validated.
 - Ropes support manual and automatic fixed stepping, sampled sphere and box bindings, segmented presentation, segment contacts, and non-adjacent self-contact. Full two-way coupling, cross-rope contact, continuous collision, and tearing remain incomplete.
