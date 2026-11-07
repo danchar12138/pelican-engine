@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-11-07
+
+- Development batch only: tests, runtime behavior, graphics, hardware, performance, recovery and snapshot restoration are unverified. The full 1.0 scope remains incomplete.
+- Add spatial audio occlusion, localized UI bindings, animated tiles, runtime light overrides, navigation target following and 3D shape sweep queries. Their runtime behavior is unverified.
+
 - Add standard single-gamepad gameplay input, analog sampling, digital action bindings and UI/game capture modes. Hardware and runtime behavior are unverified.
 
 - Add 2D capsule colliders and one-way kinematic character movement with deferred query refresh and snapshot state. Runtime behavior is unverified.
