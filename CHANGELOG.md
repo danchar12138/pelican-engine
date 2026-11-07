@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.11.0 - 2026-11-07
+
+- Development batch only: built without tests or runtime, browser, GPU, performance, compatibility or recovery validation. The 3D first-step deletion defect, continuous collision, unified coupling and other 1.0 requirements remain open.
+
 - Add split-step effective-mass and normal-velocity cloth/rigid-body reactions for particles and sampled triangle surfaces; behavior remains unverified.
 
 - Stage automatic cloth reactions until all cloth entries step before applying one sorted physics batch; failure behavior remains unverified.

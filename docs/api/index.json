@@ -1,14 +1,14 @@
 {
   "format": "pelican.api-index",
   "version": 1,
-  "engineVersion": "0.10.0",
+  "engineVersion": "0.11.0",
   "entry": "pelican-engine",
   "source": "packages/sdk/src/index.ts",
   "symbols": [
     {
       "name": "SDK_VERSION",
       "kind": "constant",
-      "signature": "SDK_VERSION = \"0.10.0\"",
+      "signature": "SDK_VERSION = \"0.11.0\"",
       "line": 2
     },
     {
