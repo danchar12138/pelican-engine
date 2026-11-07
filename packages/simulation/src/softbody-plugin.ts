@@ -63,7 +63,7 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "bodyColliders require the physics plugin.");
     if (!context.world.isAlive(binding.entity)) fail("BODY_COLLIDER", `Body '${binding.entity}' is no longer live.`);
     const sample = bridge.sampleSphere(binding.entity);
-    entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number]);
+    entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], sample.radius);
     entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
   };
   const service: SoftBodyService = {

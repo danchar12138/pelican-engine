@@ -37,6 +37,7 @@ export function createSimulation(
 ): Simulation {
   let state = makeScene(kind, resolveOptions(kind, options));
   let disposed = false;
+  const sampledRadii = new Map<string, number>();
   let solverWallMs = 0,
     measuredSteps = 0,
     maxStepMs = 0;
@@ -150,7 +151,7 @@ export function createSimulation(
         if (p.inverseMass === 0) continue;
         const delta = sub(p.position, body.position),
           r = length(delta),
-          penetration = body.radius + p.radius - r;
+          penetration = (sampledRadii.get(body.id) ?? body.radius) + p.radius - r;
         if (penetration <= 0) continue;
         const normal: Vec3 = r > 1e-12 ? mul(delta, 1 / r) : [1, 0, 0];
         const bodyWeight = state.options.twoWayCoupling ? body.inverseMass : 0;
@@ -328,14 +329,18 @@ export function createSimulation(
       }
       return inspect();
     },
-    setBodyState(id: string, position: Vec3, velocity: Vec3) {
+    setBodyState(id: string, position: Vec3, velocity: Vec3, radius?: number) {
       alive();
       const body = state.bodies.find((item) => item.id === id);
       if (!body) fail("SIM_BODY", `Unknown body '${id}'.`);
       if (!isVec3(position) || !isVec3(velocity))
         fail("SIM_BODY", "Body position and velocity must be finite vectors.");
+      if (radius !== undefined && (!Number.isFinite(radius) || radius <= 0 || radius > 1e6))
+        fail("SIM_BODY", "Sampled radius must be finite and in (0, 1e6].");
       body.position = copy(position);
       body.velocity = copy(velocity);
+      if (radius === undefined) sampledRadii.delete(id);
+      else sampledRadii.set(id, radius);
     },
     setTwoWayCoupling(enabled: boolean) {
       alive();
@@ -349,6 +354,7 @@ export function createSimulation(
     restore(snapshot: SimulationSnapshot) {
       alive();
       state = validateSnapshot(snapshot, kind);
+      sampledRadii.clear();
       solverWallMs = 0;
       measuredSteps = 0;
       maxStepMs = 0;
@@ -364,7 +370,7 @@ export function createSimulation(
       return {
         kind,
         tick: state.tick,
-        bodies: state.bodies.map(renderPoint),
+        bodies: state.bodies.map((body) => ({ ...renderPoint(body), radius: sampledRadii.get(body.id) ?? body.radius })),
         particles: state.particles.map(renderPoint),
         links: state.distances.map((c) => [c.a, c.b]),
         triangles: state.triangles.map((t) => [...t]),
@@ -385,6 +391,7 @@ export function createSimulation(
     },
     dispose() {
       if (disposed) return;
+      sampledRadii.clear();
       state.bodies.length = 0;
       state.particles.length = 0;
       state.distances.length = 0;
