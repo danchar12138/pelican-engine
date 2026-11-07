@@ -534,8 +534,8 @@ render viewport aspect. Perspective remains the default. `fov` is only accepted
 for perspective cameras; `orthographicSize` only for orthographic cameras.
 On WebGPU, normal game scenes have development-stage orthographic hybrid and
 path tracing. Each primary sample initializes its medium stack at the near plane
-using the captured closed-shell hierarchy. A shell must be outward-authored and
-must not use alpha filtering; unsupported shells report
+using the captured closed-shell hierarchy. Either consistent global winding is
+accepted, including mirrored transforms. Shells using alpha filtering report
 `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`. The current catalog also requires
 closed, non-intersecting or strictly nested volumes; camera samples near shell
 boundaries or with ambiguous classification report `TC_TRACE_MEDIUM_STATE`.

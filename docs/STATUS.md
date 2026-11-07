@@ -11,7 +11,9 @@
 
 ## Current Scope
 
-- Local tracing development initializes orthographic primary media per sample at the near plane from the closed-shell nesting hierarchy, using GPU boundary and ambiguity diagnostics. Inward-authored and alpha-filtered transmissive shells remain explicitly unsupported in this mode; classification, rendering, cost and hardware behavior are unverified.
+- Local tracing development propagates each closed medium shell’s world winding to packed GPU geometry and orients physical shading normals against the outward boundary. Both authored global windings, including mirrors, have development implementations; GPU classification, graph normals, shading and hardware behavior remain unverified.
+
+- Local tracing development initializes orthographic primary media per sample at the near plane from the closed-shell nesting hierarchy, using GPU boundary and ambiguity diagnostics. Alpha-filtered transmissive shells remain explicitly unsupported in this mode; classification, rendering, cost and hardware behavior are unverified.
 
 - Local tracing development refreshes per-triangle medium IDs after medium catalog changes even when geometry is unchanged, and retains the previous committed revision on capture failure. Dynamic transmission updates, retry behavior and GPU rendering remain unverified.
 

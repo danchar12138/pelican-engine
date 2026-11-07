@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Track closed-medium world winding and orient physical normals for either consistent shell winding, including mirrored instances; GPU behavior remains unverified.
+
 - Initialize orthographic tracing media per sample from closed-shell nesting, with boundary and ambiguity diagnostics; GPU behavior remains unverified.
 
 - Refresh tracing triangle medium IDs when the medium catalog changes without geometry changes; rendering and retry behavior remain unverified.

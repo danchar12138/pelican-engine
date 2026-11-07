@@ -57,6 +57,7 @@ export function packSurfaceGeometry(
   snapshot: SurfaceScene,
   ordered: readonly SurfaceTriangle[] = snapshot.triangles,
   volumeIds: ReadonlyMap<string, number> = new Map(),
+  volumeWindings: ReadonlyMap<string, 1 | -1> = new Map(),
 ) {
   validateSurfaceTextureCoordinates(snapshot, ordered);
   const materials = indexMap(snapshot.materials);
@@ -113,11 +114,12 @@ export function packSurfaceGeometry(
         (normalized[1] * normalized[5] - normalized[2] * normalized[4]);
     if (!Number.isFinite(determinant) || determinant === 0)
       fail("TC_SURFACE_GPU_NORMAL_MATRIX", "Singular normal matrix.");
-    output[offset + 63] = determinant > 0 ? 1 : -1;
-    output[offset + 67] =
-      volumeIds.get(
-        JSON.stringify([triangle.objectUuid, triangle.instanceId]),
-      ) ?? 0;
+    const volumeKey = JSON.stringify([triangle.objectUuid, triangle.instanceId]);
+    const volumeId = volumeIds.get(volumeKey) ?? 0;
+    // Physical shells can have either authored winding, even through a mirror.
+    // Non-volume triangles keep their original transform-facing convention.
+    output[offset + 63] = volumeId ? (volumeWindings.get(volumeKey) ?? (determinant > 0 ? 1 : -1)) : (determinant > 0 ? 1 : -1);
+    output[offset + 67] = volumeId;
     output[offset + 71] = (triangle.castShadow === false ? 0 : 1) +
       (triangle.receiveShadow === false ? 0 : 2);
   }

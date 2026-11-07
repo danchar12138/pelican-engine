@@ -347,7 +347,7 @@ fn ${helper}(index:f32)->${resultType}{
         statements.push(
           "result.normal=surfaceGraphNormal(" +
             value +
-            ",normalWorld)*surfaceNormalSign(surfaceMaterials[u32(triangle.a.w)],front);",
+            ",normalWorld)*surfaceNormalSign(surfaceMaterials[u32(triangle.a.w)],front,triangle,bary);",
         );
       else if (channel === "opacity")
         statements.push("result.alpha*=clamp(" + value + ",0.0,1.0);");

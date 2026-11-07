@@ -181,6 +181,7 @@ export class SurfaceTracer {
   private temporalResets = 0;
   private mediumCatalog: MediumCatalog | undefined;
   private mediumIds = new Map<string, number>();
+  private mediumWindings = new Map<string, 1 | -1>();
   private unsupportedOrthographicMedia: readonly string[] = [];
   private mediumFaces: readonly SurfaceTriangle[] = [];
   private mediumSignature = "";
@@ -759,6 +760,7 @@ export class SurfaceTracer {
     this.mediumCatalog?.dispose();
     this.mediumCatalog = undefined;
     this.mediumIds.clear();
+    this.mediumWindings.clear();
     this.unsupportedOrthographicMedia = [];
     this.mediumFaces = [];
     this.mediumSignature = "";
@@ -1072,6 +1074,7 @@ export class SurfaceTracer {
           captured.surface,
           frame.orderedTriangles,
           this.mediumIds,
+          this.mediumWindings,
         ),
         traversalNodes = packTraversalData(frame.nodes, geometry);
       this.geometryData = geometry;
@@ -1197,18 +1200,14 @@ export class SurfaceTracer {
       this.mediumIds = new Map(
         candidate?.volumes.map((volume) => [volume.key, volume.id]) ?? [],
       );
+      this.mediumWindings = new Map(candidate?.volumes.map(volume => [volume.key, volume.worldWinding]) ?? []);
       this.unsupportedOrthographicMedia = candidate?.volumes.flatMap(volume => {
-        const triangles = volume.triangleIndices.map(index => surface.triangles[index]);
-        const n = triangles[0].normalMatrix;
-        const determinant = n[0] * (n[4] * n[8] - n[5] * n[7]) - n[3] * (n[1] * n[8] - n[2] * n[7]) + n[6] * (n[1] * n[5] - n[2] * n[4]);
-        // Existing transport interprets front/back using the authored winding and
-        // cannot yet normalize globally inverted shells or alpha-cutout volumes.
-        const inverted = volume.worldWinding !== (determinant > 0 ? 1 : -1);
-        const filtered = triangles.some(triangle => {
-          const material = materials.get(triangle.materialUuid)!;
+        // Alpha coverage can make a geometrically closed shell optically open.
+        const filtered = volume.triangleIndices.some(index => {
+          const material = materials.get(surface.triangles[index].materialUuid)!;
           return material.alphaMode !== "opaque" || material.alphaTest > 0;
         });
-        return inverted || filtered ? [volume.key] : [];
+        return filtered ? [volume.key] : [];
       }) ?? [];
       this.mediumFaces = faces;
       this.mediumSignature = signature;
@@ -1428,7 +1427,7 @@ export class SurfaceTracer {
       );
     const orthographic = camera instanceof THREE.OrthographicCamera;
     if (orthographic && this.unsupportedOrthographicMedia.length)
-      throw new Error(`TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED: Orthographic volume transport requires outward-authored closed shells without alpha filtering; unsupported object(s): ${this.unsupportedOrthographicMedia.join(", ")}.`);
+      throw new Error(`TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED: Orthographic volume transport requires closed shells without alpha filtering; unsupported object(s): ${this.unsupportedOrthographicMedia.join(", ")}.`);
     const started = performance.now();
     camera.updateWorldMatrix(true, false);
     this.uploadMedium(camera);
@@ -2188,6 +2187,8 @@ export class SurfaceTracer {
     this.mediumCatalog = undefined;
     this.mediumFaces = [];
     this.mediumIds.clear();
+    this.mediumWindings.clear();
+    this.unsupportedOrthographicMedia = [];
     this.environmentCapture?.dispose();
     this.environmentCache.dispose();
     this.environmentImage?.dispose();

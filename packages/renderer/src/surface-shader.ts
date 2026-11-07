@@ -12,7 +12,17 @@ struct SurfaceTexture {info:vec4u,modes:vec4u,m0:vec4f,m1:vec4f,m2:vec4f,options
 struct SurfaceValue {base:vec3f,alpha:f32,normal:vec3f,roughness:f32,emissive:vec3f,metalness:f32,ao:f32,discarded:u32,medium:vec4f,specular:vec4f,}
 fn surfaceCoverageRandom(random:f32,index:u32)->f32{var value=bitcast<u32>(random)^(index*0x9e3779b9u+0x85ebca6bu);value=(value^(value>>16u))*0x7feb352du;value=(value^(value>>15u))*0x846ca68bu;value=value^(value>>16u);return min(f32(value)/4294967296.0,0.99999994);}
 fn surfaceOriginalFront(triangle:SurfaceTriangle,geometricFront:bool)->bool{return geometricFront==(triangle.nma.w>0.0);}
-fn surfaceNormalSign(material:SurfaceMaterial,front:bool)->f32{return select(1.0,-1.0,select(material.maps1.w==1.0||(material.maps1.w==2.0&&!front),!front,surfacePhysicalEnabled&&material.physical.x>0.0));}
+fn surfaceNormalSign(material:SurfaceMaterial,front:bool,triangle:SurfaceTriangle,bary:vec3f)->f32{
+ let physical=surfacePhysicalEnabled&&material.physical.x>0.0;
+ let reverse=select(material.maps1.w==1.0||(material.maps1.w==2.0&&!front),!front,physical);
+ var sign=select(1.0,-1.0,reverse);
+ if(physical){
+  let outward=cross(triangle.b.xyz-triangle.a.xyz,triangle.c.xyz-triangle.a.xyz)*triangle.nma.w;
+  let authored=triangle.na.xyz*bary.x+triangle.nb.xyz*bary.y+triangle.nc.xyz*bary.z;
+  if(dot(outward,authored)<0.0){sign=-sign;}
+ }
+ return sign;
+}
 fn surfaceGraphNormal(value:vec3f,fallback:vec3f)->vec3f{let scale=max(max(abs(value.x),abs(value.y)),abs(value.z));if(scale==0.0){return fallback;}return normalize(value/scale);}
 @group(0) @binding(0) var<storage,read> surfaceGeometry:array<vec4f>;
 fn surfaceTriangle(index:u32)->SurfaceTriangle{
@@ -61,7 +71,7 @@ fn evaluateSurface(index:u32,bary:vec3f,front:bool)->SurfaceValue{
 }
 fn evaluateSurfaceView(index:u32,bary:vec3f,front:bool,view:vec3f)->SurfaceValue{
  let triangle=surfaceTriangle(index);let material=surfaceMaterials[u32(triangle.a.w)];let uv=triangle.ua*bary.x+triangle.ub*bary.y+triangle.uc*bary.z;
- let reverse=select(material.maps1.w==1.0||(material.maps1.w==2.0&&!front),!front,(surfacePhysicalEnabled&&material.physical.x>0.0));let sign=select(1.0,-1.0,reverse);
+ let sign=surfaceNormalSign(material,front,triangle,bary);
  var normal=normalize(triangle.na.xyz*bary.x+triangle.nb.xyz*bary.y+triangle.nc.xyz*bary.z)*sign;
  var color=material.base;if(triangle.nb.w>0.5){color*=triangle.ca*bary.x+triangle.cb*bary.y+triangle.cc*bary.z;}
  color*=vec4f(triangle.b.w,triangle.c.w,triangle.na.w,1);color*=surfaceMap(material.maps0.x,uv);color.a*=surfaceMap(material.maps0.y,uv).g;
