@@ -31,7 +31,7 @@ export class EnvironmentCaptureError extends Error {
   }
 }
 
-interface Revision {
+export interface EnvironmentRevision {
   version: number;
   source: THREE.Texture["source"];
   sourceVersion: number;
@@ -43,7 +43,7 @@ interface Revision {
   sampling: string;
 }
 interface Entry {
-  revision: Revision;
+  revision: EnvironmentRevision;
   promise: Promise<EnvironmentRadiance>;
   reject: (error: EnvironmentCaptureError) => void;
   release: () => void;
@@ -52,7 +52,7 @@ interface Entry {
   result?: EnvironmentRadiance;
 }
 
-function describe(input: THREE.Texture): Revision {
+export function describeEnvironment(input: THREE.Texture): EnvironmentRevision {
   const flags = input as THREE.Texture & {
     isCubeTexture?: boolean;
     isCompressedTexture?: boolean;
@@ -155,8 +155,8 @@ function describe(input: THREE.Texture): Revision {
   };
 }
 
-function same(a: Revision, b: Revision): boolean {
-  return (Object.keys(a) as (keyof Revision)[]).every(
+export function sameEnvironmentRevision(a: EnvironmentRevision, b: EnvironmentRevision): boolean {
+  return (Object.keys(a) as (keyof EnvironmentRevision)[]).every(
     (key) => a[key] === b[key],
   );
 }
@@ -295,9 +295,9 @@ export function createEnvironmentCapture(renderer: THREE.Renderer) {
             "Create a new capture provider after dispose().",
           ),
         );
-      let revision: Revision;
+      let revision: EnvironmentRevision;
       try {
-        revision = describe(input);
+        revision = describeEnvironment(input);
       } catch (failure) {
         const previous = entries.get(input);
         if (previous) cancel(input, previous, "TC_ENVIRONMENT_STALE");
@@ -319,7 +319,7 @@ export function createEnvironmentCapture(renderer: THREE.Renderer) {
         );
       }
       let entry = entries.get(input);
-      if (entry && !same(entry.revision, revision)) {
+      if (entry && !sameEnvironmentRevision(entry.revision, revision)) {
         cancel(input, entry, "TC_ENVIRONMENT_STALE");
         entry = undefined;
       }
@@ -445,7 +445,7 @@ export function createEnvironmentCapture(renderer: THREE.Renderer) {
             .then((pixels) => {
               if (!current.active) return;
               try {
-                if (!same(revision, describe(input)))
+                if (!sameEnvironmentRevision(revision, describeEnvironment(input)))
                   throw error(
                     "TC_ENVIRONMENT_STALE",
                     input,

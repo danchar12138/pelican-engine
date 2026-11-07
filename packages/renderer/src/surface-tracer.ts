@@ -32,7 +32,7 @@ import {
   type SurfaceTriangle,
 } from "./surface.ts";
 import { createMediumCatalog, type MediumCatalog } from "./medium.ts";
-import { createEnvironmentCapture } from "./environment.ts";
+import { createEnvironmentCapture, describeEnvironment, sameEnvironmentRevision, type EnvironmentRevision } from "./environment.ts";
 import { appendEmissiveLights } from "./emissive-lights.ts";
 import { buildEnvironmentImportance } from "./environment-importance.ts";
 import { packTraversalData } from "./traversal-nodes.ts";
@@ -219,7 +219,7 @@ export class SurfaceTracer {
     | undefined;
   private environmentCache = createSurfaceTextureCache();
   private environmentSource: THREE.Texture | null = null;
-  private environmentRevision = "";
+  private environmentRevision: EnvironmentRevision | undefined;
   private environmentImage: THREE.DataTexture | undefined;
   private environmentIndex = -1;
   private environmentProposal:
@@ -765,7 +765,7 @@ export class SurfaceTracer {
     this.environmentImage?.dispose();
     this.environmentImage = undefined;
     this.environmentSource = null;
-    this.environmentRevision = "";
+    this.environmentRevision = undefined;
     this.environmentIndex = -1;
     this.environmentProposal = undefined;
     this.buffers.get("environmentImportance")?.buffer.destroy();
@@ -806,18 +806,10 @@ export class SurfaceTracer {
         "TC_TRACE_BACKGROUND_STAGE: Textured background needs explicit directional sampling.",
       );
     const source = scene.environment,
-      revision = source
-        ? [
-            source.version,
-            source.source.version,
-            (source as THREE.Texture & { pmremVersion?: number })
-              .pmremVersion ?? 0,
-            source.mapping,
-          ].join(":")
-        : "";
+      revision = source ? describeEnvironment(source) : undefined;
     if (
       source !== this.environmentSource ||
-      revision !== this.environmentRevision
+      (revision !== undefined && (!this.environmentRevision || !sameEnvironmentRevision(revision, this.environmentRevision)))
     ) {
       if (source && !this.environmentCapture)
         throw new Error(
@@ -830,7 +822,8 @@ export class SurfaceTracer {
         throw new Error(
           "TC_TRACE_CAPTURE_STALE: Surface content owner changed during environment capture.",
         );
-      if (source !== scene.environment)
+      if (source !== scene.environment ||
+          (source && revision && !sameEnvironmentRevision(revision, describeEnvironment(source))))
         throw new Error(
           "TC_TRACE_ENVIRONMENT_STALE: Content environment changed during capture.",
         );
@@ -861,7 +854,7 @@ export class SurfaceTracer {
           texture.dispose();
           // The GPU buffer may already have been replaced; force recapture even
           // if the scene switches back to the previous environment.
-          this.environmentRevision = "invalid";
+          this.environmentRevision = undefined;
           this.reset = true;
           throw error;
         }
