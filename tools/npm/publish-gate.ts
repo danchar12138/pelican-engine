@@ -1,3 +1,4 @@
+// Historical release-event gate; current main-push OIDC publishing does not use it.
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { execFileSync } from "node:child_process";

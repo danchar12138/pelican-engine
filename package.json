@@ -47,7 +47,6 @@
     "distribution:pack": "npm run distribution:build && npm pack ./.pelican/npm/package --pack-destination ./.pelican/npm/artifacts",
     "distribution:test": "tsx --test --test-concurrency=1 tools/npm/*.test.ts",
     "distribution:smoke": "tsx tools/npm/smoke.ts",
-    "distribution:gate": "tsx tools/npm/publish-gate.ts",
     "distribution:verify-registry": "tsx tools/npm/verify-registry.ts"
   },
   "dependencies": {
