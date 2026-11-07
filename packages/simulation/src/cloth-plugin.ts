@@ -6,6 +6,7 @@ import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 import { validateSampledBodyPeers } from "./sampled-body-binding.ts";
+import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
 type Entry = { definition: ClothDefinition; solver: ClothSolver; uvs: Vec2[]; bodyRefs: Map<string, EntityHandle> };
 type Saved = { definition: ClothDefinition; state: ClothSnapshot };
@@ -154,13 +155,14 @@ export const createClothPlugin: RuntimePluginFactory = context => {
       alive(); ensureRefs(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition; refs: Map<string, EntityHandle> }[] = [];
       // Stage all cloth reactions until every automatic solver has completed. A later
       // cloth error must not leave earlier native impulses committed during rollback.
-      const reactions = new Map<string, { impulse: Vec3; moment: Vec3 }>();
+      const bodies = new Map<string, VirtualRopeCollider>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
         for (const entry of automatic) {
           const snapshot = entry.solver.snapshot(); committed.push({ entry, solver: entry.solver, snapshot, definition: cloneSerializable(entry.definition), refs: entry.bodyRefs });
           const bindings = entry.definition.bodyColliders ?? [];
+          const coupled = new Map<string, VirtualRopeCollider>();
           if (bindings.length) {
             const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
             const manual = snapshot.colliders.filter(collider => !bindings.some(binding => binding.id === collider.id));
@@ -170,31 +172,34 @@ export const createClothPlugin: RuntimePluginFactory = context => {
               const ref = entry.bodyRefs.get(binding.id);
               if (!ref) return fail("BODY_COLLIDER", `Missing handle for '${binding.id}'; restore a known-good checkpoint.`);
               if (!context.world.isAlive(ref)) continue;
-              const body = bridge.sampleClothBody(binding.entity);
-              if (body.kind === "sphere") sampled.push({ kind: "sphere", id: binding.id, center: [...body.center] as Vec3, radius: body.radius });
-              else sampled.push({ kind: "box", id: binding.id, center: [...body.center] as Vec3,
-                halfExtents: [...body.halfExtents] as Vec3, rotation: [...body.rotation] as Vec3 });
+              const sample = bridge.sampleClothBody(binding.entity);
+              let body: VirtualRopeCollider | undefined;
+              if (entry.definition.bodyReactions) {
+                body = bodies.get(binding.entity);
+                if (!body) {
+                  body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
+                  bodies.set(binding.entity, body);
+                }
+                coupled.set(binding.id, body);
+              }
+              const active = body ?? sample;
+              if (active.kind === "sphere") sampled.push({ kind: "sphere", id: binding.id, center: [...active.center] as Vec3, radius: active.radius });
+              else sampled.push({ kind: "box", id: binding.id, center: [...active.center] as Vec3,
+                halfExtents: [...active.halfExtents] as Vec3, rotation: [...active.rotation] as Vec3 });
               live.push(binding);
             }
             entry.definition = { ...entry.definition, bodyColliders: live, ...(live.length === 0 ? { bodyReactions: false } : {}) };
             entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.solver.setColliders([...manual, ...sampled]);
           }
-          const state = entry.solver.step();
-          if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) {
-            const byCollider = new Map((entry.definition.bodyColliders ?? []).map(binding => [binding.id, binding.entity]));
-            for (const contact of [...state.contacts, ...state.surfaceContacts]) {
-              const entity = byCollider.get(contact.colliderId);
-              if (!entity || !contact.reactionImpulse || !contact.reactionAngularImpulse) continue;
-              const current = reactions.get(entity) ?? { impulse: [0, 0, 0] as Vec3, moment: [0, 0, 0] as Vec3 };
-              for (let k = 0; k < 3; k++) { current.impulse[k] += contact.reactionImpulse[k]; current.moment[k] += contact.reactionAngularImpulse[k]; }
-              reactions.set(entity, current);
-            }
-          }
+          entry.solver.step(1, coupled.size ? createRopeBodyCoupling(coupled) : undefined);
         }
-        if (reactions.size) {
+        const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
+          .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
+          .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
+        if (batch.length) {
           const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
-          bridge.applyClothReactions([...reactions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([entity, value]) => ({ entity, ...value })));
+          bridge.applyClothReactions(batch);
         }
       } catch (error) {
         const failures: string[] = [];

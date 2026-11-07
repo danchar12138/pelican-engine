@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local cloth development uses a shared virtual rigid body for opt-in particle and sampled triangle contacts, including relative normal velocity, inverse mass/inertia, and barycentric surface mass with anchored vertices excluded. Contacts remain discrete and delayed, box orientation stays fixed during a split pass, and solvers are not unified. Runtime, stability, cost and restoration remain unverified.
+
 - Local cloth development stages reactions across automatic cloth entries before one physics batch, instead of committing after each entry. A native commit can still partially apply, and other host systems are not rolled back; runtime and failure handling remain unverified.
 
 - Local development uses a per-tick virtual dynamic sphere or box for fluid and soft-body reactions. Contact projection uses particle mass, rigid-body effective inverse mass/inertia and relative normal velocity; bodies shared by simulations of the same kind are processed in sorted order. This is discrete, delayed and approximate, with fixed box orientation and separate simulation passes; it is not continuous, frictional or a fully unified coupling. Runtime, stability, performance and snapshot behavior are unverified.
@@ -21,7 +23,7 @@
 
 - Local development adds split-step rope contacts and reactions with dynamic 3D boxes, including sampled orientation and effective mass/inertia. The virtual box orientation stays fixed within the split step; collision, response, recovery and snapshot behavior remain unverified.
 
-- Local development adds sampled cloth contact with live dynamic non-trigger 3D boxes as well as spheres, with optional delayed projection-derived reactions and generation-aware binding. This is not fully mass-coupled or continuous collision. Runtime, native-failure and snapshot behavior remain unverified; unsafe 3D historical replay remains an open risk.
+- Local development adds sampled cloth contact with live dynamic non-trigger 3D boxes as well as spheres, with optional delayed reactions and generation-aware binding. The current split-step approximation is not a unified or continuous collision solve. Runtime, native-failure and snapshot behavior remain unverified; unsafe 3D historical replay remains an open risk.
 - Native reaction-application failures now report potentially partial state without automatically replaying physics history. The host faults; restart or known-good recovery is required and unverified.
 
 - Local development adds manually sampled oriented box obstacles for rope particles and segments and cloth particles and sampled triangle points. The cloth samples do not guarantee all triangle/box contacts; contacts, stability and snapshot restoration remain unverified.

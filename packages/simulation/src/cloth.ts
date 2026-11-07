@@ -1,6 +1,7 @@
 import { createBoxFrame, orientedParticleBoxContact, particleBoxContact, segmentBoxContact, type BoxFrame } from "./box-contact.ts";
+import type { RopeDynamicCoupling } from "./rope.ts";
 
-/** CPU position-based triangular cloth. SI units; sampled colliders are one-way. */
+/** CPU position-based triangular cloth. SI units; optional host coupling is split-step. */
 export type Vec3 = [number, number, number];
 export type Triangle = [number, number, number];
 export type ClothCollider =
@@ -243,20 +244,38 @@ export class ClothSolver {
     for (const item of staged) this.velocities[item.index] = item.velocity;
   }
   /** A failed batch restores its pre-batch state. */
-  step(steps = 1): ClothState {
+  step(steps = 1, coupling?: RopeDynamicCoupling): ClothState {
     this.alive();
     if (!Number.isSafeInteger(steps) || steps < 1 || steps > 1000 || this.tickValue + steps > Number.MAX_SAFE_INTEGER)
       fail("CLOTH_INPUT", "steps must be in [1,1000] without tick overflow");
     const before = { positions: this.positions, velocities: this.velocities, forces: this.forces, contacts: this.contacts, selfContacts: this.selfContacts, surfaceContacts: this.surfaceContacts, tick: this.tickValue };
-    try { for (let i = 0; i < steps; i++) this.stepOne(); }
+    try { for (let i = 0; i < steps; i++) this.stepOne(coupling); }
     catch (error) { this.positions = before.positions; this.velocities = before.velocities; this.forces = before.forces; this.contacts = before.contacts; this.selfContacts = before.selfContacts; this.surfaceContacts = before.surfaceContacts; this.tickValue = before.tick; throw error; }
     return this.inspect();
   }
-  private stepOne(): void {
+  private stepOne(coupling?: RopeDynamicCoupling): void {
     const { fixedDt, substeps, iterations, mass, gravity, damping, constraints, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
     const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>(), selfContacts = new Map<string, ClothSelfContact>(), surfaceContacts = new Map<string, ClothSurfaceContact>();
     const boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
+    const virtualFrames = new Map<string, { center: Vec3; frame: BoxFrame }>();
+    const activeCollider = (source: ClothCollider): { collider: ClothCollider; frame?: BoxFrame; dynamic: boolean } => {
+      if (source.kind === "sphere") {
+        const body = coupling?.sphere(source.id);
+        if (body) return { collider: { ...source, center: body.center, radius: body.radius }, dynamic: true };
+      } else if (source.kind === "box") {
+        const body = coupling?.box?.(source.id);
+        if (body) {
+          let cached = virtualFrames.get(source.id);
+          if (!cached || cached.center !== body.center) {
+            cached = { center: body.center, frame: createBoxFrame(body.center, body.rotation) };
+            virtualFrames.set(source.id, cached);
+          }
+          return { collider: { ...source, center: body.center, halfExtents: body.halfExtents, rotation: body.rotation }, frame: cached.frame, dynamic: true };
+        }
+      }
+      return { collider: source, frame: boxFrames.get(source.id), dynamic: false };
+    };
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
@@ -277,11 +296,12 @@ export class ClothSolver {
         for (let i = 0; i < positions.length; i++) {
           if (this.anchors.has(i)) continue;
           const p = positions[i];
-          for (const collider of this.colliders) {
+          for (const source of this.colliders) {
+            const { collider, frame, dynamic } = activeCollider(source);
             let depth: number, normal: Vec3;
             if (collider.kind === "plane") { normal = collider.normal; depth = collider.offset + radius - (p[0] * normal[0] + p[1] * normal[1] + p[2] * normal[2]); }
             else if (collider.kind === "box") {
-              const contact = orientedParticleBoxContact(p, radius, collider.center, collider.halfExtents, boxFrames.get(collider.id));
+              const contact = orientedParticleBoxContact(p, radius, collider.center, collider.halfExtents, frame);
               if (!contact) continue;
               normal = contact.normal; depth = contact.depth;
             } else {
@@ -289,17 +309,27 @@ export class ClothSolver {
               depth = collider.radius + radius - length; normal = length < 1e-12 ? [1, 0, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
             }
             if (depth <= 0) continue;
-            for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
-            const magnitude = -mass * depth / h, reactionImpulse: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
-            const point: Vec3 = collider.kind === "sphere" ? [collider.center[0] + normal[0] * collider.radius, collider.center[1] + normal[1] * collider.radius, collider.center[2] + normal[2] * collider.radius] : [p[0] - normal[0] * radius, p[1] - normal[1] * radius, p[2] - normal[2] * radius];
-            const reactionAngularImpulse = cross(point, reactionImpulse), key = `${i}:${collider.id}`, old = contacts.get(key);
+            const point: Vec3 = collider.kind === "sphere" ? [collider.center[0] + normal[0] * collider.radius, collider.center[1] + normal[1] * collider.radius, collider.center[2] + normal[2] * collider.radius] : [p[0] + normal[0] * (depth - radius), p[1] + normal[1] * (depth - radius), p[2] + normal[2] * (depth - radius)];
+            let reactionImpulse: Vec3, reactionAngularImpulse: Vec3;
+            if (dynamic && coupling) {
+              const result = coupling.resolve(collider.id, normal, depth, p, previous[i], mass, h, point);
+              for (let k = 0; k < 3; k++) p[k] += result.correction[k];
+              reactionImpulse = result.reactionImpulse; reactionAngularImpulse = result.reactionAngularImpulse;
+            } else {
+              for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
+              const magnitude = -mass * depth / h;
+              reactionImpulse = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+              reactionAngularImpulse = cross(point, reactionImpulse);
+            }
+            const key = `${i}:${collider.id}`, old = contacts.get(key);
             if (old) { old.penetration = Math.max(old.penetration, depth); for (let k = 0; k < 3; k++) { old.reactionImpulse![k] += reactionImpulse[k]; old.reactionAngularImpulse![k] += reactionAngularImpulse[k]; } }
             else contacts.set(key, { tick: this.tickValue + 1, particle: i, colliderId: collider.id, penetration: depth, reactionImpulse, reactionAngularImpulse });
           }
         }
         if (this.config.surfaceCollisions) for (let triangleIndex = 0; triangleIndex < this.config.triangles.length; triangleIndex++) {
           const triangle = this.config.triangles[triangleIndex], a = positions[triangle[0]], b = positions[triangle[1]], c = positions[triangle[2]];
-          for (const collider of this.colliders) {
+          for (const source of this.colliders) {
+            const { collider, frame, dynamic } = activeCollider(source);
             let closest: { point: Vec3; barycentric: [number, number, number] }, normal: Vec3, depth: number;
             if (collider.kind === "sphere") {
               closest = closestTriangle(collider.center, a, b, c);
@@ -307,7 +337,7 @@ export class ClothSolver {
               depth = collider.radius + radius - length;
               normal = length < 1e-12 ? [0, 1, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
             } else if (collider.kind === "box") {
-              const hit = triangleBoxContact(a, b, c, radius, collider, triangle.map(index => !this.anchors.has(index)), boxFrames.get(collider.id));
+              const hit = triangleBoxContact(a, b, c, radius, collider, triangle.map(index => !this.anchors.has(index)), frame);
               if (!hit) continue;
               closest = { point: hit.point, barycentric: hit.barycentric }; normal = hit.normal; depth = hit.depth;
             } else {
@@ -319,9 +349,26 @@ export class ClothSolver {
             if (depth <= 0) continue;
             const weights = [this.anchors.has(triangle[0]) ? 0 : closest.barycentric[0], this.anchors.has(triangle[1]) ? 0 : closest.barycentric[1], this.anchors.has(triangle[2]) ? 0 : closest.barycentric[2]], denominator = weights.reduce((sum, value) => sum + value * value, 0);
             if (denominator === 0) continue;
-            const correction = depth / denominator;
-            for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++) positions[triangle[vertex]][axis] += normal[axis] * correction * weights[vertex];
-            const magnitude = -mass * depth / h, reactionImpulse: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude], reactionAngularImpulse = cross(closest.point, reactionImpulse);
+            let reactionImpulse: Vec3, reactionAngularImpulse: Vec3;
+            if (dynamic && coupling) {
+              // The point inverse mass is ?(barycentric? / particleMass), excluding anchors.
+              const previousPoint: Vec3 = [0, 0, 0];
+              for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++)
+                previousPoint[axis] += previous[triangle[vertex]][axis] * closest.barycentric[vertex];
+              const surface: Vec3 = collider.kind === "sphere"
+                ? [collider.center[0] + normal[0] * collider.radius, collider.center[1] + normal[1] * collider.radius, collider.center[2] + normal[2] * collider.radius]
+                : [closest.point[0] + normal[0] * (depth - radius), closest.point[1] + normal[1] * (depth - radius), closest.point[2] + normal[2] * (depth - radius)];
+              const result = coupling.resolve(collider.id, normal, depth, closest.point, previousPoint, mass / denominator, h, surface);
+              for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++)
+                positions[triangle[vertex]][axis] += result.correction[axis] * weights[vertex] / denominator;
+              reactionImpulse = result.reactionImpulse; reactionAngularImpulse = result.reactionAngularImpulse;
+            } else {
+              const correction = depth / denominator;
+              for (let vertex = 0; vertex < 3; vertex++) for (let axis = 0; axis < 3; axis++) positions[triangle[vertex]][axis] += normal[axis] * correction * weights[vertex];
+              const magnitude = -mass * depth / h;
+              reactionImpulse = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+              reactionAngularImpulse = cross(closest.point, reactionImpulse);
+            }
             const key = `${triangleIndex}:${collider.id}`, old = surfaceContacts.get(key);
             if (old) { old.penetration = Math.max(old.penetration, depth); for (let k = 0; k < 3; k++) { old.reactionImpulse![k] += reactionImpulse[k]; old.reactionAngularImpulse![k] += reactionAngularImpulse[k]; } }
             else surfaceContacts.set(key, { tick: this.tickValue + 1, triangle: triangleIndex, colliderId: collider.id, penetration: depth, barycentric: closest.barycentric, reactionImpulse, reactionAngularImpulse });

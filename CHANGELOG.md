@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add split-step effective-mass and normal-velocity cloth/rigid-body reactions for particles and sampled triangle surfaces; behavior remains unverified.
+
 - Stage automatic cloth reactions until all cloth entries step before applying one sorted physics batch; failure behavior remains unverified.
 
 - Add split-step particle/rigid-body effective-mass and normal-velocity reactions for fluid and soft-body contacts; runtime and stability remain unverified.

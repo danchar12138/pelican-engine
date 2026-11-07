@@ -1119,14 +1119,19 @@ the collider center, orientation and dimensions after physics and uses it as a
 moving obstacle. A box can rotate; the cloth surface still uses the sampled
 contact method described below. Bindings track entity lifetime, so replacing an
 entity with the same ID does not silently attach the replacement. Set
-`bodyReactions: true` to submit approximate normal reaction impulses from
-particle and triangle-surface contacts through the physics bridge. This changes
-body velocity on the next physics step; it is delayed, projection-derived and
-not mass-coupled with cloth velocity. The body receives no reaction when the
+`bodyReactions: true` to use split-step contact with a temporary rigid body.
+Particle contacts use particle mass and the body's effective inverse mass and
+inertia; sampled surface contacts use barycentric particle weights and exclude
+anchors from the surface's effective inverse mass. The solver considers normal
+relative velocity and submits accumulated impulses through the physics bridge.
+Cloths sharing a body use the same temporary body in sorted cloth order; the
+rigid body's actual pose advances in the next physics step. Box orientation
+remains fixed within this split pass. The body receives no reaction when the
 option is omitted. Destroyed bodies are removed on the next automatic step.
 When no bindings remain, reactions are disabled. Do not reuse a bound collider
-ID in `setColliders`. This is not complete cloth-rigid-body coupling; sampling,
-impulses, rotation and snapshot restoration have not been runtime-validated.
+ID in `setColliders`. This is discrete, delayed and approximate, not continuous
+collision, friction or a unified full coupling across solvers; sampling,
+impulses, stability, performance and restoration have not been runtime-validated.
 
 Automatic cloth steps stage reactions across all cloth entries before submitting
 one body-sorted physics batch, so a later cloth solver failure does not commit

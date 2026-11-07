@@ -872,7 +872,7 @@ export interface ClothDefinition {
   surfaceCollisions?: boolean;
   /** Optional live dynamic non-trigger sphere or box bindings; sampled after the physics phase. */
   bodyColliders?: readonly ClothBodyCollider[];
-  /** When true, detected contacts submit approximate reaction impulses to bound bodies. */
+  /** Enable approximate split-step, effective-mass contact and delayed reactions to bound bodies. */
   bodyReactions?: boolean;
 }
 ```
