@@ -45,9 +45,9 @@ Set `environment.lightingTexture` to a declared equirectangular texture asset
 for image-based lighting. `lightingRotation` sets its horizontal rotation in
 radians and `lightingIntensity` scales the lighting. This option cannot be
 combined with the `lighting` preset. Background and lighting textures are
-independent; use the same asset for both when desired. Texture loading uses the
-supported PNG/JPEG asset pipeline, not an HDR image loader. Rendering and device
-recovery for this addition have not been runtime-validated.
+independent; use the same asset for both when desired. Radiance RGBE `.hdr`
+textures are loaded as linear float data; PNG/JPEG remain supported. RGBE import,
+rendering and device recovery have not been runtime-validated.
 
 GLB `KHR_materials_unlit` materials use their base color and texture without
 lighting; they do not emit light into the scene. Import, optimization and

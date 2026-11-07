@@ -2,6 +2,7 @@
 import { inflateSync } from "node:zlib";
 import { InspectionContext } from "./errors.ts";
 import { inspectJPEG } from "./jpeg.ts";
+import { inspectHDR } from "./hdr.ts";
 
 const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const crcTable = Array.from({ length: 256 }, (_, n) => {
@@ -254,13 +255,14 @@ export function inspectTexture(
 ): Record<string, unknown> {
   if (data.subarray(0, 8).equals(signature)) return inspectPNG(data, ctx);
   if (data[0] === 0xff && data[1] === 0xd8) return inspectJPEG(data, ctx);
+  if (data[0] === 0x23 && data[1] === 0x3f) return inspectHDR(data, ctx);
   // Recognizable damaged signatures must not produce metadata.
   if (data.toString("latin1", 1, 4) === "PNG")
     ctx.invalid("PNG/signature", "Invalid PNG signature.");
-  if ([".png", ".jpg", ".jpeg"].includes(path.extname(ctx.file).toLowerCase()))
-    ctx.invalid("texture/signature", "Missing or damaged PNG/JPEG signature.");
+  if ([".png", ".jpg", ".jpeg", ".hdr"].includes(path.extname(ctx.file).toLowerCase()))
+    ctx.invalid("texture/signature", "Missing or damaged PNG/JPEG/RGBE signature.");
   return ctx.unsupported(
     "texture/format",
-    "Expected PNG or baseline JPEG image bytes.",
+    "Expected PNG, baseline JPEG or Radiance RGBE image bytes.",
   );
 }

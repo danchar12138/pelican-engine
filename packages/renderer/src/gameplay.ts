@@ -1,6 +1,7 @@
 ﻿import * as THREE from "three/webgpu";
 import { createUIRenderer } from "./ui.ts";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import type { PhysicsService } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
@@ -106,9 +107,9 @@ export async function prepareGameplay(
       }
     }
     for (const asset of ir.assets.filter((a) => a.type === "texture")) {
-      const texture = await new THREE.TextureLoader().loadAsync(
-        assetURL(asset.id),
-      );
+      const texture = asset.metadata?.format === "hdr"
+        ? await new HDRLoader().setDataType(THREE.FloatType).loadAsync(assetURL(asset.id))
+        : await new THREE.TextureLoader().loadAsync(assetURL(asset.id));
       texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
       textures.set(asset.id, texture);
     }

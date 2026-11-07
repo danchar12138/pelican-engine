@@ -111,6 +111,11 @@ Independent textures expose `width` and `height` **at the top level**, in pixels
 PNG `channels` is the encoded color sample count (indexed PNG has one palette
 index channel); `hasAlpha` includes a valid tRNS chunk. JPEG reports encoded frame
 components. EXIF display orientation is not applied; dimensions describe pixels.
+Radiance RGBE `.hdr` textures report `format: "hdr"`, `encoding: "rgbe"`,
+three color channels and linear color space. This development implementation
+supports `-Y/+X` orientation and modern scanline RLE or raw pixels, with at most
+16,777,216 pixels; legacy run encoding is rejected. Runtime decoding uses Three's
+HDRLoader with float32 data and has not been runtime-validated.
 
 Audio metadata has **top-level `duration` in seconds**, suitable for deterministic
 sound lifetime accounting; there is no milliseconds conversion:
@@ -146,6 +151,9 @@ Float WAVE uses `encoding: "ieee-float"` and requires a matching `fact` frame co
   single complete scan; quantization/Huffman tables, frame/scan components,
   entropy-coded DC/AC blocks, byte stuffing, restart sequence, padding and EOI.
   Does not reconstruct pixels/IDCT. APP/COM metadata is skipped and not interpreted.
+- **Radiance RGBE**: bounded header, supported orientation, exact pixel data and
+  modern scanline run lengths. Legacy run encoding and other orientations are
+  unsupported. This applies to standalone textures, not embedded glTF images.
 - **WAV**: little-endian RIFF/WAVE PCM (8/16/24/32-bit) and IEEE float (32/64-bit),
   one fmt and one nonempty data chunk; exact RIFF/chunk sizes and word padding,
   byte rate, frame alignment, finite float values, and fact count for float.

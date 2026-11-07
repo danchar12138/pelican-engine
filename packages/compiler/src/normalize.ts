@@ -303,6 +303,8 @@ export async function normalize(
     try {
       const content = await fs.readFile(absolute);
       const metadata = await inspectAsset(absolute, def.type as AssetType);
+      if (def.type === "texture" && metadata.format === "hdr" && def.colorSpace !== undefined && def.colorSpace !== "linear")
+        error("TC_ASSET_COLOR_SPACE", "RGBE HDR textures require linear color space.", def, "colorSpace");
       if (metadata.sha256 !== hash(content)) {
         error(
           "TC_ASSET_CHANGED",
@@ -329,7 +331,7 @@ export async function normalize(
             : {}),
         },
         source: located(def),
-        ...(def.type === "texture" && ["srgb", "linear"].includes(String(def.colorSpace)) ? { colorSpace: def.colorSpace as "srgb" | "linear" } : {}),
+        ...(def.type === "texture" && metadata.format === "hdr" ? { colorSpace: "linear" as const } : def.type === "texture" && ["srgb", "linear"].includes(String(def.colorSpace)) ? { colorSpace: def.colorSpace as "srgb" | "linear" } : {}),
       });
       if (def.colorSpace !== undefined && (def.type !== "texture" || !["srgb", "linear"].includes(String(def.colorSpace))))
         error("TC_ASSET_COLOR_SPACE", "colorSpace is srgb or linear and applies only to texture assets.", def, "colorSpace");
