@@ -175,8 +175,11 @@ export function createSurfaceCapture() {
         const color = object.color.clone().multiplyScalar(object.intensity),
           position = object.getWorldPosition(new THREE.Vector3());
         if (object instanceof THREE.SpotLight) {
-          if (object.distance !== 0 || object.decay !== 2 || object.map)
-            throw new Error(`TC_TRACE_LIGHT_UNSUPPORTED: Spot light ${object.uuid} requires unlimited range, inverse-square decay and no projected map.`);
+          if (object.map)
+            throw new Error(`TC_TRACE_LIGHT_UNSUPPORTED: Spot light ${object.uuid} does not support a projected map.`);
+          if (!Number.isFinite(object.distance) || object.distance < 0 || !Number.isFinite(Math.fround(object.distance)) ||
+              (object.distance > 0 && Math.fround(object.distance) === 0) || !Number.isFinite(object.decay) || object.decay < 0 || !Number.isFinite(Math.fround(object.decay)))
+            throw new Error(`TC_TRACE_LIGHT_INVALID: Spot light ${object.uuid} requires float32-representable nonnegative distance and decay.`);
           if (!Number.isFinite(object.angle) || object.angle <= 0 || object.angle > Math.PI / 2 ||
               !Number.isFinite(object.penumbra) || object.penumbra < 0 || object.penumbra > 1)
             throw new Error(`TC_TRACE_LIGHT_INVALID: Spot light ${object.uuid} requires angle in (0, PI/2] and penumbra in [0,1].`);
@@ -190,8 +193,12 @@ export function createSurfaceCapture() {
             ...position.toArray(), 5,
             ...color.toArray(), Math.cos(object.angle),
             ...direction.toArray(), Math.cos(object.angle * (1 - object.penumbra)),
+            object.distance, object.decay, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0,
           );
         } else if (object instanceof THREE.PointLight) {
+          if (!Number.isFinite(object.distance) || object.distance < 0 || !Number.isFinite(Math.fround(object.distance)) ||
+              (object.distance > 0 && Math.fround(object.distance) === 0) || !Number.isFinite(object.decay) || object.decay < 0 || !Number.isFinite(Math.fround(object.decay)))
+            throw new Error(`TC_TRACE_LIGHT_INVALID: Point light ${object.uuid} requires float32-representable nonnegative distance and decay.`);
           lights.push(
             ...position.toArray(),
             0,

@@ -763,9 +763,17 @@ export async function normalize(
           angle: num(l.angle, l, "angle", Math.PI / 3, Number.EPSILON, Math.PI / 2),
           penumbra: num(l.penumbra, l, "penumbra", 0, 0, 1),
         } : {}),
+        ...(l.kind === "spot" || l.kind === "point" ? {
+          distance: num(l.distance, l, "distance", 0, 0, 3.4028234663852886e38),
+          decay: num(l.decay, l, "decay", 2, 0, 3.4028234663852886e38),
+        } : {}),
       };
       if (l.kind !== "spot" && (l.angle !== undefined || l.penumbra !== undefined))
         error("TC_LIGHT_KIND", "angle and penumbra require a spot light.", l, "kind");
+      if (l.kind === "directional" && (l.distance !== undefined || l.decay !== undefined))
+        error("TC_LIGHT_KIND", "distance and decay require a point or spot light.", l, "kind");
+      if (typeof l.distance === "number" && l.distance > 0 && Math.fround(l.distance) === 0)
+        error("TC_SCHEMA_RANGE", "distance must be representable as a positive float32 value.", l, "distance");
       if (l.shadow !== undefined) {
         const shadow = obj(l.shadow, l, "shadow");
         const mapSize = num(shadow.mapSize, shadow, "mapSize", 2048, 128, 8192);

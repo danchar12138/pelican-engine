@@ -41,9 +41,10 @@ raster/path/hybrid behavior for this addition have not been runtime-validated.
 Ambient occlusion maps on other unlit materials are not supported by the tracer.
 
 Scene lights support `kind: "spot"` with a world-space `target`, cone half-angle
-in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Spot lights have
-unlimited range and inverse-square falloff. Keep the target distinct from the
-light position. Raster, path and hybrid behavior has not been runtime-validated.
+in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Point and spot
+lights accept a cutoff `distance` (0 means unlimited) and a `decay` exponent
+(default 2). Keep the target distinct from the light position. Raster, path and
+hybrid behavior has not been runtime-validated.
 
 ```ts
 { id: "lamp", transform: { position: [2, 4, 3] },

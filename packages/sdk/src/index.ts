@@ -852,6 +852,10 @@ export interface LightDefinition {
   angle?: number;
   /** Spot cone edge softness from 0 to 1. */
   penumbra?: number;
+  /** Point/spot cutoff distance; 0 means unlimited. */
+  distance?: number;
+  /** Point/spot distance decay exponent; defaults to 2. */
+  decay?: number;
   shadow?: {
     mapSize?: number;
     extent?: number;

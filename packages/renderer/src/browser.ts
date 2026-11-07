@@ -406,14 +406,17 @@ function createEntityView(
         ? new THREE.PointLight(
             entity.light.color ?? "#ffffff",
             entity.light.intensity ?? 1,
+            entity.light.distance ?? 0,
+            entity.light.decay ?? 2,
           )
         : entity.light.kind === "spot"
           ? new THREE.SpotLight(
               entity.light.color ?? "#ffffff",
               entity.light.intensity ?? 1,
-              0,
+              entity.light.distance ?? 0,
               entity.light.angle ?? Math.PI / 3,
               entity.light.penumbra ?? 0,
+              entity.light.decay ?? 2,
             )
           : new THREE.DirectionalLight(
             entity.light.color ?? "#ffffff",
