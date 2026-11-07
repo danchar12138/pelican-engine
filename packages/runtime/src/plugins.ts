@@ -14,6 +14,7 @@ import type {
   InventoryService,
   QuestService,
   DialogueService,
+  LocalizationService,
   RopeService,
   ClothService,
   FluidService,
@@ -43,6 +44,7 @@ export interface RuntimeServices {
   inventory: InventoryService;
   quests: QuestService;
   dialogue: DialogueService;
+  i18n: LocalizationService;
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;

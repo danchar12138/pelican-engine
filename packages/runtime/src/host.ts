@@ -283,6 +283,9 @@ export class RuntimeHost {
       get dialogue() {
         return host.service("dialogue");
       },
+      get i18n() {
+        return host.service("i18n");
+      },
       get ropes() {
         return host.service("ropes");
       },

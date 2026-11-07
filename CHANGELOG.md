@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit localization catalogs, locale fallback, template substitution and Intl plural/number formatting. Runtime behavior is unverified.
+
 - Add branching text dialogue definitions, choices and snapshot-preserved sessions. Runtime behavior is unverified.
 
 - Add game-driven quest objectives, prerequisite tracking, completion and snapshots. Runtime behavior is unverified.

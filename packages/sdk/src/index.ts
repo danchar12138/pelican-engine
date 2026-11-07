@@ -120,6 +120,7 @@ export interface SystemContext extends EngineFacade {
   readonly inventory: InventoryService;
   readonly quests: QuestService;
   readonly dialogue: DialogueService;
+  readonly i18n: LocalizationService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -923,6 +924,23 @@ export interface DialogueService {
   close(session: string): void;
   inspect(session: string): DialogueSessionState;
   list(): readonly DialogueSessionState[];
+}
+export interface LocalizationPlural {
+  zero?: string; one?: string; two?: string; few?: string; many?: string; other: string;
+}
+export type LocalizationMessage = string | LocalizationPlural;
+export type LocalizationVariables = Readonly<Record<string, string | number | boolean>>;
+/** Explicit game-authored translations; no automatic translation or platform account. */
+export interface LocalizationService {
+  define(locale: string, messages: Readonly<Record<string, LocalizationMessage>>): void;
+  remove(locale: string): void;
+  setLocale(locale: string | null): void;
+  setFallback(locale: string | null): void;
+  /** Plural messages require a finite numeric `count` variable. */
+  text(key: string, variables?: LocalizationVariables): string;
+  /** Format a finite number using the active locale's Intl implementation. */
+  number(value: number): string;
+  inspect(): { locale: string | null; fallback: string | null; available: readonly string[] };
 }
 export interface AudioService {
   play(
