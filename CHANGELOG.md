@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.4.0 - 2026-11-06
+## 0.5.0 - 2026-11-06
 
-- Began the 0.x-to-1.0 convergence line with the bounded CPU fluid service, fixed-step Host integration, snapshots, and WCSPH inspection data.
+- Added optional fluid binding to one dynamic sphere with fixed-step WCSPH sampling and approximate reaction impulse submission.
+- Added fluid particle presentation and the fluid-basin example.
 - This release is build-only; fluid runtime, stability, performance, rendering, and snapshot compatibility were not verified.
 
 ## 0.3.31 - 2026-11-06

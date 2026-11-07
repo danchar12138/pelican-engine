@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.4.0";
+export const SDK_VERSION = "0.5.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -292,10 +292,13 @@ export interface ClothService {
 }
 /** CPU WCSPH fluid prototype exposed as a bounded development service. */
 export interface FluidVisualOptions { material: string; radius?: number; castShadow?: boolean; receiveShadow?: boolean }
+export interface FluidBodyCollider { readonly id: string; readonly entity: string }
 export interface FluidDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
+  bodyColliders?: readonly FluidBodyCollider[];
+  bodyReactions?: boolean;
 }
 export interface FluidParticle { id: string; position: Vec3; radius: number }
 export interface FluidState {

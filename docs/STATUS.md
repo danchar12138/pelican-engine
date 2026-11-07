@@ -2,7 +2,7 @@
 
 ## Version and Release
 
-- Current standard version: 0.4.0. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
+- Current standard version: 0.5.0. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
 
@@ -26,8 +26,5 @@ Each change area contains one feature, fix, or next standard version. Changes ar
 
 Every main push attempts npm latest publication. Published versions are never overwritten. Unverified behavior is explicitly marked and is not replaced by historical reports.
 
-- Cloth automatic-step rollback now restores pruned body binding definitions together with solver state; this lifecycle fix is unverified.
 
-- Physics reaction batches now rebuild their pre-batch state and history when a native action fails; this rollback path is unverified.
-
-- The 0.4.0 convergence line adds a bounded CPU WCSPH fluid service with fixed-step Host scheduling, snapshots, inspection, and optional particle presentation data. Rendering, runtime, stability, performance, and snapshot compatibility remain unverified.
+- The 0.5.0 line adds a bounded CPU WCSPH fluid service with fixed-step Host scheduling, snapshots, optional particle presentation, and optional one-sphere binding with approximate reaction impulses. Rendering, runtime, stability, performance, and snapshot compatibility remain unverified.

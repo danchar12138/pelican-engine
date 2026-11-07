@@ -1,4 +1,4 @@
-﻿import type { FluidDefinition, FluidService, FluidState, FluidVisualState, Vec3 } from "../../sdk/src/index.ts";
+﻿import type { FluidBodyCollider, FluidDefinition, FluidService, FluidState, FluidVisualState, Vec3 } from "../../sdk/src/index.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationOptions, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
@@ -8,18 +8,26 @@ type Saved = { definition: FluidDefinition; state: SimulationSnapshot };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_FLUID_${code}: ${detail}`); };
 const validId = (value: unknown): value is string => typeof value === "string" && value.trim() === value && value.length > 0 && value.length <= 128;
 const vector = (value: unknown, label: string): Vec3 => Array.isArray(value) && value.length === 3 && value.every(x => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100) ? [value[0], value[1], value[2]] : fail("INPUT", `${label} must be a finite vector with components in [-100,100].`);
-function createEntry(input: FluidDefinition, fixedDt: number, materials: ReadonlySet<string>): Entry {
+function createEntry(input: FluidDefinition, fixedDt: number, materials: ReadonlySet<string>, bodySample?: { center: Vec3; velocity: Vec3 }): Entry {
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty fluid id.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Fluid fixedDt must match the host fixedDt.");
+  if (definition.bodyReactions !== undefined && typeof definition.bodyReactions !== "boolean") return fail("BODY_REACTION", "bodyReactions must be boolean.");
+  if (definition.bodyColliders !== undefined) {
+    if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > 1) return fail("BODY_COLLIDER", "Fluid supports at most one body collider.");
+    if (definition.bodyColliders.length && !definition.autoStep) return fail("BODY_COLLIDER", "bodyColliders require autoStep: true.");
+    const binding = definition.bodyColliders[0];
+    if (binding && (!validId(binding.id) || !validId(binding.entity))) return fail("BODY_COLLIDER", "Body binding requires nonempty ids.");
+  }
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be boolean.");
   if (definition.visual !== undefined) {
     const visual = definition.visual;
     if (!visual || typeof visual !== "object" || !validId(visual.material) || !materials.has(visual.material)) return fail("VISUAL_MATERIAL", "visual.material must name a declared material.");
     if (visual.radius !== undefined && (typeof visual.radius !== "number" || !Number.isFinite(visual.radius) || visual.radius <= 0 || visual.radius > 1e6)) return fail("VISUAL_RADIUS", "visual.radius must be positive and finite.");
   }
-  const { id: _id, autoStep: _autoStep, visual: _visual, ...options } = definition;
-  const simulation = createSimulation("fluid", { ...options, fixedDt } as SimulationOptions);
+  const { id: _id, autoStep: _autoStep, visual: _visual, bodyColliders: _bodyColliders, bodyReactions: _bodyReactions, ...options } = definition;
+  const simulation = createSimulation("fluid", { ...options, fixedDt, twoWayCoupling: definition.bodyReactions ?? false,
+    ...(bodySample ? { bodyPosition: bodySample.center, bodyVelocity: bodySample.velocity } : {}) } as SimulationOptions);
   return { definition, simulation };
 }
 function disposeEntries(entries: Map<string, Entry>): void { for (const entry of entries.values()) entry.simulation.dispose(); entries.clear(); }
@@ -50,8 +58,16 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
   let entries = new Map<string, Entry>(), disposed = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Fluid service is disposed."); };
   const get = (id: string) => { alive(); if (!validId(id)) return fail("ID", "Expected a nonempty fluid id."); return entries.get(id) ?? fail("MISSING", `Fluid '${id}' does not exist.`); };
+  const sampleBinding = (definition: FluidDefinition) => {
+    const binding = definition.bodyColliders?.[0];
+    if (!binding) return undefined;
+    const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "bodyColliders require the physics plugin.");
+    if (!context.world.isAlive(binding.entity)) return fail("BODY_COLLIDER", `Body '${binding.entity}' is not live.`);
+    const sample = bridge.sampleSphere(binding.entity);
+    return { center: [...sample.center] as Vec3, velocity: [...sample.linearVelocity] as Vec3 };
+  };
   const service: FluidService = {
-    create(definition) { alive(); if (entries.has(definition.id)) return fail("DUPLICATE", `Fluid '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 fluids per host."); const entry = createEntry(definition, fixedDt, materials); entries.set(entry.definition.id, entry); },
+    create(definition) { alive(); if (entries.has(definition.id)) return fail("DUPLICATE", `Fluid '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 fluids per host."); const entry = createEntry(definition, fixedDt, materials, sampleBinding(definition)); entries.set(entry.definition.id, entry); },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Fluid '${id}' is automatically stepped.`); entry.simulation.step(ticks); return inspect(entry); },
     inspect(id) { return inspect(get(id)); },
     visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual !== undefined).sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const visual = entry.definition.visual!, state = inspect(entry); return { id: entry.definition.id, material: visual.material, particles: state.particles, castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true }; }); },
@@ -60,7 +76,7 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
   };
   return {
     id: "$engine.fluid", version: "1", services: { fluid: service },
-    afterPhysics() { alive(); const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = []; try { for (const entry of [...entries.values()].filter(e => e.definition.autoStep).sort((a,b) => a.definition.id.localeCompare(b.definition.id))) { const snapshot = entry.simulation.snapshot(); committed.push({ entry, snapshot }); entry.simulation.step(1); } } catch (error) { const failures: string[] = []; for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); } if (failures.length) throw new Error(`TC_FLUID_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`); throw error; } },
+    afterPhysics() { alive(); const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = []; try { for (const entry of [...entries.values()].filter(e => e.definition.autoStep).sort((a,b) => a.definition.id.localeCompare(b.definition.id))) { const snapshot = entry.simulation.snapshot(); committed.push({ entry, snapshot }); entry.simulation.step(1); if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) { const binding = entry.definition.bodyColliders[0]; const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin."); const impulse = entry.simulation.inspect().contacts.reactionImpulse; bridge.applySphereReactions([{ entity: binding.entity, impulse: [...impulse] as Vec3, moment: [0, 0, 0] }]); } } } catch (error) { const failures: string[] = []; for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); } if (failures.length) throw new Error(`TC_FLUID_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`); throw error; } },
     legacySnapshot: () => ({ version: 1, fluids: [] }),
     snapshot: () => ({ version: 1, fluids: [...entries.values()].sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => ({ definition: cloneSerializable(entry.definition), state: entry.simulation.snapshot() })) }),
     validateSnapshot(value) { const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(staged); },
