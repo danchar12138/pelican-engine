@@ -97,37 +97,48 @@ export async function prepareGameplay(
   let uiEmit: ((type: string, payload: unknown) => void) | undefined;
   let services: ReturnType<typeof createGameServices>;
   let closed = false;
+  let disposePromise: Promise<void> | undefined;
   let audioRevision = -1;
   const stopVoice = (id: string) => {
     const voice = voices.get(id);
     if (!voice) return;
-    voice.source.onended = null;
-    try {
-      voice.source.stop();
-    } catch {
-      /* A completed buffer source is already stopped. */
-    }
-    voice.source.disconnect();
-    voice.gain.disconnect();
-    voice.panner?.disconnect();
     voices.delete(id);
+    const failures: unknown[] = [];
+    const clean = (action: () => void) => { try { action(); } catch (error) { failures.push(error); } };
+    clean(() => { voice.source.onended = null; });
+    try { voice.source.stop(); } catch { /* A completed buffer source is already stopped. */ }
+    clean(() => voice.source.disconnect());
+    clean(() => voice.gain.disconnect());
+    clean(() => voice.panner?.disconnect());
+    if (failures.length) throw new AggregateError(failures, `TC_AUDIO_VOICE_DISPOSE: Failed to disconnect voice '${id}'; inspect the causes and restart the scene.`);
   };
-  const dispose = async () => {
-    if (closed) return;
+  const dispose = (): Promise<void> => {
+    if (disposePromise) return disposePromise;
     closed = true;
-    ui?.dispose();
-    for (const id of [...voices.keys()]) stopVoice(id);
-    for (const gain of busGains.values()) gain.disconnect();
-    busGains.clear();
-    busFadeKeys.clear();
-    masterGain?.disconnect();
-    environmentTarget?.dispose();
-    environmentTexture?.dispose();
-    background?.dispose();
-    for (const texture of textures.values()) texture.dispose();
-    textures.clear();
-    buffers.clear();
-    await Promise.all([models.dispose(), audio?.close()]);
+    // Assign first: concurrent or reentrant disposal callers must await the same cleanup.
+    disposePromise = Promise.resolve().then(async () => {
+      const failures: unknown[] = [];
+      const clean = (action: () => void) => { try { action(); } catch (error) { failures.push(error); } };
+      clean(() => ui?.dispose());
+      for (const id of [...voices.keys()]) clean(() => stopVoice(id));
+      for (const gain of busGains.values()) clean(() => gain.disconnect());
+      busGains.clear();
+      busFadeKeys.clear();
+      clean(() => masterGain?.disconnect());
+      clean(() => environmentTarget?.dispose());
+      clean(() => environmentTexture?.dispose());
+      clean(() => background?.dispose());
+      for (const texture of textures.values()) clean(() => texture.dispose());
+      textures.clear();
+      buffers.clear();
+      const results = await Promise.allSettled([
+        Promise.resolve().then(() => models.dispose()),
+        Promise.resolve().then(() => audio?.close()),
+      ]);
+      for (const result of results) if (result.status === "rejected") failures.push(result.reason);
+      if (failures.length) throw new AggregateError(failures, "TC_CONTENT_DISPOSE: Some content resources could not be released; inspect the causes and restart the scene.");
+    });
+    return disposePromise;
   };
   try {
     requireHDRFiltering(renderer);
@@ -623,7 +634,10 @@ export async function prepareGameplay(
       },
     };
   } catch (error) {
-    await dispose();
+    try { await dispose(); }
+    catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "TC_CONTENT_PREPARE_CLEANUP: Content preparation and cleanup failed; inspect the causes and retry in a new scene.");
+    }
     throw error;
   }
 }

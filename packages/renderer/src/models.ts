@@ -144,6 +144,13 @@ interface InstanceState {
   fades: Map<string, ModelFadeSnapshot>;
 }
 
+function attemptCleanup(failures: unknown[], action: () => void): void {
+  try { action(); } catch (error) { failures.push(error); }
+}
+function reportCleanup(failures: unknown[], message: string): void {
+  if (failures.length) throw new AggregateError(failures, message);
+}
+
 /** Tracks decoded dependencies, including resources outside the default scene. */
 class ModelResources {
   readonly geometries = new Set<THREE.BufferGeometry>();
@@ -178,19 +185,21 @@ class ModelResources {
   }
 
   dispose(): void {
-    for (const skeleton of this.skeletons) skeleton.dispose();
-    for (const geometry of this.geometries) geometry.dispose();
-    for (const material of this.materials) material.dispose();
+    const failures: unknown[] = [];
+    for (const skeleton of this.skeletons) attemptCleanup(failures, () => skeleton.dispose());
+    for (const geometry of this.geometries) attemptCleanup(failures, () => geometry.dispose());
+    for (const material of this.materials) attemptCleanup(failures, () => material.dispose());
     for (const texture of this.textures) {
-      releaseEmbeddedImage(texture);
-      texture.dispose();
+      attemptCleanup(failures, () => releaseEmbeddedImage(texture));
+      attemptCleanup(failures, () => texture.dispose());
     }
-    for (const bitmap of this.bitmaps) bitmap.close();
+    for (const bitmap of this.bitmaps) attemptCleanup(failures, () => bitmap.close());
     this.skeletons.clear();
     this.geometries.clear();
     this.materials.clear();
     this.textures.clear();
     this.bitmaps.clear();
+    reportCleanup(failures, "TC_MODEL_RESOURCES_DISPOSE: Some model resources could not be released; inspect the error causes and restart the scene.");
   }
 }
 
@@ -202,14 +211,16 @@ interface PendingTemplate {
 }
 
 function disposeInstanceResources(root: THREE.Object3D): void {
-  const skeletons = new Set<THREE.Skeleton>();
-  root.traverse((object) => {
+  const failures: unknown[] = [], skeletons = new Set<THREE.Skeleton>(), shadows = new Set<THREE.LightShadow>();
+  attemptCleanup(failures, () => root.traverse((object) => {
     if ((object as THREE.SkinnedMesh).isSkinnedMesh)
       skeletons.add((object as THREE.SkinnedMesh).skeleton);
     if (object instanceof THREE.PointLight || object instanceof THREE.SpotLight || object instanceof THREE.DirectionalLight)
-      object.shadow.dispose();
-  });
-  for (const skeleton of skeletons) skeleton.dispose();
+      shadows.add(object.shadow);
+  }));
+  for (const shadow of shadows) attemptCleanup(failures, () => shadow.dispose());
+  for (const skeleton of skeletons) attemptCleanup(failures, () => skeleton.dispose());
+  reportCleanup(failures, "TC_MODEL_INSTANCE_DISPOSE: Some instance resources could not be released; inspect the error causes and restart the scene.");
 }
 
 function assetIdentity(source: ModelSource): { id: string; url?: string } {
@@ -422,8 +433,8 @@ class ModelLibraryImpl implements ModelLibrary {
   remove(entityId: string): void {
     const state = this.instances.get(entityId);
     if (!state) return;
-    this.releaseInstance(state);
-    this.instances.delete(entityId);
+    try { this.releaseInstance(state); }
+    finally { this.instances.delete(entityId); }
   }
 
   private knownDefinition(entity: string): KnownDefinition {
@@ -677,10 +688,12 @@ class ModelLibraryImpl implements ModelLibrary {
   }
 
   private releaseInstance(state: InstanceState): void {
-    state.mixer.stopAllAction();
-    state.mixer.uncacheRoot(state.root);
-    state.node.removeFromParent();
-    disposeInstanceResources(state.root);
+    const failures: unknown[] = [];
+    attemptCleanup(failures, () => state.mixer.stopAllAction());
+    attemptCleanup(failures, () => state.mixer.uncacheRoot(state.root));
+    attemptCleanup(failures, () => state.node.removeFromParent());
+    attemptCleanup(failures, () => disposeInstanceResources(state.root));
+    reportCleanup(failures, `TC_MODEL_INSTANCE_DISPOSE: Failed to release instance '${state.entity}'; inspect the error causes and restart the scene.`);
   }
 
   private stageInstances(ids: ReadonlySet<string>, definitions = this.definitions, initializeAnimation = true): Map<string, InstanceState> {
@@ -1011,17 +1024,21 @@ class ModelLibraryImpl implements ModelLibrary {
     if (this.disposing) return this.disposing;
     this.closed = true;
     const pending = [...this.loads];
-    for (const item of pending) item.controller.abort();
-    for (const entity of [...this.instances.keys()]) this.remove(entity);
-    this.disposing = (async () => {
-      await Promise.allSettled(pending.map((item) => item.promise));
-      for (const template of this.templates.values())
-        template.resources.dispose();
+    // Assign the shared promise before running cleanup so reentrant calls await it too.
+    this.disposing = Promise.resolve().then(async () => {
+      const failures: unknown[] = [];
+      for (const item of pending) attemptCleanup(failures, () => item.controller.abort());
+      for (const entity of [...this.instances.keys()]) attemptCleanup(failures, () => this.remove(entity));
+      const results = await Promise.allSettled(pending.map((item) => item.promise));
+      for (const result of results)
+        if (result.status === "rejected" && result.reason instanceof AggregateError && result.reason.message.startsWith("TC_MODEL_LOAD_CLEANUP")) failures.push(result.reason);
+      for (const template of this.templates.values()) attemptCleanup(failures, () => template.resources.dispose());
       this.templates.clear();
       this.urls.clear();
       this.definitions.clear();
       this.pending.clear();
-    })();
+      reportCleanup(failures, "TC_MODEL_DISPOSE: Model cleanup was incomplete; inspect the error causes and restart the scene.");
+    });
     return this.disposing;
   }
 
@@ -1261,7 +1278,10 @@ class ModelLibraryImpl implements ModelLibrary {
           return template;
         } catch (error) {
           while (decoding.size) await Promise.all([...decoding]);
-          resources.dispose();
+          try { resources.dispose(); }
+          catch (cleanupError) {
+            throw new AggregateError([error, cleanupError], `TC_MODEL_LOAD_CLEANUP: Model '${id}' failed to load and some resources could not be released; inspect the causes and retry in a new scene.`);
+          }
           if (controller.signal.aborted || this.closed)
             throw new Error(`TC_MODEL_CANCELLED: ${id}`);
           throw new Error(

@@ -712,6 +712,14 @@ compute-dependent path/hybrid features. Observe structured diagnostics and keep
 the prior valid state on rejected operations. Hardware acceptance is separate
 from a successful software-rendered or CPU-only run.
 
+Content and model teardown attempt to release remaining resources even when an
+individual cleanup fails. Diagnostics such as `TC_CONTENT_CLEANUP`,
+`TC_CONTENT_DISPOSE`, `TC_MODEL_DISPOSE` and `TC_MODEL_LOAD_CLEANUP` indicate
+that cleanup was incomplete; inspect the error causes and restart the scene if
+needed. A failure after a scene replacement has committed does not guarantee
+that the old scene was restored. These failure and release paths have not been
+runtime-validated and do not prove the absence of leaks.
+
 For project-version mismatches, migrate via public API, then explicitly update
 the lock. For package integrity/dependency errors, reinstall one exact package
 version. Never work around a diagnostic by importing an internal dependency.

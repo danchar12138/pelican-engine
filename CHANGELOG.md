@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make scene, model and audio teardown continue after individual cleanup errors and preserve diagnostics. Runtime lifecycle and leak behavior are unverified.
+
 - Avoid duplicate main-push build jobs and report immutable npm version collisions as workflow failures. Workflow behavior is unverified.
 
 ## 0.6.1 - 2026-11-07

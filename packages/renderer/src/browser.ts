@@ -375,7 +375,10 @@ function releaseObject(
 ) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>(ownedMaterials);
-  root.traverse((object) => {
+  const skeletons = new Set<THREE.Skeleton>(), shadows = new Set<THREE.LightShadow>();
+  const failures: unknown[] = [];
+  const clean = (action: () => void) => { try { action(); } catch (error) { failures.push(error); } };
+  clean(() => root.traverse((object) => {
     if (object instanceof THREE.Mesh) {
       geometries.add(object.geometry);
       if (releaseMaterials)
@@ -384,15 +387,20 @@ function releaseObject(
           : [object.material])
           materials.add(material);
     }
-    if (object instanceof THREE.SkinnedMesh) object.skeleton.dispose();
-    if (object instanceof THREE.Light && "shadow" in object)
-      (object.shadow as THREE.LightShadow | undefined)?.dispose();
-  });
-  for (const geometry of geometries) geometry.dispose();
-  for (const material of materials) material.dispose();
-  (root.userData.lightTarget as THREE.Object3D | undefined)?.removeFromParent();
-  root.removeFromParent();
-  root.clear();
+    if (object instanceof THREE.SkinnedMesh) skeletons.add(object.skeleton);
+    if (object instanceof THREE.Light && "shadow" in object) {
+      const shadow = object.shadow as THREE.LightShadow | undefined;
+      if (shadow) shadows.add(shadow);
+    }
+  }));
+  for (const shadow of shadows) clean(() => shadow.dispose());
+  for (const skeleton of skeletons) clean(() => skeleton.dispose());
+  for (const geometry of geometries) clean(() => geometry.dispose());
+  for (const material of materials) clean(() => material.dispose());
+  clean(() => (root.userData.lightTarget as THREE.Object3D | undefined)?.removeFromParent());
+  clean(() => root.removeFromParent());
+  clean(() => root.clear());
+  if (failures.length) throw new AggregateError(failures, "TC_SCENE_RESOURCES_DISPOSE: Some scene resources could not be released; inspect the causes and restart the scene.");
 }
 function createEntityView(
   entity: SceneIR["scene"]["entities"][number],
@@ -678,6 +686,10 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
   let candidateGame: { update(dt: number): void; dispose(): void } | undefined;
   let attached = false;
   let committed = false;
+  let previousCleanup: (() => Promise<void>) | undefined;
+  const cleanup = async (label: string, action: () => unknown) => {
+    try { await action(); } catch (error) { errors.push(`TC_CONTENT_CLEANUP: ${label}: ${String(error)}`); }
+  };
   const nextRoot = new THREE.Group();
   const nextMaterials = new Map<string, THREE.MeshStandardNodeMaterial>();
   const nextObjects = new Map<string, THREE.Object3D>();
@@ -901,6 +913,17 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       previousRenderTextureBridge = renderTextureBridge;
     const previousRoot = new THREE.Group();
     if (gameRoot.children.length) previousRoot.add(...gameRoot.children);
+    previousCleanup = async () => {
+      await cleanup("previous runtime", () => previous?.dispose());
+      await cleanup("previous gameplay", () => previousGameplay?.dispose());
+      await cleanup("previous postprocess", () => previousPostComposer?.dispose());
+      await cleanup("previous vertex bounds", () => previousVertexBounds?.dispose());
+      await cleanup("previous buffer bridge", () => previousRenderBufferBridge?.dispose());
+      await cleanup("previous texture bridge", () => previousRenderTextureBridge?.dispose());
+      await cleanup("previous scene", () => releaseObject(previousRoot));
+      for (const [id, material] of previousMaterials) await cleanup(`previous material ${id}`, () => material.dispose());
+      await cleanup("previous resource scope", () => previousScope?.release());
+    };
     compiledIR = ir;
     runtime = candidate;
     renderControl = nextRender;
@@ -947,44 +970,26 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
           runtime?.emitExternal(type, payload);
       },
     );
-    try {
-      previous?.dispose();
-    } catch (error) {
-      errors.push(`TC_CONTENT_CLEANUP: ${String(error)}`);
-    }
-    await previousGameplay?.dispose();
-    previousPostComposer?.dispose();
-    previousVertexBounds?.dispose();
-    previousRenderBufferBridge?.dispose();
-    previousRenderTextureBridge?.dispose();
-    releaseObject(previousRoot);
-    for (const material of previousMaterials.values()) material.dispose();
-    await previousScope?.release();
+    await previousCleanup();
+    previousCleanup = undefined;
     return ir;
   } catch (error) {
-    if (!committed) {
-      try {
-        if (attached) candidate?.dispose();
-        else {
-          try {
-            candidateGame?.dispose();
-          } finally {
-            candidate?.dispose();
-          }
-        }
-      } catch (cleanupError) {
-        errors.push(`TC_CONTENT_CLEANUP: ${String(cleanupError)}`);
-      }
-      await nextGameplay?.dispose();
-      nextRender?.dispose();
-      nextCompute?.dispose();
-      nextPostComposer?.dispose();
-      nextVertexBounds?.dispose();
-      nextRenderBufferBridge?.dispose();
-      nextRenderTextureBridge?.dispose();
-      releaseObject(nextRoot);
-      for (const material of nextMaterials.values()) material.dispose();
-      await nextScope?.release();
+    if (committed && previousCleanup) {
+      await previousCleanup();
+      previousCleanup = undefined;
+    } else if (!committed) {
+      if (!attached) await cleanup("candidate game", () => candidateGame?.dispose());
+      await cleanup("candidate runtime", () => candidate?.dispose());
+      await cleanup("candidate gameplay", () => nextGameplay?.dispose());
+      await cleanup("candidate render", () => nextRender?.dispose());
+      await cleanup("candidate compute", () => nextCompute?.dispose());
+      await cleanup("candidate postprocess", () => nextPostComposer?.dispose());
+      await cleanup("candidate vertex bounds", () => nextVertexBounds?.dispose());
+      await cleanup("candidate buffer bridge", () => nextRenderBufferBridge?.dispose());
+      await cleanup("candidate texture bridge", () => nextRenderTextureBridge?.dispose());
+      await cleanup("candidate scene", () => releaseObject(nextRoot));
+      for (const [id, material] of nextMaterials) await cleanup(`candidate material ${id}`, () => material.dispose());
+      await cleanup("candidate resource scope", () => nextScope?.release());
     }
     throw error;
   } finally {
