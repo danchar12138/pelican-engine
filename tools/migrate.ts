@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { lstat, open, readFile, realpath, rename, unlink } from "node:fs/promises";
+import { lstat, open, readFile, readdir, realpath, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 import ts from "typescript";
 import { parseProjectManifest, validateManifest } from "../packages/compiler/src/version.ts";
@@ -151,6 +151,26 @@ export async function migrateProject(projectRoot: string, engineRoot: string, op
   if (updated.length > MAX_BYTES) return fail("FILE", `Updated manifest would exceed ${MAX_BYTES} bytes; reduce it before migrating.`);
   const recovery = await replaceWithBackup(info.root, info.bytes, updated, current.mode);
   return { ...result, ...recovery };
+}
+/** Discover recovery candidates without reading or replacing game data outside the project root. */
+export async function listProjectManifestBackups(projectRoot: string) {
+  const root = await realpath(projectRoot).catch(() => fail("PROJECT", "Project directory does not exist; provide --project <directory>."));
+  const current = await regularFile(root, MANIFEST);
+  const names = (await readdir(root)).filter(name => BACKUP_PATTERN.test(name)).sort().reverse();
+  const candidates = names.slice(0, 1024);
+  const backups: { name: string; sha256: string | null; error?: string }[] = [];
+  for (const name of candidates) {
+    try {
+      const file = await regularFile(root, name);
+      backups.push({ name, sha256: hash(file.bytes) });
+    } catch {
+      backups.push({ name, sha256: null, error: "TC_MIGRATE_BACKUP_UNREADABLE" });
+    }
+  }
+  return { operation: "list-backups", project: root, manifest: MANIFEST,
+    currentSha256: hash(current.bytes), backups, totalMatches: names.length,
+    truncated: names.length > candidates.length, compatibility: "not-checked",
+    limitations: [...limits, "Hashes identify the bytes read now, not a trusted historical record; choose and review the intended backup independently."] };
 }
 export async function restoreProjectManifest(projectRoot: string, backup: string, expectedCurrent: string, expectedBackup: string) {
   const root = await realpath(projectRoot).catch(() => fail("PROJECT", "Project directory does not exist; provide --project <directory>."));

@@ -1224,6 +1224,17 @@ capitalized values with the filename and hashes from the apply report. Restore
 backs up the current manifest first and refuses changed hashes. Keep these
 recovery files until the game owner decides they are no longer needed.
 
+If the apply report is unavailable, `npx --no-install pelican migrate
+--list-backups` lists up to 1024 matching backup names, their current SHA-256
+values and the current manifest hash. An unreadable, linked or oversized
+candidate is reported without a hash; `totalMatches` and `truncated` indicate
+whether more candidates exist. The hashes describe bytes read at listing time,
+not proof of a backup's origin or correctness. Independently choose the intended
+backup and compare it with any retained report before supplying the hashes to
+`--restore`; a later file change causes restore to reject the supplied hashes.
+Listing does not modify files or establish compatibility. This workflow has not
+been runtime-validated.
+
 **This only changes the project lock.** It does not update package dependencies,
 rewrite game APIs, migrate saved games/replays or establish compatibility. The
 new command and recovery path have not been runtime-validated. When validation

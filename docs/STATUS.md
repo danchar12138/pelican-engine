@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds read-only discovery of project-lock backups and their current digests for the existing explicit restore workflow. This does not establish backup provenance or game/save compatibility; listing and restoration are unverified at runtime.
+
 - Local development adds per-dynamic-body gravity scaling to 3D physics history. Native behavior, wakeup and snapshot replay remain unverified; the first-step deletion and unsafe historical replay defects remain open.
 
 - Local development tracks entity creation, removal, parent and transform changes as pending scene revisions for tracing recapture. Runtime rendering and failure recovery remain unverified.

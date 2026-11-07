@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add read-only project-lock backup discovery for the explicit migration restore workflow; behavior remains unverified.
+
 - Add per-body 3D gravity scaling with recorded state; runtime and snapshot replay remain unverified.
 
 - Track runtime entity topology and transform changes for tracing recapture; rendering remains unverified.
