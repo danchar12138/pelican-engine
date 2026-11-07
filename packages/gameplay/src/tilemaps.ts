@@ -1,4 +1,4 @@
-import type { EntityHandle, TilemapDefinition, TilemapService, TilemapState, TilemapVisualState, Vec2 } from "../../sdk/src/index.ts";
+import type { EntityHandle, NavigationObstacleUpdate, NavigationService, TilemapDefinition, TilemapNavigationOptions, TilemapService, TilemapState, TilemapUpdate, TilemapVisualState, Vec2 } from "../../sdk/src/index.ts";
 import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
@@ -86,6 +86,48 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
     if (!Number.isSafeInteger(nextToken) || count > Number.MAX_SAFE_INTEGER - nextToken) return fail("CAPACITY", "Tilemap presentation token range exhausted; create a new host.");
     const start = nextToken; nextToken += count; return start;
   }
+  function planTiles(item: Entry, input: readonly TilemapUpdate[]) {
+    const updates = cloneSerializable(input);
+    if (!Array.isArray(updates) || updates.length > MAX_UPDATES) return fail("UPDATES", `Expected at most ${MAX_UPDATES} updates.`);
+    const changes = new Map<number, number | null>(), changedChunks = new Set<number>(), across = chunkColumns(item);
+    for (const update of updates) {
+      if (!fields(update, ["x", "y", "frame"]) || typeof update.x !== "number" || typeof update.y !== "number")
+        return fail("UPDATES", "Each update needs x, y and frame.");
+      const index = cellIndex(item, update.x, update.y), value = frame(update.frame, item.columns * item.rows);
+      if (changes.has(index)) return fail("UPDATES", `Cell ${update.x},${update.y} is repeated in the batch.`);
+      changes.set(index, value);
+      if (item.cells[index] !== value) changedChunks.add(Math.floor(update.y / CHUNK) * across + Math.floor(update.x / CHUNK));
+    }
+    for (const chunk of changedChunks) if (item.revisions[chunk] >= Number.MAX_SAFE_INTEGER)
+      return fail("CAPACITY", `Tilemap '${item.id}' chunk revision exhausted; recreate the map.`);
+    return { changes, changedChunks };
+  }
+  function planNavigation(item: Entry, gridId: string, input: TilemapNavigationOptions, changes?: ReadonlyMap<number, number | null>) {
+    const nav: NavigationService = context.getNavigationService?.() ?? fail("NAVIGATION_UNAVAILABLE", "Navigation is unavailable; install the engine navigation plugin before synchronizing tiles.");
+    const options = cloneSerializable(input);
+    if (!fields(options, ["origin", "blockedFrames", "emptyBlocked"]) || !Array.isArray(options.blockedFrames) || options.blockedFrames.length > MAX_FRAMES ||
+        (options.emptyBlocked !== undefined && typeof options.emptyBlocked !== "boolean"))
+      return fail("NAVIGATION_OPTIONS", "Provide blockedFrames and optional origin/emptyBlocked.");
+    const blocked = new Set<number>();
+    for (const candidate of options.blockedFrames) {
+      const selected = frame(candidate, item.columns * item.rows);
+      if (selected === null || blocked.has(selected)) return fail("NAVIGATION_OPTIONS", "blockedFrames must contain distinct atlas frame indices.");
+      blocked.add(selected);
+    }
+    const origin = options.origin === undefined ? { x: 0, y: 0 } : options.origin;
+    if (!fields(origin, ["x", "y"]) || typeof origin.x !== "number" || typeof origin.y !== "number" ||
+        !Number.isSafeInteger(origin.x) || !Number.isSafeInteger(origin.y) || origin.x < 0 || origin.y < 0)
+      return fail("NAVIGATION_OPTIONS", "Navigation origin must contain nonnegative safe integer x/y coordinates.");
+    const grid = nav.getGrid(gridId);
+    if (origin.x + item.width > grid.width || origin.y + item.height > grid.height)
+      return fail("NAVIGATION_BOUNDS", `Tilemap '${item.id}' does not fit in navigation grid '${gridId}' at that origin.`);
+    const updates: NavigationObstacleUpdate[] = [];
+    const append = (index: number, value: number | null) => updates.push({ cell: { x: origin.x as number + index % item.width,
+      y: origin.y as number + Math.floor(index / item.width) }, blocked: value === null ? options.emptyBlocked === true : blocked.has(value) });
+    if (changes) for (const [index, value] of changes) append(index, value);
+    else for (let index = 0; index < item.cells.length; index++) append(index, item.cells[index]);
+    return { nav, updates };
+  }
   const service: TilemapService = {
     create(input) {
       alive(); prune();
@@ -102,21 +144,39 @@ export const createTilemapPlugin: RuntimePluginFactory = context => {
     getTile(id, x, y) { const item = get(id); return item.cells[cellIndex(item, x, y)]; },
     setTile(id, x, y, value) { service.setTiles(id, [{ x, y, frame: value }]); },
     setTiles(id, input) {
-      const item = get(id), updates = cloneSerializable(input);
-      if (!Array.isArray(updates) || updates.length > MAX_UPDATES) return fail("UPDATES", `Expected at most ${MAX_UPDATES} updates.`);
-      const changes = new Map<number, number | null>(), changedChunks = new Set<number>(), across = chunkColumns(item);
-      for (const update of updates) {
-        if (!fields(update, ["x", "y", "frame"]) || typeof update.x !== "number" || typeof update.y !== "number")
-          return fail("UPDATES", "Each update needs x, y and frame.");
-        const index = cellIndex(item, update.x, update.y), value = frame(update.frame, item.columns * item.rows);
-        if (changes.has(index)) return fail("UPDATES", `Cell ${update.x},${update.y} is repeated in the batch.`);
-        changes.set(index, value);
-        if (item.cells[index] !== value) changedChunks.add(Math.floor(update.y / CHUNK) * across + Math.floor(update.x / CHUNK));
-      }
-      for (const chunk of changedChunks) if (item.revisions[chunk] >= Number.MAX_SAFE_INTEGER)
-        return fail("CAPACITY", `Tilemap '${id}' chunk revision exhausted; recreate the map.`);
+      const item = get(id), { changes, changedChunks } = planTiles(item, input);
       for (const [index, value] of changes) item.cells[index] = value;
       for (const chunk of changedChunks) item.revisions[chunk]++;
+    },
+    syncNavigation(id, grid, options) {
+      const item = get(id), planned = planNavigation(item, grid, options);
+      const previous = planned.updates.map(update => ({ cell: update.cell, blocked: planned.nav.isBlocked(grid, update.cell) }));
+      try { planned.nav.setBlockedBatch(grid, planned.updates); }
+      catch (error) {
+        try { planned.nav.setBlockedBatch(grid, previous); }
+        catch (rollbackError) {
+          throw new AggregateError([error, rollbackError], "TC_TILEMAP_NAVIGATION_ROLLBACK: Navigation synchronization and rollback failed; partialState=true. Restore a known-good host checkpoint.");
+        }
+        throw error;
+      }
+    },
+    setTilesAndSyncNavigation(id, input, grid, options) {
+      const item = get(id), plan = planTiles(item, input), navigation = planNavigation(item, grid, options, plan.changes);
+      const oldCells = item.cells, oldRevisions = item.revisions, cells = [...oldCells], revisions = [...oldRevisions];
+      for (const [index, value] of plan.changes) cells[index] = value;
+      for (const chunk of plan.changedChunks) revisions[chunk]++;
+      const previous = navigation.updates.map(update => ({ cell: update.cell, blocked: navigation.nav.isBlocked(grid, update.cell) }));
+      try {
+        navigation.nav.setBlockedBatch(grid, navigation.updates);
+        item.cells = cells; item.revisions = revisions;
+      } catch (error) {
+        const rollbackErrors: unknown[] = [];
+        try { item.cells = oldCells; item.revisions = oldRevisions; } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+        try { navigation.nav.setBlockedBatch(grid, previous); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+        if (rollbackErrors.length)
+          throw new AggregateError([error, ...rollbackErrors], "TC_TILEMAP_NAVIGATION_ROLLBACK: Tile/navigation update failed and rollback failed; partialState=true. Restore a known-good host checkpoint.");
+        throw error;
+      }
     },
     inspect(id): TilemapState { return cloneSerializable(saved(get(id))); },
     visuals(): readonly TilemapVisualState[] {

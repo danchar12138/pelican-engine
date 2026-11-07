@@ -31,7 +31,7 @@ const inGrid = (point: NavigationCell, grid: NavigationGrid) => !!point && typeo
   Number.isSafeInteger(point.x) && Number.isSafeInteger(point.y) && point.x >= 0 && point.y >= 0 &&
   point.x < grid.width && point.y < grid.height;
 const publicState = (agent: Agent): NavigationAgentState => cloneSerializable({
-  id: agent.id, entity: agent.entity, grid: agent.grid, target: agent.target,
+  id: agent.id, entity: agent.entity, grid: agent.grid, plane: agent.plane, rowDirection: agent.rowDirection, target: agent.target,
   status: agent.status, error: agent.error, path: agent.path, cursor: agent.cursor,
 });
 
@@ -51,14 +51,16 @@ export function createNavigationAgents(
     alive();
     const value = cloneSerializable(input);
     if (!value || typeof value !== "object" || Array.isArray(value) ||
-        Object.keys(value).some(key => !["id", "entity", "grid", "origin", "cellSize", "speed", "allowDiagonal"].includes(key)) ||
+        Object.keys(value).some(key => !["id", "entity", "grid", "origin", "cellSize", "speed", "allowDiagonal", "plane", "rowDirection"].includes(key)) ||
         !name(value.id) || !name(value.entity) || !name(value.grid))
       return fail("AGENT", "Agent needs nonempty id, entity and grid names.");
     const origin = value.origin ?? [0, 0], cellSize = value.cellSize ?? 1, speed = value.speed ?? 1, allowDiagonal = value.allowDiagonal ?? false;
+    const plane = value.plane ?? "xz", rowDirection = value.rowDirection ?? "positive";
     if (!Array.isArray(origin) || origin.length !== 2 || origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
         !Number.isFinite(cellSize) || cellSize < 0.001 || cellSize > 1e6 ||
-        !Number.isFinite(speed) || speed <= 0 || speed > 1000 || typeof allowDiagonal !== "boolean")
-      return fail("AGENT", "Origin must be finite in [-1e9,1e9], cellSize in [0.001,1e6], speed in (0,1000], and allowDiagonal boolean.");
+        !Number.isFinite(speed) || speed <= 0 || speed > 1000 || typeof allowDiagonal !== "boolean" ||
+        !["xz", "xy"].includes(plane) || !["positive", "negative"].includes(rowDirection))
+      return fail("AGENT", "Origin must be finite, cellSize in [0.001,1e6], speed in (0,1000], and plane/rowDirection must be supported.");
     navigation.getGrid(value.grid);
     if (agents.has(value.id)) return fail("AGENT_DUPLICATE", `Agent '${value.id}' already exists.`);
     if ([...agents.values()].some(agent => agent.entity === value.entity))
@@ -67,7 +69,7 @@ export function createNavigationAgents(
     if (!context.world.isAlive(value.entity)) return fail("AGENT_ENTITY", `Entity '${value.entity}' is not alive.`);
     const handle = context.world.resolve(value.entity);
     agents.set(value.id, { id: value.id, entity: value.entity, grid: value.grid,
-      origin: [origin[0], origin[1]], cellSize, speed, allowDiagonal,
+      origin: [origin[0], origin[1]], cellSize, speed, allowDiagonal, plane, rowDirection,
       target: null, path: [], cursor: 0, status: "idle", error: null, dirty: false });
     handles.set(value.id, handle);
   }
@@ -123,8 +125,10 @@ export function createNavigationAgents(
       }
       if (!agent.target) continue;
       const position = context.world.getTransform(handle).position;
+      const second = agent.plane === "xy" ? position[1] : position[2];
+      const direction = agent.rowDirection === "negative" ? -1 : 1;
       const current = { x: Math.floor((position[0] - agent.origin[0]) / agent.cellSize),
-        y: Math.floor((position[2] - agent.origin[1]) / agent.cellSize) };
+        y: Math.floor((second - agent.origin[1]) / (agent.cellSize * direction)) };
       if (agent.status === "moving") {
         const next = agent.path[agent.cursor], previous = agent.path[Math.max(0, agent.cursor - 1)];
         if (next && (current.x !== previous.x || current.y !== previous.y) && (current.x !== next.x || current.y !== next.y)) {
@@ -148,11 +152,11 @@ export function createNavigationAgents(
         }
       }
       if (agent.status !== "moving") continue;
-      let remaining = agent.speed * dt, x = position[0], z = position[2], segments = 0;
+      let remaining = agent.speed * dt, x = position[0], z = second, segments = 0;
       while (agent.cursor < agent.path.length && segments < MAX_SEGMENTS_PER_TICK) {
         const point = agent.path[agent.cursor];
         const tx = agent.origin[0] + (point.x + 0.5) * agent.cellSize;
-        const tz = agent.origin[1] + (point.y + 0.5) * agent.cellSize;
+        const tz = agent.origin[1] + direction * (point.y + 0.5) * agent.cellSize;
         const dx = tx - x, dz = tz - z, distance = Math.hypot(dx, dz);
         if (distance <= 1e-9) { x = tx; z = tz; agent.cursor++; segments++; continue; }
         if (remaining <= 0) break;
@@ -161,7 +165,8 @@ export function createNavigationAgents(
         if (step >= distance) { x = tx; z = tz; agent.cursor++; segments++; }
         else break;
       }
-      if (x !== position[0] || z !== position[2]) context.world.setTransform(handle, { position: [x, position[1], z] });
+      if (x !== position[0] || z !== second)
+        context.world.setTransform(handle, { position: agent.plane === "xy" ? [x, z, position[2]] : [x, position[1], z] });
       if (agent.cursor === agent.path.length) { agent.status = "arrived"; agent.error = null; }
     }
   }
@@ -176,8 +181,11 @@ export function createNavigationAgents(
       if (!agent || !name(agent.id) || !name(agent.entity) || !name(agent.grid) || ids.has(agent.id) || entities.has(agent.entity))
         return fail("AGENT_SNAPSHOT", "Agent identities must be unique and nonempty.");
       ids.add(agent.id); entities.add(agent.entity);
+      // Older snapshots predate plane selection and use the original X/Z positive-row behavior.
+      if (agent.plane === undefined) agent.plane = "xz";
+      if (agent.rowDirection === undefined) agent.rowDirection = "positive";
       const grid = gridLookup(agent.grid);
-      if (!grid || !Array.isArray(agent.origin) || agent.origin.length !== 2 || agent.origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
+      if (!grid || !["xz", "xy"].includes(agent.plane) || !["positive", "negative"].includes(agent.rowDirection) || !Array.isArray(agent.origin) || agent.origin.length !== 2 || agent.origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
           !Number.isFinite(agent.cellSize) || agent.cellSize < 0.001 || agent.cellSize > 1e6 ||
           !Number.isFinite(agent.speed) || agent.speed <= 0 || agent.speed > 1000 || typeof agent.allowDiagonal !== "boolean" || typeof agent.dirty !== "boolean" ||
           !["idle", "planning", "moving", "arrived", "blocked", "missing"].includes(agent.status) ||

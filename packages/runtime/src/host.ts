@@ -166,6 +166,7 @@ export class RuntimeHost {
         const plugin = factory({
           fixedDt: this.fixedDt,
           getRopePhysicsBridge: () => this.plugins.find((plugin) => plugin.id === "$engine.physics")?.ropePhysicsBridge,
+          getNavigationService: () => this.services.navigation,
           world: this.world,
           scene: this.scene,
           events: (type) => this.scheduler.events(type),

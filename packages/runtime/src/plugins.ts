@@ -73,6 +73,8 @@ export interface RopePhysicsBridge {
 export interface RuntimePluginContext {
   /** Lazily resolved because physics may be registered after another plugin. */
   getRopePhysicsBridge?(): RopePhysicsBridge | undefined;
+  /** Internal lazy bridge; tile maps may be registered before or after navigation. */
+  getNavigationService?(): NavigationService | undefined;
   /** Host interval; supplied by RuntimeHost to engine plugins. */
   readonly fixedDt?: number;
   world: RuntimeWorld;

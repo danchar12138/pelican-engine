@@ -209,11 +209,19 @@ the map and cells.
 
 Maps are bounded to 512 per dimension, 65536 cells per map, 64 maps and 262144
 cells overall; each update batch has at most 4096 distinct cells. Atlas
-filtering may sample neighboring frames, so provide suitable padding. Tile
-collision, navigation, animated tiles, automatic streaming and a full editor
-are not included; updating physics/navigation separately is not transactional
-with tile edits. Rendering, snapshots, memory use and perspective tracing are
-unverified; orthographic hybrid/path remain unavailable. A source checkout
+filtering may sample neighboring frames, so provide suitable padding.
+`syncNavigation(id, grid, { blockedFrames, origin?, emptyBlocked? })` projects
+the map's current frames into an existing navigation grid. It **overwrites all
+blocked states in the mapped rectangle**: use a dedicated grid or an exclusively
+controlled region. `setTilesAndSyncNavigation` updates specified cells and their
+mapped navigation cells together, attempting rollback on failure; a rollback
+failure reports `partialState=true` and requires a known-good host checkpoint.
+The mapping is explicit, not a persistent binding: repeat a full synchronization
+when using plain `setTiles` or changing the rules, and clean up the old grid
+region when changing origin or removing a map. It maps indices only, not entity
+transforms. Tile collision, animated tiles, automatic streaming and a
+full editor are not included. Rendering, synchronization, rollback, snapshots,
+memory use and perspective tracing are unverified; orthographic hybrid/path remain unavailable. A source checkout
 includes `examples/tilemap` and its MIT demonstration texture; npm games
 provide their own assets.
 
@@ -517,8 +525,13 @@ ctx.navigation.createAgent({ id: "guard-nav", entity: "guard", grid: "level",
 ctx.navigation.setAgentTarget("guard-nav", { x: 7, y: 7 });
 ```
 
-The grid origin is the X/Z lower corner of cell (0,0); grid `y` maps to world
-Z. An agent moves toward cell centers on fixed ticks and preserves its height.
+By default the grid origin is the X/Z corner of cell (0,0), grid `y` maps to
+world Z, and increasing rows use the positive world axis. For 2D-positioned
+entities, use `plane: "xy"`; `rowDirection: "negative"` matches tile maps whose
+rows extend downward. An agent moves toward cell centers on fixed ticks and
+preserves the coordinate perpendicular to its chosen plane. Its grid uses square
+cells and axis-aligned world coordinates; rotated or nonuniform tile maps need
+game-defined mapping.
 `inspectAgent(id)` and `listAgents()` return detached status and path data;
 statuses include planning, moving, arrived, blocked and missing. Grid obstacle
 or cost updates queue a new search; at most eight agents replan per tick, in

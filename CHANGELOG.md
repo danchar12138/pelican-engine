@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit tile-to-navigation synchronization and XY-plane grid agents. Runtime behavior and rollback are unverified.
+
 - Add editable entity-bound atlas tile maps with chunked rendering and snapshot state. Collision/navigation coupling and runtime behavior remain unverified.
 
 - Add entity-bound sprite atlas planes, fixed-step frame playback and explicit material alpha blending. Rendering and runtime behavior are unverified.

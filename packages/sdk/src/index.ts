@@ -181,6 +181,12 @@ export interface TilemapDefinition {
   castShadow?: boolean; receiveShadow?: boolean;
 }
 export interface TilemapUpdate { x: number; y: number; frame: number | null }
+/** Mapping to an exclusively controlled rectangle of a navigation grid. */
+export interface TilemapNavigationOptions {
+  origin?: NavigationCell;
+  blockedFrames: readonly number[];
+  emptyBlocked?: boolean;
+}
 export interface TilemapState {
   id: string; entity: string; material: string; width: number; height: number;
   tileSize: Vec2; offset: Vec2; columns: number; rows: number;
@@ -201,6 +207,10 @@ export interface TilemapService {
   setTile(id: string, x: number, y: number, frame: number | null): void;
   /** Validates the entire batch before changing any cell; duplicate cells are rejected. */
   setTiles(id: string, updates: readonly TilemapUpdate[]): void;
+  /** Overwrite the mapped grid rectangle based on the current tile frames. */
+  syncNavigation(id: string, grid: string, options: TilemapNavigationOptions): void;
+  /** Update tiles and their mapped navigation cells together; see rollback diagnostics. */
+  setTilesAndSyncNavigation(id: string, updates: readonly TilemapUpdate[], grid: string, options: TilemapNavigationOptions): void;
   inspect(id: string): TilemapState;
   visuals(): readonly TilemapVisualState[];
   /** Read one 32×32 presentation chunk, including its current revision. */
@@ -530,14 +540,18 @@ export interface NavigationGrid {
 }
 /** Options for one grid search. Diagonal movement never crosses blocked corners. */
 export interface NavigationPathOptions { readonly allowDiagonal?: boolean }
-/** A non-physical root entity moving on a finite X/Z navigation grid. */
+/** A non-physical root entity moving on a finite X/Z or X/Y navigation grid. */
 export interface NavigationAgentDefinition {
   id: string;
   entity: string;
   grid: string;
-  /** World-space X/Z coordinates of grid cell (0, 0)'s lower corner; defaults to [0, 0]. */
+  /** World coordinates of cell (0,0)'s origin; defaults to [0,0]. */
   origin?: Vec2;
-  /** World units per cell; defaults to 1. */
+  /** X/Z by default; X/Y supports 2D-positioned entities. */
+  plane?: "xz" | "xy";
+  /** Direction in world space as grid y increases; defaults to positive. */
+  rowDirection?: "positive" | "negative";
+  /** World units per square cell; defaults to 1. */
   cellSize?: number;
   /** World units per second; defaults to 1. */
   speed?: number;
@@ -547,6 +561,8 @@ export interface NavigationAgentState {
   id: string;
   entity: string;
   grid: string;
+  plane: "xz" | "xy";
+  rowDirection: "positive" | "negative";
   target: NavigationCell | null;
   status: "idle" | "planning" | "moving" | "arrived" | "blocked" | "missing";
   /** Stable diagnostic code when movement is blocked or the entity was removed. */
