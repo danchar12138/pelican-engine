@@ -133,6 +133,8 @@ export interface SystemContext extends EngineFacade {
 export type Physics2DCollider =
   | { shape: "box"; halfExtents: Vec2; offset?: Vec2 }
   | { shape: "circle"; radius: number; offset?: Vec2 }
+  /** Capsule aligned to local Y; halfHeight excludes the rounded caps. */
+  | { shape: "capsule"; halfHeight: number; radius: number; offset?: Vec2 }
   /** Fixed bodies only; an empty list represents no collider. */
   | { shape: "compound"; parts: readonly { halfExtents: Vec2; offset: Vec2 }[] };
 export interface Physics2DBodyDefinition {
@@ -144,6 +146,22 @@ export interface Physics2DBodyDefinition {
 export interface Physics2DBodyState {
   id: string; entity: string; type: Physics2DBodyDefinition["type"];
   position: Vec2; angle: number; velocity: Vec2; angularVelocity: number; sleeping: boolean;
+}
+export interface Physics2DCharacterOptions {
+  /** Positive separation from obstacles; defaults to 0.01 world units. */
+  offset?: number;
+  /** Optional downward snap distance; defaults to disabled. */
+  snapToGround?: number;
+  /** Maximum climbable slope angle in radians; defaults to π/4. */
+  maxSlope?: number;
+}
+export interface Physics2DCharacterState {
+  body: string;
+  requested: Vec2;
+  movement: Vec2;
+  grounded: boolean;
+  /** Movement is deferred until physics query structures are current. */
+  deferred: boolean;
 }
 export interface Physics2DJointBase {
   id: string; bodyA: string; bodyB: string;
@@ -169,6 +187,12 @@ export interface Physics2DService {
   destroyJoint(id: string): void;
   inspectJoint(id: string): Physics2DJointDefinition;
   listJoints(): readonly Physics2DJointDefinition[];
+  /** Attach a one-way controller to an existing non-sensor kinematic body. */
+  attachCharacter(body: string, options?: Physics2DCharacterOptions): void;
+  detachCharacter(body: string): void;
+  /** Accumulate world-space XY displacement for a later fixed step. */
+  moveCharacter(body: string, displacement: Vec2): void;
+  characterState(body: string): Physics2DCharacterState;
   setVelocity(id: string, velocity: Vec2): void;
   setAngularVelocity(id: string, velocity: number): void;
   applyImpulse(id: string, impulse: Vec2): void;

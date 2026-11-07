@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add 2D capsule colliders and one-way kinematic character movement with deferred query refresh and snapshot state. Runtime behavior is unverified.
+
 - Add 2D fixed, revolute, rope and spring joints with structured snapshot reconstruction and a fail-closed native recovery boundary. Runtime behavior is unverified.
 
 - Add fixed 2D compound colliders and explicit tile-to-physics synchronization. Collision behavior and failure recovery are unverified.

@@ -199,7 +199,8 @@ ctx.physics2d.applyImpulse("hero-body", [0, 5]);
 ```
 
 Bodies may be fixed, dynamic or position-based kinematic; box and circle
-colliders support offsets, friction, restitution and sensors. Fixed bodies may
+colliders support offsets, friction, restitution and sensors; capsules use a
+local-Y half-height plus radius. Fixed bodies may
 also use a compound of up to 2048 boxes; an empty compound has no collider.
 `setCollider` replaces a fixed body's collider and invalidates pending queries;
 contact event continuity is not preserved. A native replacement failure reports
@@ -219,6 +220,28 @@ creation, removal or restore; pending transform edits are not reflected. Its
 optional `exclude` list contains body IDs, and sensors are excluded unless
 `includeSensors: true` is specified.
 
+For one-way character movement, create a non-sensor kinematic body, attach a
+controller, and submit world-space XY displacement for a later fixed step:
+
+```ts
+ctx.physics2d.attachCharacter("character-body", { offset: 0.01, snapToGround: 0.08 });
+ctx.physics2d.moveCharacter("character-body", [horizontalDelta, verticalDelta]);
+const state = ctx.physics2d.characterState("character-body");
+```
+
+`grounded` and `movement` describe the last computed movement; `deferred`
+means query structures must first be refreshed by a normal physics step. Pending
+requests accumulate while deferred. Creation/removal/collider replacement and
+explicit transform teleports can cause this delay; no artificial time step is
+used. The game supplies gravity and jump displacement explicitly, including a
+small downward movement when using ground snapping. Sensors do not block the
+controller, and dynamic obstacles are not pushed by it. Multiple moving
+characters/platforms are not a fully coupled crowd or continuous solver.
+`detachCharacter` removes the controller; body removal also removes it.
+Character options and pending movement are stored in snapshots, but native
+controller caches are rebuilt. Runtime, grounding and restore behavior are
+unverified. See `examples/physics2d-character` or its installed recipe.
+
 Create a 2D fixed, revolute, rope or spring joint between existing body IDs:
 
 ```ts
@@ -235,8 +258,9 @@ itself leave partial state.
 Snapshots save validated body and joint definitions, then reconstruct a new 2D
 world; they do **not** use native snapshot deserialization. Solver warm-start
 and contact caches, kinematic velocity and exact deterministic continuation are
-not preserved. Joint limits/motors, 2D character controllers, automatic tilemap
-collider bindings, 2D/3D coupling and complete 2D physics are not included. Runtime, collision, events, queries,
+not preserved. Joint limits/motors, full character/platform interaction,
+automatic tilemap collider bindings, 2D/3D coupling and complete 2D physics are
+not included. Runtime, collision, events, queries,
 resource cleanup and restoration have not been validated; the known separate
 3D first-step deletion issue remains open. See the asset-free
 `examples/physics2d` or the corresponding installed recipe.

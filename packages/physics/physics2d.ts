@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier2d-compat";
-import type { EntityHandle, Physics2DBodyDefinition, Physics2DBodyState, Physics2DJointDefinition, Physics2DService, Transform, Vec2 } from "../sdk/src/index.ts";
+import type { EntityHandle, Physics2DBodyDefinition, Physics2DBodyState, Physics2DCharacterOptions, Physics2DCharacterState, Physics2DJointDefinition, Physics2DService, Transform, Vec2 } from "../sdk/src/index.ts";
 import type { WorldSnapshot } from "../runtime/src/contracts.ts";
 import type { RuntimePluginContext, RuntimePluginFactory } from "../runtime/src/plugins.ts";
 import { cloneSerializable } from "../runtime/src/random.ts";
@@ -8,11 +8,14 @@ import { resolveEntityDefinition } from "../runtime/src/prefabs.ts";
 type Definition = Physics2DBodyDefinition & { friction: number; restitution: number; sensor: boolean; continuous: boolean };
 type BodySnapshot = { definition: Definition; prefab: string | null; lastTransform: Transform; position: Vec2; angle: number; velocity: Vec2; angularVelocity: number; sleeping: boolean };
 type JointDefinition = Physics2DJointDefinition & { anchorA: Vec2; anchorB: Vec2; contactsEnabled: boolean };
-type Snapshot = { format: "pelican.physics2d"; version: 1; gravity: Vec2; tick: number; bodies: BodySnapshot[]; joints?: JointDefinition[] };
+type CharacterOptions = { offset: number; snapToGround: number; maxSlope: number };
+type CharacterSnapshot = { body: string; options: CharacterOptions; requested: Vec2; movement: Vec2; grounded: boolean; deferred: boolean };
+type Snapshot = { format: "pelican.physics2d"; version: 1; gravity: Vec2; tick: number; bodies: BodySnapshot[]; joints?: JointDefinition[]; characters?: CharacterSnapshot[] };
 type Body = { definition: Definition; prefab: string | null; handle: EntityHandle; lastTransform: Transform; body: RAPIER.RigidBody; collider?: RAPIER.Collider };
 type Joint = { definition: JointDefinition; joint: RAPIER.ImpulseJoint };
-type Native = { world: RAPIER.World; queue: RAPIER.EventQueue; bodies: Map<string, Body>; colliders: Map<number, Body>; joints: Map<string, Joint> };
-const MAX_BODIES = 512, MAX_JOINTS = 512, MAX_COMPOUND_PARTS = 2048, LIMIT = 1e6;
+type Character = CharacterSnapshot & { controller: RAPIER.KinematicCharacterController };
+type Native = { world: RAPIER.World; queue: RAPIER.EventQueue; bodies: Map<string, Body>; colliders: Map<number, Body>; joints: Map<string, Joint>; characters: Map<string, Character> };
+const MAX_BODIES = 512, MAX_JOINTS = 512, MAX_CHARACTERS = 128, MAX_COMPOUND_PARTS = 2048, LIMIT = 1e6;
 const fail = (code: string, message: string): never => { throw new Error(`TC_PHYSICS2D_${code}: ${message}`); };
 const validName = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value);
 const fields = (value: unknown, allowed: readonly string[]): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every(key => allowed.includes(key));
@@ -55,13 +58,16 @@ function normalize(input: Physics2DBodyDefinition): Definition {
   } else if (raw.shape === "circle" && fields(raw, ["shape", "radius", "offset"])) {
     const offset = raw.offset === undefined ? undefined : pair(raw.offset, "collider offset");
     collider = { shape: "circle", radius: positive(raw.radius, "radius"), ...(offset ? { offset } : {}) };
+  } else if (raw.shape === "capsule" && fields(raw, ["shape", "halfHeight", "radius", "offset"])) {
+    const offset = raw.offset === undefined ? undefined : pair(raw.offset, "collider offset");
+    collider = { shape: "capsule", halfHeight: scalar(raw.halfHeight, "halfHeight", 0), radius: positive(raw.radius, "radius"), ...(offset ? { offset } : {}) };
   } else if (raw.shape === "compound" && fields(raw, ["shape", "parts"]) && Array.isArray(raw.parts) && raw.parts.length <= MAX_COMPOUND_PARTS) {
     if (input.type !== "fixed") return fail("COLLIDER", "Compound colliders currently require a fixed body.");
     collider = { shape: "compound", parts: raw.parts.map(part => {
       if (!fields(part, ["halfExtents", "offset"])) return fail("COLLIDER", "Each compound part needs halfExtents and offset.");
       return { halfExtents: pair(part.halfExtents, "halfExtents", true), offset: pair(part.offset, "collider offset") };
     }) };
-  } else return fail("COLLIDER", `Collider must be a box, circle or fixed-body compound with at most ${MAX_COMPOUND_PARTS} boxes.`);
+  } else return fail("COLLIDER", `Collider must be a box, circle, capsule or fixed-body compound with at most ${MAX_COMPOUND_PARTS} boxes.`);
   if ((input.sensor !== undefined && typeof input.sensor !== "boolean") || (input.continuous !== undefined && typeof input.continuous !== "boolean"))
     return fail("DEFINITION", "sensor and continuous must be boolean.");
   if (input.type !== "dynamic" && (input.mass !== undefined || input.continuous === true))
@@ -90,9 +96,15 @@ function jointDefinition(input: Physics2DJointDefinition): JointDefinition {
   return { ...base, kind: "spring", restLength: scalar(input.restLength, "spring restLength", 0),
     stiffness: scalar(input.stiffness, "spring stiffness", 0), damping: scalar(input.damping, "spring damping", 0) };
 }
+function characterOptions(input: Physics2DCharacterOptions): CharacterOptions {
+  if (!fields(input, ["offset", "snapToGround", "maxSlope"])) return fail("CHARACTER_OPTIONS", "Character options accept offset, snapToGround and maxSlope.");
+  return { offset: input.offset === undefined ? 0.01 : positive(input.offset, "character offset"),
+    snapToGround: input.snapToGround === undefined ? 0 : scalar(input.snapToGround, "snapToGround", 0),
+    maxSlope: input.maxSlope === undefined ? Math.PI / 4 : scalar(input.maxSlope, "maxSlope", 0, Math.PI / 2) };
+}
 function makeNative(gravity: Vec2): Native {
   const world = new RAPIER.World(vector(gravity));
-  try { return { world, queue: new RAPIER.EventQueue(true), bodies: new Map(), colliders: new Map(), joints: new Map() }; }
+  try { return { world, queue: new RAPIER.EventQueue(true), bodies: new Map(), colliders: new Map(), joints: new Map(), characters: new Map() }; }
   catch (error) {
     try { world.free(); }
     catch (cleanup) { throw new AggregateError([error, cleanup], "TC_PHYSICS2D_INIT_CLEANUP: 2D world initialization and cleanup failed; inspect the causes."); }
@@ -101,6 +113,9 @@ function makeNative(gravity: Vec2): Native {
 }
 function freeNative(native: Native): void {
   const errors: unknown[] = [];
+  for (const character of native.characters.values())
+    try { native.world.removeCharacterController(character.controller); } catch (error) { errors.push(error); }
+  native.characters.clear();
   try { native.world.free(); } catch (error) { errors.push(error); }
   try { native.queue.free(); } catch (error) { errors.push(error); }
   native.bodies.clear(); native.colliders.clear(); native.joints.clear();
@@ -111,6 +126,7 @@ function colliderDescriptor(definition: Definition): RAPIER.ColliderDesc | null 
   let descriptor: RAPIER.ColliderDesc;
   if (shape.shape === "box") descriptor = RAPIER.ColliderDesc.cuboid(shape.halfExtents[0], shape.halfExtents[1]);
   else if (shape.shape === "circle") descriptor = RAPIER.ColliderDesc.ball(shape.radius);
+  else if (shape.shape === "capsule") descriptor = RAPIER.ColliderDesc.capsule(shape.halfHeight, shape.radius);
   else {
     if (!shape.parts.length) return null;
     descriptor = RAPIER.ColliderDesc.compound(shape.parts.map(part => new RAPIER.Cuboid(part.halfExtents[0], part.halfExtents[1])),
@@ -164,6 +180,25 @@ function addNativeJoint(native: Native, definition: JointDefinition): Joint {
     throw new AggregateError(failures, `TC_PHYSICS2D_JOINT_CREATE: Joint '${definition.id}' could not be created safely; partialState=true. Restore a known-good checkpoint.`);
   }
 }
+function addNativeCharacter(native: Native, saved: CharacterSnapshot): Character {
+  const body = native.bodies.get(saved.body);
+  if (!body || body.definition.type !== "kinematic" || body.definition.sensor || !body.collider)
+    return fail("CHARACTER_BODY", `Character '${saved.body}' requires a non-sensor kinematic body with a collider.`);
+  let controller: RAPIER.KinematicCharacterController | undefined;
+  try {
+    controller = native.world.createCharacterController(saved.options.offset);
+    controller.setUp({ x: 0, y: 1 });
+    controller.setSlideEnabled(true);
+    controller.setApplyImpulsesToDynamicBodies(false);
+    controller.setMaxSlopeClimbAngle(saved.options.maxSlope);
+    if (saved.options.snapToGround > 0) controller.enableSnapToGround(saved.options.snapToGround);
+    const entry = { ...saved, controller }; native.characters.set(saved.body, entry); return entry;
+  } catch (error) {
+    const failures: unknown[] = [error];
+    if (controller) try { native.world.removeCharacterController(controller); } catch (cleanup) { failures.push(cleanup); }
+    throw new AggregateError(failures, `TC_PHYSICS2D_CHARACTER_CREATE: Controller '${saved.body}' could not be created safely; partialState=true. Restore a known-good checkpoint.`);
+  }
+}
 function bodyState(entry: Body): Physics2DBodyState {
   const position = entry.body.translation(), velocity = entry.body.linvel();
   return { id: entry.definition.id, entity: entry.definition.entity, type: entry.definition.type,
@@ -173,9 +208,10 @@ function bodyState(entry: Body): Physics2DBodyState {
 }
 function parse(value: unknown): Snapshot {
   const data = cloneSerializable(value) as Snapshot;
-  if (!fields(data, ["format", "version", "gravity", "tick", "bodies", "joints"]) || data.format !== "pelican.physics2d" || data.version !== 1 ||
+  if (!fields(data, ["format", "version", "gravity", "tick", "bodies", "joints", "characters"]) || data.format !== "pelican.physics2d" || data.version !== 1 ||
       !Number.isSafeInteger(data.tick) || data.tick < 0 || !Array.isArray(data.bodies) || data.bodies.length > MAX_BODIES ||
-      (data.joints !== undefined && (!Array.isArray(data.joints) || data.joints.length > MAX_JOINTS)))
+      (data.joints !== undefined && (!Array.isArray(data.joints) || data.joints.length > MAX_JOINTS)) ||
+      (data.characters !== undefined && (!Array.isArray(data.characters) || data.characters.length > MAX_CHARACTERS)))
     return fail("SNAPSHOT", "Expected a bounded version 1 2D physics snapshot.");
   const ids = new Set<string>(), entities = new Set<string>();
   const bodies = data.bodies.map(item => {
@@ -198,7 +234,18 @@ function parse(value: unknown): Snapshot {
       return fail("SNAPSHOT", `Joint '${joint.id}' must be unique and reference two saved bodies.`);
     jointIds.add(joint.id); return joint;
   });
-  return { format: "pelican.physics2d", version: 1, gravity: pair(data.gravity, "gravity"), tick: data.tick, bodies, joints };
+  const characterIds = new Set<string>(), definitions = new Map(bodies.map(item => [item.definition.id, item.definition]));
+  const characters = (data.characters ?? []).map(value => {
+    if (!fields(value, ["body", "options", "requested", "movement", "grounded", "deferred"]) || !validName(value.body) || characterIds.has(value.body) ||
+        typeof value.grounded !== "boolean" || typeof value.deferred !== "boolean") return fail("SNAPSHOT", "Invalid or duplicate character state.");
+    const body = definitions.get(value.body);
+    if (!body || body.type !== "kinematic" || body.sensor || body.collider.shape === "compound")
+      return fail("SNAPSHOT", `Character '${value.body}' requires a saved non-sensor kinematic body.`);
+    characterIds.add(value.body);
+    return { body: value.body, options: characterOptions(value.options), requested: pair(value.requested, "character request"),
+      movement: pair(value.movement, "character movement"), grounded: value.grounded, deferred: value.deferred };
+  });
+  return { format: "pelican.physics2d", version: 1, gravity: pair(data.gravity, "gravity"), tick: data.tick, bodies, joints, characters };
 }
 function validateWorld(snapshot: Snapshot, world: WorldSnapshot, context: RuntimePluginContext): void {
   const records = new Map(world.entities.map(record => [record.id, record]));
@@ -248,7 +295,11 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
     return { transform: planar(context.world.getTransform(handle), identity.id), prefab: identity.prefab ?? null };
   };
   const remove = (entry: Body) => {
-    const colliderHandle = entry.collider?.handle;
+    const colliderHandle = entry.collider?.handle, character = native.characters.get(entry.definition.id);
+    if (character) {
+      mutate(`Removing character '${entry.definition.id}'`, () => native.world.removeCharacterController(character.controller));
+      native.characters.delete(entry.definition.id);
+    }
     mutate(`Removing body '${entry.definition.id}'`, () => native.world.removeRigidBody(entry.body));
     if (colliderHandle !== undefined) native.colliders.delete(colliderHandle);
     for (const [id, joint] of native.joints)
@@ -318,6 +369,36 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       return [...native.joints.values()].filter(entry => context.world.isAlive(native.bodies.get(entry.definition.bodyA)!.handle) && context.world.isAlive(native.bodies.get(entry.definition.bodyB)!.handle))
         .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(entry => cloneSerializable(entry.definition));
     },
+    attachCharacter(id, input = {}) {
+      const entry = get(id), options = characterOptions(cloneSerializable(input));
+      if (native.characters.has(id)) return fail("CHARACTER_DUPLICATE", `Character '${id}' is already attached.`);
+      if (native.characters.size >= MAX_CHARACTERS) return fail("CAPACITY", `At most ${MAX_CHARACTERS} characters may exist.`);
+      if (entry.definition.type !== "kinematic" || entry.definition.sensor || !entry.collider)
+        return fail("CHARACTER_BODY", `Character '${id}' requires a non-sensor kinematic body with a collider.`);
+      const saved: CharacterSnapshot = { body: id, options, requested: [0, 0], movement: [0, 0], grounded: false, deferred: dirty };
+      try { addNativeCharacter(native, saved); } catch (error) { nativeFault = true; throw error; }
+    },
+    detachCharacter(id) {
+      get(id);
+      const character = native.characters.get(id);
+      if (!character) return fail("CHARACTER_MISSING", `Character '${id}' is not attached.`);
+      mutate(`Removing character '${id}'`, () => native.world.removeCharacterController(character.controller));
+      native.characters.delete(id);
+    },
+    moveCharacter(id, value) {
+      get(id);
+      const character = native.characters.get(id);
+      if (!character) return fail("CHARACTER_MISSING", `Character '${id}' is not attached.`);
+      const delta = pair(value, "character displacement");
+      character.requested = [scalar(character.requested[0] + delta[0], "accumulated displacement.x"),
+        scalar(character.requested[1] + delta[1], "accumulated displacement.y")];
+    },
+    characterState(id): Physics2DCharacterState {
+      get(id);
+      const character = native.characters.get(id);
+      if (!character) return fail("CHARACTER_MISSING", `Character '${id}' is not attached.`);
+      return cloneSerializable({ body: id, requested: character.requested, movement: character.movement, grounded: character.grounded, deferred: character.deferred });
+    },
     setVelocity(id, value) { const entry = get(id), velocity = pair(value, "velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Velocity requires a dynamic body."); mutate(`Setting velocity for '${id}'`, () => entry.body.setLinvel(vector(velocity), true)); },
     setAngularVelocity(id, value) { const entry = get(id), velocity = scalar(value, "angular velocity"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Angular velocity requires a dynamic body."); mutate(`Setting angular velocity for '${id}'`, () => entry.body.setAngvel(velocity, true)); },
     applyImpulse(id, value) { const entry = get(id), impulse = pair(value, "impulse"); if (entry.definition.type !== "dynamic") return fail("BODY_TYPE", "Impulse requires a dynamic body."); mutate(`Applying impulse to '${id}'`, () => entry.body.applyImpulse(vector(impulse), true)); },
@@ -372,16 +453,37 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       for (const { entry, transform } of live) {
         const before = entry.lastTransform;
         if (transform.position[0] !== before.position[0] || transform.position[1] !== before.position[1] || transform.rotation[2] !== before.rotation[2]) {
-          if (entry.definition.type === "kinematic") {
+          if (entry.definition.type === "kinematic" && !native.characters.has(entry.definition.id)) {
             entry.body.setNextKinematicTranslation({ x: transform.position[0], y: transform.position[1] });
             entry.body.setNextKinematicRotation(transform.rotation[2]);
           } else {
+            // A controlled-body transform edit is an explicit teleport. Defer movement
+            // until a normal step refreshes query structures; never advance fake time.
             entry.body.setTranslation({ x: transform.position[0], y: transform.position[1] }, true);
             entry.body.setRotation(transform.rotation[2], true);
+            if (entry.definition.type === "kinematic") {
+              entry.body.setNextKinematicTranslation({ x: transform.position[0], y: transform.position[1] });
+              entry.body.setNextKinematicRotation(transform.rotation[2]);
+            }
+            dirty = true;
           }
         }
       }
       native.world.timestep = dt;
+      const moves: { character: Character; entry: Body; movement: Vec2; target: Vec2; grounded: boolean }[] = [];
+      if (!dirty) {
+        for (const character of [...native.characters.values()].sort((a, b) => a.body < b.body ? -1 : a.body > b.body ? 1 : 0)) {
+          const entry = native.bodies.get(character.body);
+          if (!entry || !entry.collider || !context.world.isAlive(entry.handle)) return fail("CHARACTER_BODY", `Character '${character.body}' has no live collider.`);
+          character.controller.computeColliderMovement(entry.collider, vector(character.requested), RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined,
+            collider => { const other = native.colliders.get(collider.handle); return !!other && other !== entry && context.world.isAlive(other.handle); });
+          const result = character.controller.computedMovement(), movement = pair([result.x, result.y], "character movement"), position = entry.body.translation();
+          moves.push({ character, entry, movement, target: pair([position.x + movement[0], position.y + movement[1]], "character target"), grounded: character.controller.computedGrounded() });
+        }
+        for (const move of moves) move.entry.body.setNextKinematicTranslation(vector(move.target));
+      } else {
+        for (const character of native.characters.values()) { character.deferred = true; character.grounded = false; }
+      }
       native.world.step(native.queue); tick++; dirty = false;
       native.queue.drainCollisionEvents((first, second, started) => {
         const a = native.colliders.get(first), b = native.colliders.get(second);
@@ -394,6 +496,10 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
         const state = readBody(entry);
         const next: Transform = { position: [state.position[0], state.position[1], transform.position[2]], rotation: [0, 0, state.angle], scale: transform.scale };
         context.world.setTransform(entry.handle, next); entry.lastTransform = next;
+      }
+      for (const move of moves) {
+        move.character.requested = [0, 0]; move.character.movement = move.movement;
+        move.character.grounded = move.grounded; move.character.deferred = false;
       }
       } catch (error) {
         nativeFault = true;
@@ -408,7 +514,10 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       const liveIds = new Set(bodies.map(item => item.definition.id));
       const joints = [...native.joints.values()].filter(item => liveIds.has(item.definition.bodyA) && liveIds.has(item.definition.bodyB))
         .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0).map(item => item.definition);
-      return cloneSerializable({ format: "pelican.physics2d", version: 1, gravity, tick, bodies, joints });
+      const characters = [...native.characters.values()].filter(item => liveIds.has(item.body))
+        .sort((a, b) => a.body < b.body ? -1 : a.body > b.body ? 1 : 0)
+        .map(({ controller: _controller, ...item }) => item);
+      return cloneSerializable({ format: "pelican.physics2d", version: 1, gravity, tick, bodies, joints, characters });
     },
     legacySnapshot: empty,
     validateSnapshot(value) { parse(value); },
@@ -420,6 +529,7 @@ const createPhysics2DPlugin: RuntimePluginFactory = context => {
       try {
         for (const item of data.bodies) addNative(staged, item.definition, context.world.resolve(item.definition.entity), item.lastTransform, item.prefab, item);
         for (const joint of data.joints ?? []) addNativeJoint(staged, joint);
+        for (const character of data.characters ?? []) addNativeCharacter(staged, character);
         // Joint creation wakes connected bodies; restore saved sleep intent afterward.
         for (const item of data.bodies) if (item.definition.type === "dynamic" && item.sleeping)
           staged.bodies.get(item.definition.id)!.body.sleep();
