@@ -35,35 +35,37 @@ function reference(map: Map<string, number>, id: string | undefined) {
   return index!;
 }
 
+export function validateSurfaceTextureCoordinates(
+  snapshot: SurfaceScene,
+  ordered: readonly SurfaceTriangle[] = snapshot.triangles,
+): void {
+  const materials = indexMap(snapshot.materials),
+    textures = new Map(snapshot.textures.map((texture) => [texture.uuid, texture]));
+  for (const triangle of ordered) {
+    const material = snapshot.materials[reference(materials, triangle.materialUuid)];
+    for (const textureId of Object.values(material.maps)) {
+      const texture = textures.get(textureId!);
+      if (!texture) fail("TC_SURFACE_GPU_REFERENCE", "Missing material texture " + textureId);
+      for (const vertex of triangle.vertices)
+        if ((texture!.channel === 0 ? vertex.uv0 : vertex.uv1) === undefined)
+          fail("TC_SURFACE_GPU_UV", `Triangle ${triangle.objectUuid} is missing texture channel ${texture!.channel} for ${textureId}.`);
+    }
+  }
+}
+
 export function packSurfaceGeometry(
   snapshot: SurfaceScene,
   ordered: readonly SurfaceTriangle[] = snapshot.triangles,
   volumeIds: ReadonlyMap<string, number> = new Map(),
 ) {
-  const materials = indexMap(snapshot.materials),
-    textures = new Map(
-      snapshot.textures.map((texture) => [texture.uuid, texture]),
-    );
+  validateSurfaceTextureCoordinates(snapshot, ordered);
+  const materials = indexMap(snapshot.materials);
   const output = new Float32Array(ordered.length * SURFACE_TRIANGLE_FLOATS);
   for (let index = 0; index < ordered.length; index++) {
     const triangle = ordered[index],
       materialIndex = reference(materials, triangle.materialUuid),
-      material = snapshot.materials[materialIndex],
       offset = index * SURFACE_TRIANGLE_FLOATS;
-    for (const textureId of Object.values(material.maps)) {
-      const texture = textures.get(textureId!);
-      if (!texture)
-        fail(
-          "TC_SURFACE_GPU_REFERENCE",
-          "Missing material texture " + textureId,
-        );
-      for (const vertex of triangle.vertices)
-        if ((texture!.channel === 0 ? vertex.uv0 : vertex.uv1) === undefined)
-          fail(
-            "TC_SURFACE_GPU_UV",
-            "Triangle is missing texture channel " + texture!.channel,
-          );
-    }
+    const material = snapshot.materials[materialIndex];
     const color = triangle.instanceColor ?? [1, 1, 1],
       tangent = triangle.vertices.every(
         (vertex) => vertex.tangent !== undefined,

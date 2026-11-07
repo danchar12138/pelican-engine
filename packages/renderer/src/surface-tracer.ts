@@ -7,6 +7,7 @@ import {
 } from "./acceleration.ts";
 import {
   packSurfaceGeometry,
+  validateSurfaceTextureCoordinates,
   packSurfaceResources,
   packSurfaceMaterialTable,
 } from "./surface-gpu.ts";
@@ -999,6 +1000,8 @@ export class SurfaceTracer {
         );
     if (textureChanged || !this.materialData) {
       const resources = packSurfaceResources(captured.surface);
+      if (this.frame && frame.changes.kind === "none")
+        validateSurfaceTextureCoordinates(captured.surface, frame.orderedTriangles);
       const combined = new Float32Array(
         resources.materials.length + this.graphRows.length,
       );
@@ -1019,6 +1022,8 @@ export class SurfaceTracer {
       materials.set(packedMaterials);
       materials.set(this.graphRows, packedMaterials.length);
       if (!equal(this.materialData, materials)) {
+        if (this.frame && frame.changes.kind === "none")
+          validateSurfaceTextureCoordinates(captured.surface, frame.orderedTriangles);
         this.put("materials", materials);
         this.materialData = materials;
         this.invalidateHistory("materials");
