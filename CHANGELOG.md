@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add per-body 3D gravity scaling with recorded state; runtime and snapshot replay remain unverified.
+
 - Track runtime entity topology and transform changes for tracing recapture; rendering remains unverified.
 
 - Add circle and oriented-box overlap queries to 2D physics; runtime behavior remains unverified.

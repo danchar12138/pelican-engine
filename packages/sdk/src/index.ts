@@ -953,6 +953,9 @@ export interface PhysicsService {
   setGravity(gravity: Vec3): void;
   /** Current 3D rigid-body world gravity in world units per second squared. */
   gravity(): Vec3;
+  /** Set or inspect a dynamic rigid body's gravity multiplier; wakes it when changed. */
+  setGravityScale(entity: string, scale: number): void;
+  gravityScale(entity: string): number;
   moveCharacter(entity: string, displacement: Vec3): void;
   grounded(entity: string): boolean;
   velocity(entity: string): Vec3;

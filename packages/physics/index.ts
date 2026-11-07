@@ -68,6 +68,7 @@ type Action =
     }
   | { kind: "move" | "velocity" | "impulse" | "angularVelocity" | "torqueImpulse"; id: string; value: Vec3 }
   | { kind: "gravity"; value: Vec3 }
+  | { kind: "gravityScale"; id: string; scale: number }
   | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
@@ -556,7 +557,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   ) {
     if (
       !action ||
-      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity"].includes(action.kind)
+      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
     if (action.kind === "gravity") {
@@ -564,6 +565,17 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
         fail("TC_PHYSICS_SNAPSHOT", "Invalid gravity history action fields.");
       world.gravity = vec(action.value, "gravity");
       for (const body of bodies.values()) if (body.type === "dynamic") body.body.wakeUp();
+      return;
+    }
+    if (action.kind === "gravityScale") {
+      if (Object.keys(action).length !== 3 || !Object.hasOwn(action, "id") || !Object.hasOwn(action, "scale"))
+        fail("TC_PHYSICS_SNAPSHOT", "Invalid gravity scale history action fields.");
+      const body = get(action.id);
+      if (body.type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `Gravity scale requires a dynamic rigid body (${body.id}).`);
+      if (typeof action.scale !== "number" || !Number.isFinite(action.scale) || Math.abs(action.scale) > 1000 ||
+          (action.scale !== 0 && Math.fround(action.scale) === 0))
+        fail("TC_PHYSICS_GRAVITY_SCALE", "Gravity scale must be float32-representable in [-1000, 1000].");
+      body.body.setGravityScale(action.scale, true);
       return;
     }
     if (action.kind !== "step") {
@@ -969,6 +981,15 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     gravity() {
       alive();
       return tuple(state.world.gravity);
+    },
+    setGravityScale(id, scale) {
+      get(id);
+      record({ kind: "gravityScale", id, scale });
+    },
+    gravityScale(id) {
+      const body = get(id);
+      if (body.type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `Gravity scale requires a dynamic rigid body (${id}).`);
+      return body.body.gravityScale();
     },
     moveCharacter(id, value) {
       get(id);

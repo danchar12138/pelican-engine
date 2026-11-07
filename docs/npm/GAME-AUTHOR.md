@@ -37,6 +37,13 @@ snapshot. Character controllers use their own configured downward gravity;
 2D physics, cloth, rope, fluids and soft bodies have separate gravity settings.
 Gravity changes, wake behavior and snapshot replay remain unverified, and this
 does not fix the known 3D first-step removal defect.
+For an individual dynamic rigid body, `ctx.physics.setGravityScale("body", 0)`
+disables world gravity on that body; negative values reverse its direction.
+`gravityScale("body")` reads the multiplier. The supported range is
+[-1000, 1000], and setting it wakes the body and records an operation in the
+physics snapshot history. Fixed, kinematic and character bodies are rejected.
+The value does not affect other simulation services. Behavior and snapshot
+replay are unverified; existing history-replay risks remain open.
 
 `ctx.physics.overlapSphere(center, radius, options)` finds live physics entities
 overlapping a world-space sphere. Results are sorted entity IDs; triggers are

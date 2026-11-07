@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds per-dynamic-body gravity scaling to 3D physics history. Native behavior, wakeup and snapshot replay remain unverified; the first-step deletion and unsafe historical replay defects remain open.
+
 - Local development tracks entity creation, removal, parent and transform changes as pending scene revisions for tracing recapture. Runtime rendering and failure recovery remain unverified.
 
 - Local development adds 2D circle and oriented-box overlap queries using the last completed physics step. Filtering, native recovery and runtime results are unverified.

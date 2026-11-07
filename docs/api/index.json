@@ -1654,11 +1654,13 @@
     {
       "name": "PhysicsService",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface PhysicsService {\n  /** Set 3D rigid-body world gravity; wakes dynamic bodies. Character controllers keep their own gravity. */\n  setGravity(gravity: Vec3): void;\n  /** Current 3D rigid-body world gravity in world units per second squared. */\n  gravity(): Vec3;\n  moveCharacter(entity: string, displacement: Vec3): void;\n  grounded(entity: string): boolean;\n  velocity(entity: string): Vec3;\n  /** World-space rigid-body center of mass, including collider offsets. */\n  centerOfMass(entity: string): Vec3;\n  setVelocity(entity: string, velocity: Vec3): void;\n  impulse(entity: string, impulse: Vec3): void;\n  /** Angular velocity in world-space radians per second. */\n  angularVelocity(entity: string): Vec3;\n  setAngularVelocity(entity: string, velocity: Vec3): void;\n  /** Instantaneous world-space angular impulse, in angular-momentum units. */\n  torqueImpulse(entity: string, impulse: Vec3): void;\n  /** Apply world-space impulse at a world-space point, changing linear and angular motion. */\n  impulseAtPoint(entity: string, impulse: Vec3, point: Vec3): void;\n  raycast(\n    origin: Vec3,\n    direction: Vec3,\n    maxDistance: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;\n  /** Sweep a shape through a nonzero world-space displacement. Initial overlaps hit at fraction 0. */\n  castShape(shape: PhysicsSweepShape, center: Vec3, displacement: Vec3, rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean }): PhysicsSweepHit | null;\n  /** Find entities whose colliders overlap a world-space sphere, sorted by entity ID. */\n  overlapSphere(\n    center: Vec3,\n    radius: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping an oriented box; halfExtents are positive world units, rotation is XYZ radians. */\n  overlapBox(\n    center: Vec3,\n    halfExtents: Vec3,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping a capsule aligned to local Y; halfHeight excludes the rounded ends. */\n  overlapCapsule(\n    center: Vec3,\n    halfHeight: number,\n    radius: number,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n}",
+      "signature": "export interface PhysicsService {\n  /** Set 3D rigid-body world gravity; wakes dynamic bodies. Character controllers keep their own gravity. */\n  setGravity(gravity: Vec3): void;\n  /** Current 3D rigid-body world gravity in world units per second squared. */\n  gravity(): Vec3;\n  /** Set or inspect a dynamic rigid body's gravity multiplier; wakes it when changed. */\n  setGravityScale(entity: string, scale: number): void;\n  gravityScale(entity: string): number;\n  moveCharacter(entity: string, displacement: Vec3): void;\n  grounded(entity: string): boolean;\n  velocity(entity: string): Vec3;\n  /** World-space rigid-body center of mass, including collider offsets. */\n  centerOfMass(entity: string): Vec3;\n  setVelocity(entity: string, velocity: Vec3): void;\n  impulse(entity: string, impulse: Vec3): void;\n  /** Angular velocity in world-space radians per second. */\n  angularVelocity(entity: string): Vec3;\n  setAngularVelocity(entity: string, velocity: Vec3): void;\n  /** Instantaneous world-space angular impulse, in angular-momentum units. */\n  torqueImpulse(entity: string, impulse: Vec3): void;\n  /** Apply world-space impulse at a world-space point, changing linear and angular motion. */\n  impulseAtPoint(entity: string, impulse: Vec3, point: Vec3): void;\n  raycast(\n    origin: Vec3,\n    direction: Vec3,\n    maxDistance: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;\n  /** Sweep a shape through a nonzero world-space displacement. Initial overlaps hit at fraction 0. */\n  castShape(shape: PhysicsSweepShape, center: Vec3, displacement: Vec3, rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean }): PhysicsSweepHit | null;\n  /** Find entities whose colliders overlap a world-space sphere, sorted by entity ID. */\n  overlapSphere(\n    center: Vec3,\n    radius: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping an oriented box; halfExtents are positive world units, rotation is XYZ radians. */\n  overlapBox(\n    center: Vec3,\n    halfExtents: Vec3,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping a capsule aligned to local Y; halfHeight excludes the rounded ends. */\n  overlapCapsule(\n    center: Vec3,\n    halfHeight: number,\n    radius: number,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n}",
       "line": 951,
       "fields": [
         "setGravity",
         "gravity",
+        "setGravityScale",
+        "gravityScale",
         "moveCharacter",
         "grounded",
         "velocity",
@@ -1680,7 +1682,7 @@
       "name": "AnimationService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationService {\n  /** Start at a clip-local time in seconds. Reverse playback defaults to the clip end. */\n  play(\n    entity: string,\n    clip: string,\n    options?: { fade?: number; speed?: number; loop?: boolean; startAt?: number },\n  ): void;\n  state(entity: string): {\n    clip: string | null;\n    time: number;\n    playing: boolean;\n  };\n}",
-      "line": 1001,
+      "line": 1004,
       "fields": [
         "play",
         "state"
@@ -1690,7 +1692,7 @@
       "name": "AnimationControlService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationControlService extends AnimationService {\n  /** Play two complete clips together; weight is the second clip's contribution in [0,1]. */\n  blend(entity: string, first: string, second: string, weight: number): void;\n  /** Change the second clip's weight without restarting either clip. */\n  setBlendWeight(entity: string, weight: number): void;\n  /** Align the second blended clip to the first clip's normalized time without changing speed or weights. */\n  synchronizeBlend(entity: string): void;\n  /** Available model clips and their durations in seconds. */\n  clips(entity: string): readonly { name: string; duration: number }[];\n  /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */\n  pause(entity: string): void;\n  resume(entity: string): void;\n  /** Move the current clip to a local time in [0, duration] without changing pause state. */\n  seek(entity: string, time: number): void;\n  /** Change current clip playback speed; negative values reverse it, zero freezes clip time. */\n  setSpeed(entity: string, speed: number): void;\n}",
-      "line": 1015,
+      "line": 1018,
       "fields": [
         "blend",
         "setBlendWeight",
@@ -1706,7 +1708,7 @@
       "name": "CameraService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface CameraService {\n  /** Set a world-space manual pose, replacing follow mode and any transition. */\n  setPose(position: Vec3, target: Vec3): void;\n  /** Linearly transition from the current manual pose using fixed simulation time. */\n  moveTo(position: Vec3, target: Vec3, duration: number): void;\n  /** Return to the scene's authored camera pose. */\n  reset(): void;\n  follow(\n    entity: string,\n    options?: {\n      distance?: number;\n      height?: number;\n      lookHeight?: number;\n      yaw?: number;\n      smoothing?: number;\n    },\n  ): void;\n  orbit(yaw: number): void;\n}",
-      "line": 1032,
+      "line": 1035,
       "fields": [
         "setPose",
         "moveTo",
@@ -1719,7 +1721,7 @@
       "name": "UIElementState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIElementState {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  text: string;\n  value: number;\n  visible: boolean;\n  /** Missing means enabled, for compatibility with older states. */\n  enabled?: boolean;\n  ariaLabel?: string;\n  anchor: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x: number; y: number; width: number; color: string;\n  world?: { entity: string; offset: Vec3; occlude: boolean };\n  generation?: number;\n}",
-      "line": 1052,
+      "line": 1055,
       "fields": [
         "id",
         "kind",
@@ -1741,7 +1743,7 @@
       "name": "UILayoutPatch",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UILayoutPatch {\n  anchor?: UIElementState[\"anchor\"];\n  x?: number; y?: number; width?: number; color?: string;\n}",
-      "line": 1066,
+      "line": 1069,
       "fields": [
         "anchor",
         "x",
@@ -1754,7 +1756,7 @@
       "name": "UIService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIService {\n  /** Create a dynamic element and return its generation; declared elements remain in game.ui. */\n  create(definition: UIElementDefinition): number;\n  /** Remove a dynamically created element; authored elements can be hidden instead. */\n  remove(id: string): void;\n  get(id: string): UIElementState;\n  /** Atomically update layout properties. World labels use x/y as screen-pixel offsets. */\n  setLayout(id: string, patch: UILayoutPatch): void;\n  /** Bind text or button content to a localization key; setText removes the binding. */\n  bindText(id: string, key: string, variables?: LocalizationVariables): void;\n  /** Remove a localization binding, retaining its currently resolved text. */\n  unbindText(id: string): void;\n  setText(id: string, text: string): void;\n  setProgress(id: string, value: number): void;\n  setVisible(id: string, visible: boolean): void;\n  /** Enable or disable a button or input without hiding it. */\n  setEnabled(id: string, enabled: boolean): void;\n  /** Set an accessible name, or clear it with null. */\n  setAriaLabel(id: string, label: string | null): void;\n}",
-      "line": 1070,
+      "line": 1073,
       "fields": [
         "create",
         "remove",
@@ -1773,7 +1775,7 @@
       "name": "InventoryItemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryItemDefinition {\n  id: string;\n  maxStack?: number;\n  label?: string;\n  tags?: readonly string[];\n}",
-      "line": 1091,
+      "line": 1094,
       "fields": [
         "id",
         "maxStack",
@@ -1785,7 +1787,7 @@
       "name": "InventoryDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryDefinition {\n  id: string;\n  /** Explicit grouping label, not an entity lifetime binding. */\n  owner: string;\n  capacity: number;\n}",
-      "line": 1097,
+      "line": 1100,
       "fields": [
         "id",
         "owner",
@@ -1796,7 +1798,7 @@
       "name": "InventorySlot",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventorySlot { item: string; count: number }",
-      "line": 1103,
+      "line": 1106,
       "fields": [
         "item",
         "count"
@@ -1806,7 +1808,7 @@
       "name": "InventoryState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryState {\n  id: string;\n  owner: string;\n  slots: readonly (InventorySlot | null)[];\n}",
-      "line": 1104,
+      "line": 1107,
       "fields": [
         "id",
         "owner",
@@ -1817,7 +1819,7 @@
       "name": "EquipmentSlotDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EquipmentSlotDefinition { id: string; requiredTag?: string }",
-      "line": 1109,
+      "line": 1112,
       "fields": [
         "id",
         "requiredTag"
@@ -1827,7 +1829,7 @@
       "name": "EquipmentState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EquipmentState {\n  id: string; owner: string;\n  slots: readonly { id: string; requiredTag?: string; item: string | null }[];\n}",
-      "line": 1110,
+      "line": 1113,
       "fields": [
         "id",
         "owner",
@@ -1838,7 +1840,7 @@
       "name": "InventoryService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InventoryService {\n  defineItem(definition: InventoryItemDefinition): void;\n  getItem(id: string): Required<InventoryItemDefinition>;\n  listItems(): readonly Required<InventoryItemDefinition>[];\n  undefineItem(id: string): void;\n  create(definition: InventoryDefinition): void;\n  inspect(id: string): InventoryState;\n  /** Counts all stacks of an item in one inventory. */\n  count(id: string, item: string): number;\n  add(id: string, item: string, count: number): void;\n  remove(id: string, item: string, count: number): void;\n  /** Transfers an entire requested amount or leaves both inventories unchanged. */\n  transfer(from: string, to: string, item: string, count: number): void;\n  /** Split, merge or swap slots; a swap requires the whole source stack. */\n  moveSlot(id: string, from: number, to: number, count?: number): void;\n  /** Define named equipment slots; optional requiredTag restricts compatible items. */\n  createEquipment(id: string, owner: string, slots: readonly EquipmentSlotDefinition[]): void;\n  inspectEquipment(id: string): EquipmentState;\n  /** Move one item from an inventory into a slot; an existing item returns to that inventory atomically. */\n  equip(equipment: string, slot: string, inventory: string, item: string): void;\n  /** Move one equipped item back to an inventory belonging to the same owner. */\n  unequip(equipment: string, slot: string, inventory: string): void;\n  /** Empty all slots before destroying equipment. */\n  destroyEquipment(id: string): void;\n  destroy(id: string): void;\n  destroyOwner(owner: string): void;\n}",
-      "line": 1115,
+      "line": 1118,
       "fields": [
         "defineItem",
         "getItem",
@@ -1864,7 +1866,7 @@
       "name": "QuestObjectiveDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestObjectiveDefinition {\n  id: string;\n  target: number;\n  label?: string;\n}",
-      "line": 1142,
+      "line": 1145,
       "fields": [
         "id",
         "target",
@@ -1875,7 +1877,7 @@
       "name": "QuestDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestDefinition {\n  id: string;\n  title?: string;\n  objectives: readonly QuestObjectiveDefinition[];\n  /** Prerequisites are checked when starting; later resets do not cancel already-started quests. */\n  prerequisites?: readonly string[];\n  /** Completes when all objectives reach their targets; defaults to true. */\n  autoComplete?: boolean;\n}",
-      "line": 1147,
+      "line": 1150,
       "fields": [
         "id",
         "title",
@@ -1888,7 +1890,7 @@
       "name": "QuestState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestState {\n  id: string;\n  title: string;\n  status: \"inactive\" | \"active\" | \"completed\" | \"failed\";\n  prerequisites: readonly string[];\n  autoComplete: boolean;\n  objectives: readonly { id: string; label: string; target: number; progress: number }[];\n}",
-      "line": 1156,
+      "line": 1159,
       "fields": [
         "id",
         "title",
@@ -1902,7 +1904,7 @@
       "name": "QuestProgressUpdate",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestProgressUpdate { objective: string; amount: number }",
-      "line": 1164,
+      "line": 1167,
       "fields": [
         "objective",
         "amount"
@@ -1912,7 +1914,7 @@
       "name": "QuestService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface QuestService {\n  define(definition: QuestDefinition): void;\n  start(id: string): void;\n  advance(id: string, objective: string, amount?: number): void;\n  /** Applies distinct objective increments as one operation. */\n  advanceBatch(id: string, updates: readonly QuestProgressUpdate[]): void;\n  complete(id: string): void;\n  fail(id: string): void;\n  /** Explicitly clears progress and returns this quest to inactive. */\n  reset(id: string): void;\n  inspect(id: string): QuestState;\n  list(): readonly QuestState[];\n}",
-      "line": 1166,
+      "line": 1169,
       "fields": [
         "define",
         "start",
@@ -1929,13 +1931,13 @@
       "name": "DialogueVariable",
       "kind": "TypeAliasDeclaration",
       "signature": "export type DialogueVariable = string | number | boolean;",
-      "line": 1179
+      "line": 1182
     },
     {
       "name": "DialogueChoiceDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueChoiceDefinition {\n  id: string;\n  text: string;\n  /** Omit or use null to end the session. */\n  next?: string | null;\n  /** Enabled only when the session variable exists and equals this value. */\n  when?: { variable: string; equals: DialogueVariable };\n}",
-      "line": 1180,
+      "line": 1183,
       "fields": [
         "id",
         "text",
@@ -1947,7 +1949,7 @@
       "name": "DialogueNodeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueNodeDefinition {\n  id: string;\n  speaker?: string;\n  text: string;\n  /** Linear successor; cannot be combined with nonempty choices. */\n  next?: string | null;\n  choices?: readonly DialogueChoiceDefinition[];\n}",
-      "line": 1188,
+      "line": 1191,
       "fields": [
         "id",
         "speaker",
@@ -1960,7 +1962,7 @@
       "name": "DialogueDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueDefinition {\n  id: string;\n  start: string;\n  nodes: readonly DialogueNodeDefinition[];\n}",
-      "line": 1196,
+      "line": 1199,
       "fields": [
         "id",
         "start",
@@ -1971,7 +1973,7 @@
       "name": "DialogueSessionState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueSessionState {\n  id: string;\n  dialogue: string;\n  status: \"active\" | \"completed\" | \"cancelled\";\n  steps: number;\n  variables: readonly { key: string; value: DialogueVariable }[];\n  node: null | {\n    id: string; speaker: string; text: string; next: string | null;\n    choices: readonly { id: string; text: string; next: string | null; enabled: boolean }[];\n  };\n}",
-      "line": 1201,
+      "line": 1204,
       "fields": [
         "id",
         "dialogue",
@@ -1985,7 +1987,7 @@
       "name": "DialogueService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface DialogueService {\n  define(definition: DialogueDefinition): void;\n  undefine(id: string): void;\n  start(session: string, dialogue: string): void;\n  /** Set a session variable, or remove it with null. */\n  setVariable(session: string, key: string, value: DialogueVariable | null): void;\n  /** Advance a node without choices; a terminal node completes the session. */\n  advance(session: string): void;\n  choose(session: string, choice: string): void;\n  cancel(session: string): void;\n  close(session: string): void;\n  inspect(session: string): DialogueSessionState;\n  list(): readonly DialogueSessionState[];\n}",
-      "line": 1213,
+      "line": 1216,
       "fields": [
         "define",
         "undefine",
@@ -2003,7 +2005,7 @@
       "name": "LocalizationPlural",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LocalizationPlural {\n  zero?: string; one?: string; two?: string; few?: string; many?: string; other: string;\n}",
-      "line": 1227,
+      "line": 1230,
       "fields": [
         "zero",
         "one",
@@ -2017,19 +2019,19 @@
       "name": "LocalizationMessage",
       "kind": "TypeAliasDeclaration",
       "signature": "export type LocalizationMessage = string | LocalizationPlural;",
-      "line": 1230
+      "line": 1233
     },
     {
       "name": "LocalizationVariables",
       "kind": "TypeAliasDeclaration",
       "signature": "export type LocalizationVariables = Readonly<Record<string, string | number | boolean>>;",
-      "line": 1231
+      "line": 1234
     },
     {
       "name": "LocalizationService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LocalizationService {\n  define(locale: string, messages: Readonly<Record<string, LocalizationMessage>>): void;\n  remove(locale: string): void;\n  setLocale(locale: string | null): void;\n  setFallback(locale: string | null): void;\n  /** Plural messages require a finite numeric `count` variable. */\n  text(key: string, variables?: LocalizationVariables): string;\n  /** Format a finite number using the active locale's Intl implementation. */\n  number(value: number): string;\n  inspect(): { locale: string | null; fallback: string | null; available: readonly string[] };\n}",
-      "line": 1233,
+      "line": 1236,
       "fields": [
         "define",
         "remove",
@@ -2044,7 +2046,7 @@
       "name": "AudioReverb",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioReverb { wet: number; decay: number; preDelay: number }",
-      "line": 1245,
+      "line": 1248,
       "fields": [
         "wet",
         "decay",
@@ -2055,7 +2057,7 @@
       "name": "AudioVoiceState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioVoiceState {\n  id: string; sound: string; volume: number; loop: boolean; entity: string | null;\n  bus?: string; priority: number; paused: boolean; occlusion: boolean;\n  maxDuration?: number;\n}",
-      "line": 1246,
+      "line": 1249,
       "fields": [
         "id",
         "sound",
@@ -2073,7 +2075,7 @@
       "name": "AudioService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioService {\n  /** Optional occlusion uses a 3D physics ray between the listener and a live entity. */\n  play(\n    id: string,\n    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean; maxDuration?: number },\n  ): string;\n  stop(voice: string): void;\n  /** Pause/resume are idempotent; an unknown valid voice id is a no-op. Playback time follows fixed simulation ticks, even while audio is locked. */\n  pause(voice: string): void;\n  resume(voice: string): void;\n  /** Set one active voice's gain; an unknown valid voice ID is a no-op. */\n  setVoiceVolume(voice: string, volume: number): void;\n  /** Return detached logical state, or null when the voice is no longer present. */\n  voice(voice: string): AudioVoiceState | null;\n  volume(value: number): void;\n  /** Set a declared bus gain, independently of master and voice gain. */\n  busVolume(id: string, value: number): void;\n  /** Fade a declared bus over fixed-tick seconds; busVolume or another fade replaces it. */\n  fadeBus(id: string, target: number, duration: number): void;\n  /** Replace global reverb settings; wet is 0..1, decay 0.1..4s, preDelay 0..0.2s. */\n  setReverb(settings: AudioReverb): void;\n}",
-      "line": 1251,
+      "line": 1254,
       "fields": [
         "play",
         "stop",
@@ -2091,7 +2093,7 @@
       "name": "StorageService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface StorageService {\n  save(slot: string): void;\n  load(slot: string): void;\n  status(): {\n    state: \"idle\" | \"saving\" | \"loading\" | \"saved\" | \"loaded\" | \"failed\";\n    slot: string | null;\n    error: string | null;\n  };\n}",
-      "line": 1273,
+      "line": 1276,
       "fields": [
         "save",
         "load",
@@ -2102,7 +2104,7 @@
       "name": "SceneService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneService {\n  current(): string;\n  load(id: string): void;\n}",
-      "line": 1282,
+      "line": 1285,
       "fields": [
         "current",
         "load"
@@ -2112,7 +2114,7 @@
       "name": "ModelDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ModelDefinition {\n  /** Optional whole-model material override; omitted keeps the asset's original materials. */\n  material?: MaterialDefinition | string;\n  /** Replace all asset material slots with the given exact material name. Mutually exclusive with material. */\n  materialSlots?: Record<string, MaterialDefinition | string>;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n  /** Enable lights embedded in the model; defaults to true. */\n  embeddedLights?: boolean;\n  /** Enable shadows for embedded lights; defaults to false. */\n  embeddedLightShadows?: boolean;\n  asset: AssetDefinition | string;\n  scale?: number;\n  offset?: Vec3;\n  rotation?: Vec3;\n  animation?: { clip: string; speed?: number; loop?: boolean };\n}",
-      "line": 1286,
+      "line": 1289,
       "fields": [
         "material",
         "materialSlots",
@@ -2131,7 +2133,7 @@
       "name": "RigidBodyDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RigidBodyDefinition {\n  type: \"fixed\" | \"dynamic\" | \"kinematic\";\n  collider: {\n    shape: \"box\" | \"sphere\" | \"capsule\";\n    size?: Vec3;\n    radius?: number;\n    halfHeight?: number;\n    offset?: Vec3;\n  };\n  mass?: number;\n  friction?: number;\n  restitution?: number;\n  trigger?: boolean;\n}",
-      "line": 1303,
+      "line": 1306,
       "fields": [
         "type",
         "collider",
@@ -2145,7 +2147,7 @@
       "name": "CharacterDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface CharacterDefinition {\n  radius: number;\n  height: number;\n  speed: number;\n  jumpSpeed?: number;\n  /** Downward acceleration magnitude in world units/s^2; defaults to 9.81. Scene.gravity is a signed vector. */\n  gravity?: number;\n}",
-      "line": 1317,
+      "line": 1320,
       "fields": [
         "radius",
         "height",
@@ -2158,7 +2160,7 @@
       "name": "UIElementDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIElementDefinition {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  /** Input values are limited to 4096 UTF-16 code units. */\n  text?: string;\n  value?: number;\n  visible?: boolean;\n  /** Buttons and inputs default to enabled. */\n  enabled?: boolean;\n  /** Accessible name; input and progress controls fall back to their ID. */\n  ariaLabel?: string;\n  anchor?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x?: number;\n  y?: number;\n  width?: number;\n  color?: string;\n  world?: { entity: string; offset?: Vec3; occlude?: boolean };\n}",
-      "line": 1325,
+      "line": 1328,
       "fields": [
         "id",
         "kind",
@@ -2179,7 +2181,7 @@
       "name": "SoundDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoundDefinition {\n  id: string;\n  asset: AssetDefinition | string;\n  volume?: number;\n  loop?: boolean;\n  bus?: string;\n}",
-      "line": 1343,
+      "line": 1346,
       "fields": [
         "id",
         "asset",
@@ -2192,7 +2194,7 @@
       "name": "AudioBusDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioBusDefinition {\n  id: string;\n  volume?: number;\n}",
-      "line": 1350,
+      "line": 1353,
       "fields": [
         "id",
         "volume"
@@ -2202,43 +2204,43 @@
       "name": "SYSTEM_PHASES",
       "kind": "constant",
       "signature": "SYSTEM_PHASES = [\n  \"input\",\n  \"prePhysics\",\n  \"physics\",\n  \"postPhysics\",\n  \"update\",\n  \"presentation\",\n] as const",
-      "line": 1354
+      "line": 1357
     },
     {
       "name": "SystemPhase",
       "kind": "TypeAliasDeclaration",
       "signature": "export type SystemPhase = (typeof SYSTEM_PHASES)[number];",
-      "line": 1362
+      "line": 1365
     },
     {
       "name": "Geometry",
       "kind": "TypeAliasDeclaration",
       "signature": "export type Geometry =\n  | { kind: \"box\"; size?: Vec3 }\n  | { kind: \"sphere\"; radius?: number; segments?: number }\n  | { kind: \"plane\"; size?: readonly [number, number] };",
-      "line": 1363
+      "line": 1366
     },
     {
       "name": "GRAPH_TYPES",
       "kind": "constant",
       "signature": "GRAPH_TYPES = [\"float\", \"vec2\", \"vec3\", \"vec4\", \"bool\"] as const",
-      "line": 1367
+      "line": 1370
     },
     {
       "name": "GraphType",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphType = typeof GRAPH_TYPES[number];",
-      "line": 1368
+      "line": 1371
     },
     {
       "name": "GraphValue",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;",
-      "line": 1369
+      "line": 1372
     },
     {
       "name": "GraphParameter",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GraphParameter {\n  name: string;\n  type: GraphType;\n  default: GraphValue;\n}",
-      "line": 1370,
+      "line": 1373,
       "fields": [
         "name",
         "type",
@@ -2249,31 +2251,31 @@
       "name": "GRAPH_INPUT_TYPES",
       "kind": "constant",
       "signature": "GRAPH_INPUT_TYPES = {\n  uv: \"vec2\", uv1: \"vec2\", positionWorld: \"vec3\", normalWorld: \"vec3\",\n  viewDirectionWorld: \"vec3\", vertexColor: \"vec4\", index: \"float\",\n  screenSize: \"vec2\", texelSize: \"vec2\",\n  pixelCoord: \"vec2\", outputSize: \"vec2\",\n  positionLocal: \"vec3\", normalLocal: \"vec3\", vertexIndex: \"float\", instanceIndex: \"float\",\n} as const",
-      "line": 1375
+      "line": 1378
     },
     {
       "name": "GraphInputName",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphInputName = keyof typeof GRAPH_INPUT_TYPES;",
-      "line": 1382
+      "line": 1385
     },
     {
       "name": "GRAPH_OPERATIONS",
       "kind": "constant",
       "signature": "GRAPH_OPERATIONS = {\n  unary: [\"sin\", \"cos\", \"abs\", \"floor\", \"ceil\", \"fract\", \"negate\", \"saturate\", \"normalize\", \"length\", \"safeSqrt\"] as const,\n  binary: [\"add\", \"subtract\", \"multiply\", \"safeDivide\", \"min\", \"max\", \"dot\", \"cross\", \"step\", \"lessThan\", \"lessEqual\", \"greaterThan\", \"greaterEqual\", \"equal\", \"and\", \"or\"] as const,\n  ternary: [\"mix\", \"clamp\", \"smoothstep\", \"select\"] as const,\n} as const",
-      "line": 1383
+      "line": 1386
     },
     {
       "name": "GraphNode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphNode =\n  | { id: string; op: \"float\"; value: number }\n  | { id: string; op: \"bool\"; value: boolean }\n  | { id: string; op: \"vec2\"; value: Vec2 }\n  | { id: string; op: \"vec3\"; value: Vec3 }\n  | { id: string; op: \"vec4\"; value: Vec4 }\n  | { id: string; op: \"time\" }\n  | { id: string; op: \"input\"; name: GraphInputName }\n  | { id: string; op: \"parameter\"; name: string }\n  | { id: string; op: typeof GRAPH_OPERATIONS.unary[number] | \"not\"; inputs: readonly [string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.binary[number]; inputs: readonly [string, string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.ternary[number]; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose2\"; inputs: readonly [string, string] }\n  | { id: string; op: \"compose3\"; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose4\"; inputs: readonly [string, string, string, string] }\n  | { id: string; op: \"swizzle\"; inputs: readonly [string]; components: string }\n  | { id: string; op: \"sampleTexture\"; inputs: readonly [string]; texture: AssetDefinition | string }\n  | { id: string; op: \"readBuffer\"; inputs: readonly [string]; buffer: string }\n  | { id: string; op: \"sampleFrame\"; inputs: readonly [string]; channel: string }\n  | { id: string; op: \"sampleHistory\"; inputs: readonly [string]; channel: string };",
-      "line": 1388
+      "line": 1391
     },
     {
       "name": "Graph",
       "kind": "InterfaceDeclaration",
       "signature": "export interface Graph {\n  nodes: readonly GraphNode[];\n  output: string;\n  parameters?: readonly GraphParameter[];\n}",
-      "line": 1408,
+      "line": 1411,
       "fields": [
         "nodes",
         "output",
@@ -2284,7 +2286,7 @@
       "name": "MaterialGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialGraphs {\n  baseColor?: Graph;\n  emissive?: Graph;\n  roughness?: Graph;\n  metalness?: Graph;\n  opacity?: Graph;\n  /** Absolute, unsided world-space normal; engine applies material boundary orientation. */\n  normalWorld?: Graph;\n}",
-      "line": 1413,
+      "line": 1416,
       "fields": [
         "baseColor",
         "emissive",
@@ -2298,7 +2300,7 @@
       "name": "VertexGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface VertexGraphs {\n  /** Absolute object-local position after built-in morph, skin and instance transforms. */\n  position?: Graph;\n  /** Unsided object-local normal in the same domain; zero keeps the normalized input normal. */\n  normal?: Graph;\n}",
-      "line": 1422,
+      "line": 1425,
       "fields": [
         "position",
         "normal"
@@ -2308,7 +2310,7 @@
       "name": "MaterialInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialInput {\n  id: string;\n  color?: string;\n  roughness?: number;\n  metalness?: number;\n  texture?: AssetDefinition | string;\n  graph?: Graph;\n  graphs?: MaterialGraphs;\n  vertex?: VertexGraphs;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  emissive?: string;\n  emissiveIntensity?: number;\n  opacity?: number;\n  /** Enable alpha blending even when opacity is 1, for example for transparent texture pixels. */\n  transparent?: boolean;\n  alphaTest?: number;\n  side?: \"front\" | \"back\" | \"double\";\n  /** Closed-volume dielectric fraction; opacity remains independent stochastic coverage. */\n  transmission?: number;\n  ior?: number;\n  /** Nontransmissive dielectric specular strength in [0,1]. Defaults to 1. */\n  specularIntensity?: number;\n  /** Nontransmissive dielectric specular color, a hex or named sRGB color. Defaults to white. */\n  specularColor?: string;\n  attenuationColor?: string;\n  /** World-space distance for Beer absorption; omitted means no absorption. */\n  attenuationDistance?: number;\n}",
-      "line": 1428,
+      "line": 1431,
       "fields": [
         "id",
         "color",
@@ -2338,7 +2340,7 @@
       "name": "MaterialDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialDefinition extends MaterialInput {\n  readonly kind: \"material\";\n}",
-      "line": 1457,
+      "line": 1460,
       "fields": [
         "kind"
       ]
@@ -2347,7 +2349,7 @@
       "name": "PostProcessInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessInput {\n  id: string;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  /** Linear HDR vec4 output. Frame channels: scene.color, scene.normal, scene.depth, or an earlier pass ID. */\n  graph: Graph;\n  enabled?: boolean;\n}",
-      "line": 1460,
+      "line": 1463,
       "fields": [
         "id",
         "buffers",
@@ -2360,7 +2362,7 @@
       "name": "PostProcessDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessDefinition extends PostProcessInput {\n  readonly kind: \"postprocess\";\n}",
-      "line": 1468,
+      "line": 1471,
       "fields": [
         "kind"
       ]
@@ -2369,7 +2371,7 @@
       "name": "ComputeInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeInput {\n  id: string;\n  graph: Graph;\n  outputType: GraphType;\n  count: number;\n  workgroupSize?: number;\n  buffers?: readonly { name: string; type: GraphType }[];\n  textures?: readonly ComputeTextureBinding[];\n}",
-      "line": 1471,
+      "line": 1474,
       "fields": [
         "id",
         "graph",
@@ -2384,7 +2386,7 @@
       "name": "ComputeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDefinition extends ComputeInput {\n  readonly kind: \"compute\";\n}",
-      "line": 1480,
+      "line": 1483,
       "fields": [
         "kind"
       ]
@@ -2393,7 +2395,7 @@
       "name": "AssetInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\" | \"model\" | \"audio\";\n  source?: string;\n  license?: string;\n  attribution?: string;\n  /** Texture imports only; defaults to sRGB color. Data/normal/ORM textures use linear. */\n  colorSpace?: \"srgb\" | \"linear\";\n}",
-      "line": 1483,
+      "line": 1486,
       "fields": [
         "id",
         "path",
@@ -2408,7 +2410,7 @@
       "name": "AssetDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetDefinition extends AssetInput {\n  readonly kind: \"asset\";\n}",
-      "line": 1493,
+      "line": 1496,
       "fields": [
         "kind"
       ]
@@ -2417,7 +2419,7 @@
       "name": "MeshDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MeshDefinition {\n  geometry: Geometry;\n  material: MaterialDefinition | string;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 1496,
+      "line": 1499,
       "fields": [
         "geometry",
         "material",
@@ -2429,7 +2431,7 @@
       "name": "LightDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\" | \"spot\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n  target?: Vec3;\n  /** Spot cone half-angle in radians, greater than zero and at most PI / 2. */\n  angle?: number;\n  /** Spot cone edge softness from 0 to 1. */\n  penumbra?: number;\n  /** Point/spot cutoff distance; 0 means unlimited. */\n  distance?: number;\n  /** Point/spot distance decay exponent; defaults to 2. */\n  decay?: number;\n  shadow?: {\n    mapSize?: number;\n    extent?: number;\n    bias?: number;\n    normalBias?: number;\n    near?: number;\n    far?: number;\n  };\n}",
-      "line": 1502,
+      "line": 1505,
       "fields": [
         "kind",
         "color",
@@ -2447,7 +2449,7 @@
       "name": "LightPatch",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightPatch { intensity?: number; color?: Vec3; target?: Vec3; visible?: boolean }",
-      "line": 1526,
+      "line": 1529,
       "fields": [
         "intensity",
         "color",
@@ -2459,7 +2461,7 @@
       "name": "LightOverride",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightOverride extends LightPatch { entity: string }",
-      "line": 1527,
+      "line": 1530,
       "fields": [
         "entity"
       ]
@@ -2468,7 +2470,7 @@
       "name": "LightService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightService {\n  /** Merge a patch into a live entity's declared light overrides. */\n  set(entity: string, patch: LightPatch): void;\n  /** Remove overrides, restoring the authored light values. */\n  reset(entity: string): void;\n  /** Detached active overrides for renderer integration. */\n  visuals(): readonly LightOverride[];\n}",
-      "line": 1528,
+      "line": 1531,
       "fields": [
         "set",
         "reset",
@@ -2479,7 +2481,7 @@
       "name": "EntityInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  model?: ModelDefinition;\n  rigidBody?: RigidBodyDefinition;\n  character?: CharacterDefinition;\n  components?: readonly ComponentInstance[];\n}",
-      "line": 1536,
+      "line": 1539,
       "fields": [
         "id",
         "prefab",
@@ -2497,7 +2499,7 @@
       "name": "PrefabInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabInput extends Omit<EntityInput, \"prefab\" | \"parent\"> {\n  extends?: PrefabDefinition | string;\n}",
-      "line": 1548,
+      "line": 1551,
       "fields": [
         "extends"
       ]
@@ -2506,7 +2508,7 @@
       "name": "PrefabDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabDefinition extends PrefabInput {\n  readonly kind: \"prefab\";\n}",
-      "line": 1551,
+      "line": 1554,
       "fields": [
         "kind"
       ]
@@ -2515,7 +2517,7 @@
       "name": "SceneInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    /** Perspective by default. Orthographic currently supports raster mode only. */\n    projection?: \"perspective\" | \"orthographic\";\n    /** Orthographic vertical span in world units; defaults to 10. */\n    orthographicSize?: number;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: {\n    background?: string;\n    /** Optional equirectangular panorama used as the visible background, not scene lighting. */\n    backgroundTexture?: AssetDefinition | string;\n    /** Panorama rotation around the vertical axis in radians; defaults to 0. */\n    backgroundRotation?: number;\n    /** Panorama brightness multiplier; defaults to 1. */\n    backgroundIntensity?: number;\n    /** Equirectangular texture used for image-based lighting; mutually exclusive with lighting presets. */\n    lightingTexture?: AssetDefinition | string;\n    /** Image-based lighting rotation around the vertical axis in radians; defaults to 0. */\n    lightingRotation?: number;\n    /** Image-based lighting intensity multiplier; defaults to 1. */\n    lightingIntensity?: number;\n    ambientIntensity?: number;\n    lighting?: \"none\" | \"studio\";\n  };\n  follow?: {\n    entity: string;\n    distance?: number;\n    height?: number;\n    lookHeight?: number;\n    yaw?: number;\n    smoothing?: number;\n  };\n  gravity?: Vec3;\n  /** Opt into the independent XY physics world; default gravity is [0,-9.81]. */\n  physics2d?: { gravity?: Vec2 };\n  entities: readonly EntityInput[];\n}",
-      "line": 1554,
+      "line": 1557,
       "fields": [
         "id",
         "camera",
@@ -2530,7 +2532,7 @@
       "name": "SceneDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneDefinition extends SceneInput {\n  readonly kind: \"scene\";\n}",
-      "line": 1597,
+      "line": 1600,
       "fields": [
         "kind"
       ]
@@ -2539,7 +2541,7 @@
       "name": "SystemInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemInput {\n  id: string;\n  phase?: SystemPhase;\n  before?: readonly string[];\n  after?: readonly string[];\n  reads?: readonly string[];\n  writes?: readonly string[];\n  structural?: boolean;\n  run: (engine: SystemContext, dt: number) => void;\n}",
-      "line": 1600,
+      "line": 1603,
       "fields": [
         "id",
         "phase",
@@ -2555,7 +2557,7 @@
       "name": "SystemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemDefinition extends SystemInput {\n  readonly kind: \"system\";\n}",
-      "line": 1610,
+      "line": 1613,
       "fields": [
         "kind"
       ]
@@ -2564,7 +2566,7 @@
       "name": "GameInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  computeBuffers?: readonly ComputeBufferInput[];\n  computeTextures?: readonly ComputeTextureInput[];\n  assets?: readonly AssetDefinition[];\n  scenes?: readonly SceneDefinition[];\n  input?: Readonly<Record<string, readonly string[]>>;\n  ui?: readonly UIElementDefinition[];\n  sounds?: readonly SoundDefinition[];\n  audioBuses?: readonly AudioBusDefinition[];\n  render?: Partial<RenderSettings>;\n  postProcesses?: readonly PostProcessDefinition[];\n}",
-      "line": 1613,
+      "line": 1616,
       "fields": [
         "id",
         "scene",
@@ -2589,7 +2591,7 @@
       "name": "GameDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameDefinition extends GameInput {\n  readonly kind: \"game\";\n}",
-      "line": 1632,
+      "line": 1635,
       "fields": [
         "kind"
       ]
@@ -2598,7 +2600,7 @@
       "name": "GameInstance",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInstance {\n  update(dt: number): void;\n  dispose(): void;\n}",
-      "line": 1635,
+      "line": 1638,
       "fields": [
         "update",
         "dispose"
@@ -2608,61 +2610,61 @@
       "name": "defineComponent",
       "kind": "FunctionDeclaration",
       "signature": "export function defineComponent<const S extends ComponentSchema>(input: {\n  id: string;\n  schema: S;\n}): ComponentDefinition<S>;",
-      "line": 1639
+      "line": 1642
     },
     {
       "name": "defineMaterial",
       "kind": "FunctionDeclaration",
       "signature": "export function defineMaterial(input: MaterialInput): MaterialDefinition;",
-      "line": 1645
+      "line": 1648
     },
     {
       "name": "definePostProcess",
       "kind": "FunctionDeclaration",
       "signature": "export function definePostProcess(input: PostProcessInput): PostProcessDefinition;",
-      "line": 1648
+      "line": 1651
     },
     {
       "name": "defineCompute",
       "kind": "FunctionDeclaration",
       "signature": "export function defineCompute(input: ComputeInput): ComputeDefinition;",
-      "line": 1651
+      "line": 1654
     },
     {
       "name": "defineAsset",
       "kind": "FunctionDeclaration",
       "signature": "export function defineAsset(input: AssetInput): AssetDefinition;",
-      "line": 1654
+      "line": 1657
     },
     {
       "name": "definePrefab",
       "kind": "FunctionDeclaration",
       "signature": "export function definePrefab(input: PrefabInput): PrefabDefinition;",
-      "line": 1657
+      "line": 1660
     },
     {
       "name": "defineScene",
       "kind": "FunctionDeclaration",
       "signature": "export function defineScene(input: SceneInput): SceneDefinition;",
-      "line": 1660
+      "line": 1663
     },
     {
       "name": "defineSystem",
       "kind": "FunctionDeclaration",
       "signature": "export function defineSystem(input: SystemInput): SystemDefinition;",
-      "line": 1663
+      "line": 1666
     },
     {
       "name": "defineGame",
       "kind": "FunctionDeclaration",
       "signature": "export function defineGame(input: GameInput): GameDefinition;",
-      "line": 1666
+      "line": 1669
     },
     {
       "name": "instantiateGame",
       "kind": "FunctionDeclaration",
       "signature": "export function instantiateGame(\n  game: GameDefinition,\n  engine: EngineFacade,\n): GameInstance;",
-      "line": 1670
+      "line": 1673
     }
   ]
 }
