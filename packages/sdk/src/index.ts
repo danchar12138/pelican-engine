@@ -481,6 +481,16 @@ export interface WorldChunkDefinition {
 export interface WorldStreamingService {
   configure(options: WorldStreamingOptions): void;
   defineChunk(chunk: WorldChunkDefinition): void;
+  /** Add a root prefab to a chunk. Active-chunk edits take effect at a later structural boundary. */
+  addEntity(x: number, z: number, entity: SpawnInput): void;
+  /** Remove a chunk-owned root. Active-chunk edits take effect at a later structural boundary. */
+  removeEntity(x: number, z: number, entityId: string): void;
+  /** Detached committed entity data and queued edit identifiers. */
+  getChunk(x: number, z: number): {
+    x: number; z: number; active: boolean;
+    entities: readonly SpawnInput[];
+    pending: readonly { kind: "add" | "remove"; id: string }[];
+  };
   /** Set a world-space observer, or null to suspend automatic residency changes. */
   setFocus(position: Vec3 | null): void;
   /** Removes an inactive definition; loaded chunks must first move out of range. */

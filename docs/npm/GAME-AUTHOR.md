@@ -208,6 +208,17 @@ entities in total. `inspect()` reports residency, and `setFocus(null)` freezes
 residency changes. Load/unload uses Chebyshev distance and hysteresis; a bounded
 number of chunks change per fixed tick. Load/unload is not immediate.
 
+Use `ctx.streaming.addEntity(x, z, { id, prefab, transform })` to build a root
+in a defined chunk, or `ctx.streaming.removeEntity(x, z, id)` to remove one.
+Inactive chunk edits update stored data immediately. Edits to an active chunk
+are queued for a later update boundary, at most 64 entity edits per fixed tick;
+up to 4096 can be queued. `getChunk(x, z)` returns detached committed entity
+data and pending edit identifiers. Removing an entity whose addition is still
+queued cancels that addition. A queued removal reserves its ID until applied.
+Edits still proceed when focus is null; automatic residency changes do not.
+Pending edits are included in host snapshots. The source example
+`examples/streaming-world` uses B and X for building and removing a marker.
+
 On unload, surviving roots retain their world transform and components; roots
 already destroyed by the game stay destroyed. Reusing a live chunk-owned ID is
 rejected, and attached child entities must be removed before unloading. Host

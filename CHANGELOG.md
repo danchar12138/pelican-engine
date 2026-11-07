@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Allow chunk-owned static prefab roots to be built and removed at runtime, with bounded deferred active-chunk edits and snapshot persistence. Runtime behavior is unverified.
+
 - Add bounded focus-based chunk residency for static prefab roots, including transform/component preservation and host snapshots. Runtime behavior is unverified; this is not asset or dynamic-physics streaming.
 
 - Add optional diagonal weighted grid paths with blocked-corner protection. Runtime behavior is unverified.

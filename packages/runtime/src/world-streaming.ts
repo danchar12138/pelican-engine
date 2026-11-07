@@ -15,9 +15,12 @@ import { cloneSerializable } from "./random.ts";
 import { values } from "./storage.ts";
 
 type Options = Required<WorldStreamingOptions>;
-type Chunk = { x: number; z: number; active: boolean; entities: EntityRecord[] };
+type Edit = { kind: "add"; entity: EntityRecord } | { kind: "remove"; id: string };
+type Chunk = { x: number; z: number; active: boolean; entities: EntityRecord[]; edits?: Edit[] };
 type StreamingSnapshot = { version: 1; options: Options; focus: Vec3 | null; chunks: Chunk[] };
 const initial: Options = { chunkSize: 32, loadRadius: 1, unloadRadius: 2, maxChangesPerTick: 4 };
+const MAX_PENDING_EDITS = 4096;
+const MAX_EDITS_PER_TICK = 64;
 const transformSchema: ComponentSchema = {
   position: { type: "vec3", default: [0, 0, 0] },
   rotation: { type: "vec3", default: [0, 0, 0] },
@@ -86,7 +89,7 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       return fail("SNAPSHOT", "Expected version 1 streaming snapshot with at most 4096 chunks.");
     const parsedOptions = options(data.options), parsedFocus = focus(data.focus);
     const coordinates = new Set<string>(), ids = new Set<string>();
-    let total = 0;
+    let total = 0, pendingCount = 0;
     const parsedChunks = data.chunks.map(item => {
       if (!item || !coordinate(item.x) || !coordinate(item.z) || typeof item.active !== "boolean" || !Array.isArray(item.entities) || item.entities.length > 512)
         return fail("SNAPSHOT", "Invalid chunk coordinates, active flag or entities.");
@@ -98,9 +101,32 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
         if (ids.has(record.id)) return fail("SNAPSHOT", `Duplicate chunk entity '${record.id}'.`);
         ids.add(record.id);
       }
-      total += entities.length;
+      if (item.edits !== undefined && (!Array.isArray(item.edits) || (!item.active && item.edits.length > 0)))
+        return fail("SNAPSHOT", "Only active chunks may have an edit queue.");
+      const removed = new Set<string>(), additions = new Set<string>();
+      const edits: Edit[] = (item.edits ?? []).map(edit => {
+        if (!edit || typeof edit !== "object") return fail("SNAPSHOT", "Invalid chunk edit.");
+        if (edit.kind === "remove") {
+          if (typeof edit.id !== "string" || !entities.some(record => record.id === edit.id) || removed.has(edit.id))
+            return fail("SNAPSHOT", "A queued removal must name a distinct current chunk entity.");
+          removed.add(edit.id);
+          return { kind: "remove", id: edit.id };
+        }
+        if (edit.kind === "add") {
+          const record = entity(edit.entity, true);
+          if (ids.has(record.id) || additions.has(record.id)) return fail("SNAPSHOT", `Duplicate queued entity '${record.id}'.`);
+          additions.add(record.id);
+          ids.add(record.id);
+          return { kind: "add", entity: record };
+        }
+        return fail("SNAPSHOT", "Unknown chunk edit.");
+      });
+      if (entities.length + additions.size > 512) return fail("CAPACITY", "A chunk may reserve at most 512 entities.");
+      pendingCount += edits.length;
+      if (pendingCount > MAX_PENDING_EDITS) return fail("CAPACITY", "At most 4096 edits may be queued.");
+      total += entities.length + additions.size;
       if (total > 65536) return fail("CAPACITY", "At most 65536 chunk entities may be registered.");
-      return { x: item.x, z: item.z, active: item.active, entities };
+      return { x: item.x, z: item.z, active: item.active, entities, ...(edits.length ? { edits } : {}) };
     });
     return { version: 1, options: parsedOptions, focus: parsedFocus, chunks: parsedChunks };
   }
@@ -113,7 +139,14 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       const remaining: EntityRecord[] = [];
       for (const old of chunk.entities) {
         const record = records.get(old.id), handle = handles.get(old.id);
-        if (!record) { handles.delete(old.id); waiting.delete(old.id); continue; }
+        if (!record) {
+          handles.delete(old.id); waiting.delete(old.id);
+          if (chunk.edits) {
+            chunk.edits = chunk.edits.filter(edit => edit.kind !== "remove" || edit.id !== old.id);
+            if (!chunk.edits.length) delete chunk.edits;
+          }
+          continue;
+        }
         if (handle && !context.world.isAlive(handle))
           return fail("OWNERSHIP", `Entity '${old.id}' was replaced while owned by a chunk; restore a checkpoint or use a distinct ID.`);
         if (!handle && waiting.has(old.id)) {
@@ -141,6 +174,24 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
         fail("SNAPSHOT", `Active chunk entity '${item.id}' does not match the world snapshot.`);
     }
   }
+  function chunkAt(x: number, z: number): Chunk {
+    if (!coordinate(x) || !coordinate(z)) return fail("CHUNK", "Chunk coordinates must be safe integers in [-1e12, 1e12].");
+    return chunks.get(key(x, z)) ?? fail("MISSING", `Chunk '${key(x, z)}' is not defined.`);
+  }
+  function reservedIds(): Set<string> {
+    const result = new Set<string>();
+    for (const chunk of chunks.values()) {
+      for (const item of chunk.entities) result.add(item.id);
+      for (const edit of chunk.edits ?? []) if (edit.kind === "add") result.add(edit.entity.id);
+    }
+    return result;
+  }
+  function enqueue(chunk: Chunk, edit: Edit): void {
+    let total = 0;
+    for (const current of chunks.values()) total += current.edits?.length ?? 0;
+    if (total >= MAX_PENDING_EDITS) return fail("CAPACITY", "At most 4096 edits may be queued.");
+    (chunk.edits ??= []).push(edit);
+  }
   const service: WorldStreamingService = {
     configure(input) { alive(); config = options(cloneSerializable(input), config); },
     defineChunk(input: WorldChunkDefinition) {
@@ -150,7 +201,7 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
         return fail("CHUNK", "Chunk requires integer x/z and at most 512 root prefab entities.");
       const id = key(data.x, data.z);
       if (chunks.has(id)) return fail("DUPLICATE", `Chunk '${id}' is already defined.`);
-      const reserved = new Set([...chunks.values()].flatMap(chunk => chunk.entities.map(item => item.id)));
+      const reserved = reservedIds();
       const entities = data.entities.map(item => entity(item));
       for (const item of entities) {
         if (reserved.has(item.id)) return fail("DUPLICATE", `Chunk entity '${item.id}' is already reserved.`);
@@ -159,12 +210,44 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       if (chunks.size >= 4096 || reserved.size > 65536) return fail("CAPACITY", "At most 4096 chunks and 65536 chunk entities may be defined.");
       chunks.set(id, { x: data.x, z: data.z, active: false, entities });
     },
+    addEntity(x, z, input) {
+      alive();
+      const chunk = chunkAt(x, z), item = entity(cloneSerializable(input));
+      const reserved = reservedIds();
+      if (reserved.has(item.id)) return fail("DUPLICATE", `Chunk entity '${item.id}' is already reserved.`);
+      const additions = (chunk.edits ?? []).filter(edit => edit.kind === "add").length;
+      if (chunk.entities.length + additions >= 512 || reserved.size >= 65536)
+        return fail("CAPACITY", "A chunk may reserve at most 512 entities; all chunks may reserve at most 65536.");
+      if (chunk.active) enqueue(chunk, { kind: "add", entity: item });
+      else chunk.entities.push(item);
+    },
+    removeEntity(x, z, entityId) {
+      alive();
+      const chunk = chunkAt(x, z);
+      if (typeof entityId !== "string" || !entityId.trim()) return fail("ENTITY", "Expected a nonempty entity id.");
+      const pendingAdd = chunk.edits?.findIndex(edit => edit.kind === "add" && edit.entity.id === entityId) ?? -1;
+      if (pendingAdd >= 0) {
+        chunk.edits!.splice(pendingAdd, 1);
+        if (!chunk.edits!.length) delete chunk.edits;
+        return;
+      }
+      const index = chunk.entities.findIndex(item => item.id === entityId);
+      if (index < 0) return fail("MISSING", `Entity '${entityId}' is not owned by chunk '${key(x, z)}'.`);
+      if (!chunk.active) { chunk.entities.splice(index, 1); return; }
+      if (chunk.edits?.some(edit => edit.kind === "remove" && edit.id === entityId))
+        return fail("PENDING", `Removal of '${entityId}' is already queued.`);
+      enqueue(chunk, { kind: "remove", id: entityId });
+    },
+    getChunk(x, z) {
+      alive();
+      const chunk = chunkAt(x, z);
+      return cloneSerializable({ x: chunk.x, z: chunk.z, active: chunk.active, entities: chunk.entities,
+        pending: (chunk.edits ?? []).map(edit => ({ kind: edit.kind, id: edit.kind === "add" ? edit.entity.id : edit.id })) });
+    },
     setFocus(position) { alive(); observer = focus(position); },
     removeChunk(x, z) {
       alive();
-      if (!coordinate(x) || !coordinate(z)) return fail("CHUNK", "Chunk coordinates must be safe integers in [-1e12, 1e12].");
-      const chunk = chunks.get(key(x, z));
-      if (!chunk) return fail("MISSING", `Chunk '${key(x, z)}' is not defined.`);
+      const chunk = chunkAt(x, z);
       if (chunk.active) return fail("ACTIVE", `Move focus away and wait for chunk '${key(x, z)}' to unload before removal.`);
       chunks.delete(key(x, z));
     },
@@ -183,15 +266,38 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
         run() {
           const records = currentRecords();
           sync(records);
-          if (!observer) return;
-          const x = Math.floor(observer[0] / config.chunkSize), z = Math.floor(observer[2] / config.chunkSize);
-          const distance = (chunk: Chunk) => Math.max(Math.abs(chunk.x - x), Math.abs(chunk.z - z));
-          const unload = [...chunks.values()].filter(chunk => chunk.active && distance(chunk) > config.unloadRadius)
-            .sort((a, b) => distance(b) - distance(a) || a.x - b.x || a.z - b.z);
-          const load = [...chunks.values()].filter(chunk => !chunk.active && distance(chunk) <= config.loadRadius)
-            .sort((a, b) => distance(a) - distance(b) || a.x - b.x || a.z - b.z);
-          const selected = [...unload, ...load].slice(0, config.maxChangesPerTick);
-          // Preflight every selected chunk before enqueuing any structural changes.
+          const editPlan: { chunk: Chunk; edit: Edit }[] = [];
+          const touched = new Set<Chunk>();
+          const ordered = [...chunks.values()].sort((a, b) => a.x - b.x || a.z - b.z);
+          for (const chunk of ordered) {
+            for (const edit of chunk.edits ?? []) {
+              if (editPlan.length >= MAX_EDITS_PER_TICK) break;
+              editPlan.push({ chunk, edit });
+              touched.add(chunk);
+            }
+            if (editPlan.length >= MAX_EDITS_PER_TICK) break;
+          }
+          let selected: Chunk[] = [];
+          if (observer) {
+            const x = Math.floor(observer[0] / config.chunkSize), z = Math.floor(observer[2] / config.chunkSize);
+            const distance = (chunk: Chunk) => Math.max(Math.abs(chunk.x - x), Math.abs(chunk.z - z));
+            const eligible = (chunk: Chunk) => !touched.has(chunk) && !(chunk.edits?.length);
+            const unload = ordered.filter(chunk => eligible(chunk) && chunk.active && distance(chunk) > config.unloadRadius)
+              .sort((a, b) => distance(b) - distance(a) || a.x - b.x || a.z - b.z);
+            const load = ordered.filter(chunk => eligible(chunk) && !chunk.active && distance(chunk) <= config.loadRadius)
+              .sort((a, b) => distance(a) - distance(b) || a.x - b.x || a.z - b.z);
+            selected = [...unload, ...load].slice(0, config.maxChangesPerTick);
+          }
+          // Preflight all planned operations before enqueuing structural changes.
+          for (const { edit } of editPlan) {
+            if (edit.kind === "add") {
+              if (records.has(edit.entity.id)) return fail("OWNERSHIP", `Entity '${edit.entity.id}' already exists; choose a distinct chunk entity ID.`);
+            } else {
+              for (const record of records.values())
+                if (record.parent === edit.id)
+                  return fail("CHILD", `Entity '${record.id}' is attached to '${edit.id}'; remove the child before demolition.`);
+            }
+          }
           for (const chunk of selected) {
             const ids = new Set(chunk.entities.map(item => item.id));
             if (chunk.active) {
@@ -201,6 +307,24 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
             } else for (const item of chunk.entities) {
               if (records.has(item.id)) return fail("OWNERSHIP", `Entity '${item.id}' already exists; choose a distinct chunk entity ID.`);
             }
+          }
+          const consumed = new Map<Chunk, number>();
+          for (const { chunk, edit } of editPlan) {
+            if (edit.kind === "add") {
+              context.world.queue({ type: "spawn", entity: edit.entity });
+              chunk.entities.push(edit.entity);
+              waiting.add(edit.entity.id);
+            } else {
+              const handle = handles.get(edit.id);
+              if (handle) context.world.queue({ type: "destroy", entity: handle });
+              handles.delete(edit.id);
+              chunk.entities = chunk.entities.filter(item => item.id !== edit.id);
+            }
+            consumed.set(chunk, (consumed.get(chunk) ?? 0) + 1);
+          }
+          for (const [chunk, count] of consumed) {
+            chunk.edits!.splice(0, count);
+            if (!chunk.edits!.length) delete chunk.edits;
           }
           for (const chunk of selected) {
             if (chunk.active) {
