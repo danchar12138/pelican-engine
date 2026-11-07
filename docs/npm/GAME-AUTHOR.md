@@ -246,6 +246,13 @@ Use `ctx.fluid.create({ id, autoStep: true, visual: { material: "material-id" } 
 
 The optional `visual.radius` overrides the rendered particle radius without changing the solver's collision radius. When omitted, each particle's solver radius is used. This presentation remains unverified at runtime.
 
+An optional `particleGrid: [width, height, depth]` chooses the initial fluid
+lattice dimensions. Each dimension is an integer from 1 to 8, for at most 512
+particles; the default is `[4, 4, 4]`. Particle spacing and solver parameters
+remain those of the reference model. Its CPU neighbor search is quadratic, so
+larger grids can be substantially more expensive. Runtime, stability and
+performance for configurable grids have not been validated.
+
 Fluid and soft-body definitions accept `origin: [x, y, z]` to translate the
 reference particles and their fixed container into world space. Components must
 be finite and in `[-100, 100]`. The default is `[0, 0, 0]`; an explicitly

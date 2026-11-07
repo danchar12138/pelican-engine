@@ -46,6 +46,8 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       result.set(entry.definition.id, entry);
       const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
       if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Fluid origin differs from its definition.");
+      const savedGrid = item.state?.options?.particleGrid ?? [4, 4, 4], expectedGrid = entry.definition.particleGrid ?? [4, 4, 4];
+      if (!Array.isArray(savedGrid) || savedGrid.length !== 3 || savedGrid.some((value, axis) => value !== expectedGrid[axis])) fail("SNAPSHOT", "Fluid particle grid differs from its definition.");
       if (!sameSimulationContainer(item.state?.options?.container, entry.definition.container)) fail("SNAPSHOT", "Fluid container differs from its definition.");
       entry.simulation.restore(item.state);
     }

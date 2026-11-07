@@ -41,6 +41,7 @@ export function resolveOptions(
     gravity: copy(options.gravity ?? [0, -2, 0]),
     ...(options.origin === undefined ? {} : { origin: copy(options.origin) }),
     ...(options.container === undefined ? {} : { container: copy(options.container) }),
+    ...(options.particleGrid === undefined ? {} : { particleGrid: copy(options.particleGrid) }),
     bodyPosition: copy(
       options.bodyPosition ??
         (kind === "cloth" ? [0.08, 0.15, -0.72] : [-0.78, 0.15, 0]).map((value, axis) => value + (options.origin?.[axis] ?? 0)) as Vec3,
@@ -81,6 +82,9 @@ export function resolveOptions(
   if (result.container !== undefined && (!result.container || !isVec3(result.container.min) || !isVec3(result.container.max) ||
       result.container.min.some((value, axis) => Math.abs(value) > 100 || Math.abs(result.container!.max[axis]) > 100 || result.container!.max[axis] - value <= 0.5)))
     fail("SIM_OPTIONS", "container bounds must be finite vectors in [-100,100], with each span greater than 0.5.");
+  if (result.particleGrid !== undefined && (kind !== "fluid" || !isVec3(result.particleGrid) ||
+      result.particleGrid.some(value => !Number.isSafeInteger(value) || value < 1 || value > 8)))
+    fail("SIM_OPTIONS", "particleGrid is fluid-only and requires three integer dimensions in [1,8].");
   return result;
 }
 export function makeScene(
@@ -255,12 +259,13 @@ export function makeScene(
         }
     s.triangles = [...faces.values()];
   } else {
-    // 64 SPH particles: mass = restDensity * latticeSpacing^3, restDensity = 1.
-    for (let z = 0; z < 4; z++)
-      for (let y = 0; y < 4; y++)
-        for (let x = 0; x < 4; x++)
+    // Mass = restDensity * latticeSpacing^3, with restDensity = 1.
+    const [width, height, depth] = options.particleGrid ?? [4, 4, 4];
+    for (let z = 0; z < depth; z++)
+      for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++)
           particle(
-            [(x - 1.5) * 0.16, 0.22 + (y - 1.5) * 0.16, (z - 1.5) * 0.16],
+            [(x - (width - 1) / 2) * 0.16, 0.22 + (y - (height - 1) / 2) * 0.16, (z - (depth - 1) / 2) * 0.16],
             false,
             0.055,
             0.16 ** 3,

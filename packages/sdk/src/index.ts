@@ -298,6 +298,8 @@ export interface FluidBodyCollider { readonly id: string; readonly entity: strin
 export interface SimulationContainer { min: Vec3; max: Vec3 }
 export interface FluidDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
+  /** Initial lattice dimensions, each an integer in [1,8]; defaults to [4,4,4]. */
+  particleGrid?: readonly [number, number, number];
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
   container?: SimulationContainer;

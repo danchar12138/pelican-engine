@@ -15,6 +15,8 @@ export interface SimulationOptions {
   origin?: Vec3;
   /** Axis-aligned bounds relative to origin. */
   container?: SimulationContainer;
+  /** Initial fluid lattice dimensions; omitted means 4 by 4 by 4. */
+  particleGrid?: Vec3;
   bodyPosition?: Vec3;
   bodyVelocity?: Vec3;
 }
@@ -28,6 +30,7 @@ export interface ResolvedOptions {
   gravity: Vec3;
   origin?: Vec3;
   container?: SimulationContainer;
+  particleGrid?: Vec3;
   bodyPosition: Vec3;
   bodyVelocity: Vec3;
 }
