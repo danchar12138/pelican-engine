@@ -1,5 +1,5 @@
 import type { SceneIR } from "../../compiler/src/types.ts";
-import type { AnimationControlService, AnimationService, GamepadState } from "../../sdk/src/index.ts";
+import type { AnimationControlService, AnimationService, GamepadState, LocalizationVariables } from "../../sdk/src/index.ts";
 import type {
   RuntimePlugin,
   RuntimePluginContext,
@@ -57,6 +57,16 @@ export interface GameServicesDriver {
 /** A failed play never evicts an existing voice or consumes an id. */
 export const GAME_SERVICES_MAX_VOICES = 32;
 const MAX_DYNAMIC_UI = 512;
+type UITextBinding = { id: string; key: string; variables: LocalizationVariables };
+function uiTextBinding(value: unknown, code: string): asserts value is UITextBinding {
+  const binding = object(value, ["id", "key", "variables"], code);
+  name(binding.id, code, "UI id");
+  check(typeof binding.key === "string" && binding.key.trim().length > 0 && binding.key.length <= 128 && !/[\x00-\x1f\x7f]/.test(binding.key), code, "Invalid localization key.");
+  const vars = binding.variables;
+  check(vars !== null && typeof vars === "object" && !Array.isArray(vars) && Object.keys(vars).length <= 32, code, "Invalid localization variables.");
+  for (const [key, entry] of Object.entries(vars))
+    check(/^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/.test(key) && (typeof entry === "boolean" || (typeof entry === "string" && entry.length <= 4096) || (typeof entry === "number" && Number.isFinite(entry))), code, `Invalid localization variable ${key}.`);
+}
 const SNAPSHOT_ERROR = "TC_SERVICES_SNAPSHOT";
 const fail = (code: string, message: string): never => {
   throw new Error(`${code}: ${message}`);
@@ -362,6 +372,7 @@ export function createGameServices(
     camera: cloneSerializable(initialCamera),
     ui: cloneSerializable(initialUI),
     uiNextGeneration: 1,
+    uiTextBindings: [] as UITextBinding[],
     audio: {
       volume: 1,
       ...(hasBuses ? { busVolumes: cloneSerializable(buses) as NonNullable<GameServicesInspection["audio"]["busVolumes"]> } : {}),
@@ -420,6 +431,16 @@ export function createGameServices(
       `UI ${id} must be a ${kind}.`,
     );
     return item;
+  };
+  const localizedText = (binding: UITextBinding): string => {
+    const i18n = context?.getLocalizationService?.();
+    check(i18n, "TC_UI_LOCALIZATION", "Localized UI requires the localization service.");
+    try { return i18n.text(binding.key, binding.variables); }
+    catch (error) { return fail("TC_UI_LOCALIZATION", `UI ${binding.id}: ${String(error)}`); }
+  };
+  const displayUI = (item: UI[number]): UI[number] => {
+    const binding = state.uiTextBindings.find(entry => entry.id === item.id);
+    return binding ? { ...item, text: localizedText(binding) } : item;
   };
   const request = (type: GameServiceRequest["type"], id: string) => {
     alive();
@@ -606,8 +627,9 @@ export function createGameServices(
         const item = ui(id);
         check(item.generation !== undefined, "TC_UI_AUTHORED", `UI ${id} is declared in game.ui; hide it instead.`);
         state.ui.splice(state.ui.indexOf(item), 1);
+        state.uiTextBindings = state.uiTextBindings.filter(binding => binding.id !== id);
       },
-      get(id) { return cloneSerializable(ui(id)); },
+      get(id) { return cloneSerializable(displayUI(ui(id))); },
       setLayout(id, patch) {
         const item = ui(id), input = cloneSerializable(patch);
         check(input && typeof input === "object" && !Array.isArray(input) &&
@@ -616,6 +638,21 @@ export function createGameServices(
         const next = { ...item, ...input };
         uiValue(next, "TC_UI_VALUE");
         Object.assign(item, input);
+      },
+      bindText(id, key, variables = {}) {
+        const item = ui(id);
+        check(item.kind === "text" || item.kind === "button", "TC_UI_KIND", `UI ${id} must be text or button to bind localization.`);
+        const binding = cloneSerializable({ id, key, variables });
+        uiTextBinding(binding, "TC_UI_LOCALIZATION");
+        localizedText(binding);
+        state.uiTextBindings = [...state.uiTextBindings.filter(entry => entry.id !== id), binding];
+      },
+      unbindText(id) {
+        const item = ui(id);
+        const binding = state.uiTextBindings.find(entry => entry.id === id);
+        if (!binding) return;
+        item.text = localizedText(binding);
+        state.uiTextBindings = state.uiTextBindings.filter(entry => entry.id !== id);
       },
       setText(id, text) {
         const item = ui(id);
@@ -626,6 +663,7 @@ export function createGameServices(
           `UI ${id} text must be a string.`,
         );
         item.text = text;
+        state.uiTextBindings = state.uiTextBindings.filter(binding => binding.id !== id);
       },
       setProgress(id, value) {
         const item = ui(id, "bar");
@@ -797,7 +835,7 @@ export function createGameServices(
     return cloneSerializable({
       input: { held, pressed, released, gamepadMode: state.input.gamepadMode, gamepadDeadzone: state.input.gamepadDeadzone, gamepad: state.input.gamepad },
       camera: state.camera,
-      ui: state.ui,
+      ui: state.ui.map(displayUI),
       audio: { volume: state.audio.volume, ...(state.audio.busVolumes !== undefined ? { busVolumes: state.audio.busVolumes } : {}), voices: state.audio.voices },
       storage: state.storage,
       scene: state.scene,
@@ -826,6 +864,7 @@ export function createGameServices(
         "camera",
         "ui",
         ...(Object.hasOwn(data, "uiNextGeneration") ? ["uiNextGeneration"] : []),
+        ...(Object.hasOwn(data, "uiTextBindings") ? ["uiTextBindings"] : []),
         "audio",
         "storage",
         "scene",
@@ -937,6 +976,15 @@ export function createGameServices(
           SNAPSHOT_ERROR, "Invalid or duplicate dynamic UI generation.");
         generations.add(generation);
       }
+    }
+    if (!Object.hasOwn(data, "uiTextBindings")) data.uiTextBindings = [];
+    check(Array.isArray(data.uiTextBindings) && data.uiTextBindings.length <= data.ui.length, SNAPSHOT_ERROR, "Invalid UI localization bindings.");
+    const boundIds = new Set<string>();
+    for (const binding of data.uiTextBindings) {
+      uiTextBinding(binding, SNAPSHOT_ERROR);
+      const item = data.ui.find(entry => entry.id === binding.id);
+      check(item && (item.kind === "text" || item.kind === "button") && !boundIds.has(binding.id), SNAPSHOT_ERROR, "Invalid or duplicate localized UI target.");
+      boundIds.add(binding.id);
     }
     object(data.audio, ["volume", "voices", "nextVoice", ...(Object.hasOwn(data.audio, "busVolumes") ? ["busVolumes"] : [])], SNAPSHOT_ERROR);
     finite(data.audio.volume, SNAPSHOT_ERROR, "Master volume", 0, 1);

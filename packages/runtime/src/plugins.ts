@@ -85,6 +85,8 @@ export interface RuntimePluginContext {
   getPhysics2DService?(): Physics2DService | undefined;
   /** Internal lazy service bridge for spatial audio. */
   getPhysicsService?(): PhysicsService | undefined;
+  /** Internal lazy service bridge for localized UI text. */
+  getLocalizationService?(): LocalizationService | undefined;
   /** Host interval; supplied by RuntimeHost to engine plugins. */
   readonly fixedDt?: number;
   world: RuntimeWorld;

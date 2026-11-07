@@ -1004,6 +1004,10 @@ export interface UIService {
   get(id: string): UIElementState;
   /** Atomically update layout properties. World labels use x/y as screen-pixel offsets. */
   setLayout(id: string, patch: UILayoutPatch): void;
+  /** Bind text or button content to a localization key; setText removes the binding. */
+  bindText(id: string, key: string, variables?: LocalizationVariables): void;
+  /** Remove a localization binding, retaining its currently resolved text. */
+  unbindText(id: string): void;
   setText(id: string, text: string): void;
   setProgress(id: string, value: number): void;
   setVisible(id: string, visible: boolean): void;

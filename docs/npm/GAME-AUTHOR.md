@@ -443,7 +443,7 @@ ctx.i18n.define("en-US", { greeting: "Hello, {name}!", items: { one: "{count} it
 ctx.i18n.define("zh-CN", { greeting: "你好，{name}！", items: { other: "{count} 件物品" } });
 ctx.i18n.setFallback("en-US");
 ctx.i18n.setLocale("zh-CN");
-ctx.ui.setText("label", ctx.i18n.text("greeting", { name: "鹈鹕" }));
+ctx.ui.bindText("label", "greeting", { name: "鹈鹕" });
 ```
 
 `text` searches the active catalog and then the configured fallback; missing
@@ -457,9 +457,17 @@ cannot provide a requested capability, the service reports it explicitly.
 and `setFallback(null)` clears fallback. A catalog in use cannot be removed.
 Locale definitions and selection are included in snapshots.
 
+`bindText` connects a text or button control to a key and fixed variables;
+changing the locale changes its displayed text and `ui.get` result. Call it
+again to update variables. `unbindText` retains the current resolved text;
+`setText` replaces the binding. Bindings are saved with UI state and are
+removed when a dynamic control is removed. Input fields cannot be bound, so
+switching language does not overwrite player input. Missing keys or variables
+after a locale change produce a `TC_UI_LOCALIZATION` diagnostic; use a
+fallback catalog or `setText` to recover.
+
 This is a basic dictionary/placeholder/plural service, not automatic
-translation, full ICU message syntax, date formatting or automatic UI binding:
-game systems update UI text after language changes. Up to 32 catalogs and
+translation, full ICU message syntax or date formatting. Up to 32 catalogs and
 4096 keys per catalog are supported, with total text and message limits. Runtime
 formatting, font coverage, browser IME and snapshot behavior have not been
 validated. See `examples/localization` for language switching.
@@ -583,7 +591,7 @@ ignore an event whose generation no longer matches the current control. The
 engine ignores stale dynamic text updates, but gameplay code must filter submit
 and activation events itself. Static controls keep their existing payload
 shapes. See `examples/dynamic-ui` for a small reusable-slot menu. This is a
-basic runtime UI increment, not a full layout, localization or accessibility
+basic runtime UI increment, not a full layout or accessibility
 system; rendering, input and snapshot behavior have not been runtime-validated.
 
 ### Static world chunk residency
