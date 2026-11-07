@@ -5,7 +5,7 @@ export interface SimulationContainer { min: Vec3; max: Vec3 }
 export type SimulationCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
-  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 export interface SimulationOptions {
   seed?: number;
   fixedDt?: number;

@@ -555,8 +555,8 @@ export interface FluidVisualState {
 export interface SimulationImpulse { particle: string; impulse: Vec3 }
 /** Force in newtons, applied to one particle for the next fixed tick. */
 export interface SimulationForce { particle: string; force: Vec3 }
-/** Manual particle obstacle; boxes are axis-aligned in world space. */
-export type ParticleSimulationCollider = Exclude<RopeCollider, { kind: "box" }> | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+/** Manual particle obstacle; box rotation is optional XYZ Euler angles in radians. */
+export type ParticleSimulationCollider = RopeCollider;
 /** Nearest particle centre in world space; distance is measured in metres. */
 export interface SimulationParticleHit { particle: string; position: Vec3; distance: number }
 export interface FluidService {

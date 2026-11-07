@@ -2,13 +2,15 @@
 
 ## Unreleased
 
+- Add optional orientation for manual fluid and soft-body box colliders; collision and snapshot behavior remain unverified.
+
 - Add sampled dynamic oriented box contacts and optional delayed reactions for fluid and soft bodies; runtime, stability and snapshots remain unverified.
 
 - Add split-step rope contact and reactions with dynamic 3D box bodies; runtime and snapshot behavior remain unverified.
 
 - Add cloth contact with live dynamic 3D boxes and optional delayed reactions; native reaction failures report partial state without automatic history replay. Runtime behavior remains unverified.
 
-- Add oriented sampled-box contacts for rope and cloth; manual fluid/soft-body boxes remain axis-aligned. Runtime and snapshot behavior remain unverified.
+- Add oriented sampled-box contacts for rope and cloth. Runtime and snapshot behavior remain unverified.
 
 - Add sampled cloth-triangle contacts against axis-aligned boxes; runtime, stability and snapshot behavior remain unverified.
 

@@ -1060,7 +1060,7 @@ export interface SimulationForce { particle: string; force: Vec3 }
 来源：`packages/sdk/src/index.ts:559`
 
 ```ts
-export type ParticleSimulationCollider = Exclude<RopeCollider, { kind: "box" }> | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+export type ParticleSimulationCollider = RopeCollider;
 ```
 
 ## SimulationParticleHit

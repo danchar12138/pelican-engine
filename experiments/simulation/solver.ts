@@ -54,14 +54,14 @@ function readColliders(input: unknown): SimulationCollider[] {
       return { kind: "plane", id, normal: [...item.normal] as Vec3, offset: item.offset };
     }
     if (item.kind === "box") {
-      if (Object.hasOwn(item, "rotation"))
-        return fail("SIM_COLLIDER", `Box '${id}' must be axis-aligned; rotated boxes are not supported by this solver.`);
       if (!isVec3(item.center) || item.center.some(n => Math.abs(n) > 1e6) ||
-          !isVec3(item.halfExtents) || item.halfExtents.some(n => n <= 0 || n > 1e6))
-        return fail("SIM_COLLIDER", `Box '${id}' needs a finite center and positive half-extents at most 1e6.`);
-      return { kind: "box", id, center: [...item.center] as Vec3, halfExtents: [...item.halfExtents] as Vec3 };
+          !isVec3(item.halfExtents) || item.halfExtents.some(n => n <= 0 || n > 1e6) ||
+          (item.rotation !== undefined && (!isVec3(item.rotation) || item.rotation.some(n => Math.abs(n) > 1e6))))
+        return fail("SIM_COLLIDER", `Box '${id}' needs a finite center and rotation, and positive half-extents at most 1e6.`);
+      return { kind: "box", id, center: [...item.center] as Vec3, halfExtents: [...item.halfExtents] as Vec3,
+        ...(item.rotation !== undefined ? { rotation: [...item.rotation as Vec3] as Vec3 } : {}) };
     }
-    return fail("SIM_COLLIDER", `Collider '${id}' must be a sphere, plane or axis-aligned box.`);
+    return fail("SIM_COLLIDER", `Collider '${id}' must be a sphere, plane or box.`);
   });
 }
 
@@ -82,6 +82,13 @@ export function createSimulation(
   const isSampled = (id: string) => sampledRadii.has(id) || sampledBoxes.has(id);
   const particleForces = new Map<string, Vec3>();
   let colliders: SimulationCollider[] = [];
+  let colliderFrames = new Map<string, BoxFrame>();
+  const framesFor = (items: readonly SimulationCollider[]): Map<string, BoxFrame> => {
+    const frames = new Map<string, BoxFrame>();
+    for (const item of items) if (item.kind === "box" && item.rotation)
+      frames.set(item.id, createBoxFrame(item.center, item.rotation));
+    return frames;
+  };
   let solverWallMs = 0,
     measuredSteps = 0,
     maxStepMs = 0;
@@ -267,6 +274,10 @@ export function createSimulation(
       } else if (collider.kind === "plane") {
         normal = collider.normal;
         penetration = particle.radius - (dot(particle.position, normal) - collider.offset);
+      } else if (collider.rotation) {
+        const hit = orientedParticleBoxContact(particle.position, particle.radius, collider.center, collider.halfExtents, colliderFrames.get(collider.id));
+        if (!hit) continue;
+        normal = hit.normal; penetration = hit.depth;
       } else {
         const relative = sub(particle.position, collider.center);
         const closest = relative.map((value, axis) => Math.max(-collider.halfExtents[axis], Math.min(collider.halfExtents[axis], value))) as Vec3;
@@ -559,7 +570,10 @@ export function createSimulation(
     },
     setColliders(input: readonly SimulationCollider[]) {
       alive();
-      colliders = readColliders(input);
+      const nextColliders = readColliders(input);
+      const nextFrames = framesFor(nextColliders);
+      colliders = nextColliders;
+      colliderFrames = nextFrames;
     },
     snapshot() {
       alive();
@@ -575,6 +589,7 @@ export function createSimulation(
       alive();
       const validated = validateSnapshot(snapshot, kind);
       const { sampledBodies, sampledBoxes: savedBoxes, particleForces: savedForces, colliders: savedColliders, ...next } = validated;
+      const nextColliderFrames = framesFor(savedColliders ?? []);
       const nextBoxes = new Map<string, { halfExtents: Vec3; rotation: Vec3; frame: BoxFrame }>();
       for (const box of savedBoxes ?? []) {
         const body = next.bodies.find(item => item.id === box.id)!;
@@ -589,6 +604,7 @@ export function createSimulation(
       particleForces.clear();
       for (const item of savedForces ?? []) particleForces.set(item.id, item.force);
       colliders = savedColliders ?? [];
+      colliderFrames = nextColliderFrames;
       solverWallMs = 0;
       measuredSteps = 0;
       maxStepMs = 0;
@@ -629,6 +645,7 @@ export function createSimulation(
       sampledBoxes.clear();
       particleForces.clear();
       colliders = [];
+      colliderFrames.clear();
       state.bodies.length = 0;
       state.particles.length = 0;
       state.distances.length = 0;
