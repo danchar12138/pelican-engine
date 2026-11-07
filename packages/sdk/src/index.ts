@@ -317,13 +317,13 @@ export interface TilemapService {
   readChunk(id: string, x: number, y: number): TilemapChunkState;
   destroy(id: string): void;
 }
-/** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
+/** CPU particles with sampled sphere, plane and box collisions. Explicit body bindings apply delayed
  * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
-  /** Stationary, axis-aligned box sampled in world space. */
-  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+  /** Stationary box sampled in world space; rotation is XYZ Euler radians. */
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 /** Explicit connection between a sampled rope collider id and a dynamic sphere body. */
 export interface RopeBodyCollider { readonly id: string; readonly entity: string }
 /** Optional renderer-owned cylindrical segments following simulated particle positions. */
@@ -550,7 +550,7 @@ export interface SimulationImpulse { particle: string; impulse: Vec3 }
 /** Force in newtons, applied to one particle for the next fixed tick. */
 export interface SimulationForce { particle: string; force: Vec3 }
 /** Manual particle obstacle; boxes are axis-aligned in world space. */
-export type ParticleSimulationCollider = RopeCollider;
+export type ParticleSimulationCollider = Exclude<RopeCollider, { kind: "box" }> | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 /** Nearest particle centre in world space; distance is measured in metres. */
 export interface SimulationParticleHit { particle: string; position: Vec3; distance: number }
 export interface FluidService {

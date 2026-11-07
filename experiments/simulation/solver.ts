@@ -53,6 +53,8 @@ function readColliders(input: unknown): SimulationCollider[] {
       return { kind: "plane", id, normal: [...item.normal] as Vec3, offset: item.offset };
     }
     if (item.kind === "box") {
+      if (Object.hasOwn(item, "rotation"))
+        return fail("SIM_COLLIDER", `Box '${id}' must be axis-aligned; rotated boxes are not supported by this solver.`);
       if (!isVec3(item.center) || item.center.some(n => Math.abs(n) > 1e6) ||
           !isVec3(item.halfExtents) || item.halfExtents.some(n => n <= 0 || n > 1e6))
         return fail("SIM_COLLIDER", `Box '${id}' needs a finite center and positive half-extents at most 1e6.`);

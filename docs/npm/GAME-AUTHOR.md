@@ -918,7 +918,7 @@ Set anchors, forces and sampled colliders in `prePhysics`; read positions in
 `anchors: []` creates a free rope. `setAnchor`, `releaseAnchor`, `applyForce`
 (next tick only), `applyImpulse`, `inspect`, and `destroy` manage it.
 
-`setColliders` accepts sampled planes, spheres and axis-aligned boxes; contacts affect only rope
+`setColliders` accepts sampled planes, spheres and oriented boxes; contacts affect only rope
 particles, not rigid bodies. Host snapshots include the rope definition, mode
 and state. If advancing an automatic rope fails, the engine attempts to restore
 all earlier automatic ropes from that phase; the host tick may still have other
@@ -926,8 +926,9 @@ partial changes and must be recovered from a known-good checkpoint. The source
 checkout includes `examples/rope-particles`.
 
 For example, `ctx.ropes.setColliders("rope", [{ kind: "box", id: "wall",
-center: [0, 1, 0], halfExtents: [0.5, 1, 2] }])` replaces the rope's manually
-sampled obstacles with a world-space box. `ctx.cloth.setColliders` accepts the
+center: [0, 1, 0], halfExtents: [0.5, 1, 2], rotation: [0, 0, 0.4] }])` replaces the rope's manually
+sampled obstacles with a world-space box. Rotation is optional XYZ Euler radians.
+`ctx.cloth.setColliders` accepts the
 same shape. Rope boxes resolve individual particles and, when enabled, segment
 interiors; cloth boxes resolve particles and sampled triangle points when
 `surfaceCollisions` is enabled. Contacts
@@ -936,7 +937,7 @@ samples: update them explicitly when geometry moves; they do not update rigid
 bodies or transfer reactions to them. The colliders are included in simulation
 snapshots. Contact behavior and snapshot restoration have not been runtime-validated.
 
-New ropes resolve discrete sphere and axis-aligned box overlaps along segment interiors as well as at
+New ropes resolve discrete sphere and oriented-box overlaps along segment interiors as well as at
 particles. Corrections are distributed to movable endpoints; a segment with two
 fixed anchors cannot move. `ctx.ropes.inspect(id).segmentContacts` reports the
 segment index, closest-point fraction and reaction impulses. Set
@@ -1095,7 +1096,7 @@ Runtime behavior, stability, rendering and snapshot restoration are unverified.
 
 For bound fluid and soft-body simulations, the reference solvers sample the sphere's center, linear velocity and collider radius after each physics step. During the simulation step the sampled sphere is treated as a fixed-position obstacle: it is not advanced by reference-scene gravity or clamped to the reference container. Optional reactions are projection-derived normal impulses applied along lines through the sphere collider center, including the resulting torque when that center differs from the rigid body's center of mass. This is not mass- or inertia-coupled contact, and sampled velocity does not provide velocity-dependent friction. Contact counters are cumulative, and this approximate behavior has not been runtime-validated.
 
-`ctx.fluid.setColliders(id, colliders)` and `ctx.softBodies.setColliders` replace up to 64 manual sphere, plane or axis-aligned box obstacles. A plane uses a unit `normal` and signed `offset`; its normal points toward the allowed half-space. A box uses world-space `center` and positive `halfExtents`. Colliders affect particles discretely when `contacts` is enabled, do not receive reaction forces, and do not move rigid bodies. Their IDs must be distinct from bound body collider IDs. Snapshots retain the colliders; behavior and restoration are not runtime-validated.
+`ctx.fluid.setColliders(id, colliders)` and `ctx.softBodies.setColliders` replace up to 64 manual sphere, plane or axis-aligned box obstacles. A plane uses a unit `normal` and signed `offset`; its normal points toward the allowed half-space. A box uses world-space `center` and positive `halfExtents`; these solvers do not accept box rotation. Colliders affect particles discretely when `contacts` is enabled, do not receive reaction forces, and do not move rigid bodies. Their IDs must be distinct from bound body collider IDs. Snapshots retain the colliders; behavior and restoration are not runtime-validated.
 
 New snapshots retain the sampled collider radius for rollback and restoration; older snapshots without that field remain accepted and refresh the collider on the next automatic step. This compatibility and rollback behavior has not been runtime-validated.
 

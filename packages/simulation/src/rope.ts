@@ -1,5 +1,5 @@
 import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
-import { particleBoxContact, segmentBoxContact } from "./box-contact.ts";
+import { createBoxFrame, orientedParticleBoxContact, orientedSegmentBoxContact } from "./box-contact.ts";
 
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
@@ -9,7 +9,7 @@ export type Vec3 = [number, number, number];
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
-  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 /** Private per-tick coupling. The caller owns and discards virtual body state on failure. */
 export interface RopeDynamicCoupling {
   sphere(colliderId: string): { center: Vec3; radius: number } | undefined;
@@ -150,7 +150,8 @@ function readColliders(input: unknown): RopeCollider[] {
     if (c.kind === "box") {
       const center = validVec(c.center, "box center"), halfExtents = validVec(c.halfExtents, "box halfExtents");
       if (halfExtents.some(value => value <= 0)) fail("ROPE_INPUT", "box halfExtents must be positive");
-      return { kind: "box", id: c.id, center, halfExtents };
+      const rotation = c.rotation === undefined ? undefined : validVec(c.rotation, "box rotation");
+      return { kind: "box", id: c.id, center, halfExtents, ...(rotation ? { rotation } : {}) };
     }
     if (c.kind === "plane") {
       const normal = validVec(c.normal, "normal"), n = length(normal);
@@ -303,6 +304,7 @@ export class RopeSolver {
     const selfContacts = new Map<string, RopeSelfContact>();
     const spheres = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "sphere" }> => collider.kind === "sphere") : [];
     const boxes = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "box" }> => collider.kind === "box") : [];
+    const boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
@@ -338,7 +340,7 @@ export class RopeSolver {
               depth = c.offset + radius - (p[0] * c.normal[0] + p[1] * c.normal[1] + p[2] * c.normal[2]);
               normal = c.normal;
             } else if (c.kind === "box") {
-              const contact = particleBoxContact(p, radius, c.center, c.halfExtents);
+              const contact = orientedParticleBoxContact(p, radius, c.center, c.halfExtents, boxFrames.get(c.id));
               if (!contact) continue;
               normal = contact.normal; depth = contact.depth;
             } else {
@@ -436,7 +438,7 @@ export class RopeSolver {
             } else segmentContacts.set(key, { tick: this.tickValue + 1, segment: j, colliderId: collider.id, fraction, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
           }
           for (const collider of boxes) {
-            const contact = segmentBoxContact(a, b, radius, collider.center, collider.halfExtents);
+            const contact = orientedSegmentBoxContact(a, b, radius, collider.center, collider.halfExtents, boxFrames.get(collider.id));
             if (!contact) continue;
             const { fraction, point, normal, depth } = contact;
             const first = this.anchors.has(j) ? 0 : 1 - fraction, second = this.anchors.has(j + 1) ? 0 : fraction;

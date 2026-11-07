@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add oriented sampled-box contacts for rope and cloth; fluid/soft-body boxes remain axis-aligned. Runtime and snapshot behavior remain unverified.
+
 - Add sampled cloth-triangle contacts against axis-aligned boxes; runtime, stability and snapshot behavior remain unverified.
 
 - Add discrete rope-segment contacts against sampled axis-aligned boxes; runtime and snapshot behavior remain unverified.

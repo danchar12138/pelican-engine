@@ -531,7 +531,7 @@
     {
       "name": "RopeCollider",
       "kind": "TypeAliasDeclaration",
-      "signature": "export type RopeCollider =\n  | { kind: \"sphere\"; id: string; center: Vec3; radius: number }\n  | { kind: \"plane\"; id: string; normal: Vec3; offset: number }\n  /** Stationary, axis-aligned box sampled in world space. */\n  | { kind: \"box\"; id: string; center: Vec3; halfExtents: Vec3 };",
+      "signature": "export type RopeCollider =\n  | { kind: \"sphere\"; id: string; center: Vec3; radius: number }\n  | { kind: \"plane\"; id: string; normal: Vec3; offset: number }\n  /** Stationary box sampled in world space; rotation is XYZ Euler radians. */\n  | { kind: \"box\"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };",
       "line": 322
     },
     {
@@ -996,7 +996,7 @@
     {
       "name": "ParticleSimulationCollider",
       "kind": "TypeAliasDeclaration",
-      "signature": "export type ParticleSimulationCollider = RopeCollider;",
+      "signature": "export type ParticleSimulationCollider = Exclude<RopeCollider, { kind: \"box\" }> | { kind: \"box\"; id: string; center: Vec3; halfExtents: Vec3 };",
       "line": 553
     },
     {

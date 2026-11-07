@@ -1,4 +1,4 @@
-import { particleBoxContact, segmentBoxContact } from "./box-contact.ts";
+import { createBoxFrame, orientedParticleBoxContact, particleBoxContact, segmentBoxContact, type BoxFrame } from "./box-contact.ts";
 
 /** CPU position-based triangular cloth. SI units; sampled colliders are one-way. */
 export type Vec3 = [number, number, number];
@@ -6,7 +6,7 @@ export type Triangle = [number, number, number];
 export type ClothCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
-  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 export interface ClothOptions {
   points: Vec3[]; triangles: Triangle[]; mass: number; radius?: number; fixedDt?: number;
   substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean; selfCollisions?: boolean; surfaceCollisions?: boolean;
@@ -60,7 +60,8 @@ function readColliders(input: unknown): ClothCollider[] {
     if (collider.kind === "box") {
       const center = readVec(collider.center, "box center"), halfExtents = readVec(collider.halfExtents, "box halfExtents");
       if (halfExtents.some(value => value <= 0)) fail("CLOTH_INPUT", "box halfExtents must be positive");
-      return { kind: "box", id: collider.id, center, halfExtents };
+      const rotation = collider.rotation === undefined ? undefined : readVec(collider.rotation, "box rotation");
+      return { kind: "box", id: collider.id, center, halfExtents, ...(rotation ? { rotation } : {}) };
     }
     if (collider.kind === "plane") {
       const normal = readVec(collider.normal, "plane normal"), magnitude = Math.hypot(...normal);
@@ -125,8 +126,12 @@ function closestTriangle(point: Vec3, a: Vec3, b: Vec3, c: Vec3): { point: Vec3;
   return { point: [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w], barycentric: [1 - v - w, v, w] };
 }
 /** Sample actual triangle points from its edges and box-corner projections. */
-function triangleBoxContact(a: Vec3, b: Vec3, c: Vec3, radius: number, box: Extract<ClothCollider, { kind: "box" }>, movable: readonly boolean[]):
+function triangleBoxContact(a: Vec3, b: Vec3, c: Vec3, radius: number, box: Extract<ClothCollider, { kind: "box" }>, movable: readonly boolean[], frame?: BoxFrame):
   { point: Vec3; barycentric: [number, number, number]; normal: Vec3; depth: number } | null {
+  if (frame) {
+    a = frame.toLocalPoint(a); b = frame.toLocalPoint(b); c = frame.toLocalPoint(c);
+    box = { ...box, center: [0, 0, 0] };
+  }
   for (let axis = 0; axis < 3; axis++) {
     const min = Math.min(a[axis], b[axis], c[axis]), max = Math.max(a[axis], b[axis], c[axis]);
     if (max + radius < box.center[axis] - box.halfExtents[axis] || min - radius > box.center[axis] + box.halfExtents[axis]) return null;
@@ -157,7 +162,8 @@ function triangleBoxContact(a: Vec3, b: Vec3, c: Vec3, radius: number, box: Extr
       if (hit) consider({ ...closest, ...hit });
     }
   }
-  return best;
+  const result = best as Hit | null;
+  return result && frame ? { ...result, point: frame.toWorldPoint(result.point), normal: frame.toWorldDirection(result.normal) } : result;
 }
 export function createCloth(input: ClothOptions): ClothSolver {
   if (!input || typeof input !== "object" || !Array.isArray(input.points) || input.points.length < 3 || input.points.length > 4096)
@@ -250,6 +256,7 @@ export class ClothSolver {
     const { fixedDt, substeps, iterations, mass, gravity, damping, constraints, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
     const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>(), selfContacts = new Map<string, ClothSelfContact>(), surfaceContacts = new Map<string, ClothSurfaceContact>();
+    const boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
@@ -274,7 +281,7 @@ export class ClothSolver {
             let depth: number, normal: Vec3;
             if (collider.kind === "plane") { normal = collider.normal; depth = collider.offset + radius - (p[0] * normal[0] + p[1] * normal[1] + p[2] * normal[2]); }
             else if (collider.kind === "box") {
-              const contact = particleBoxContact(p, radius, collider.center, collider.halfExtents);
+              const contact = orientedParticleBoxContact(p, radius, collider.center, collider.halfExtents, boxFrames.get(collider.id));
               if (!contact) continue;
               normal = contact.normal; depth = contact.depth;
             } else {
@@ -300,7 +307,7 @@ export class ClothSolver {
               depth = collider.radius + radius - length;
               normal = length < 1e-12 ? [0, 1, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
             } else if (collider.kind === "box") {
-              const hit = triangleBoxContact(a, b, c, radius, collider, triangle.map(index => !this.anchors.has(index)));
+              const hit = triangleBoxContact(a, b, c, radius, collider, triangle.map(index => !this.anchors.has(index)), boxFrames.get(collider.id));
               if (!hit) continue;
               closest = { point: hit.point, barycentric: hit.barycentric }; normal = hit.normal; depth = hit.depth;
             } else {

@@ -611,8 +611,8 @@ export interface TilemapService {
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
-  /** Stationary, axis-aligned box sampled in world space. */
-  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+  /** Stationary box sampled in world space; rotation is XYZ Euler radians. */
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 ```
 
 ## RopeBodyCollider
@@ -1055,7 +1055,7 @@ export interface SimulationForce { particle: string; force: Vec3 }
 来源：`packages/sdk/src/index.ts:553`
 
 ```ts
-export type ParticleSimulationCollider = RopeCollider;
+export type ParticleSimulationCollider = Exclude<RopeCollider, { kind: "box" }> | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 ```
 
 ## SimulationParticleHit
