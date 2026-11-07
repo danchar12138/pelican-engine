@@ -157,6 +157,7 @@ npm run dev -- --project examples/refraction
 
 ## 已有链路
 
+- 正交相机用于 2D/2.5D 定位时目前仅支持光栅；hybrid/path 明确拒绝，不自动降级。正交图形行为尚未运行验证。
 - 光栅模式使用 WebGPURenderer，WebGPU 初始化不可用时走 Three.js 内置 WebGL2 回退，不主动降画质。`game.render.capabilities()` / `ctx.render.capabilities()` 返回当前后端及可用模式；WebGL2 下切 path/hybrid 返回 `TC_RENDER_MODE_UNAVAILABLE`，降噪/计算返回 `TC_RENDER_COMPUTE_UNAVAILABLE`，原设置保持不变。两后端都不可用返回 `TC_RENDER_BACKEND_UNAVAILABLE`。状态栏同步显示 WebGPU/WebGL2。
 - path 使用当前表面/BVH 的实际光线命中，UV、法线、PBR 纹理和多材质组进入 WGSL。
 - hybrid 光栅化首命中，再使用同一材质/灯光进行真实阴影与二次光线求值，不透明叠加独立图片。

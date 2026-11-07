@@ -116,6 +116,8 @@ export interface SceneIR {
     camera: {
       position: Vec3;
       target: Vec3;
+      projection?: "perspective" | "orthographic";
+      orthographicSize?: number;
       fov: number;
       near: number;
       far: number;

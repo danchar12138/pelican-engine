@@ -184,6 +184,25 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Orthographic camera
+
+A scene can use an orthographic camera for 2D-positioned or 2.5D content:
+
+```ts
+camera: { position: [0, 0, 10], target: [0, 0, 0], projection: "orthographic", orthographicSize: 8 }
+```
+
+`orthographicSize` is the vertical visible span in world units; width follows the
+render viewport aspect. Perspective remains the default. `fov` is only accepted
+for perspective cameras; `orthographicSize` only for orthographic cameras.
+The current orthographic path supports **raster only**: hybrid/path requests
+return `TC_RENDER_MODE_UNAVAILABLE` rather than silently changing modes.
+`ctx.render.capabilities()` reports the restriction. The example
+`examples/orthographic-2d` and the installed recipe use simple 3D primitives
+positioned on a plane. This is not sprite animation, tile maps, 2D physics or a
+complete 2D engine. Rendering, WebGL2 fallback, world UI projection and input
+have not been runtime-validated.
+
 ### Self-contained game recipes
 
 `pelican create` defaults to the same minimal starter and current working
@@ -193,7 +212,7 @@ historical `m2` template remains source-only because its sample assets are not
 part of the npm package; it is not a cross-channel capability claim.
 
 `docs/npm/RECIPES.md` contains complete asset-free `game.ts` recipes for
-UI, inventory, quests, dialogue, localization, navigation and static chunks.
+orthographic raster, UI, inventory, quests, dialogue, localization, navigation and static chunks.
 The installed package includes this document, not the source checkout's
 `examples/` directories. In a repository or ZIP those paths are editable
 originals; the packaged recipes are generated from the same files at distribution

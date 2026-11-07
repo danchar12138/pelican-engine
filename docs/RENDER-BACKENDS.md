@@ -11,6 +11,7 @@ const capabilities = ctx.render.capabilities();
 // backend: "webgpu" | "webgl2" | "uninitialized"
 // compute: boolean
 // availableModes: readonly ("raster" | "hybrid" | "path")[]
+// modeLimitation?: string — 场景配置限制模式时的说明
 ```
 
 返回值是分离的普通数据；没有 Three.js、GPUDevice 或 WebGL 上下文。未绑定浏览器渲染器的纯 CPU 运行时报告 `uninitialized`，不能据此声明已经初始化 GPU。
@@ -21,13 +22,15 @@ const capabilities = ctx.render.capabilities();
 
 引擎不改变作者指定的分辨率、采样、灯光、材质或后处理来适应回退。不同后端可能存在数值、驱动或扩展能力差异；支持边界必须明确记录，不能把近似图像当作相同功能。WebGL2 可用模式为 `raster`；依赖 compute 的 `path`、`hybrid`、降噪和受控计算不能使用。初始内容要求不支持模式时明确失败，不自动重写内容。
 
+场景使用正交相机时，当前实现仅允许 `raster`；即使后端为 WebGPU，也会明确拒绝 `hybrid`/`path`，不自动切换模式。`modeLimitation` 给出原因与替代方式。正交相机、World UI 投影与回退路径尚未运行验证。
+
 状态栏显示当前 WebGPU/WebGL2。开发态 `inspect` 同时提供实际后端名称、适配器（适用时）和 `capabilities`；WebGL2 不伪造 WebGPU 适配器信息。
 
 ## 错误与修复
 
 | 错误码 | 含义 | 修复 |
 | --- | --- | --- |
-| `TC_RENDER_MODE_UNAVAILABLE` | 当前后端不支持请求的模式 | 按错误中的 available modes 选择模式，或启用实际可用的 WebGPU 后重新加载 |
+| `TC_RENDER_MODE_UNAVAILABLE` | 当前后端或相机配置不支持请求的模式 | 按错误中的 available modes 和限制说明选择模式；需要光追时使用透视相机及实际可用的 WebGPU |
 | `TC_RENDER_COMPUTE_UNAVAILABLE` | 降噪或计算需要 WebGPU compute | 不请求该功能，或启用 WebGPU 后重新加载；不能替换成光栅并仍声称光追 |
 | `TC_RENDER_BACKEND_UNAVAILABLE` | WebGPU 及内置 WebGL2 回退均无法初始化 | 检查图形加速、驱动、浏览器设置与安全上下文，修复后重载 |
 | `TC_RENDER_CONTEXT_LOST` | WebGL2 上下文丢失，等待浏览器恢复 | 游戏暂停；浏览器恢复上下文后引擎重建资源并保留受控 CPU 状态；未恢复时不报告 ready |

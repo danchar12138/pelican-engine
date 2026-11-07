@@ -1145,6 +1145,13 @@ export async function normalize(
     }
     if (lightingTexture === undefined && (environment.lightingRotation !== undefined || environment.lightingIntensity !== undefined))
       error("TC_ENVIRONMENT_LIGHTING", "lightingRotation and lightingIntensity require lightingTexture.", environment, "lightingTexture");
+    const projection = camera.projection ?? "perspective";
+    if (!["perspective", "orthographic"].includes(String(projection)))
+      error("TC_CAMERA_PROJECTION", "Camera projection must be perspective or orthographic.", camera, "projection");
+    if (camera.orthographicSize !== undefined && projection !== "orthographic")
+      error("TC_CAMERA_PROJECTION", "orthographicSize requires an orthographic camera.", camera, "orthographicSize");
+    if (camera.fov !== undefined && projection === "orthographic")
+      error("TC_CAMERA_PROJECTION", "fov is only used by a perspective camera; use orthographicSize instead.", camera, "fov");
     const near = num(camera.near, camera, "near", 0.1, Number.EPSILON);
     const far = num(camera.far, camera, "far", 1000, near + Number.EPSILON);
     let follow: SceneIR["scene"]["follow"];
@@ -1172,6 +1179,9 @@ export async function normalize(
       camera: {
         position: vector(camera.position, camera, "position", [5, 4, 7]),
         target: vector(camera.target, camera, "target", [0, 0, 0]),
+        ...(projection === "orthographic" ? { projection: "orthographic" as const,
+          orthographicSize: num(camera.orthographicSize, camera, "orthographicSize", 10, Number.EPSILON) } :
+          camera.projection === "perspective" ? { projection: "perspective" as const } : {}),
         fov: num(camera.fov, camera, "fov", 50, 1, 179),
         near,
         far,

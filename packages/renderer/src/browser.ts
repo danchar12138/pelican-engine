@@ -49,6 +49,7 @@ import type {
   Transform,
   ComponentData,
   RenderSettings,
+  RenderCapabilities,
 } from "../../sdk/src/index.ts";
 import { createSimulation } from "../../../experiments/simulation/index.ts";
 import type {
@@ -103,7 +104,15 @@ const probeRoot = new THREE.Group();
 probeRoot.visible = probeEnabled;
 scene.add(probeRoot);
 scene.background = new THREE.Color("#111d2a");
-const camera = new THREE.PerspectiveCamera(48, width / height, 0.05, 100);
+const perspectiveCamera = new THREE.PerspectiveCamera(48, width / height, 0.05, 100);
+const orthographicCamera = new THREE.OrthographicCamera(-5 * width / height, 5 * width / height, 5, -5, 0.05, 100);
+let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = perspectiveCamera;
+function cameraCapabilities(backend: RenderCapabilities["backend"], orthographic: boolean): RenderCapabilities {
+  const capabilities = renderCapabilities(backend);
+  if (!orthographic) return capabilities;
+  return { ...capabilities, availableModes: capabilities.availableModes.includes("raster") ? ["raster"] : [],
+    modeLimitation: "Orthographic projection currently supports raster only. Use raster, or choose a perspective camera and WebGPU for hybrid/path modes." };
+}
 const rasterCanvas = document.createElement("canvas"),
   traceCanvas = document.createElement("canvas");
 for (const canvas of [rasterCanvas, traceCanvas]) {
@@ -767,7 +776,8 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       time: () => candidate?.facade.time.elapsed ?? 0,
       executor: nextComputeExecutor,
     });
-    nextRender = createRenderSettingsDriver(ir.render ?? {}, ir.materials, () => renderCapabilities(backendKind), ir.postProcesses, {
+    nextRender = createRenderSettingsDriver(ir.render ?? {}, ir.materials,
+      () => cameraCapabilities(backendKind, ir.scene.camera.projection === "orthographic"), ir.postProcesses, {
       describe: handle => { const descriptor = nextCompute!.service.describeBuffer(handle); return { id: descriptor.id, type: descriptor.type, count: descriptor.count }; },
       resource: id => nextCompute!.resource(id),
       setPins: ids => nextCompute!.setRenderPins(ids),
@@ -950,9 +960,17 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     scene.environment = nextGameplay?.environment ?? null;
     scene.environmentRotation.set(0, ir.scene.environment.lightingRotation ?? 0, 0);
     scene.environmentIntensity = ir.scene.environment.lightingIntensity ?? 1;
-    camera.fov = ir.scene.camera.fov;
+    camera = ir.scene.camera.projection === "orthographic" ? orthographicCamera : perspectiveCamera;
     camera.near = ir.scene.camera.near;
     camera.far = ir.scene.camera.far;
+    if (camera instanceof THREE.PerspectiveCamera) camera.fov = ir.scene.camera.fov;
+    else {
+      const halfHeight = (ir.scene.camera.orthographicSize ?? 10) / 2;
+      camera.left = -halfHeight * width / height;
+      camera.right = halfHeight * width / height;
+      camera.top = halfHeight;
+      camera.bottom = -halfHeight;
+    }
     camera.updateProjectionMatrix();
     tick = candidate.inspect().scheduler.tick;
     frameAccumulator = 0;
@@ -1093,6 +1111,8 @@ function updateTraceGeometry() {
   generation++;
 }
 function cameraFrame() {
+  if (!(camera instanceof THREE.PerspectiveCamera))
+    throw new Error("TC_RENDER_MODE_UNAVAILABLE: Orthographic projection currently supports raster only; choose a perspective camera for hybrid/path modes.");
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   const right = new THREE.Vector3()
@@ -1154,13 +1174,15 @@ async function drawFrame(accumulate = false, changed = true) {
   const settings =
     renderControl?.service.state() ?? resolveRenderSettings({ mode });
   const effects = postComposer && renderControl?.postProcesses.states().some(effect => effect.enabled) ? postComposer : undefined;
-  validateRenderCapabilities(settings, renderCapabilities(backendKind));
+  validateRenderCapabilities(settings, renderControl?.service.capabilities() ?? cameraCapabilities(backendKind, camera instanceof THREE.OrthographicCamera));
   if (mode !== settings.mode) setMode(settings.mode);
   if (probeEnabled && vertexBounds) throw new Error("TC_VERTEX_PROBE_UNSUPPORTED: Vertex graphs require a normal game scene, not the historical tracing sidecar.");
   rasterCanvas.style.display = mode === "raster" || effects ? "block" : "none";
   traceCanvas.style.display = mode === "raster" || effects ? "none" : "block";
   if (effects && probeEnabled) throw new Error("TC_POSTPROCESS_PROBE_UNSUPPORTED: Controlled effects require a normal game scene, not the historical M0 tracing sidecar.");
   if (mode !== "raster" && !probeEnabled) {
+    if (!(camera instanceof THREE.PerspectiveCamera))
+      throw new Error("TC_RENDER_MODE_UNAVAILABLE: Orthographic projection currently supports raster only; choose a perspective camera for hybrid/path modes.");
     if (!surfaceTracer) {
       if (!legacyTracerDisposed) {
         tracer.dispose();
@@ -1394,6 +1416,8 @@ async function stepRuntime() {
   }
 }
 function setMode(next: typeof mode) {
+  if (next !== "raster" && camera instanceof THREE.OrthographicCamera)
+    throw new Error("TC_RENDER_MODE_UNAVAILABLE: Orthographic projection currently supports raster only; choose a perspective camera for hybrid/path modes.");
   if (next !== "raster") requireCompute(renderCapabilities(backendKind), next);
   if (next !== mode) {
     surfaceTracer?.invalidateTemporal();
@@ -1427,6 +1451,7 @@ function inspect(options?: InspectPage) {
     adapter: adapterInfo,
     mode,
     rendering: {
+      cameraProjection: camera instanceof THREE.OrthographicCamera ? "orthographic" : "perspective",
       postProcesses: postComposer?.inspect(),
       vertex: vertexBounds?.inspect(),
       bufferBindings: renderBufferBridge?.inspect(),

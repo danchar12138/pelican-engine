@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add orthographic raster camera configuration for 2D-positioned and 2.5D content; hybrid/path are explicitly unavailable. Runtime behavior is unverified.
+
 - Align the default `create` template and current-directory behavior for source and npm use. Runtime and cross-channel behavior are unverified.
 
 - Generate offline npm game-author recipes from the same asset-free source examples used by the repository. Runtime and cross-channel use are unverified.

@@ -541,6 +541,8 @@ export interface RenderCapabilities {
   backend: "webgpu" | "webgl2" | "uninitialized";
   compute: boolean;
   availableModes: readonly RenderMode[];
+  /** Explanation when scene configuration further restricts render modes. */
+  modeLimitation?: string;
 }
 export interface RenderSettings {
   mode: RenderMode;
@@ -1225,6 +1227,10 @@ export interface SceneInput {
   camera?: {
     position: Vec3;
     target: Vec3;
+    /** Perspective by default. Orthographic currently supports raster mode only. */
+    projection?: "perspective" | "orthographic";
+    /** Orthographic vertical span in world units; defaults to 10. */
+    orthographicSize?: number;
     fov?: number;
     near?: number;
     far?: number;

@@ -15,6 +15,6 @@ export function requireCompute(capabilities: RenderCapabilities, feature: string
 
 export function validateRenderCapabilities(settings: RenderSettings, capabilities: RenderCapabilities): void {
   if (!capabilities.availableModes.includes(settings.mode))
-    throw new Error(`TC_RENDER_MODE_UNAVAILABLE: Mode ${settings.mode} is unavailable on ${capabilities.backend}. Available modes: ${capabilities.availableModes.join(", ") || "none"}. Select an available mode, or enable WebGPU and reload.`);
+    throw new Error(`TC_RENDER_MODE_UNAVAILABLE: Mode ${settings.mode} is unavailable on ${capabilities.backend}. Available modes: ${capabilities.availableModes.join(", ") || "none"}. ${capabilities.modeLimitation ?? "Select an available mode, or enable WebGPU and reload."}`);
   if (settings.denoise) requireCompute(capabilities, "Denoising");
 }

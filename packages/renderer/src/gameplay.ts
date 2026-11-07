@@ -390,7 +390,7 @@ export async function prepareGameplay(
           );
       },
       present(
-        camera: THREE.PerspectiveCamera,
+        camera: THREE.Camera,
         objects: ReadonlyMap<string, THREE.Object3D>,
         dt: number,
         tick: number,
@@ -479,15 +479,19 @@ export async function prepareGameplay(
             .getWorldPosition(new THREE.Vector3())
             .add(new THREE.Vector3().fromArray(definition.world.offset));
           const delta = point.clone().sub(camera.position),
-            distance = delta.length(),
             projected = point.clone().project(camera),
             forward = new THREE.Vector3();
           camera.getWorldDirection(forward);
+          // Orthographic views use parallel rays, not rays converging at the camera position.
+          const rayOrigin = camera instanceof THREE.OrthographicCamera
+            ? point.clone().addScaledVector(forward, -delta.dot(forward))
+            : camera.position.clone();
+          const ray = point.clone().sub(rayOrigin), distance = ray.length();
           let occluded = false;
-          if (definition.world.occlude && distance > 0) {
+          if (definition.world.occlude && forward.dot(delta) > 0 && distance > 0.02) {
             const raycaster = new THREE.Raycaster(
-              camera.position,
-              delta.clone().normalize(),
+              rayOrigin,
+              ray.normalize(),
               0.01,
               distance - 0.01,
             );
