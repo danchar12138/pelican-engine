@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local cloth development stages reactions across automatic cloth entries before one physics batch, instead of committing after each entry. A native commit can still partially apply, and other host systems are not rolled back; runtime and failure handling remain unverified.
+
 - Local development uses a per-tick virtual dynamic sphere or box for fluid and soft-body reactions. Contact projection uses particle mass, rigid-body effective inverse mass/inertia and relative normal velocity; bodies shared by simulations of the same kind are processed in sorted order. This is discrete, delayed and approximate, with fixed box orientation and separate simulation passes; it is not continuous, frictional or a fully unified coupling. Runtime, stability, performance and snapshot behavior are unverified.
 
 - Local development adds optional XYZ rotation to manually configured fluid and soft-body boxes; omitted rotations retain the previous axis-aligned path. Snapshot, collision, performance and runtime behavior remain unverified.

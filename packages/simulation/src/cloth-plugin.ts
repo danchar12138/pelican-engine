@@ -152,6 +152,9 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     id: "$engine.cloth", version: "1", services: { cloth: service },
     afterPhysics() {
       alive(); ensureRefs(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition; refs: Map<string, EntityHandle> }[] = [];
+      // Stage all cloth reactions until every automatic solver has completed. A later
+      // cloth error must not leave earlier native impulses committed during rollback.
+      const reactions = new Map<string, { impulse: Vec3; moment: Vec3 }>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
@@ -179,9 +182,7 @@ export const createClothPlugin: RuntimePluginFactory = context => {
           }
           const state = entry.solver.step();
           if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) {
-            const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
             const byCollider = new Map((entry.definition.bodyColliders ?? []).map(binding => [binding.id, binding.entity]));
-            const reactions = new Map<string, { impulse: Vec3; moment: Vec3 }>();
             for (const contact of [...state.contacts, ...state.surfaceContacts]) {
               const entity = byCollider.get(contact.colliderId);
               if (!entity || !contact.reactionImpulse || !contact.reactionAngularImpulse) continue;
@@ -189,8 +190,11 @@ export const createClothPlugin: RuntimePluginFactory = context => {
               for (let k = 0; k < 3; k++) { current.impulse[k] += contact.reactionImpulse[k]; current.moment[k] += contact.reactionAngularImpulse[k]; }
               reactions.set(entity, current);
             }
-            if (reactions.size) bridge.applyClothReactions([...reactions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([entity, value]) => ({ entity, ...value })));
           }
+        }
+        if (reactions.size) {
+          const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
+          bridge.applyClothReactions([...reactions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([entity, value]) => ({ entity, ...value })));
         }
       } catch (error) {
         const failures: string[] = [];

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Stage automatic cloth reactions until all cloth entries step before applying one sorted physics batch; failure behavior remains unverified.
+
 - Add split-step particle/rigid-body effective-mass and normal-velocity reactions for fluid and soft-body contacts; runtime and stability remain unverified.
 
 - Add optional orientation for manual fluid and soft-body box colliders; collision and snapshot behavior remain unverified.

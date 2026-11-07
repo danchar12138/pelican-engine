@@ -1128,10 +1128,14 @@ When no bindings remain, reactions are disabled. Do not reuse a bound collider
 ID in `setColliders`. This is not complete cloth-rigid-body coupling; sampling,
 impulses, rotation and snapshot restoration have not been runtime-validated.
 
-If a native reaction operation fails, it reports `partialState=true` and the
-host tick faults; the engine does not automatically replay physics history in
-that failure path. Restart the scene or restore a known-good checkpoint, noting
-that the separately documented 3D historical replay risk remains unresolved.
+Automatic cloth steps stage reactions across all cloth entries before submitting
+one body-sorted physics batch, so a later cloth solver failure does not commit
+earlier cloth reactions. This staging and rollback behavior is unverified and
+does not roll back other host systems. If a native reaction operation fails,
+it reports `partialState=true` and the host tick faults; the engine does not
+automatically replay physics history in that failure path. Restart the scene or
+restore a known-good checkpoint, noting that the separately documented 3D
+historical replay risk remains unresolved.
 
 Sampled planes use the triangle centroid for discrete surface projection; this is not continuous triangle-plane collision.
 
