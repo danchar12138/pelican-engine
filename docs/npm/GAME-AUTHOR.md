@@ -45,6 +45,12 @@ in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Spot lights have
 unlimited range and inverse-square falloff. Keep the target distinct from the
 light position. Raster, path and hybrid behavior has not been runtime-validated.
 
+```ts
+{ id: "lamp", transform: { position: [2, 4, 3] },
+  light: { kind: "spot", target: [0, 0, 0], intensity: 40,
+    angle: Math.PI / 4, penumbra: 0.25, castShadow: true } }
+```
+
 ## Standalone Rendering Recipe
 
 The following complete asset-free `game.ts` works with either distribution and

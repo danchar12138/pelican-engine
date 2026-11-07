@@ -175,10 +175,16 @@ export function createSurfaceCapture() {
         const color = object.color.clone().multiplyScalar(object.intensity),
           position = object.getWorldPosition(new THREE.Vector3());
         if (object instanceof THREE.SpotLight) {
+          if (object.distance !== 0 || object.decay !== 2 || object.map)
+            throw new Error(`TC_TRACE_LIGHT_UNSUPPORTED: Spot light ${object.uuid} requires unlimited range, inverse-square decay and no projected map.`);
+          if (!Number.isFinite(object.angle) || object.angle <= 0 || object.angle > Math.PI / 2 ||
+              !Number.isFinite(object.penumbra) || object.penumbra < 0 || object.penumbra > 1)
+            throw new Error(`TC_TRACE_LIGHT_INVALID: Spot light ${object.uuid} requires angle in (0, PI/2] and penumbra in [0,1].`);
           object.target.updateWorldMatrix(true, false);
           const direction = object.target.getWorldPosition(new THREE.Vector3()).sub(position);
-          if (direction.lengthSq() === 0)
-            throw new Error(`TC_TRACE_LIGHT_DIRECTION: Spot light ${object.uuid} requires a target different from its position.`);
+          const directionLength = direction.lengthSq();
+          if (!Number.isFinite(directionLength) || directionLength === 0)
+            throw new Error(`TC_TRACE_LIGHT_DIRECTION: Spot light ${object.uuid} requires finite, distinct position and target.`);
           direction.normalize();
           lights.push(
             ...position.toArray(), 5,
