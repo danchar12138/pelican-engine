@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add entity-following focus for static world chunk residency, with diagnostics and snapshot state. Runtime behavior remains unverified.
+
 - Add named equipment slots, tag restrictions and atomic inventory/equipment transfers. Runtime and snapshot restoration remain unverified.
 
 ## 0.9.0 - 2026-11-07

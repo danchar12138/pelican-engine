@@ -639,8 +639,8 @@ system; rendering, input and snapshot behavior have not been runtime-validated.
 ### Static world chunk residency
 
 `ctx.streaming` can materialize predefined static prefab entities around a
-world-space focus. Define each chunk once, then update the focus in a game
-system; transitions occur at the update phase's structural commit boundary:
+world-space focus. Define each chunk once, then choose a fixed position or
+follow a root entity; transitions occur at the update phase's structural commit boundary:
 
 ```ts
 ctx.streaming.configure({ chunkSize: 32, loadRadius: 1, unloadRadius: 2, maxChangesPerTick: 4 });
@@ -648,7 +648,7 @@ ctx.streaming.defineChunk({
   x: 0, z: 0,
   entities: [{ id: "tree-0", prefab: "tree", transform: { position: [2, 0, 3] } }],
 });
-ctx.streaming.setFocus(ctx.entities.getTransform("player").position);
+ctx.streaming.followFocus("player");
 ```
 
 Chunk coordinates use floor(position / chunkSize) on X/Z; entity transforms are
@@ -659,6 +659,13 @@ hold at most 512 entities; the service permits up to 4096 chunks and 65536
 entities in total. `inspect()` reports residency, and `setFocus(null)` freezes
 residency changes. Load/unload uses Chebyshev distance and hysteresis; a bounded
 number of chunks change per fixed tick. Load/unload is not immediate.
+`followFocus` samples the root entity at each update. `inspect()` reports the
+last focus, entity and `manual`, `following`, `invalid` or `missing` status.
+If the entity is parented or leaves the supported coordinate range, residency
+pauses until it becomes valid; if destroyed, it remains `missing` and does not
+attach to a replacement ID. Call `followFocus` again to bind a replacement,
+or `setFocus` to switch to manual mode. Following state is saved in snapshots.
+Entity following, residency and restoration are not runtime-validated.
 
 Use `ctx.streaming.addEntity(x, z, { id, prefab, transform })` to build a root
 in a defined chunk, or `ctx.streaming.removeEntity(x, z, id)` to remove one.

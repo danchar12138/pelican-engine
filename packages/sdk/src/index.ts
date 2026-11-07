@@ -719,10 +719,14 @@ export interface WorldStreamingService {
   };
   /** Set a world-space observer, or null to suspend automatic residency changes. */
   setFocus(position: Vec3 | null): void;
+  /** Follow a live root entity at fixed-tick boundaries; null suspends automatic residency. */
+  followFocus(entity: string | null): void;
   /** Removes an inactive definition; loaded chunks must first move out of range. */
   removeChunk(x: number, z: number): void;
   inspect(): {
     focus: Vec3 | null;
+    focusEntity: string | null;
+    focusStatus: "manual" | "following" | "missing" | "invalid";
     options: Required<WorldStreamingOptions>;
     chunks: readonly { x: number; z: number; active: boolean; entities: number }[];
   };

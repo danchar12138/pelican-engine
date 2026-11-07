@@ -17,7 +17,8 @@ import { values } from "./storage.ts";
 type Options = Required<WorldStreamingOptions>;
 type Edit = { kind: "add"; entity: EntityRecord } | { kind: "remove"; id: string };
 type Chunk = { x: number; z: number; active: boolean; entities: EntityRecord[]; edits?: Edit[] };
-type StreamingSnapshot = { version: 1; options: Options; focus: Vec3 | null; chunks: Chunk[] };
+type StreamingSnapshot = { version: 1; options: Options; focus: Vec3 | null; chunks: Chunk[];
+  focusEntity?: string | null; focusStatus?: "manual" | "following" | "missing" | "invalid" };
 const initial: Options = { chunkSize: 32, loadRadius: 1, unloadRadius: 2, maxChangesPerTick: 4 };
 const MAX_PENDING_EDITS = 4096;
 const MAX_EDITS_PER_TICK = 64;
@@ -53,6 +54,8 @@ function focus(value: Vec3 | null): Vec3 | null {
 /** Static prefab residency. Structural changes are committed by the existing World phase boundary. */
 export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
   let config = { ...initial }, observer: Vec3 | null = null, disposed = false;
+  let focusEntity: string | null = null, focusStatus: "manual" | "following" | "missing" | "invalid" = "manual";
+  let focusHandle: EntityHandle | undefined;
   let chunks = new Map<string, Chunk>();
   const handles = new Map<string, EntityHandle>();
   const waiting = new Set<string>();
@@ -88,6 +91,13 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
     if (!data || typeof data !== "object" || Array.isArray(data) || data.version !== 1 || !Array.isArray(data.chunks) || data.chunks.length > 4096)
       return fail("SNAPSHOT", "Expected version 1 streaming snapshot with at most 4096 chunks.");
     const parsedOptions = options(data.options), parsedFocus = focus(data.focus);
+    const savedEntity = data.focusEntity === undefined ? null : data.focusEntity;
+    const savedStatus = data.focusStatus === undefined ? "manual" : data.focusStatus;
+    if (!(savedEntity === null || (typeof savedEntity === "string" && savedEntity.trim().length > 0 && savedEntity.length <= 64 && !/[\x00-\x1f\x7f]/.test(savedEntity))) ||
+        !["manual", "following", "missing", "invalid"].includes(savedStatus) ||
+        (savedStatus === "manual" ? savedEntity !== null : savedEntity === null) ||
+        ((savedStatus === "missing" || savedStatus === "invalid") && parsedFocus !== null))
+      return fail("SNAPSHOT", "Invalid focus entity or status.");
     const coordinates = new Set<string>(), ids = new Set<string>();
     let total = 0, pendingCount = 0;
     const parsedChunks = data.chunks.map(item => {
@@ -128,7 +138,7 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       if (total > 65536) return fail("CAPACITY", "At most 65536 chunk entities may be registered.");
       return { x: item.x, z: item.z, active: item.active, entities, ...(edits.length ? { edits } : {}) };
     });
-    return { version: 1, options: parsedOptions, focus: parsedFocus, chunks: parsedChunks };
+    return { version: 1, options: parsedOptions, focus: parsedFocus, focusEntity: savedEntity, focusStatus: savedStatus, chunks: parsedChunks };
   }
   function currentRecords(): Map<string, EntityRecord> {
     return new Map(context.world.records().map(record => [record.id, record]));
@@ -163,11 +173,16 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
   function snapshot(): StreamingSnapshot {
     alive();
     sync(currentRecords());
-    return cloneSerializable({ version: 1 as const, options: config, focus: observer,
+    if (focusEntity && focusStatus !== "missing" && (!focusHandle || !context.world.isAlive(focusHandle))) {
+      focusStatus = "missing"; focusHandle = undefined; observer = null;
+    }
+    return cloneSerializable({ version: 1 as const, options: config, focus: observer, focusEntity, focusStatus,
       chunks: [...chunks.values()].sort((a, b) => a.x - b.x || a.z - b.z) });
   }
   function checkWorld(data: StreamingSnapshot, world: WorldSnapshot): void {
     const records = new Map(world.entities.map(record => [record.id, record]));
+    if (data.focusEntity && data.focusStatus !== "missing" && !records.has(data.focusEntity))
+      fail("SNAPSHOT", `Followed entity '${data.focusEntity}' is missing from the world snapshot.`);
     for (const chunk of data.chunks) if (chunk.active) for (const item of chunk.entities) {
       const live = records.get(item.id);
       if (!live || live.parent !== undefined || live.prefab !== item.prefab)
@@ -244,7 +259,17 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       return cloneSerializable({ x: chunk.x, z: chunk.z, active: chunk.active, entities: chunk.entities,
         pending: (chunk.edits ?? []).map(edit => ({ kind: edit.kind, id: edit.kind === "add" ? edit.entity.id : edit.id })) });
     },
-    setFocus(position) { alive(); observer = focus(position); },
+    setFocus(position) { alive(); observer = focus(position); focusEntity = null; focusHandle = undefined; focusStatus = "manual"; },
+    followFocus(id) {
+      alive();
+      if (id === null) { observer = null; focusEntity = null; focusHandle = undefined; focusStatus = "manual"; return; }
+      if (typeof id !== "string" || !id.trim() || id.length > 64 || /[\x00-\x1f\x7f]/.test(id) || !context.world.isAlive(id))
+        return fail("FOCUS_ENTITY", "Focus requires a live entity with a printable id.");
+      const handle = context.world.resolve(id);
+      if (context.world.identity(handle).parent !== undefined) return fail("FOCUS_ENTITY", "Focus entity must be a root entity.");
+      const position = focus(context.world.getTransform(handle).position);
+      focusEntity = id; focusHandle = handle; focusStatus = "following"; observer = position;
+    },
     removeChunk(x, z) {
       alive();
       const chunk = chunkAt(x, z);
@@ -253,7 +278,7 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
     },
     inspect() {
       alive();
-      return cloneSerializable({ focus: observer, options: config, chunks: [...chunks.values()]
+      return cloneSerializable({ focus: observer, focusEntity, focusStatus, options: config, chunks: [...chunks.values()]
         .sort((a, b) => a.x - b.x || a.z - b.z)
         .map(({ x, z, active, entities }) => ({ x, z, active, entities: entities.length })) });
     },
@@ -266,6 +291,16 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
         run() {
           const records = currentRecords();
           sync(records);
+          if (focusEntity && focusStatus !== "missing") {
+            if (!focusHandle || !context.world.isAlive(focusHandle)) {
+              focusHandle = undefined; focusStatus = "missing"; observer = null;
+            } else {
+              const record = records.get(focusEntity), position = record?.transform.position;
+              if (!record || record.parent !== undefined || !position || position.some(value => !Number.isFinite(value) || Math.abs(value) > 1e9)) {
+                focusStatus = "invalid"; observer = null;
+              } else { focusStatus = "following"; observer = focus(position); }
+            }
+          }
           const editPlan: { chunk: Chunk; edit: Edit }[] = [];
           const touched = new Set<Chunk>();
           const ordered = [...chunks.values()].sort((a, b) => a.x - b.x || a.z - b.z);
@@ -354,11 +389,13 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       const data = parse(value);
       checkWorld(data, context.world.snapshot());
       config = data.options; observer = data.focus;
+      focusEntity = data.focusEntity ?? null; focusStatus = data.focusStatus ?? "manual";
+      focusHandle = focusEntity && focusStatus !== "missing" ? context.world.resolve(focusEntity) : undefined;
       chunks = new Map(data.chunks.map(chunk => [key(chunk.x, chunk.z), chunk]));
       handles.clear(); waiting.clear();
       for (const chunk of chunks.values()) if (chunk.active)
         for (const item of chunk.entities) handles.set(item.id, context.world.resolve(item.id));
     },
-    dispose() { disposed = true; chunks.clear(); handles.clear(); waiting.clear(); },
+    dispose() { disposed = true; focusHandle = undefined; chunks.clear(); handles.clear(); waiting.clear(); },
   };
 };

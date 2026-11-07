@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds entity-following focus for static world chunk residency, with missing/invalid states and snapshot persistence. It does not stream dynamic physics or assets; following, transitions and restoration are unverified.
+
 - Local development adds named equipment slots, item tag restrictions and atomic inventory/equipment transfers. Equipment and older snapshot compatibility have not been runtime-validated; item instances, stats and durability are not implemented.
 
 - The 0.9.0 development batch exposes 3D sphere, box and capsule linear shape casts with live-entity and trigger filters. Query results, initial overlap handling and runtime behavior are unverified; this does not fix the 3D first-step removal defect.
