@@ -112,9 +112,9 @@ const orthographicCamera = new THREE.OrthographicCamera(-5 * width / height, 5 *
 let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = perspectiveCamera;
 function cameraCapabilities(backend: RenderCapabilities["backend"], orthographic: boolean): RenderCapabilities {
   const capabilities = renderCapabilities(backend);
-  if (!orthographic) return capabilities;
+  if (!orthographic || !probeEnabled) return capabilities;
   return { ...capabilities, availableModes: capabilities.availableModes.includes("raster") ? ["raster"] : [],
-    modeLimitation: "Orthographic projection currently supports raster only. Use raster, or choose a perspective camera and WebGPU for hybrid/path modes." };
+    modeLimitation: "The historical M0 tracing sidecar requires a perspective camera; use a normal game scene for orthographic tracing." };
 }
 const rasterCanvas = document.createElement("canvas"),
   traceCanvas = document.createElement("canvas");
@@ -1184,7 +1184,7 @@ function updateTraceGeometry() {
 }
 function cameraFrame() {
   if (!(camera instanceof THREE.PerspectiveCamera))
-    throw new Error("TC_RENDER_MODE_UNAVAILABLE: Orthographic projection currently supports raster only; choose a perspective camera for hybrid/path modes.");
+    throw new Error("TC_RENDER_MODE_UNAVAILABLE: The historical M0 tracing sidecar requires a perspective camera.");
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   const right = new THREE.Vector3()
@@ -1273,8 +1273,6 @@ async function drawFrame(accumulate = false, changed = true) {
   traceCanvas.style.display = mode === "raster" || effects ? "none" : "block";
   if (effects && probeEnabled) throw new Error("TC_POSTPROCESS_PROBE_UNSUPPORTED: Controlled effects require a normal game scene, not the historical M0 tracing sidecar.");
   if (mode !== "raster" && !probeEnabled) {
-    if (!(camera instanceof THREE.PerspectiveCamera))
-      throw new Error("TC_RENDER_MODE_UNAVAILABLE: Orthographic projection currently supports raster only; choose a perspective camera for hybrid/path modes.");
     if (!surfaceTracer) {
       if (!legacyTracerDisposed) {
         tracer.dispose();
@@ -1533,8 +1531,8 @@ async function stepRuntime() {
   }
 }
 function setMode(next: typeof mode) {
-  if (next !== "raster" && camera instanceof THREE.OrthographicCamera)
-    throw new Error("TC_RENDER_MODE_UNAVAILABLE: Orthographic projection currently supports raster only; choose a perspective camera for hybrid/path modes.");
+  if (next !== "raster" && probeEnabled && camera instanceof THREE.OrthographicCamera)
+    throw new Error("TC_RENDER_MODE_UNAVAILABLE: The historical M0 tracing sidecar requires a perspective camera.");
   if (next !== "raster") requireCompute(renderCapabilities(backendKind), next);
   if (next !== mode) {
     surfaceTracer?.invalidateTemporal();

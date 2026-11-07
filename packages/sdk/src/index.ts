@@ -1571,7 +1571,7 @@ export interface SceneInput {
   camera?: {
     position: Vec3;
     target: Vec3;
-    /** Perspective by default. Orthographic currently supports raster mode only. */
+    /** Perspective by default. Orthographic tracing is development-stage and rejects transmissive volumes. */
     projection?: "perspective" | "orthographic";
     /** Orthographic vertical span in world units; defaults to 10. */
     orthographicSize?: number;

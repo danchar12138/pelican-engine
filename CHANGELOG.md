@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add development-stage orthographic hybrid/path rays, raster-primary sampling and motion reprojection for non-volume scenes; GPU behavior is unverified.
+
 ## 0.11.0 - 2026-11-07
 
 - Development batch only: built without tests or runtime, browser, GPU, performance, compatibility or recovery validation. The 3D first-step deletion defect, continuous collision, unified coupling and other 1.0 requirements remain open.

@@ -471,7 +471,7 @@ physics history or already queued agent replans. Runtime behavior is unverified.
 
 Automatic streaming and a visual editor are not included.
 Rendering, collision, synchronization, rollback, snapshots, memory use and
-perspective tracing are unverified; orthographic hybrid/path remain unavailable. A source checkout
+perspective and orthographic tracing are unverified. A source checkout
 includes `examples/tilemap` and its MIT demonstration texture; npm games
 provide their own assets.
 
@@ -507,8 +507,7 @@ suitable padding; transparent sprite ordering follows the renderer's material
 sorting. Animation advances on fixed ticks, so frame rates above the tick rate
 can skip frames. Up to 1024 sprites and 4096 atlas frames per sprite are
 supported. Raster, transparency, animation, resource lifecycle, snapshots and
-perspective tracing have not been runtime-validated; orthographic hybrid/path
-remain unavailable. A source checkout includes `examples/sprite-atlas` and its
+perspective and orthographic tracing have not been runtime-validated. A source checkout includes `examples/sprite-atlas` and its
 MIT example texture. The npm package does not include that game asset; provide
 your own texture there.
 
@@ -533,9 +532,13 @@ camera: { position: [0, 0, 10], target: [0, 0, 0], projection: "orthographic", o
 `orthographicSize` is the vertical visible span in world units; width follows the
 render viewport aspect. Perspective remains the default. `fov` is only accepted
 for perspective cameras; `orthographicSize` only for orthographic cameras.
-The current orthographic path supports **raster only**: hybrid/path requests
-return `TC_RENDER_MODE_UNAVAILABLE` rather than silently changing modes.
-`ctx.render.capabilities()` reports the restriction. The example
+On WebGPU, normal game scenes also have development-stage orthographic hybrid
+and path tracing. If a captured scene contains transmissive volumes, these modes
+return `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`: per-ray initial media are not
+implemented yet. Select a perspective camera or remove the volumes; there is no
+silent fallback. The historical M0 tracing sidecar remains perspective-only,
+and WebGL2 remains raster-only. Camera rays, jitter, motion reprojection,
+clipping and hardware behavior have not been runtime-validated. The example
 `examples/orthographic-2d` and the installed recipe use simple 3D primitives
 positioned on a plane; it does not itself demonstrate sprite animation or tile
 maps. The camera is not 2D physics or a complete 2D engine. Rendering, WebGL2 fallback, world UI projection and input

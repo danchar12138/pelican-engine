@@ -22,7 +22,7 @@ const capabilities = ctx.render.capabilities();
 
 引擎不改变作者指定的分辨率、采样、灯光、材质或后处理来适应回退。不同后端可能存在数值、驱动或扩展能力差异；支持边界必须明确记录，不能把近似图像当作相同功能。WebGL2 可用模式为 `raster`；依赖 compute 的 `path`、`hybrid`、降噪和受控计算不能使用。初始内容要求不支持模式时明确失败，不自动重写内容。
 
-场景使用正交相机时，当前实现仅允许 `raster`；即使后端为 WebGPU，也会明确拒绝 `hybrid`/`path`，不自动切换模式。`modeLimitation` 给出原因与替代方式。正交相机、World UI 投影与回退路径尚未运行验证。
+普通场景的正交相机已有 WebGPU `hybrid`/`path` 开发实现；包含透射体积时返回 `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`，需改用透视相机或移除体积，不自动切换模式。历史 M0 光追侧车仍仅支持透视相机；WebGL2 仍仅支持光栅。正交射线、World UI 投影、回退路径和硬件行为尚未运行验证。
 
 状态栏显示当前 WebGPU/WebGL2。开发态 `inspect` 同时提供实际后端名称、适配器（适用时）和 `capabilities`；WebGL2 不伪造 WebGPU 适配器信息。
 

@@ -1233,7 +1233,7 @@ export class SurfaceTracer {
       this.computeGroup = undefined;
     }
   }
-  private uploadMedium(camera: THREE.PerspectiveCamera) {
+  private uploadMedium(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera) {
     const position = camera.getWorldPosition(new THREE.Vector3()).toArray() as [
         number,
         number,
@@ -1373,7 +1373,7 @@ export class SurfaceTracer {
     return this.linearPresentPending;
   }
   render(
-    camera: THREE.PerspectiveCamera,
+    camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
     settings: Readonly<RenderSettings>,
     targets?: TracePresentationTargets,
   ) {
@@ -1398,18 +1398,27 @@ export class SurfaceTracer {
       throw new Error(
         "TC_TRACE_SCENE: Capture the current scene before rendering.",
       );
+    const orthographic = camera instanceof THREE.OrthographicCamera;
+    if (orthographic && this.mediumIds.size)
+      throw new Error("TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED: Orthographic tracing cannot yet initialize participating media separately for each primary ray. Use a perspective camera or remove transmissive volumes.");
     const started = performance.now();
     camera.updateWorldMatrix(true, false);
     this.uploadMedium(camera);
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
-    const spread = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const right = new THREE.Vector3()
-        .setFromMatrixColumn(camera.matrixWorld, 0)
-        .multiplyScalar(spread * camera.aspect),
-      up = new THREE.Vector3()
-        .setFromMatrixColumn(camera.matrixWorld, 1)
-        .multiplyScalar(spread);
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0),
+      up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1),
+      cameraOrigin = camera.getWorldPosition(new THREE.Vector3());
+    if (camera instanceof THREE.OrthographicCamera) {
+      cameraOrigin.addScaledVector(right, (camera.left + camera.right) / 2)
+        .addScaledVector(up, (camera.top + camera.bottom) / 2);
+      right.multiplyScalar((camera.right - camera.left) / (2 * camera.zoom));
+      up.multiplyScalar((camera.top - camera.bottom) / (2 * camera.zoom));
+    } else {
+      const spread = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      right.multiplyScalar(spread * camera.aspect);
+      up.multiplyScalar(spread);
+    }
     const viewProjection = camera.projectionMatrix
         .clone()
         .multiply(camera.matrixWorldInverse),
@@ -1429,8 +1438,13 @@ export class SurfaceTracer {
       jitterY = settings.mode === "hybrid" ? halton(this.serial + 1, 3) : 0;
     if (settings.mode === "hybrid") {
       const projection = camera.projectionMatrix.clone();
-      projection.elements[8] += (2 * jitterX) / this.width;
-      projection.elements[9] -= (2 * jitterY) / this.height;
+      if (orthographic) {
+        projection.elements[12] -= (2 * jitterX) / this.width;
+        projection.elements[13] += (2 * jitterY) / this.height;
+      } else {
+        projection.elements[8] += (2 * jitterX) / this.width;
+        projection.elements[9] -= (2 * jitterY) / this.height;
+      }
       viewProjection.copy(projection.multiply(camera.matrixWorldInverse));
     }
     if (this.reset) {
@@ -1439,7 +1453,7 @@ export class SurfaceTracer {
     }
     const params = new Float32Array(TRACE_PARAMETER_FLOATS);
     params.set([
-      ...camera.position.toArray(),
+      ...cameraOrigin.toArray(),
       this.lightTechniques,
       ...forward.toArray(),
       jitterX,
@@ -1491,7 +1505,7 @@ export class SurfaceTracer {
       this.backgroundIntensity,
       Math.cos(this.backgroundRotation),
       Math.sin(this.backgroundRotation),
-      0,
+      orthographic ? 1 : 0,
     ]);
     this.device.queue.writeBuffer(this.uniform, 0, params);
     this.groups();
@@ -1676,7 +1690,7 @@ export class SurfaceTracer {
       encoder.resolveQuerySet(this.timestamps, 0, 6, this.timingResolve, 0);
     this.device.queue.submit([encoder.finish()]);
     this.previousViewProjection.copy(viewProjection);
-    this.previousCameraOrigin.copy(camera.position);
+    this.previousCameraOrigin.copy(cameraOrigin);
     this.previousCameraValid = true;
     this.previousSurface = this.capturedSurface;
     this.temporalHistoryReset = false;

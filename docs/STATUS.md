@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local development adds orthographic WebGPU hybrid/path camera rays, raster-primary sampling and motion reprojection for normal scenes. Captured transmissive volumes are explicitly rejected until per-ray initial-media handling exists; the historical M0 sidecar remains perspective-only and WebGL2 remains raster-only. GPU behavior, jitter, clipping, denoising and recovery are unverified.
+
 - Local cloth development uses a shared virtual rigid body for opt-in particle and sampled triangle contacts, including relative normal velocity, inverse mass/inertia, and barycentric surface mass with anchored vertices excluded. Contacts remain discrete and delayed, box orientation stays fixed during a split pass, and solvers are not unified. Runtime, stability, cost and restoration remain unverified.
 
 - Local cloth development stages reactions across automatic cloth entries before one physics batch, instead of committing after each entry. A native commit can still partially apply, and other host systems are not rolled back; runtime and failure handling remain unverified.

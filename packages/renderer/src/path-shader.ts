@@ -10,6 +10,12 @@ struct TraceParameters{
  medium:vec4f,
  previousView0:vec4f,previousView1:vec4f,previousView2:vec4f,previousView3:vec4f,previousOrigin:vec4f,backgroundSettings:vec4f,
 }
+fn traceCameraOrigin(origin:vec3f,right:vec3f,up:vec3f,pixel:vec2f,orthographic:bool)->vec3f{
+ if(orthographic){return origin+right*pixel.x-up*pixel.y;}return origin;
+}
+fn traceCameraDirection(forward:vec3f,right:vec3f,up:vec3f,pixel:vec2f,orthographic:bool)->vec3f{
+ if(orthographic){return normalize(forward);}return normalize(forward+right*pixel.x-up*pixel.y);
+}
 `;
 export const TRACE_RANDOM_SHADER = /* wgsl */ String.raw`
 fn traceRandom(seed:ptr<function,u32>)->f32{*seed=(*seed)*747796405u+2891336453u;let shift=((*seed)>>28u)+4u;let word=(((*seed)>>shift)^(*seed))*277803737u;return min(f32((word>>22u)^word)/4294967296.0,0.99999994);}
@@ -101,14 +107,16 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
   let hybrid=traceParams.flags.x>0.5;
   var jitter=vec2f(traceRandom(&seed),traceRandom(&seed));if(hybrid){jitter=vec2f(0.5+traceParams.forward.w,0.5+traceParams.right.w);}
   let pixel=((vec2f(invocation.xy)+jitter)/vec2f(f32(width),f32(height)))*2.0-vec2f(1);
-  var direction=normalize(traceParams.forward.xyz+traceParams.right.xyz*pixel.x-traceParams.up.xyz*pixel.y);
-  var origin=traceParams.origin.xyz+direction*(traceParams.screen.w/max(dot(direction,traceParams.forward.xyz),1e-5));
-  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=traceParams.origin.xyz;var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
+  let orthographic=traceParams.backgroundSettings.w>0.5;
+  let cameraOrigin=traceCameraOrigin(traceParams.origin.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
+  var direction=traceCameraDirection(traceParams.forward.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
+  var origin=cameraOrigin+direction*(traceParams.screen.w/max(dot(direction,traceParams.forward.xyz),1e-5));
+  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=cameraOrigin;var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
   var previousHit=-1;var previousGeometric=vec3f(0);var previousBary=vec3f(0);var previousEvent=0u;var previousFront=false;
   if(traceVolumeEnabled){let initialCount=u32(traceParams.medium.y);if(initialCount>64u){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,8u);}else{for(var layer=0u;layer<initialCount;layer++){media[layer+1u]=u32(traceLights[u32(traceParams.medium.z)+layer].position.x);}mediumDepth+=initialCount;}}
   for(var bounce=0u;bounce<u32(traceParams.settings.z);bounce++){
    var hit:SurfaceHit;
-   if(hybrid&&bounce==0u){let primary=textureLoad(primaryHits,vec2i(invocation.xy),0);if(primary.y< -1.5){var coverageSeed=seed;let cosine=max(dot(direction,traceParams.forward.xyz),1e-5);let exact=traceSurface(origin,direction,(traceParams.settings.w-traceParams.screen.w)/cosine,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(&coverageSeed));hit=SurfaceHit(exact.distance+traceParams.screen.w/cosine,exact.index,exact.bary,exact.front);}else{hit=SurfaceHit(abs(primary.x),i32(primary.y),vec3f(1.0-primary.z-primary.w,primary.z,primary.w),primary.x>=0.0);}origin=traceParams.origin.xyz;}
+   if(hybrid&&bounce==0u){let primary=textureLoad(primaryHits,vec2i(invocation.xy),0);if(primary.y< -1.5){var coverageSeed=seed;let cosine=max(dot(direction,traceParams.forward.xyz),1e-5);let exact=traceSurface(origin,direction,(traceParams.settings.w-traceParams.screen.w)/cosine,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(&coverageSeed));hit=SurfaceHit(exact.distance+traceParams.screen.w/cosine,exact.index,exact.bary,exact.front);}else{hit=SurfaceHit(abs(primary.x),i32(primary.y),vec3f(1.0-primary.z-primary.w,primary.z,primary.w),primary.x>=0.0);}origin=cameraOrigin;}
    else{var rayLimit=traceParams.settings.w;if(bounce==0u){rayLimit=(traceParams.settings.w-traceParams.screen.w)/max(dot(direction,traceParams.forward.xyz),1e-5);}hit=traceSurface(origin,direction,rayLimit,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(&seed));}
    let debugSlot=pixelCount*4u+13u+bounce*8u;
    if(targeted&&bounce<8u){for(var debugRow=0u;debugRow<8u;debugRow++){traceOutput.pixels[debugSlot+debugRow]=vec4f(0);}traceOutput.pixels[pixelCount*4u+12u].z=f32(bounce+1u);traceOutput.pixels[debugSlot]=vec4f(origin,f32(hit.index));traceOutput.pixels[debugSlot+1u]=vec4f(direction,hit.distance);traceOutput.pixels[debugSlot+2u]=vec4f(f32(mediumDepth),f32(media[mediumDepth-1u]),select(0.0,1.0,hit.front),0);}
@@ -164,10 +172,12 @@ struct PrimaryVertex{@builtin(position) position:vec4f,@location(0) @interpolate
  let triangle=surfaceTriangle(input.index);
  // Raster subpixel setup is not precise barycentric data for ray-space motion.
  let pixel=(input.position.xy+vec2f(primaryParams.forward.w,primaryParams.right.w))/primaryParams.screen.xy*2.0-vec2f(1);
- let direction=normalize(primaryParams.forward.xyz+primaryParams.right.xyz*pixel.x-primaryParams.up.xyz*pixel.y);
+ let orthographic=primaryParams.backgroundSettings.w>0.5;
+ let origin=traceCameraOrigin(primaryParams.origin.xyz,primaryParams.right.xyz,primaryParams.up.xyz,pixel,orthographic);
+ let direction=traceCameraDirection(primaryParams.forward.xyz,primaryParams.right.xyz,primaryParams.up.xyz,pixel,orthographic);
  let edge1=triangle.b.xyz-triangle.a.xyz;let edge2=triangle.c.xyz-triangle.a.xyz;
  let p=cross(direction,edge2);let determinant=dot(edge1,p);if(determinant==0.0){return vec4f(0,-2,0,0);}
- let relative=primaryParams.origin.xyz-triangle.a.xyz;let q=cross(relative,edge1);
+ let relative=origin-triangle.a.xyz;let q=cross(relative,edge1);
  let u=dot(relative,p)/determinant;let v=dot(direction,q)/determinant;
  let bary=vec3f(1.0-u-v,u,v);let distance=dot(edge2,q)/determinant;
  // Hardware raster coverage can select a neighboring face at subpixel edges.

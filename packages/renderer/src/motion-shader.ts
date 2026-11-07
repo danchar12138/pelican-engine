@@ -18,9 +18,11 @@ fn motionMain(@builtin(global_invocation_id) invocation:vec3u){
  var jitter=vec2f(traceRandom(&seed),traceRandom(&seed));
  if(motionParams.flags.x>0.5){jitter=vec2f(0.5+motionParams.forward.w,0.5+motionParams.right.w);}
  let pixel=((vec2f(invocation.xy)+jitter)/vec2f(f32(width),f32(height)))*2.0-vec2f(1);
- let direction=normalize(motionParams.forward.xyz+motionParams.right.xyz*pixel.x-motionParams.up.xyz*pixel.y);
+ let orthographic=motionParams.backgroundSettings.w>0.5;
+ let cameraOrigin=traceCameraOrigin(motionParams.origin.xyz,motionParams.right.xyz,motionParams.up.xyz,pixel,orthographic);
+ let direction=traceCameraDirection(motionParams.forward.xyz,motionParams.right.xyz,motionParams.up.xyz,pixel,orthographic);
  let cosine=max(dot(direction,motionParams.forward.xyz),1e-5);
- let origin=motionParams.origin.xyz+direction*(motionParams.screen.w/cosine);
+ let origin=cameraOrigin+direction*(motionParams.screen.w/cosine);
  var hit:SurfaceHit;
  if(motionParams.flags.x>0.5){
   let primary=textureLoad(motionPrimary,vec2i(invocation.xy),0);
