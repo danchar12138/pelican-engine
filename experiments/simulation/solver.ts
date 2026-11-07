@@ -16,6 +16,7 @@ import { createBoxFrame, orientedParticleBoxContact, type BoxFrame } from "../..
 import type {
   PointState,
   Simulation,
+  SimulationBodyCoupling,
   SimulationInspection,
   SimulationKind,
   SimulationCollider,
@@ -223,41 +224,60 @@ export function createSimulation(
     }
   }
 
-  function solveContacts(h: number): void {
+  function solveContacts(h: number, oldPositions: readonly Vec3[], coupling?: SimulationBodyCoupling): void {
     if (!state.options.contacts) return;
     for (const body of state.bodies) {
       const box = sampledBoxes.get(body.id);
-      for (const p of state.particles) {
+      const sampled = isSampled(body.id);
+      // A virtual body can translate during a tick; its box orientation stays fixed.
+      const localFrame = box && coupling && sampled ? createBoxFrame([0, 0, 0], box.rotation) : undefined;
+      for (let index = 0; index < state.particles.length; index++) {
+        const p = state.particles[index];
         if (p.inverseMass === 0) continue;
         let normal: Vec3, penetration: number, point: Vec3;
         if (box) {
-          const hit = orientedParticleBoxContact(p.position, p.radius, body.position, box.halfExtents, box.frame);
+          const dynamicBox = coupling && sampled ? coupling.box?.(body.id) : undefined;
+          if (coupling && sampled && !dynamicBox) fail("SIM_BODY", `Missing dynamic box '${body.id}'.`);
+          const center = dynamicBox?.center ?? body.position, halfExtents = dynamicBox?.halfExtents ?? box.halfExtents;
+          const hit = dynamicBox
+            ? orientedParticleBoxContact(sub(p.position, center), p.radius, [0, 0, 0], halfExtents, localFrame)
+            : orientedParticleBoxContact(p.position, p.radius, center, halfExtents, box.frame);
           if (!hit) continue;
           normal = hit.normal; penetration = hit.depth;
           point = add(p.position, mul(normal, penetration - p.radius));
         } else {
-          const delta = sub(p.position, body.position), r = length(delta), colliderRadius = sampledRadii.get(body.id) ?? body.radius;
+          const dynamicSphere = coupling && sampled ? coupling.sphere(body.id) : undefined;
+          if (coupling && sampled && !dynamicSphere) fail("SIM_BODY", `Missing dynamic sphere '${body.id}'.`);
+          const center = dynamicSphere?.center ?? body.position, colliderRadius = dynamicSphere?.radius ?? sampledRadii.get(body.id) ?? body.radius;
+          const delta = sub(p.position, center), r = length(delta);
           penetration = colliderRadius + p.radius - r;
           normal = r > 1e-12 ? mul(delta, 1 / r) : [1, 0, 0];
-          point = add(body.position, mul(normal, colliderRadius));
+          point = add(center, mul(normal, colliderRadius));
         }
         if (penetration <= 0) continue;
-        // Bound bodies are owned by the physics plugin, not integrated a second time here.
-        const sampled = isSampled(body.id);
-        const bodyWeight = state.options.twoWayCoupling && !sampled ? body.inverseMass : 0;
-        const weight = p.inverseMass + bodyWeight;
-        accumulate(p.position, normal, (penetration * p.inverseMass) / weight);
-        accumulate(body.position, normal, (-penetration * bodyWeight) / weight);
+        let impulse: Vec3 | undefined, moment: Vec3 | undefined;
+        if (sampled && coupling) {
+          const result = coupling.resolve(body.id, normal, penetration, p.position, oldPositions[state.bodies.length + index], 1 / p.inverseMass, h, point);
+          accumulate(p.position, result.correction);
+          impulse = result.reactionImpulse;
+          moment = result.reactionAngularImpulse;
+        } else {
+          // Without a bridge, sampled bodies remain fixed obstacles.
+          const bodyWeight = state.options.twoWayCoupling && !sampled ? body.inverseMass : 0;
+          const weight = p.inverseMass + bodyWeight;
+          accumulate(p.position, normal, (penetration * p.inverseMass) / weight);
+          accumulate(body.position, normal, (-penetration * bodyWeight) / weight);
+          if (state.options.twoWayCoupling && (bodyWeight > 0 || sampled)) {
+            impulse = mul(normal, -penetration / (weight * h));
+            moment = cross(point, impulse);
+          }
+        }
         state.counters.contactCount++;
-        state.counters.maxContactCorrection = Math.max(
-          state.counters.maxContactCorrection,
-          penetration,
-        );
-        if (state.options.twoWayCoupling && (bodyWeight > 0 || sampled)) {
-          const impulse = mul(normal, -penetration / (weight * h));
+        state.counters.maxContactCorrection = Math.max(state.counters.maxContactCorrection, penetration);
+        if (impulse && moment) {
           accumulate(state.counters.reactionImpulse, impulse);
           state.counters.reactionMoment ??= [0, 0, 0];
-          accumulate(state.counters.reactionMoment, cross(point, impulse));
+          accumulate(state.counters.reactionMoment, moment);
           state.counters.absoluteReactionImpulse += length(impulse);
           if (!isVec3(state.counters.reactionImpulse) || !isVec3(state.counters.reactionMoment) || !Number.isFinite(state.counters.absoluteReactionImpulse))
             fail("SIM_NONFINITE", "Contact reaction exceeded finite bounds; restore a known-good snapshot.");
@@ -330,7 +350,7 @@ export function createSimulation(
       );
   }
 
-  function substep(h: number): void {
+  function substep(h: number, coupling?: SimulationBodyCoupling): void {
     const points = allPoints(state),
       oldPositions = points.map((p) => [...p.position] as Vec3);
     const fluid = kind === "fluid" ? sphAccelerations() : null;
@@ -355,7 +375,7 @@ export function createSimulation(
     for (let iteration = 0; iteration < state.options.iterations; iteration++) {
       solveDistances(h, distanceLambdas);
       solveVolumes(h, volumeLambdas);
-      solveContacts(h);
+      solveContacts(h, oldPositions, coupling);
       solveSoftBodySelfContacts();
       for (const p of points) if (!isSampled(p.id)) constrainWalls(p);
     }
@@ -513,14 +533,14 @@ export function createSimulation(
 
   return {
     kind,
-    step(steps = 1) {
+    step(steps = 1, coupling?: SimulationBodyCoupling) {
       alive();
       if (!Number.isInteger(steps) || steps < 0 || steps > 10000)
         fail("SIM_STEPS", "steps must be an integer in [0,10000].");
       for (let frame = 0; frame < steps; frame++) {
         const start = performance.now();
         for (let j = 0; j < state.options.substeps; j++)
-          substep(state.options.fixedDt / state.options.substeps);
+          substep(state.options.fixedDt / state.options.substeps, coupling);
         state.tick++;
         particleForces.clear();
         const elapsed = performance.now() - start;

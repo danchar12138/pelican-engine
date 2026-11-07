@@ -8,6 +8,7 @@ import { differingSimulationOption } from "./snapshot-options.ts";
 import { nearestParticle } from "./nearest-particle.ts";
 import { applyParticleForces } from "./particle-forces.ts";
 import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
+import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
 type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
@@ -97,6 +98,7 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
       entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], sample.radius);
     else entry.simulation.setBodyBoxState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], [...sample.halfExtents] as [number, number, number], [...sample.rotation] as [number, number, number]);
     entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
+    return sample;
   };
   const service: SoftBodyService = {
     create(definition) { alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty soft-body id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 soft bodies per host."); const entry = createEntry(definition, fixedDt, materials); try { const binding = entry.definition.bodyColliders?.[0]; if (binding) entry.bodyRef = resolveSampledBody(context, binding, "TC_SOFTBODY_BODY_COLLIDER"); syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
@@ -118,26 +120,30 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
       alive();
       ensureRefs();
       const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = [];
-      const reactions = new Map<string, { impulse: [number, number, number]; moment: [number, number, number] }>();
+      const bodies = new Map<string, VirtualRopeCollider>();
       try {
         for (const entry of [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id))) {
           const snapshot = entry.simulation.snapshot();
           committed.push({ entry, snapshot });
-          syncBinding(entry);
-          const state = entry.simulation.step(1);
+          const sample = syncBinding(entry);
           const binding = entry.definition.bodyColliders?.[0];
-          if (entry.definition.bodyReactions && binding) {
-            const reaction = reactions.get(binding.entity) ?? { impulse: [0, 0, 0], moment: [0, 0, 0] };
-            for (let i = 0; i < 3; i++) {
-              reaction.impulse[i] += state.contacts.reactionImpulse[i] - snapshot.counters.reactionImpulse[i];
-              reaction.moment[i] += (state.contacts.reactionMoment?.[i] ?? 0) - (snapshot.counters.reactionMoment?.[i] ?? 0);
+          let coupling;
+          if (entry.definition.bodyReactions && binding && sample) {
+            let body = bodies.get(binding.entity);
+            if (!body) {
+              body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
+              bodies.set(binding.entity, body);
             }
-            reactions.set(binding.entity, reaction);
+            coupling = createRopeBodyCoupling(new Map([["body:0", body]]));
           }
+          entry.simulation.step(1, coupling);
         }
-        if (reactions.size) {
+        const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
+          .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
+          .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
+        if (batch.length) {
           const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
-          bridge.applyParticleReactions([...reactions].sort(([a], [b]) => a.localeCompare(b)).map(([entity, reaction]) => ({ entity, ...reaction })));
+          bridge.applyParticleReactions(batch);
         }
       } catch (error) {
         const failures: string[] = [];

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add split-step particle/rigid-body effective-mass and normal-velocity reactions for fluid and soft-body contacts; runtime and stability remain unverified.
+
 - Add optional orientation for manual fluid and soft-body box colliders; collision and snapshot behavior remain unverified.
 
 - Add sampled dynamic oriented box contacts and optional delayed reactions for fluid and soft bodies; runtime, stability and snapshots remain unverified.

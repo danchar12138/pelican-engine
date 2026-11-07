@@ -531,7 +531,7 @@ export interface FluidDefinition {
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
   bodyColliders?: readonly FluidBodyCollider[];
-  /** Submit delayed, projection-derived contact impulses; not full two-way coupling. */
+  /** Use approximate split-step effective-mass contacts with delayed reaction impulses; not a unified coupled solve. */
   bodyReactions?: boolean;
 }
 export interface FluidParticle {
@@ -595,7 +595,7 @@ export interface SoftBodyDefinition {
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: SoftBodyVisualOptions;
   bodyColliders?: readonly SoftBodyBodyCollider[];
-  /** Submit delayed, projection-derived contact impulses; not full two-way coupling. */
+  /** Use approximate split-step effective-mass contacts with delayed reaction impulses; not a unified coupled solve. */
   bodyReactions?: boolean;
 }
 export interface SoftBodyState {

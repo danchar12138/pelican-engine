@@ -11,9 +11,11 @@
 
 ## Current Scope
 
+- Local development uses a per-tick virtual dynamic sphere or box for fluid and soft-body reactions. Contact projection uses particle mass, rigid-body effective inverse mass/inertia and relative normal velocity; bodies shared by simulations of the same kind are processed in sorted order. This is discrete, delayed and approximate, with fixed box orientation and separate simulation passes; it is not continuous, frictional or a fully unified coupling. Runtime, stability, performance and snapshot behavior are unverified.
+
 - Local development adds optional XYZ rotation to manually configured fluid and soft-body boxes; omitted rotations retain the previous axis-aligned path. Snapshot, collision, performance and runtime behavior remain unverified.
 
-- Local development adds live dynamic sphere or oriented box samples for fluid and soft-body contacts, with optional delayed projection-derived linear and world-origin angular reactions. Manually configured boxes also support optional rotation. This is discrete and is not full mass/inertia coupling or continuous collision; lifecycle, runtime, stability and snapshot compatibility remain unverified.
+- Local development adds live dynamic sphere or oriented box samples for fluid and soft-body contacts, with optional delayed linear and world-origin angular reactions. Manually configured boxes also support optional rotation. This is discrete and not fully coupled or continuous collision; lifecycle, runtime, stability and snapshot compatibility remain unverified.
 
 - Local development adds split-step rope contacts and reactions with dynamic 3D boxes, including sampled orientation and effective mass/inertia. The virtual box orientation stays fixed within the split step; collision, response, recovery and snapshot behavior remain unverified.
 
