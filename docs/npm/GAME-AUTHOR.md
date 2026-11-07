@@ -129,6 +129,13 @@ batch, and the last update wins if a cell appears more than once. Entity and
 transform changes are separate from this grid-only batch. This API is new and
 has not been runtime or browser validated under the current project policy.
 
+Grid definitions may include `costs: [{ cell: { x, y }, cost }]` to assign the
+cost of entering a cell. Unlisted cells cost 1; costs must be between 1 and
+1,000,000. `ctx.navigation.setCostsBatch(id, updates)` changes costs together,
+and `getCost` reads the current value. Setting a cost to 1 removes its override.
+Pathfinding minimizes the sum of entered-cell costs, and snapshots include the
+overrides. Weighted routing remains unverified at runtime.
+
 ### Development-stage rope particles
 
 `ctx.ropes.create({ id, points, mass, autoStep: true })` creates a CPU particle

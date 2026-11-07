@@ -354,12 +354,15 @@ export interface SoftBodyService {
 export interface NavigationCell { readonly x: number; readonly y: number }
 /** One obstacle change for an orthogonal navigation grid. */
 export interface NavigationObstacleUpdate { readonly cell: NavigationCell; readonly blocked: boolean }
+/** Cost to enter a cell; omitted cells cost 1. Values must be finite and at least 1. */
+export interface NavigationCostUpdate { readonly cell: NavigationCell; readonly cost: number }
 export interface NavigationGrid {
   readonly id: string;
   readonly owner: string;
   readonly width: number;
   readonly height: number;
   readonly blocked?: readonly NavigationCell[];
+  readonly costs?: readonly NavigationCostUpdate[];
   /** Maximum distinct search cells, including endpoints; defaults to 65536. Raising it increases memory and CPU use. */
   readonly searchCellBudget?: number;
 }
@@ -371,6 +374,9 @@ export interface NavigationService {
   setBlocked(id: string, cell: NavigationCell, blocked: boolean): void;
   /** Validates the entire batch before committing; the last change for a repeated cell wins. */
   setBlockedBatch(id: string, updates: readonly NavigationObstacleUpdate[]): void;
+  getCost(id: string, cell: NavigationCell): number;
+  /** Applies all validated updates together; repeated cells use the last cost. */
+  setCostsBatch(id: string, updates: readonly NavigationCostUpdate[]): void;
   findPath(id: string, start: NavigationCell, end: NavigationCell): readonly NavigationCell[];
   destroyGrid(id: string): void;
   destroyOwner(owner: string): void;

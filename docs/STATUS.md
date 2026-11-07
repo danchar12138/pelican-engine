@@ -11,7 +11,7 @@
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.
 - A known rigid-body first-step removal issue remains open. Historical candidates and risky snapshots are archived evidence, not current acceptance evidence.
-- Navigation supports batch obstacle updates for a finite orthogonal grid; this is not continuous-world streaming or physics integration.
+- Navigation supports batch obstacle and weighted cell-cost updates for a finite orthogonal grid; this is not continuous-world streaming or physics integration. Weighted routing is not runtime-validated.
 - Ropes support manual and automatic fixed stepping, sampled sphere bindings, segmented presentation, segment contacts, and non-adjacent self-contact. Full two-way coupling, cross-rope contact, continuous collision, and tearing remain incomplete.
 - Cloth supports triangular distance constraints, approximate bending, anchors, forces, sampled particle and surface contacts, non-adjacent particle self-contact, dynamic sphere bindings, optional approximate reactions, snapshots, and dynamic mesh presentation. Full continuous collision, rigid-body coupling, friction, and tearing remain incomplete.
 - Soft bodies expose a bounded CPU tetrahedral reference service with fixed-step scheduling, snapshots, particle impulses and dynamic surface presentation. Body coupling, tearing, continuous collision, GPU solving, runtime stability and performance remain incomplete or unverified.
