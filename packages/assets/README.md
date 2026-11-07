@@ -115,7 +115,9 @@ Radiance RGBE `.hdr` textures report `format: "hdr"`, `encoding: "rgbe"`,
 three color channels and linear color space. This development implementation
 supports `-Y/+X` orientation and modern scanline RLE or raw pixels, with at most
 16,777,216 pixels; legacy run encoding is rejected. Runtime decoding uses Three's
-HDRLoader with float32 data and has not been runtime-validated.
+HDRLoader with float32 data and has not been runtime-validated. Non-default
+`GAMMA` or `EXPOSURE` metadata is rejected because the runtime decoder does not
+apply those transforms.
 
 Audio metadata has **top-level `duration` in seconds**, suitable for deterministic
 sound lifetime accounting; there is no milliseconds conversion:

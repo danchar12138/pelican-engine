@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.35";
+export const SDK_VERSION = "0.4.1";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -347,6 +347,10 @@ export interface FluidVisualState {
 }
 /** A single particle impulse in N·s; particle IDs are returned by inspection. */
 export interface SimulationImpulse { particle: string; impulse: Vec3 }
+/** Force in newtons, applied to one particle for the next fixed tick. */
+export interface SimulationForce { particle: string; force: Vec3 }
+/** Manual particle obstacle; boxes are axis-aligned in world space. */
+export type ParticleSimulationCollider = RopeCollider | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 /** Nearest particle centre in world space; distance is measured in metres. */
 export interface SimulationParticleHit { particle: string; position: Vec3; distance: number }
 export interface FluidService {
@@ -358,9 +362,15 @@ export interface FluidService {
   visuals(): readonly FluidVisualState[];
   /** Set gravity for subsequent steps; values must be finite and in [-100,100]. */
   setGravity(id: string, gravity: Vec3): void;
+  /** Replace up to 64 manual sphere, plane or axis-aligned box colliders. Requires contacts enabled. */
+  setColliders(id: string, colliders: readonly ParticleSimulationCollider[]): void;
   applyImpulse(id: string, particle: string, impulse: Vec3): void;
   /** Apply up to 512 impulses atomically; duplicate targets are rejected. */
   applyImpulses(id: string, impulses: readonly SimulationImpulse[]): void;
+  /** Accumulate a force for the next fixed tick. Components and accumulated values must stay in [-100,100]. */
+  applyForce(id: string, particle: string, force: Vec3): void;
+  /** Atomically queue up to 512 forces on distinct particles for the next fixed tick. */
+  applyForces(id: string, forces: readonly SimulationForce[]): void;
   destroy(id: string): void;
 }
 /** CPU tetrahedral soft-body service backed by the bounded XPBD reference solver. */
@@ -403,9 +413,15 @@ export interface SoftBodyService {
   visuals(): readonly SoftBodyVisualState[];
   /** Set gravity for subsequent steps; values must be finite and in [-100,100]. */
   setGravity(id: string, gravity: Vec3): void;
+  /** Replace up to 64 manual sphere, plane or axis-aligned box colliders. Requires contacts enabled. */
+  setColliders(id: string, colliders: readonly ParticleSimulationCollider[]): void;
   applyImpulse(id: string, particle: string, impulse: Vec3): void;
   /** Apply up to 512 impulses atomically; duplicate targets are rejected. */
   applyImpulses(id: string, impulses: readonly SimulationImpulse[]): void;
+  /** Accumulate a force for the next fixed tick. Components and accumulated values must stay in [-100,100]. */
+  applyForce(id: string, particle: string, force: Vec3): void;
+  /** Atomically queue up to 512 forces on distinct particles for the next fixed tick. */
+  applyForces(id: string, forces: readonly SimulationForce[]): void;
   destroy(id: string): void;
 }
 /** Integer cells on a finite 2D orthogonal grid; not continuous, flying or underwater navigation.

@@ -6,6 +6,8 @@ import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
 import { differingSimulationOption } from "./snapshot-options.ts";
 import { nearestParticle } from "./nearest-particle.ts";
+import { applyParticleForces } from "./particle-forces.ts";
+import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
 
 type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
@@ -63,6 +65,9 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       result.set(entry.definition.id, entry);
       const expected = entry.simulation.snapshot().options;
       entry.simulation.restore(item.state);
+      checkColliderBindings(item.state.colliders, entry.definition.bodyColliders ?? [], "TC_SOFTBODY_SNAPSHOT");
+      if (!entry.definition.bodyColliders?.length && item.state.sampledBodies?.length)
+        fail("SNAPSHOT", `Soft body '${entry.definition.id}' has sampled bodies but no binding.`);
       const differing = differingSimulationOption(entry.simulation.snapshot().options, expected, "softbody", !!entry.definition.bodyColliders?.length);
       if (differing) fail("SNAPSHOT", `Soft body '${entry.definition.id}' option '${differing}' differs from its definition.`);
       if (entry.definition.bodyColliders?.length)
@@ -98,8 +103,11 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     nearestParticle(id, position, maxDistance) { return nearestParticle(get(id).simulation, position, maxDistance, "TC_SOFTBODY_INPUT"); },
     visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual).sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const state = entry.simulation.getRenderState(), visual = entry.definition.visual!; return { id: entry.definition.id, material: visual.material, positions: state.particles.map(particle => particle.position), triangles: state.triangles, uvs: entry.uvs.map(uv => [uv[0], uv[1]] as Vec2), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true } satisfies SoftBodyVisualState; }); },
     setGravity(id, gravity) { const entry = get(id), value = gravityVector(gravity); entry.simulation.setGravity([...value]); entry.definition.gravity = value; },
+    setColliders(id, colliders) { const entry = get(id); setManualColliders(entry.simulation, colliders, entry.definition.bodyColliders ?? [], "TC_SOFTBODY_INPUT"); },
     applyImpulse(id, particle, impulse) { get(id).simulation.applyImpulse(particle, [...cloneSerializable(impulse)] as [number, number, number]); },
     applyImpulses(id, impulses) { const entry = get(id); if (!Array.isArray(impulses) || impulses.length > 512) return fail("INPUT", "Expected at most 512 particle impulses."); entry.simulation.applyImpulses(impulses.map(item => { if (!item || typeof item !== "object" || typeof item.particle !== "string" || !/^particle:(0|[1-9]\d*)$/.test(item.particle)) return fail("INPUT", "Each impulse requires a particle id from inspect()."); return { id: item.particle, impulse: [...gravityVector(item.impulse)] as [number, number, number] }; })); },
+    applyForce(id, particle, force) { applyParticleForces(get(id).simulation, [{ particle, force }], "TC_SOFTBODY_INPUT"); },
+    applyForces(id, forces) { applyParticleForces(get(id).simulation, forces, "TC_SOFTBODY_INPUT"); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
   return {

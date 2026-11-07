@@ -13,11 +13,22 @@ export function inspectHDR(data: Buffer, ctx: InspectionContext): Record<string,
   };
   ctx.check(/^#\?(RADIANCE|RGBE)$/.test(line()), "HDR/signature", "Expected a Radiance RGBE signature.");
   let format = false, dimensions: RegExpMatchArray | null = null;
+  const metadata: Record<string, number> = {};
   while (offset < headerLimit) {
     const text = line();
     if (text.startsWith("FORMAT=")) {
       ctx.check(!format && text === "FORMAT=32-bit_rle_rgbe", "HDR/format", "Expected one 32-bit_rle_rgbe format declaration.");
       format = true;
+    }
+    const value = text.match(/^\s*(GAMMA|EXPOSURE)\s*=\s*(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*$/);
+    if (value) {
+      const number = Number(value[2]);
+      ctx.check(Number.isFinite(number) && number > 0, `HDR/${value[1]}`, "Expected positive finite metadata.");
+      if (metadata[value[1]] !== undefined) ctx.invalid(`HDR/${value[1]}`, "Duplicate metadata declaration.");
+      metadata[value[1]] = number;
+      if (number !== 1) ctx.unsupported(`HDR/${value[1]}`, "Non-default gamma/exposure metadata is not applied by the linear RGBE runtime decoder.");
+    } else if (/^\s*(GAMMA|EXPOSURE)\s*=/.test(text)) {
+      ctx.invalid("HDR/header", "Malformed GAMMA or EXPOSURE metadata.");
     }
     const match = text.match(/^-Y\s+(\d+)\s+\+X\s+(\d+)\s*$/);
     if (match) { dimensions = match; break; }
@@ -26,7 +37,10 @@ export function inspectHDR(data: Buffer, ctx: InspectionContext): Record<string,
   const height = Number(dimensions[1]), width = Number(dimensions[2]);
   ctx.check(Number.isSafeInteger(width) && Number.isSafeInteger(height) && width > 0 && height > 0 && width * height <= 16777216,
     "HDR/dimensions", "Dimensions must be positive and contain at most 16777216 pixels.");
-  const rle = width >= 8 && width <= 32767 && data[offset] === 2 && data[offset + 1] === 2 && (data[offset + 2] & 128) === 0;
+  const hasModernRleMarker = width >= 8 && width <= 32767 && data[offset] === 2 && data[offset + 1] === 2 && (data[offset + 2] & 128) === 0;
+  if (hasModernRleMarker && ((data[offset + 2] << 8) | data[offset + 3]) !== width)
+    ctx.invalid("HDR/scanline", "RLE scanline width differs from the declared image width.");
+  const rle = hasModernRleMarker;
   if (!rle) {
     ctx.check(data.length - offset === width * height * 4, "HDR/pixels", "Uncompressed RGBE data must exactly match the image dimensions.");
   } else {

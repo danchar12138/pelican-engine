@@ -17,6 +17,7 @@ import type {
   Simulation,
   SimulationInspection,
   SimulationKind,
+  SimulationCollider,
   SimulationOptions,
   SimulationRenderState,
   SimulationSnapshot,
@@ -28,6 +29,39 @@ const SMOOTHING_LENGTH = 0.34;
 const PRESSURE_STIFFNESS = 12;
 const VISCOSITY = 0.025;
 
+function readColliders(input: unknown): SimulationCollider[] {
+  if (!Array.isArray(input) || input.length > 64)
+    return fail("SIM_COLLIDER", "Expected an array of at most 64 colliders.");
+  const ids = new Set<string>();
+  return input.map((value: unknown) => {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return fail("SIM_COLLIDER", "Each collider must be an object.");
+    const item = value as Record<string, unknown>, id = item.id;
+    if (typeof id !== "string" || !id.trim() || id.trim() !== id || id.length > 128 || ids.has(id))
+      return fail("SIM_COLLIDER", "Collider IDs must be unique nonempty strings of at most 128 characters.");
+    ids.add(id);
+    if (item.kind === "sphere") {
+      if (!isVec3(item.center) || item.center.some(n => Math.abs(n) > 1e6) ||
+          typeof item.radius !== "number" || !Number.isFinite(item.radius) || item.radius <= 0 || item.radius > 1e6)
+        return fail("SIM_COLLIDER", `Sphere '${id}' needs a finite center and positive radius at most 1e6.`);
+      return { kind: "sphere", id, center: [...item.center] as Vec3, radius: item.radius };
+    }
+    if (item.kind === "plane") {
+      if (!isVec3(item.normal) || Math.abs(length(item.normal) - 1) > 1e-6 ||
+          typeof item.offset !== "number" || !Number.isFinite(item.offset) || Math.abs(item.offset) > 1e6)
+        return fail("SIM_COLLIDER", `Plane '${id}' needs a unit normal and finite offset within [-1e6,1e6].`);
+      return { kind: "plane", id, normal: [...item.normal] as Vec3, offset: item.offset };
+    }
+    if (item.kind === "box") {
+      if (!isVec3(item.center) || item.center.some(n => Math.abs(n) > 1e6) ||
+          !isVec3(item.halfExtents) || item.halfExtents.some(n => n <= 0 || n > 1e6))
+        return fail("SIM_COLLIDER", `Box '${id}' needs a finite center and positive half-extents at most 1e6.`);
+      return { kind: "box", id, center: [...item.center] as Vec3, halfExtents: [...item.halfExtents] as Vec3 };
+    }
+    return fail("SIM_COLLIDER", `Collider '${id}' must be a sphere, plane or axis-aligned box.`);
+  });
+}
+
 /** Pure synchronous CPU reference solver with bounded spatial buckets for fluid neighbors. */
 export function createSimulation(
   kind: SimulationKind,
@@ -36,6 +70,8 @@ export function createSimulation(
   let state = makeScene(kind, resolveOptions(kind, options));
   let disposed = false;
   const sampledRadii = new Map<string, number>();
+  const particleForces = new Map<string, Vec3>();
+  let colliders: SimulationCollider[] = [];
   let solverWallMs = 0,
     measuredSteps = 0,
     maxStepMs = 0;
@@ -197,6 +233,38 @@ export function createSimulation(
           state.counters.absoluteReactionImpulse += length(impulse);
         }
       }
+    for (const collider of colliders) for (const particle of state.particles) {
+      if (particle.inverseMass === 0) continue;
+      let normal: Vec3, penetration: number;
+      if (collider.kind === "sphere") {
+        const delta = sub(particle.position, collider.center), distance = length(delta);
+        normal = distance > 1e-12 ? mul(delta, 1 / distance) : [1, 0, 0];
+        penetration = collider.radius + particle.radius - distance;
+      } else if (collider.kind === "plane") {
+        normal = collider.normal;
+        penetration = particle.radius - (dot(particle.position, normal) - collider.offset);
+      } else {
+        const relative = sub(particle.position, collider.center);
+        const closest = relative.map((value, axis) => Math.max(-collider.halfExtents[axis], Math.min(collider.halfExtents[axis], value))) as Vec3;
+        const delta = sub(relative, closest), distance = length(delta);
+        if (distance > 0) {
+          normal = mul(delta, 1 / distance);
+          penetration = particle.radius - distance;
+        } else {
+          let axis = 0, sign = -1, faceDistance = relative[0] + collider.halfExtents[0];
+          for (let i = 0; i < 3; i++) for (const side of [-1, 1]) {
+            const candidate = collider.halfExtents[i] - side * relative[i];
+            if (candidate < faceDistance) { axis = i; sign = side; faceDistance = candidate; }
+          }
+          normal = [0, 0, 0]; normal[axis] = sign;
+          penetration = particle.radius + faceDistance;
+        }
+      }
+      if (penetration <= 0) continue;
+      accumulate(particle.position, normal, penetration);
+      state.counters.contactCount++;
+      state.counters.maxContactCorrection = Math.max(state.counters.maxContactCorrection, penetration);
+    }
   }
 
   function constrainWalls(p: PointState): void {
@@ -218,6 +286,8 @@ export function createSimulation(
       if (p.inverseMass === 0) continue;
       if (i < state.bodies.length && sampledRadii.has(p.id)) continue;
       accumulate(p.velocity, state.options.gravity, h);
+      const appliedForce = particleForces.get(p.id);
+      if (appliedForce) accumulate(p.velocity, appliedForce, p.inverseMass * h);
       if (fluid && i >= state.bodies.length)
         accumulate(p.velocity, fluid[i - state.bodies.length], h);
       // Explicitly dissipative reference model, not an energy-conserving integrator.
@@ -364,6 +434,29 @@ export function createSimulation(
     for (const item of staged) item.point.velocity = item.velocity;
   }
 
+  function applyForces(forces: readonly { id: string; force: Vec3 }[]): void {
+    alive();
+    if (!Array.isArray(forces) || forces.length > 512)
+      fail("SIM_FORCE", "Expected at most 512 particle forces.");
+    const points = new Map(state.particles.map(point => [point.id, point]));
+    const seen = new Set<string>(), staged: { id: string; force: Vec3 }[] = [];
+    for (const item of forces) {
+      if (!item || typeof item.id !== "string" || !isVec3(item.force) || item.force.some((value: number) => Math.abs(value) > 100))
+        fail("SIM_FORCE", "Each force requires a particle id and finite components in [-100,100].");
+      if (seen.has(item.id)) fail("SIM_FORCE", `Duplicate force target: ${item.id}`);
+      seen.add(item.id);
+      const point = points.get(item.id);
+      if (!point) fail("SIM_ENTITY", `Unknown particle id: ${item.id}`);
+      if (point.inverseMass === 0) fail("SIM_PINNED", `Cannot apply force to fixed anchor ${item.id}.`);
+      const previous = particleForces.get(item.id) ?? [0, 0, 0];
+      const next = previous.map((value, axis) => value + item.force[axis]) as Vec3;
+      if (!isVec3(next) || next.some(value => Math.abs(value) > 100))
+        fail("SIM_FORCE", `Accumulated force exceeds [-100,100]: ${item.id}`);
+      staged.push({ id: item.id, force: next });
+    }
+    for (const item of staged) particleForces.set(item.id, item.force);
+  }
+
   return {
     kind,
     step(steps = 1) {
@@ -375,6 +468,7 @@ export function createSimulation(
         for (let j = 0; j < state.options.substeps; j++)
           substep(state.options.fixedDt / state.options.substeps);
         state.tick++;
+        particleForces.clear();
         const elapsed = performance.now() - start;
         solverWallMs += elapsed;
         measuredSteps++;
@@ -406,14 +500,29 @@ export function createSimulation(
         fail("SIM_OPTIONS", "gravity must contain three finite values in [-100,100].");
       state.options.gravity = copy(gravity);
     },
+    setColliders(input: readonly SimulationCollider[]) {
+      alive();
+      colliders = readColliders(input);
+    },
     snapshot() {
       alive();
-      return copy(state);
+      return copy({
+        ...state,
+        ...(sampledRadii.size ? { sampledBodies: [...sampledRadii].map(([id, radius]) => ({ id, radius })).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) } : {}),
+        ...(particleForces.size ? { particleForces: [...particleForces].map(([id, force]) => ({ id, force: [...force] as Vec3 })).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) } : {}),
+        ...(colliders.length ? { colliders: copy(colliders) } : {}),
+      });
     },
     restore(snapshot: SimulationSnapshot) {
       alive();
-      state = validateSnapshot(snapshot, kind);
+      const validated = validateSnapshot(snapshot, kind);
+      const { sampledBodies, particleForces: savedForces, colliders: savedColliders, ...next } = validated;
+      state = next;
       sampledRadii.clear();
+      for (const body of sampledBodies ?? []) sampledRadii.set(body.id, body.radius);
+      particleForces.clear();
+      for (const item of savedForces ?? []) particleForces.set(item.id, item.force);
+      colliders = savedColliders ?? [];
       solverWallMs = 0;
       measuredSteps = 0;
       maxStepMs = 0;
@@ -443,9 +552,12 @@ export function createSimulation(
       applyImpulses([{ id, impulse }]);
     },
     applyImpulses,
+    applyForces,
     dispose() {
       if (disposed) return;
       sampledRadii.clear();
+      particleForces.clear();
+      colliders = [];
       state.bodies.length = 0;
       state.particles.length = 0;
       state.distances.length = 0;
@@ -507,6 +619,32 @@ function validateSnapshot(
     for (const key of ["distances", "volumes", "triangles"] as const)
       if (JSON.stringify(input[key]) !== JSON.stringify(expected[key]))
         throw new Error(`invalid ${key} topology`);
+    if (input.sampledBodies !== undefined) {
+      if (!Array.isArray(input.sampledBodies) || input.sampledBodies.length > expected.bodies.length)
+        throw new Error("invalid sampled bodies");
+      const ids = new Set<string>();
+      for (const body of input.sampledBodies) {
+        if (!body || typeof body !== "object" || typeof body.id !== "string" || ids.has(body.id) ||
+            !expected.bodies.some(item => item.id === body.id) || typeof body.radius !== "number" ||
+            !Number.isFinite(body.radius) || body.radius <= 0 || body.radius > 1e6)
+          throw new Error("invalid sampled body radius or identity");
+        ids.add(body.id);
+      }
+    }
+    if (input.particleForces !== undefined) {
+      if (!Array.isArray(input.particleForces) || input.particleForces.length > expected.particles.length)
+        throw new Error("invalid particle forces");
+      const particles = new Map(expected.particles.map(point => [point.id, point]));
+      const seen = new Set<string>();
+      for (const entry of input.particleForces) {
+        const point = entry && particles.get(entry.id);
+        if (!entry || typeof entry !== "object" || typeof entry.id !== "string" || seen.has(entry.id) || !point || point.inverseMass === 0 ||
+            !isVec3(entry.force) || entry.force.some(value => Math.abs(value) > 100))
+          throw new Error("invalid queued particle force");
+        seen.add(entry.id);
+      }
+    }
+    if (input.colliders !== undefined) readColliders(input.colliders);
     const c = input.counters;
     if (
       !c ||

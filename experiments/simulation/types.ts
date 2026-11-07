@@ -2,6 +2,10 @@
 export type Vec3 = [number, number, number];
 export type SimulationKind = "rope" | "cloth" | "softbody" | "fluid";
 export interface SimulationContainer { min: Vec3; max: Vec3 }
+export type SimulationCollider =
+  | { kind: "sphere"; id: string; center: Vec3; radius: number }
+  | { kind: "plane"; id: string; normal: Vec3; offset: number }
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 export interface SimulationOptions {
   seed?: number;
   fixedDt?: number;
@@ -74,6 +78,12 @@ export interface SimulationSnapshot {
   volumes: VolumeConstraint[];
   triangles: [number, number, number][];
   counters: SimulationCounters;
+  /** Optional sampled collider radii; absent in snapshots created before this field. */
+  sampledBodies?: { id: string; radius: number }[];
+  /** Forces queued for one fixed tick; absent in older snapshots. */
+  particleForces?: { id: string; force: Vec3 }[];
+  /** Manually configured particle colliders; absent in older snapshots. */
+  colliders?: SimulationCollider[];
 }
 export interface SimulationRenderState {
   kind: SimulationKind;
@@ -127,6 +137,7 @@ export interface Simulation {
   setBodyState(id: string, position: Vec3, velocity: Vec3, radius?: number): void;
   setTwoWayCoupling(enabled: boolean): void;
   setGravity(gravity: Vec3): void;
+  setColliders(colliders: readonly SimulationCollider[]): void;
   snapshot(): SimulationSnapshot;
   restore(snapshot: SimulationSnapshot): void;
   inspect(): SimulationInspection;
@@ -135,5 +146,6 @@ export interface Simulation {
   getParticleVelocities(): Vec3[];
   applyImpulse(id: string, impulse: Vec3): void;
   applyImpulses(impulses: readonly { id: string; impulse: Vec3 }[]): void;
+  applyForces(forces: readonly { id: string; force: Vec3 }[]): void;
   dispose(): void;
 }

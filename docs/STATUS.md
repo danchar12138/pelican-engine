@@ -2,8 +2,8 @@
 
 ## Version and Release
 
-- Current standard version: 0.3.35. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
-- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist on main ancestry. They cannot be reused for a new commit and do not establish completion of those version lines. The next publish version must reconcile those tags with the policy against patch-version pushes; npm registry status has not been checked under the build-only policy.
+- Current source version: 0.4.1. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
+- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. The occupied `0.4.0` identity is preserved; `0.4.1` is the intended batch version under D59.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
@@ -12,12 +12,14 @@
 
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.
-- Local changes after 0.3.35 include spot lights, local light falloff, light and mesh shadow flags in direct tracing, and GLB unlit materials and punctual lights. These changes have not been published or runtime-validated.
-- A known rigid-body first-step removal issue remains open. Historical candidates and risky snapshots are archived evidence, not current acceptance evidence.
+- Changes after 0.3.35 include spot lights, local light falloff, light and mesh shadow flags in direct tracing, and GLB unlit materials and punctual lights. These changes have not been runtime-validated.
+- The 0.4.1 simulation/API batch also adds runtime gravity control and particle velocity/nearest-particle queries for rope, cloth, fluid and soft bodies; atomic batched impulses and anchor updates; and sphere/box/capsule rigid-body overlap queries. These APIs have only been type-compiled and built, not behavior-validated.
+- The 0.4.1 batch adds one-tick forces and manually sampled sphere/plane/axis-aligned box colliders to fluid and soft bodies, improves sampled-collider snapshot restoration, and tightens HDR metadata and scanline diagnostics. It has not been behavior-validated; manual colliders are discrete and do not react on rigid bodies.
+- A known rigid-body first-step removal issue remains open. A conservative live-path guard rejects removing moving bodies before the first physics step; it does not protect historical replay and is not runtime-validated. Historical candidates and risky snapshots are archived evidence, not current acceptance evidence.
 - Navigation supports batch obstacle and weighted cell-cost updates for a finite orthogonal grid; this is not continuous-world streaming or physics integration. Weighted routing is not runtime-validated.
 - Ropes support manual and automatic fixed stepping, sampled sphere bindings, segmented presentation, segment contacts, and non-adjacent self-contact. Full two-way coupling, cross-rope contact, continuous collision, and tearing remain incomplete.
 - Cloth supports triangular distance constraints, approximate bending, anchors, forces, sampled particle and surface contacts, non-adjacent particle self-contact, dynamic sphere bindings, optional approximate reactions, snapshots, and dynamic mesh presentation. Full continuous collision, rigid-body coupling, friction, and tearing remain incomplete.
-- Soft bodies expose a bounded CPU tetrahedral reference service with configurable lattice dimensions, fixed-step scheduling, snapshots, particle impulses, sampled body bindings and dynamic surface presentation. Complete body coupling, tearing, continuous collision, GPU solving, runtime stability and performance remain incomplete or unverified. The configurable lattice and snapshot configuration checks are local changes after 0.3.35, not part of that published version.
+- Soft bodies expose a bounded CPU tetrahedral reference service with configurable lattice dimensions, fixed-step scheduling, snapshots, particle impulses, sampled body bindings and dynamic surface presentation. Complete body coupling, tearing, continuous collision, GPU solving, runtime stability and performance remain incomplete or unverified. The configurable lattice and snapshot configuration checks were added after 0.3.35.
 - Rope and cloth runtime behavior, stability, performance, rendering, and snapshot compatibility remain unverified. Missing capabilities must not be described as complete first-release support.
 
 ## Single-Line Development

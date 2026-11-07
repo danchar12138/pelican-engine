@@ -1158,7 +1158,18 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         // grants this internal system metadata access without changing World APIs.
         writes: ["Transform"],
         run(dt) {
-          record(lifecycle(dt));
+          const action = lifecycle(dt);
+          // Conservatively reject the known unsafe initial deletion path before
+          // invoking native physics. This does not protect historical replay.
+          if (state.tick === 0) {
+            const blocked = action.removed.filter(id => state.bodies.get(id)?.type !== "fixed");
+            if (blocked.length > 0)
+              fail(
+                "TC_PHYSICS_FIRST_STEP_REMOVAL",
+                `Cannot remove moving physics bodies before the first physics step: ${blocked.join(", ")}. Keep them alive until a physics step completes.`,
+              );
+          }
+          record(action);
           bindRefs();
           for (const b of state.bodies.values())
             context.world.setTransform(refs.get(b.id)!, b.transform);

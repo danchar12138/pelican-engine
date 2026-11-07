@@ -8,7 +8,7 @@ Every push to `main` triggers `.github/workflows/npm-publish.yml`. GitHub Action
 
 For each substantial release batch:
 
-1. Increment the standard version consistently across the files listed above. Never reuse a version already published to npm; npm versions are immutable.
+1. Increment the standard version consistently across the files listed above. Never reuse a version already published to npm or an existing release tag; these identities are immutable. If the intended version is occupied, use the next unoccupied patch version in the same minor line (D59).
 2. Keep changes focused in the single `main` worktree. Related features and fixes may have separate Chinese Conventional Commits, accumulated locally until a substantial minor-version batch is ready.
 3. Push `main`. The resulting Actions run is the authoritative publish result. A failed build or publish means the version is not published; fix the cause and use a new version if npm already accepted it.
 

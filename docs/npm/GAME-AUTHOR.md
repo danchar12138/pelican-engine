@@ -304,6 +304,10 @@ general rigid-body coupling, continuous collision, cross-rope collision, or tear
 normal distance from the origin. Host intervals must be between 1/1000 and
 1/30 seconds inclusive.
 
+### Rigid-body first-step limitation
+
+Until the first physics step has completed, keep dynamic, kinematic and character bodies alive. The live physics path now conservatively rejects their removal with `TC_PHYSICS_FIRST_STEP_REMOVAL` rather than passing it to the native solver. Delay destruction until after the first completed physics step. This guard may reject otherwise valid operations; it is not a complete fix, does not protect historical snapshot replay, and has not been runtime-validated.
+
 ### Development-stage CPU fluid
 
 Use `ctx.fluid.create({ id, autoStep: true, visual: { material: "material-id" } })` for the bounded CPU WCSPH development service. It supports fixed-step integration, inspection, snapshots, explicit particle impulses, and optional instanced particle presentation. It is not a full fluid-world system: GPU solving, surface/volume collisions, fluid-rigid reaction, spray, viscosity calibration, stability and performance are not verified. The source checkout includes `examples/fluid-basin`.
@@ -344,6 +348,8 @@ Use `ctx.ropes.nearestParticle(id, position, maxDistance)` or `ctx.cloth.nearest
 
 `ctx.fluid.applyImpulses(id, [{ particle, impulse }])` and `ctx.softBodies.applyImpulses` apply up to 512 distinct target impulses as a single operation. Fluid particle IDs come from `inspect(id).particles`; soft-body `inspect(id).particleIds` aligns with `positions`. Both inspection results expose a detached `velocities` array aligned with their particle order. Invalid batches are rejected before velocities change. This interaction and snapshot behavior remain runtime-unverified.
 
+For a force rather than an instantaneous impulse, use `ctx.fluid.applyForce(id, particle, force)` or `ctx.softBodies.applyForce`. It accumulates for exactly the next fixed tick, across its substeps, and is included in snapshots until consumed. `applyForces` accepts up to 512 distinct particles atomically; each component and its accumulated value must remain in `[-100,100]` newtons. Runtime and restore behavior are unverified.
+
 Use `ctx.fluid.nearestParticle(id, position, maxDistance)` or `ctx.softBodies.nearestParticle(...)` to locate a particle centre in world space before applying an impulse. A miss returns `null`; the search is a linear scan of the simulation's bounded particles. This behavior has not been runtime-validated.
 
 ### Development-stage tetrahedral soft body
@@ -362,6 +368,10 @@ lattice dimensions. Each dimension is an integer from 2 to 5; the default is
 Runtime behavior, stability, rendering and snapshot restoration are unverified.
 
 For bound fluid and soft-body simulations, the reference solvers sample the sphere's center, linear velocity and collider radius after each physics step. During the simulation step the sampled sphere is treated as a fixed-position obstacle: it is not advanced by reference-scene gravity or clamped to the reference container. Optional reactions are projection-derived and applied at the rigid body's center of mass without contact torque; this is not mass- or inertia-coupled contact, and sampled velocity does not provide velocity-dependent friction. Contact counters are cumulative, and this approximate behavior has not been runtime-validated.
+
+`ctx.fluid.setColliders(id, colliders)` and `ctx.softBodies.setColliders` replace up to 64 manual sphere, plane or axis-aligned box obstacles. A plane uses a unit `normal` and signed `offset`; its normal points toward the allowed half-space. A box uses world-space `center` and positive `halfExtents`. Colliders affect particles discretely when `contacts` is enabled, do not receive reaction forces, and do not move rigid bodies. Their IDs must be distinct from bound body collider IDs. Snapshots retain the colliders; behavior and restoration are not runtime-validated.
+
+New snapshots retain the sampled collider radius for rollback and restoration; older snapshots without that field remain accepted and refresh the collider on the next automatic step. This compatibility and rollback behavior has not been runtime-validated.
 
 ### Development-stage triangular cloth
 

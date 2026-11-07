@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.1 - 2026-11-07
+
+- Bundle the accumulated simulation, graphics, asset and API improvements after 0.3.35, including fluid and soft-body forces and manual colliders.
+- Add a conservative live-path guard against removal of moving physics bodies before the first physics step. The underlying issue and historical snapshot risks remain open.
+- Build-only development release: runtime, hardware, stability, performance, and snapshot behavior have not been verified. This does not declare M4 or the complete engine finished.
+
 - Normalize sparse GLB accessors for inspection, optimization and model loading.
 - Extend GLB material handling with emissive strength and texture transforms.
 - Improve fluid and soft-body binding, presentation and state lifecycle.
