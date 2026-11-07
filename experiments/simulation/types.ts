@@ -126,10 +126,14 @@ export interface Simulation {
   /** Updates the built-in sampled sphere body used by the CPU reference scenes. */
   setBodyState(id: string, position: Vec3, velocity: Vec3, radius?: number): void;
   setTwoWayCoupling(enabled: boolean): void;
+  setGravity(gravity: Vec3): void;
   snapshot(): SimulationSnapshot;
   restore(snapshot: SimulationSnapshot): void;
   inspect(): SimulationInspection;
   getRenderState(): SimulationRenderState;
+  /** Detached particle velocities in the same order as getRenderState().particles. */
+  getParticleVelocities(): Vec3[];
   applyImpulse(id: string, impulse: Vec3): void;
+  applyImpulses(impulses: readonly { id: string; impulse: Vec3 }[]): void;
   dispose(): void;
 }

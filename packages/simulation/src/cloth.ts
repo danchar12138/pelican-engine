@@ -15,6 +15,7 @@ export interface ClothSurfaceContact { tick: number; triangle: number; colliderI
 type Constraint = [number, number, number];
 type Config = { mass: number; radius: number; fixedDt: number; substeps: number; iterations: number; damping: number; gravity: Vec3; bending: boolean; selfCollisions: boolean; surfaceCollisions: boolean; triangles: Triangle[]; constraints: Constraint[] };
 export interface ClothState {
+  gravity: Vec3;
   tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; surfaceCollisions: boolean; positions: Vec3[]; velocities: Vec3[]; triangles: Triangle[];
   anchors: { index: number; position: Vec3 }[]; contacts: ClothContact[]; selfContacts: ClothSelfContact[]; surfaceContacts: ClothSurfaceContact[]; maxDistanceError: number;
   resources: { particles: number; triangles: number; constraints: number; anchors: number; colliders: number };
@@ -148,10 +149,21 @@ export class ClothSolver {
     this.adjacent = new Set(config.triangles.flatMap(([a, b, c]) => [`${Math.min(a,b)}:${Math.max(a,b)}`, `${Math.min(b,c)}:${Math.max(b,c)}`, `${Math.min(c,a)}:${Math.max(c,a)}`]));
   }
   private alive() { if (this.disposed) fail("CLOTH_DISPOSED", "cloth has been disposed"); }
+  setGravity(value: Vec3): Vec3 { this.alive(); const gravity = readVec(value, "gravity"); this.config.gravity = gravity; return copy(gravity); }
   setColliders(input: ClothCollider[]): void { this.alive(); this.colliders = readColliders(input); this.contacts = []; }
   setAnchor(index: number, position: Vec3): void {
     this.alive(); const i = indexOf(index, this.positions.length), p = readVec(position, "anchor position");
     this.anchors.set(i, p); this.positions[i] = copy(p); this.velocities[i] = [0, 0, 0]; this.forces[i] = [0, 0, 0];
+  }
+  setAnchors(anchors: readonly { index: number; position: Vec3 }[]): void {
+    this.alive();
+    const staged = readAnchors(anchors, this.positions.length);
+    for (const [index, position] of staged) {
+      this.anchors.set(index, position);
+      this.positions[index] = copy(position);
+      this.velocities[index] = [0, 0, 0];
+      this.forces[index] = [0, 0, 0];
+    }
   }
   releaseAnchor(index: number): void { this.alive(); this.anchors.delete(indexOf(index, this.positions.length)); }
   applyForce(index: number, input: Vec3): void {
@@ -165,6 +177,21 @@ export class ClothSolver {
     if (this.anchors.has(i)) fail("CLOTH_ANCHORED", "cannot apply impulse to an anchor");
     const next: Vec3 = [0, 1, 2].map(axis => this.velocities[i][axis] + impulse[axis] / this.config.mass) as Vec3;
     if (!vec(next)) fail("CLOTH_NUMERIC", "impulse exceeded bounds"); this.velocities[i] = next;
+  }
+  applyImpulses(impulses: readonly { index: number; impulse: Vec3 }[]): void {
+    this.alive();
+    if (!Array.isArray(impulses) || impulses.length > this.positions.length) fail("CLOTH_INPUT", "impulses must be an array no longer than the particle count");
+    const seen = new Set<number>(), staged: { index: number; velocity: Vec3 }[] = [];
+    for (const item of impulses) {
+      if (!item || typeof item !== "object") fail("CLOTH_INPUT", "invalid impulse entry");
+      const index = indexOf(item.index, this.positions.length), impulse = readVec(item.impulse, "impulse");
+      if (seen.has(index)) fail("CLOTH_INPUT", "duplicate impulse target");
+      if (this.anchors.has(index)) fail("CLOTH_ANCHORED", "cannot apply impulse to an anchor");
+      const velocity = [0, 1, 2].map(k => this.velocities[index][k] + impulse[k] / this.config.mass) as Vec3;
+      if (!vec(velocity)) fail("CLOTH_NUMERIC", "impulse exceeded bounds");
+      seen.add(index); staged.push({ index, velocity });
+    }
+    for (const item of staged) this.velocities[item.index] = item.velocity;
   }
   /** A failed batch restores its pre-batch state. */
   step(steps = 1): ClothState {
@@ -263,11 +290,12 @@ export class ClothSolver {
     }
     this.positions = positions; this.velocities = velocities; this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.selfContacts = [...selfContacts.values()]; this.surfaceContacts = [...surfaceContacts.values()]; this.tickValue++;
   }
+  particlePositions(): Vec3[] { this.alive(); return this.positions.map(copy); }
   inspect(): ClothState {
-    if (this.disposed) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, selfCollisions: this.config.selfCollisions, surfaceCollisions: this.config.surfaceCollisions, positions: [], velocities: [], triangles: [], anchors: [], contacts: [], selfContacts: [], surfaceContacts: [], maxDistanceError: 0, resources: { particles: 0, triangles: 0, constraints: 0, anchors: 0, colliders: 0 } };
+    if (this.disposed) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, gravity: copy(this.config.gravity), selfCollisions: this.config.selfCollisions, surfaceCollisions: this.config.surfaceCollisions, positions: [], velocities: [], triangles: [], anchors: [], contacts: [], selfContacts: [], surfaceContacts: [], maxDistanceError: 0, resources: { particles: 0, triangles: 0, constraints: 0, anchors: 0, colliders: 0 } };
     let maxDistanceError = 0;
     for (const [a, b, rest] of this.config.constraints) maxDistanceError = Math.max(maxDistanceError, Math.abs(distance(this.positions[a], this.positions[b]) - rest));
-    return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, selfCollisions: this.config.selfCollisions, surfaceCollisions: this.config.surfaceCollisions,
+    return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, gravity: copy(this.config.gravity), selfCollisions: this.config.selfCollisions, surfaceCollisions: this.config.surfaceCollisions,
       positions: this.positions.map(copy), velocities: this.velocities.map(copy), triangles: this.config.triangles.map(tuple),
       anchors: [...this.anchors].map(([index, position]) => ({ index, position: copy(position) })).sort((a, b) => a.index - b.index),
       contacts: this.contacts.map(contact => ({ ...contact })), selfContacts: this.selfContacts.map(contact => ({ ...contact })), surfaceContacts: this.surfaceContacts.map(contact => ({ ...contact })), maxDistanceError,

@@ -68,6 +68,7 @@ export interface RopeState {
   tick: number;
   simulatedSeconds: number;
   disposed: boolean;
+  gravity: Vec3;
   segmentCollisions: boolean;
   selfCollisions: boolean;
   positions: Vec3[];
@@ -204,6 +205,7 @@ export class RopeSolver {
     this.forces = positions.map(() => [0, 0, 0]);
   }
   private alive(): void { if (this.disposedValue) fail("ROPE_DISPOSED", "rope has been disposed"); }
+  setGravity(value: Vec3): Vec3 { this.alive(); const gravity = validVec(value, "gravity"); this.config.gravity = gravity; return copy(gravity); }
   /** Copies all inputs: callers may mutate their arrays after calling this. */
   setColliders(input: RopeCollider[]): void {
     this.alive(); this.colliders = readColliders(input); this.contacts = []; this.segmentContacts = [];
@@ -213,6 +215,16 @@ export class RopeSolver {
     this.alive(); const i = indexOf(index, this.positions.length), p = validVec(position, "anchor position");
     this.anchors.set(i, p); this.positions[i] = copy(p); this.velocities[i] = [0, 0, 0]; this.forces[i] = [0, 0, 0];
   }
+  setAnchors(anchors: readonly { index: number; position: Vec3 }[]): void {
+    this.alive();
+    const staged = readAnchors(anchors, this.positions.length);
+    for (const [index, position] of staged) {
+      this.anchors.set(index, position);
+      this.positions[index] = copy(position);
+      this.velocities[index] = [0, 0, 0];
+      this.forces[index] = [0, 0, 0];
+    }
+  }
   releaseAnchor(index: number): void { this.alive(); this.anchors.delete(indexOf(index, this.positions.length)); }
   /** N·s (kg·m/s); changes velocity immediately, not position. */
   applyImpulse(index: number, impulse: Vec3): void {
@@ -221,6 +233,21 @@ export class RopeSolver {
     const next: Vec3 = [0, 1, 2].map(k => this.velocities[i][k] + v[k] / this.config.mass) as Vec3;
     if (!finiteState(next)) fail("ROPE_NUMERIC", "impulse exceeds numeric bounds");
     this.velocities[i] = next;
+  }
+  applyImpulses(impulses: readonly { index: number; impulse: Vec3 }[]): void {
+    this.alive();
+    if (!Array.isArray(impulses) || impulses.length > this.positions.length) fail("ROPE_INPUT", "impulses must be an array no longer than the particle count");
+    const seen = new Set<number>(), staged: { index: number; velocity: Vec3 }[] = [];
+    for (const item of impulses) {
+      if (!item || typeof item !== "object") fail("ROPE_INPUT", "invalid impulse entry");
+      const index = indexOf(item.index, this.positions.length), impulse = validVec(item.impulse, "impulse");
+      if (seen.has(index)) fail("ROPE_INPUT", "duplicate impulse target");
+      if (this.anchors.has(index)) fail("ROPE_ANCHORED", "cannot apply impulse to an anchor");
+      const velocity = [0, 1, 2].map(k => this.velocities[index][k] + impulse[k] / this.config.mass) as Vec3;
+      if (!finiteState(velocity)) fail("ROPE_NUMERIC", "impulse exceeds numeric bounds");
+      seen.add(index); staged.push({ index, velocity });
+    }
+    for (const item of staged) this.velocities[item.index] = item.velocity;
   }
   /** Newtons accumulated for exactly one next fixed tick; not a persistent force. */
   applyForce(index: number, force: Vec3): void {
@@ -412,13 +439,13 @@ export class RopeSolver {
   /** Detached positions for renderer synchronization without copying contact state. */
   particlePositions(): Vec3[] { this.alive(); return this.positions.map(copy); }
   inspect(): RopeState {
-    if (this.disposedValue) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, segmentCollisions: this.config.segmentCollisions, selfCollisions: this.config.selfCollisions, positions: [], velocities: [], anchors: [], contacts: [], segmentContacts: [], selfContacts: [], maxDistanceError: 0, resources: { particles: 0, constraints: 0, anchors: 0, colliders: 0 } };
+    if (this.disposedValue) return { tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: true, gravity: copy(this.config.gravity), segmentCollisions: this.config.segmentCollisions, selfCollisions: this.config.selfCollisions, positions: [], velocities: [], anchors: [], contacts: [], segmentContacts: [], selfContacts: [], maxDistanceError: 0, resources: { particles: 0, constraints: 0, anchors: 0, colliders: 0 } };
     const maxDistanceError = Math.max(0, ...this.config.restLengths.map((d, i) => {
       const a = this.positions[i], b = this.positions[i + 1];
       return Math.abs(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) - d);
     }));
     return {
-      tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, segmentCollisions: this.config.segmentCollisions, selfCollisions: this.config.selfCollisions,
+      tick: this.tickValue, simulatedSeconds: this.tickValue * this.config.fixedDt, disposed: false, gravity: copy(this.config.gravity), segmentCollisions: this.config.segmentCollisions, selfCollisions: this.config.selfCollisions,
       positions: this.positions.map(copy), velocities: this.velocities.map(copy),
       anchors: [...this.anchors].map(([index, position]) => ({ index, position: copy(position) })).sort((a, b) => a.index - b.index),
       contacts: this.contacts.map(copyContact), segmentContacts: this.segmentContacts.map(copySegmentContact), selfContacts: this.selfContacts.map(contact => ({ ...contact })), maxDistanceError,

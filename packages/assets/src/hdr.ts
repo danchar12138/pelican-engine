@@ -29,9 +29,6 @@ export function inspectHDR(data: Buffer, ctx: InspectionContext): Record<string,
   const rle = width >= 8 && width <= 32767 && data[offset] === 2 && data[offset + 1] === 2 && (data[offset + 2] & 128) === 0;
   if (!rle) {
     ctx.check(data.length - offset === width * height * 4, "HDR/pixels", "Uncompressed RGBE data must exactly match the image dimensions.");
-    for (let pixel = offset; pixel < data.length; pixel += 4)
-      if (data[pixel] === 1 && data[pixel + 1] === 1 && data[pixel + 2] === 1)
-        ctx.unsupported("HDR/pixels", "Legacy RGBE run encoding is not supported; re-export using modern scanline RLE.");
   } else {
     for (let row = 0; row < height; row++) {
       ctx.check(offset + 4 <= data.length && data[offset] === 2 && data[offset + 1] === 2 &&

@@ -3,6 +3,7 @@
 ## Version and Release
 
 - Current standard version: 0.3.35. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
+- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist on main ancestry. They cannot be reused for a new commit and do not establish completion of those version lines. The next publish version must reconcile those tags with the policy against patch-version pushes; npm registry status has not been checked under the build-only policy.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.

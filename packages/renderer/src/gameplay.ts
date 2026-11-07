@@ -3,7 +3,7 @@ import { createUIRenderer } from "./ui.ts";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import type { PhysicsService } from "../../sdk/src/index.ts";
-import type { SceneIR } from "../../compiler/src/types.ts";
+import type { GraphIR, SceneIR } from "../../compiler/src/types.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { createGameServices } from "../../runtime/src/game-services.ts";
 import { createPhysicsFactory } from "../../physics/index.ts";
@@ -35,6 +35,36 @@ export async function prepareGameplay(
     { material: id => materials.get(id) },
   );
   const textures = new Map<string, THREE.Texture>();
+  const renderedTextures = new Set<string>();
+  const addGraphTextures = (graph: GraphIR | undefined) => {
+    if (!graph) return;
+    for (const id of graph.textureIds ?? [])
+      if (!Object.hasOwn(graph.textureSlots ?? {}, id)) renderedTextures.add(id);
+  };
+  const environment = ir.scene.environment;
+  if (environment.backgroundTexture) renderedTextures.add(environment.backgroundTexture);
+  if (environment.lightingTexture) renderedTextures.add(environment.lightingTexture);
+  for (const material of ir.materials) {
+    if (material.texture) renderedTextures.add(material.texture);
+    addGraphTextures(material.graph);
+    for (const graph of Object.values(material.graphs ?? {})) addGraphTextures(graph);
+    for (const graph of Object.values(material.vertex ?? {})) addGraphTextures(graph);
+  }
+  for (const effect of ir.postProcesses ?? []) addGraphTextures(effect.graph);
+  const hdrAssets = ir.assets.filter(asset => asset.type === "texture" && asset.metadata?.format === "hdr" && renderedTextures.has(asset.id));
+  const requireHDRFiltering = (activeRenderer: THREE.Renderer) => {
+    if (!hdrAssets.length) return;
+    const backend = activeRenderer.backend as unknown as {
+      isWebGPUBackend?: boolean;
+      isWebGLBackend?: boolean;
+      extensions?: { has(name: string): boolean };
+    };
+    const supported = backend.isWebGPUBackend
+      ? activeRenderer.hasFeature("float32-filterable")
+      : backend.isWebGLBackend && backend.extensions?.has("OES_texture_float_linear") === true;
+    if (!supported)
+      throw new Error(`TC_HDR_FILTER_UNAVAILABLE: HDR texture(s) ${hdrAssets.map(asset => asset.id).join(", ")} require float32 linear filtering. Use a backend with float32-filterable (WebGPU) or OES_texture_float_linear (WebGL2), or replace the HDR asset.`);
+  };
   let physics: PhysicsService | undefined;
   let environmentTarget: THREE.RenderTarget | undefined;
   let environmentTexture: THREE.Texture | undefined;
@@ -95,6 +125,7 @@ export async function prepareGameplay(
     await Promise.all([models.dispose(), audio?.close()]);
   };
   try {
+    requireHDRFiltering(renderer);
     await models.prepare();
     if (ir.scene.environment.lighting === "studio") {
       const room = new RoomEnvironment(),
@@ -302,6 +333,7 @@ export async function prepareGameplay(
       models,
       async rebuildGpuResources(next: THREE.Renderer) {
         if (closed) throw new Error("TC_CONTENT_DISPOSED");
+        requireHDRFiltering(next);
         environmentTarget?.dispose();
         environmentTarget = undefined;
         if (ir.scene.environment.lighting === "studio") {

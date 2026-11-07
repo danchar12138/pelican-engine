@@ -816,6 +816,20 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         "Physics plugin disposed; create a new host.",
       );
   }
+  function overlapShape(position: V, orientation: RAPIER.Rotation, shape: RAPIER.Shape, options?: PhysicsRaycastOptions): string[] {
+    if (options !== undefined && (!options || typeof options !== "object" || Array.isArray(options) ||
+        Object.keys(options).some(key => key !== "exclude" && key !== "includeTriggers") ||
+        (options.exclude !== undefined && (!Array.isArray(options.exclude) || !options.exclude.every(id => typeof id === "string"))) ||
+        (options.includeTriggers !== undefined && typeof options.includeTriggers !== "boolean")))
+      fail("TC_PHYSICS_OVERLAP", "Options require exclude string IDs and includeTriggers boolean.");
+    const excluded = new Set(options?.exclude ?? []), found = new Set<string>();
+    state.world.intersectionsWithShape(position, orientation, shape, collider => {
+      const id = state.byCollider.get(collider.handle), ref = id ? refs.get(id) : undefined;
+      if (id && ref && context.world.isAlive(ref) && !excluded.has(id) && (options?.includeTriggers === true || !collider.isSensor())) found.add(id);
+      return true;
+    });
+    return [...found].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+  }
   function lifecycle(dt: number): Extract<Action, { kind: "step" }> {
     ensureRefs();
     const frame: Frame = [],
@@ -1048,6 +1062,34 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         point: tuple(ray.pointAt(hit.timeOfImpact)),
         normal: tuple(hit.normal),
       };
+    },
+    overlapSphere(center, radius, options) {
+      alive();
+      ensureRefs();
+      const position = vec(center, "sphere center");
+      if (typeof radius !== "number" || !Number.isFinite(radius) || radius <= 0 || radius > 1e6 || Math.fround(radius) === 0)
+        fail("TC_PHYSICS_OVERLAP", "Radius must be positive, float32-representable, and at most 1e6.");
+      return overlapShape(position, { x: 0, y: 0, z: 0, w: 1 }, new RAPIER.Ball(radius), options);
+    },
+    overlapBox(center, halfExtents, angles = [0, 0, 0], options) {
+      alive();
+      ensureRefs();
+      const position = vec(center, "box center"), size = vec(halfExtents, "box halfExtents");
+      if ([size.x, size.y, size.z].some(value => value <= 0 || value > 1e6 || Math.fround(value) === 0))
+        fail("TC_PHYSICS_OVERLAP", "Each half-extent must be positive, float32-representable, and at most 1e6.");
+      vec(angles, "box rotation");
+      return overlapShape(position, rotation(angles), new RAPIER.Cuboid(size.x, size.y, size.z), options);
+    },
+    overlapCapsule(center, halfHeight, radius, angles = [0, 0, 0], options) {
+      alive();
+      ensureRefs();
+      const position = vec(center, "capsule center");
+      if (typeof halfHeight !== "number" || !Number.isFinite(halfHeight) || halfHeight < 0 || halfHeight > 1e6 ||
+          (halfHeight > 0 && Math.fround(halfHeight) === 0) || typeof radius !== "number" || !Number.isFinite(radius) ||
+          radius <= 0 || radius > 1e6 || Math.fround(radius) === 0)
+        fail("TC_PHYSICS_OVERLAP", "Half-height must be nonnegative and radius positive; both must be float32-representable and at most 1e6.");
+      vec(angles, "capsule rotation");
+      return overlapShape(position, rotation(angles), new RAPIER.Capsule(halfHeight, radius), options);
     },
   };
   const sampleRopeSphere = (id: string) => {

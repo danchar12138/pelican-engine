@@ -342,6 +342,28 @@ export function createSimulation(
     };
   }
 
+  function applyImpulses(impulses: readonly { id: string; impulse: Vec3 }[]): void {
+    alive();
+    if (!Array.isArray(impulses) || impulses.length > 512)
+      fail("SIM_IMPULSE", "Expected at most 512 impulses.");
+    const points = new Map(allPoints(state).map(point => [point.id, point]));
+    const seen = new Set<string>();
+    const staged: { point: PointState; velocity: Vec3 }[] = [];
+    for (const item of impulses) {
+      if (!item || typeof item.id !== "string" || !isVec3(item.impulse) || item.impulse.some((x: number) => Math.abs(x) > 100))
+        fail("SIM_IMPULSE", "Each impulse requires an id and three finite components in [-100,100].");
+      if (seen.has(item.id)) fail("SIM_IMPULSE", `Duplicate impulse target: ${item.id}`);
+      seen.add(item.id);
+      const point = points.get(item.id);
+      if (!point) fail("SIM_ENTITY", `Unknown body or particle id: ${item.id}`);
+      if (point.inverseMass === 0) fail("SIM_PINNED", `Cannot apply an impulse to fixed anchor ${item.id}.`);
+      const velocity = point.velocity.map((value, axis) => value + item.impulse[axis] * point.inverseMass) as Vec3;
+      if (!isVec3(velocity)) fail("SIM_IMPULSE", `Impulse would produce a non-finite velocity: ${item.id}`);
+      staged.push({ point, velocity });
+    }
+    for (const item of staged) item.point.velocity = item.velocity;
+  }
+
   return {
     kind,
     step(steps = 1) {
@@ -378,6 +400,12 @@ export function createSimulation(
       if (typeof enabled !== "boolean") fail("SIM_OPTIONS", "twoWayCoupling must be boolean.");
       state.options.twoWayCoupling = enabled;
     },
+    setGravity(gravity: Vec3) {
+      alive();
+      if (!isVec3(gravity) || gravity.some(value => Math.abs(value) > 100))
+        fail("SIM_OPTIONS", "gravity must contain three finite values in [-100,100].");
+      state.options.gravity = copy(gravity);
+    },
     snapshot() {
       alive();
       return copy(state);
@@ -391,6 +419,10 @@ export function createSimulation(
       maxStepMs = 0;
     },
     inspect,
+    getParticleVelocities() {
+      alive();
+      return state.particles.map(particle => [...particle.velocity] as Vec3);
+    },
     getRenderState(): SimulationRenderState {
       alive();
       const renderPoint = (p: PointState) => ({
@@ -408,18 +440,9 @@ export function createSimulation(
       };
     },
     applyImpulse(id: string, impulse: Vec3) {
-      alive();
-      if (!isVec3(impulse) || impulse.some((x) => Math.abs(x) > 100))
-        fail(
-          "SIM_IMPULSE",
-          "impulse must contain three finite components in [-100,100].",
-        );
-      const p = allPoints(state).find((point) => point.id === id);
-      if (!p) fail("SIM_ENTITY", `Unknown body or particle id: ${id}`);
-      if (p.inverseMass === 0)
-        fail("SIM_PINNED", `Cannot apply an impulse to fixed anchor ${id}.`);
-      accumulate(p.velocity, impulse, p.inverseMass);
+      applyImpulses([{ id, impulse }]);
     },
+    applyImpulses,
     dispose() {
       if (disposed) return;
       sampledRadii.clear();

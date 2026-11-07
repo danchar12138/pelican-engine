@@ -5,6 +5,7 @@ import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, valid
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationOptions, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
 import { differingSimulationOption } from "./snapshot-options.ts";
+import { nearestParticle } from "./nearest-particle.ts";
 
 type Entry = { definition: FluidDefinition; simulation: Simulation; bodyRef?: EntityHandle };
 type Saved = { definition: FluidDefinition; state: SimulationSnapshot };
@@ -56,8 +57,8 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
 }
 function inspect(entry: Entry): FluidState {
   const state = entry.simulation.inspect(), render = entry.simulation.getRenderState();
-  return { tick: state.tick, simulatedSeconds: state.simulatedSeconds, disposed: state.disposed,
-    particles: render.particles, bodies: render.bodies, contacts: state.contacts, fluid: state.fluid,
+  return { tick: state.tick, simulatedSeconds: state.simulatedSeconds, disposed: state.disposed, gravity: [...(entry.definition.gravity ?? [0, -2, 0])] as Vec3,
+    particles: render.particles, velocities: entry.simulation.getParticleVelocities(), bodies: render.bodies, contacts: state.contacts, fluid: state.fluid,
     resources: { particles: state.resources.particles, bodies: state.resources.bodies } };
 }
 export const createFluidPlugin: RuntimePluginFactory = context => {
@@ -79,8 +80,11 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
     create(definition) { alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty fluid id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Fluid '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 fluids per host."); const entry = createEntry(definition, fixedDt, materials); try { const binding = entry.definition.bodyColliders?.[0]; if (binding) entry.bodyRef = resolveSampledBody(context, binding, "TC_FLUID_BODY_COLLIDER"); syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Fluid '${id}' is automatically stepped.`); const before = entry.simulation.snapshot(); try { entry.simulation.step(ticks); return inspect(entry); } catch (error) { try { entry.simulation.restore(before); } catch (rollbackError) { throw new Error(`TC_FLUID_ROLLBACK: ${String(error)}; partialState=true; rollback failure: ${String(rollbackError)}`); } throw error; } },
     inspect(id) { return inspect(get(id)); },
+    nearestParticle(id, position, maxDistance) { return nearestParticle(get(id).simulation, position, maxDistance, "TC_FLUID_INPUT"); },
     visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual !== undefined).sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const visual = entry.definition.visual!, state = entry.simulation.getRenderState(); return { id: entry.definition.id, material: visual.material, particles: state.particles.map(particle => ({ ...particle, radius: visual.radius ?? particle.radius })), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true }; }); },
+    setGravity(id, gravity) { const entry = get(id), value = vector(gravity, "gravity"); entry.simulation.setGravity([...value]); entry.definition.gravity = value; },
     applyImpulse(id, particle, impulse) { get(id).simulation.applyImpulse(particle, [...cloneSerializable(impulse)] as [number, number, number]); },
+    applyImpulses(id, impulses) { const entry = get(id); if (!Array.isArray(impulses) || impulses.length > 512) return fail("INPUT", "Expected at most 512 particle impulses."); entry.simulation.applyImpulses(impulses.map(item => { if (!item || typeof item !== "object" || typeof item.particle !== "string" || !/^particle:(0|[1-9]\d*)$/.test(item.particle)) return fail("INPUT", "Each impulse requires a particle id from inspect()."); return { id: item.particle, impulse: [...vector(item.impulse, "impulse")] as [number, number, number] }; })); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
   return {

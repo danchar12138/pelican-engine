@@ -5,6 +5,7 @@ import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type RopeCollider, type Vec3 } from "./rope.ts";
 import { createRopeBodyCoupling, VirtualRopeSphere } from "./rope-body-coupling.ts";
+import { nearestIndexedParticle } from "./nearest-particle.ts";
 
 type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string> };
 type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
@@ -146,6 +147,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       return entry.solver.step(ticks);
     },
     inspect(id) { return get(id).solver.inspect(); },
+    nearestParticle(id, position, maxDistance) { return nearestIndexedParticle(get(id).solver.particlePositions(), position, maxDistance, "TC_ROPE_INPUT"); },
     visuals() {
       alive(); ensureRefs();
       return [...entries.values()].filter(entry => entry.definition.visual !== undefined)
@@ -169,9 +171,12 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
       entry.solver.setColliders(cloneSerializable(colliders) as RopeCollider[]);
     },
     setAnchor(id, index, position) { get(id).solver.setAnchor(index, cloneSerializable(position) as Vec3); },
+    setAnchors(id, anchors) { get(id).solver.setAnchors(anchors as readonly { index: number; position: Vec3 }[]); },
     releaseAnchor(id, index) { get(id).solver.releaseAnchor(index); },
+    setGravity(id, gravity) { const entry = get(id); entry.definition.gravity = entry.solver.setGravity(gravity as Vec3); },
     applyForce(id, index, force) { get(id).solver.applyForce(index, cloneSerializable(force) as Vec3); },
     applyImpulse(id, index, impulse) { get(id).solver.applyImpulse(index, cloneSerializable(impulse) as Vec3); },
+    applyImpulses(id, impulses) { get(id).solver.applyImpulses(impulses as readonly { index: number; impulse: Vec3 }[]); },
     destroy(id) { const entry = get(id); entry.solver.dispose(); entries.delete(id); },
   };
   return {

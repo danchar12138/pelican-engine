@@ -4,6 +4,7 @@ import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
+import { nearestIndexedParticle } from "./nearest-particle.ts";
 
 type Entry = { definition: ClothDefinition; solver: ClothSolver; uvs: Vec2[] };
 type Saved = { definition: ClothDefinition; state: ClothSnapshot };
@@ -109,6 +110,7 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Cloth '${id}' is automatically stepped.`); return entry.solver.step(ticks); },
     inspect(id) { return get(id).solver.inspect(); },
+    nearestParticle(id, position, maxDistance) { return nearestIndexedParticle(get(id).solver.particlePositions(), position, maxDistance, "TC_CLOTH_INPUT"); },
     visuals() {
       alive(); return [...entries.values()].filter(entry => entry.definition.visual !== undefined)
         .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0)
@@ -118,9 +120,12 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     },
     setColliders(id, colliders) { get(id).solver.setColliders(cloneSerializable(colliders) as ClothCollider[]); },
     setAnchor(id, index, position) { get(id).solver.setAnchor(index, cloneSerializable(position) as Vec3); },
+    setAnchors(id, anchors) { get(id).solver.setAnchors(anchors as readonly { index: number; position: Vec3 }[]); },
     releaseAnchor(id, index) { get(id).solver.releaseAnchor(index); },
+    setGravity(id, gravity) { const entry = get(id); entry.definition.gravity = entry.solver.setGravity(gravity as Vec3); },
     applyForce(id, index, force) { get(id).solver.applyForce(index, cloneSerializable(force) as Vec3); },
     applyImpulse(id, index, impulse) { get(id).solver.applyImpulse(index, cloneSerializable(impulse) as Vec3); },
+    applyImpulses(id, impulses) { get(id).solver.applyImpulses(impulses as readonly { index: number; impulse: Vec3 }[]); },
     destroy(id) { const entry = get(id); entry.solver.dispose(); entries.delete(id); },
   };
   return {

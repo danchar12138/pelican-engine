@@ -202,6 +202,7 @@ export interface RopeSelfContact {
 }
 export interface RopeState {
   tick: number; simulatedSeconds: number; disposed: boolean;
+  gravity: Vec3;
   segmentCollisions: boolean;
   selfCollisions: boolean;
   positions: Vec3[]; velocities: Vec3[];
@@ -212,18 +213,32 @@ export interface RopeState {
   maxDistanceError: number;
   resources: { particles: number; constraints: number; anchors: number; colliders: number };
 }
+/** Particle-indexed impulse in N·s for rope and cloth. */
+export interface IndexedParticleImpulse { index: number; impulse: Vec3 }
+/** Nearest indexed particle centre in world space. */
+export interface IndexedParticleHit { index: number; position: Vec3; distance: number }
+/** An indexed world-space anchor position. */
+export interface ParticleAnchor { index: number; position: Vec3 }
 export interface RopeService {
   create(definition: RopeDefinition): void;
   /** Explicit ticks for manual ropes only. Auto-stepped ropes reject this call. A failed batch leaves the rope unchanged. */
   step(id: string, ticks?: number): RopeState;
   inspect(id: string): RopeState;
+  /** Find the nearest centre within maxDistance, or null; ties use particle order. */
+  nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;
   /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */
   visuals(): readonly RopeVisualState[];
   setColliders(id: string, colliders: readonly RopeCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
+  /** Pin or move the specified anchors atomically; other anchors are unchanged. */
+  setAnchors(id: string, anchors: readonly ParticleAnchor[]): void;
   releaseAnchor(id: string, index: number): void;
+  /** Set gravity for subsequent steps; components must be finite and at most 1e6 in magnitude. */
+  setGravity(id: string, gravity: Vec3): void;
   applyForce(id: string, index: number, force: Vec3): void;
   applyImpulse(id: string, index: number, impulse: Vec3): void;
+  /** Apply distinct particle impulses atomically; anchored particles are rejected. */
+  applyImpulses(id: string, impulses: readonly IndexedParticleImpulse[]): void;
   destroy(id: string): void;
 }
 /** CPU triangulated cloth with particle contacts against sampled spheres and planes. */
@@ -268,6 +283,7 @@ export interface ClothSelfContact { tick: number; firstParticle: number; secondP
 export interface ClothSurfaceContact { tick: number; triangle: number; colliderId: string; penetration: number; barycentric: [number, number, number]; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }
 export interface ClothState {
   tick: number; simulatedSeconds: number; disposed: boolean; selfCollisions: boolean; surfaceCollisions: boolean;
+  gravity: Vec3;
   positions: Vec3[]; velocities: Vec3[]; triangles: ClothTriangle[];
   anchors: { index: number; position: Vec3 }[];
   contacts: ClothContact[]; selfContacts: ClothSelfContact[]; surfaceContacts: ClothSurfaceContact[];
@@ -283,12 +299,20 @@ export interface ClothService {
   /** Explicit ticks for manual cloth only; automatic cloth rejects this call. */
   step(id: string, ticks?: number): ClothState;
   inspect(id: string): ClothState;
+  /** Find the nearest centre within maxDistance, or null; ties use particle order. */
+  nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;
   visuals(): readonly ClothVisualState[];
   setColliders(id: string, colliders: readonly ClothCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
+  /** Pin or move the specified anchors atomically; other anchors are unchanged. */
+  setAnchors(id: string, anchors: readonly ParticleAnchor[]): void;
   releaseAnchor(id: string, index: number): void;
+  /** Set gravity for subsequent steps; components must be finite and at most 1e6 in magnitude. */
+  setGravity(id: string, gravity: Vec3): void;
   applyForce(id: string, index: number, force: Vec3): void;
   applyImpulse(id: string, index: number, impulse: Vec3): void;
+  /** Apply distinct particle impulses atomically; anchored particles are rejected. */
+  applyImpulses(id: string, impulses: readonly IndexedParticleImpulse[]): void;
   destroy(id: string): void;
 }
 /** CPU WCSPH fluid prototype exposed as a bounded development service. */
@@ -311,6 +335,9 @@ export interface FluidDefinition {
 export interface FluidParticle { id: string; position: Vec3; radius: number }
 export interface FluidState {
   tick: number; simulatedSeconds: number; disposed: boolean; particles: FluidParticle[]; bodies: FluidParticle[];
+  /** Velocities in metres per second, aligned with particles. */
+  velocities: Vec3[];
+  gravity: Vec3;
   contacts: { contactCount: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
   fluid: { method: "WCSPH"; restDensity: number; minDensity: number; maxDensity: number; maxPressure: number } | null;
   resources: { particles: number; bodies: number };
@@ -318,12 +345,22 @@ export interface FluidState {
 export interface FluidVisualState {
   id: string; material: string; particles: FluidParticle[]; castShadow: boolean; receiveShadow: boolean;
 }
+/** A single particle impulse in N·s; particle IDs are returned by inspection. */
+export interface SimulationImpulse { particle: string; impulse: Vec3 }
+/** Nearest particle centre in world space; distance is measured in metres. */
+export interface SimulationParticleHit { particle: string; position: Vec3; distance: number }
 export interface FluidService {
   create(definition: FluidDefinition): void;
   step(id: string, ticks?: number): FluidState;
   inspect(id: string): FluidState;
+  /** Find the nearest centre within maxDistance, or null; ties use particle order. */
+  nearestParticle(id: string, position: Vec3, maxDistance: number): SimulationParticleHit | null;
   visuals(): readonly FluidVisualState[];
+  /** Set gravity for subsequent steps; values must be finite and in [-100,100]. */
+  setGravity(id: string, gravity: Vec3): void;
   applyImpulse(id: string, particle: string, impulse: Vec3): void;
+  /** Apply up to 512 impulses atomically; duplicate targets are rejected. */
+  applyImpulses(id: string, impulses: readonly SimulationImpulse[]): void;
   destroy(id: string): void;
 }
 /** CPU tetrahedral soft-body service backed by the bounded XPBD reference solver. */
@@ -343,7 +380,12 @@ export interface SoftBodyDefinition {
 }
 export interface SoftBodyState {
   tick: number; simulatedSeconds: number; disposed: boolean;
+  gravity: Vec3;
   positions: Vec3[]; triangles: [number, number, number][];
+  /** Particle IDs aligned with positions. */
+  particleIds: string[];
+  /** Velocities in metres per second, aligned with positions and particleIds. */
+  velocities: Vec3[];
   contacts: { contactCount: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
   maxDistanceError: number; maxVolumeRelativeError: number; minSignedVolumeRatio: number | null;
   resources: { particles: number; bodies: number; constraints: number; triangles: number };
@@ -356,8 +398,14 @@ export interface SoftBodyService {
   create(definition: SoftBodyDefinition): void;
   step(id: string, ticks?: number): SoftBodyState;
   inspect(id: string): SoftBodyState;
+  /** Find the nearest centre within maxDistance, or null; ties use particle order. */
+  nearestParticle(id: string, position: Vec3, maxDistance: number): SimulationParticleHit | null;
   visuals(): readonly SoftBodyVisualState[];
+  /** Set gravity for subsequent steps; values must be finite and in [-100,100]. */
+  setGravity(id: string, gravity: Vec3): void;
   applyImpulse(id: string, particle: string, impulse: Vec3): void;
+  /** Apply up to 512 impulses atomically; duplicate targets are rejected. */
+  applyImpulses(id: string, impulses: readonly SimulationImpulse[]): void;
   destroy(id: string): void;
 }
 /** Integer cells on a finite 2D orthogonal grid; not continuous, flying or underwater navigation.
@@ -577,6 +625,27 @@ export interface PhysicsService {
     maxDistance: number,
     options?: { exclude?: readonly string[]; includeTriggers?: boolean },
   ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;
+  /** Find entities whose colliders overlap a world-space sphere, sorted by entity ID. */
+  overlapSphere(
+    center: Vec3,
+    radius: number,
+    options?: { exclude?: readonly string[]; includeTriggers?: boolean },
+  ): readonly string[];
+  /** Find entities overlapping an oriented box; halfExtents are positive world units, rotation is XYZ radians. */
+  overlapBox(
+    center: Vec3,
+    halfExtents: Vec3,
+    rotation?: Vec3,
+    options?: { exclude?: readonly string[]; includeTriggers?: boolean },
+  ): readonly string[];
+  /** Find entities overlapping a capsule aligned to local Y; halfHeight excludes the rounded ends. */
+  overlapCapsule(
+    center: Vec3,
+    halfHeight: number,
+    radius: number,
+    rotation?: Vec3,
+    options?: { exclude?: readonly string[]; includeTriggers?: boolean },
+  ): readonly string[];
 }
 export interface AnimationService {
   /** Start at a clip-local time in seconds. Reverse playback defaults to the clip end. */

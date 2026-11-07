@@ -5,11 +5,13 @@ import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, valid
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
 import { differingSimulationOption } from "./snapshot-options.ts";
+import { nearestParticle } from "./nearest-particle.ts";
 
 type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_SOFTBODY_${code}: ${detail}`); };
 const validId = (value: unknown): value is string => typeof value === "string" && value.trim() === value && value.length > 0 && value.length <= 128;
+const gravityVector = (value: unknown): Vec3 => Array.isArray(value) && value.length === 3 && value.every(x => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100) ? [value[0], value[1], value[2]] : fail("INPUT", "gravity must be a finite vector with components in [-100,100].");
 const planarUvs = (positions: readonly Vec3[]): Vec2[] => {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   for (const point of positions) for (let axis = 0; axis < 3; axis++) { min[axis] = Math.min(min[axis], point[axis]); max[axis] = Math.max(max[axis], point[axis]); }
@@ -72,7 +74,7 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
 }
 function inspect(entry: Entry): SoftBodyState {
   const state = entry.simulation.inspect(), render = entry.simulation.getRenderState();
-  return { tick: state.tick, simulatedSeconds: state.simulatedSeconds, disposed: state.disposed, positions: render.particles.map(item => item.position), triangles: render.triangles, contacts: state.contacts, maxDistanceError: state.maxDistanceRelativeError, maxVolumeRelativeError: state.maxVolumeRelativeError, minSignedVolumeRatio: state.minSignedVolumeRatio, resources: state.resources };
+  return { tick: state.tick, simulatedSeconds: state.simulatedSeconds, disposed: state.disposed, gravity: [...(entry.definition.gravity ?? [0, -2, 0])] as Vec3, particleIds: render.particles.map(item => item.id), positions: render.particles.map(item => item.position), velocities: entry.simulation.getParticleVelocities(), triangles: render.triangles, contacts: state.contacts, maxDistanceError: state.maxDistanceRelativeError, maxVolumeRelativeError: state.maxVolumeRelativeError, minSignedVolumeRatio: state.minSignedVolumeRatio, resources: state.resources };
 }
 export const createSoftBodyPlugin: RuntimePluginFactory = context => {
   const fixedDt = context.fixedDt;
@@ -93,8 +95,11 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     create(definition) { alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty soft-body id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 soft bodies per host."); const entry = createEntry(definition, fixedDt, materials); try { const binding = entry.definition.bodyColliders?.[0]; if (binding) entry.bodyRef = resolveSampledBody(context, binding, "TC_SOFTBODY_BODY_COLLIDER"); syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Soft body '${id}' is automatically stepped.`); const before = entry.simulation.snapshot(); try { entry.simulation.step(ticks); return inspect(entry); } catch (error) { try { entry.simulation.restore(before); } catch (rollbackError) { throw new Error(`TC_SOFTBODY_ROLLBACK: ${String(error)}; partialState=true; rollback failure: ${String(rollbackError)}`); } throw error; } },
     inspect(id) { return inspect(get(id)); },
+    nearestParticle(id, position, maxDistance) { return nearestParticle(get(id).simulation, position, maxDistance, "TC_SOFTBODY_INPUT"); },
     visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual).sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const state = entry.simulation.getRenderState(), visual = entry.definition.visual!; return { id: entry.definition.id, material: visual.material, positions: state.particles.map(particle => particle.position), triangles: state.triangles, uvs: entry.uvs.map(uv => [uv[0], uv[1]] as Vec2), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true } satisfies SoftBodyVisualState; }); },
+    setGravity(id, gravity) { const entry = get(id), value = gravityVector(gravity); entry.simulation.setGravity([...value]); entry.definition.gravity = value; },
     applyImpulse(id, particle, impulse) { get(id).simulation.applyImpulse(particle, [...cloneSerializable(impulse)] as [number, number, number]); },
+    applyImpulses(id, impulses) { const entry = get(id); if (!Array.isArray(impulses) || impulses.length > 512) return fail("INPUT", "Expected at most 512 particle impulses."); entry.simulation.applyImpulses(impulses.map(item => { if (!item || typeof item !== "object" || typeof item.particle !== "string" || !/^particle:(0|[1-9]\d*)$/.test(item.particle)) return fail("INPUT", "Each impulse requires a particle id from inspect()."); return { id: item.particle, impulse: [...gravityVector(item.impulse)] as [number, number, number] }; })); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
   return {

@@ -30,6 +30,19 @@ intentionally contains no example projects, game assets, or engine source. Use
 the same public declarations in your own game project and validate them with the
 installed `pelican` commands. Do not try to import an internal compiled module.
 
+`ctx.physics.overlapSphere(center, radius, options)` finds live physics entities
+overlapping a world-space sphere. Results are sorted entity IDs; triggers are
+excluded unless `includeTriggers: true` is specified. This query uses the current
+physics query state and has not been runtime-validated.
+Newly created physics entities enter the query state at the physics phase;
+destroyed entities are filtered from results before that synchronization.
+`ctx.physics.overlapBox(center, halfExtents, rotation, options)` uses the same
+filters for an oriented box; `rotation` is an optional XYZ Euler vector in
+radians. The box query is also runtime-unverified.
+`ctx.physics.overlapCapsule(center, halfHeight, radius, rotation, options)` uses
+the same filters with a local-Y capsule; half-height excludes its rounded ends.
+It has not been runtime-validated.
+
 Models using `KHR_animation_pointer` animation channels are currently rejected
 with `TC_MODEL_EXTENSION_UNSUPPORTED`; pointer-driven material animation is not
 implemented. A merely declared optional extension without such a channel does
@@ -48,6 +61,11 @@ combined with the `lighting` preset. Background and lighting textures are
 independent; use the same asset for both when desired. Radiance RGBE `.hdr`
 textures are loaded as linear float data; PNG/JPEG remain supported. RGBE import,
 rendering, use in controlled compute and device recovery have not been runtime-validated.
+HDR textures require float32 linear filtering on the selected backend. If it is
+unavailable, loading reports `TC_HDR_FILTER_UNAVAILABLE` instead of silently
+switching to nearest filtering. This check applies to HDR assets directly referenced
+by the scene background, environment lighting, materials or postprocessing graphs;
+an otherwise unused HDR asset does not require the filtering capability.
 
 GLB `KHR_materials_unlit` materials use their base color and texture without
 lighting; they do not emit light into the scene. Import, optimization and
@@ -315,6 +333,18 @@ in the physics world; bound rigid bodies are not confined by them. This feature
 and its snapshot behavior have not been runtime-validated.
 
 Manual fluid and soft-body `step` calls attempt to restore the pre-call solver snapshot if stepping fails. If restoration also fails, the diagnostic reports `partialState=true`; a host-level checkpoint may still be needed for other systems. This rollback path has not been runtime-validated.
+
+Use `ctx.fluid.setGravity(id, [0, -9.81, 0])` or `ctx.softBodies.setGravity(id, [0, 0, 0])` to change gravity for subsequent steps. Each component must be finite and in `[-100,100]`; `inspect(id).gravity` reports the current value and snapshots retain it. This behavior has not been runtime-validated.
+
+`ctx.ropes.setGravity(id, gravity)` and `ctx.cloth.setGravity(id, gravity)` provide the same control for ropes and cloth; their component limit is `1e6`. Inspection and snapshots retain the current value. These changes are not runtime-validated.
+
+`ctx.ropes.applyImpulses(id, [{ index, impulse }])` and `ctx.cloth.applyImpulses` update distinct particle velocities atomically; invalid indices, duplicate targets or anchors reject the batch. Runtime behavior remains unverified.
+`ctx.ropes.setAnchors(id, [{ index, position }])` and `ctx.cloth.setAnchors` pin or move multiple points after checking the entire input; unspecified anchors remain unchanged. Runtime behavior is unverified.
+Use `ctx.ropes.nearestParticle(id, position, maxDistance)` or `ctx.cloth.nearestParticle(...)` to find an indexed particle centre in world space; a miss returns `null`. This is a linear scan and has not been runtime-validated.
+
+`ctx.fluid.applyImpulses(id, [{ particle, impulse }])` and `ctx.softBodies.applyImpulses` apply up to 512 distinct target impulses as a single operation. Fluid particle IDs come from `inspect(id).particles`; soft-body `inspect(id).particleIds` aligns with `positions`. Both inspection results expose a detached `velocities` array aligned with their particle order. Invalid batches are rejected before velocities change. This interaction and snapshot behavior remain runtime-unverified.
+
+Use `ctx.fluid.nearestParticle(id, position, maxDistance)` or `ctx.softBodies.nearestParticle(...)` to locate a particle centre in world space before applying an impulse. A miss returns `null`; the search is a linear scan of the simulation's bounded particles. This behavior has not been runtime-validated.
 
 ### Development-stage tetrahedral soft body
 
