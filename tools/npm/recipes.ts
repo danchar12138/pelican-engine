@@ -11,6 +11,7 @@ const recipes = [
   { id: "inventory", anchor: "inventory", title: "Inventory", summary: "Move stackable items between a backpack and a chest." },
   { id: "quests", anchor: "quest-objectives", title: "Quest objectives", summary: "Advance objectives and grant a game-defined reward." },
   { id: "dialogue", anchor: "branching-dialogue", title: "Branching dialogue", summary: "Display a conversation and start a quest from a choice." },
+  { id: "gameplay-loop", anchor: "composed-gameplay", title: "Composed gameplay", summary: "Combine quests, inventory, equipment, conditional dialogue, camera and saves." },
   { id: "localization", anchor: "localization", title: "Localization", summary: "Switch languages and format plural messages." },
   { id: "navigation-agents", anchor: "grid-navigation", title: "Grid navigation", summary: "Move two point agents and change an obstacle." },
   { id: "streaming-world", anchor: "static-world-chunks", title: "Static world chunks", summary: "Load static chunks and build or remove markers." },

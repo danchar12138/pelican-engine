@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a composed public-API gameplay recipe covering inventory, equipment, quests, dialogue, camera and saves; runtime behavior remains unverified.
+
 - Retain pending development reloads across coalesced file events and cache hits; watcher behavior remains unverified.
 
 - Add staged tile, navigation and fixed 2D collider synchronization with explicit partial-state diagnostics; runtime behavior remains unverified.

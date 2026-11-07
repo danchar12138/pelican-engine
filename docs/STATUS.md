@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds an asset-free composed gameplay recipe combining inventory, equipment, quests, conditional dialogue, manual camera and saves through the public API. The recipe and cross-service recovery are unverified.
+
 - Local development improves the cold-reload watcher when file events overlap compilation and a later compilation hits cache or fails. This is not state-preserving hot reload; file watching and browser behavior remain unverified.
 
 - Local development adds a staged tile/navigation/2D-collider update with full mapped-grid synchronization and explicit partial-state diagnostics. It is not a persistent binding or guaranteed native rollback; behavior and restoration remain unverified.

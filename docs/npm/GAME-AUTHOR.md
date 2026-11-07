@@ -509,7 +509,7 @@ historical `m2` template remains source-only because its sample assets are not
 part of the npm package; it is not a cross-channel capability claim.
 
 `docs/npm/RECIPES.md` contains complete asset-free `game.ts` recipes for
-orthographic raster, 2D rigid bodies, gamepad input, UI, inventory, quests, dialogue, localization, navigation and static chunks.
+orthographic raster, 2D rigid bodies, gamepad input, UI, inventory, quests, dialogue, localization, navigation and static chunks. The `composed-gameplay` recipe combines inventory, equipment, a quest, gated dialogue, a manual camera and saves using the public API. Cross-service game operations are not automatically transactional; restore a known-good save if a later operation fails after an earlier one succeeded. All recipe behavior remains runtime-unverified.
 The installed package includes this document, not the source checkout's
 `examples/` directories. In a repository or ZIP those paths are editable
 originals; the packaged recipes are generated from the same files at distribution
