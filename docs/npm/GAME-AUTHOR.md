@@ -222,6 +222,10 @@ general rigid-body coupling, continuous collision, cross-rope collision, or tear
 normal distance from the origin. Host intervals must be between 1/1000 and
 1/30 seconds inclusive.
 
+### Development-stage CPU fluid
+
+Use `ctx.fluid.create({ id, autoStep: true, visual: { material: "material-id" } })` for the bounded CPU WCSPH development service. It supports fixed-step integration, inspection, snapshots, explicit particle impulses, and optional instanced particle presentation. It is not a full fluid-world system: GPU solving, surface/volume collisions, fluid-rigid reaction, spray, viscosity calibration, stability and performance are not verified. The source checkout includes `examples/fluid-basin`.
+
 ### Development-stage triangular cloth
 
 Declare a material in `defineGame({ materials: [...] })`, then use

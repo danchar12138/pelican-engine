@@ -2,6 +2,7 @@ import * as THREE from "three/webgpu";
 import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
 import { createRopeVisualOwner } from "./rope-visuals.ts";
 import { createClothVisualOwner } from "./cloth-visuals.ts";
+import { createFluidVisualOwner } from "./fluid-visuals.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
 import { SurfaceTracer } from "./surface-tracer.ts";
@@ -213,11 +214,12 @@ const gameRoot = new THREE.Group();
 scene.add(gameRoot);
 const ropeVisuals = createRopeVisualOwner();
 const clothVisuals = createClothVisualOwner();
-scene.add(ropeVisuals.root, clothVisuals.root);
+const fluidVisuals = createFluidVisualOwner();
+scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root);
 let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
 const clearDynamicVisuals = () => {
-  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear();
-  if (ropesChanged || clothChanged) dynamicVisualRevision++;
+  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear();
+  if (ropesChanged || clothChanged || fluidChanged) dynamicVisualRevision++;
 };
 let authoredCamera = { position: [0, 3.4, 7], target: [0, 0.9, 0] };
 let authoredLights: {
@@ -543,6 +545,7 @@ function syncRuntime(): boolean {
   if (gameplay) {
     if (ropeVisuals.sync(runtime.facade.ropes.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (clothVisuals.sync(runtime.facade.cloth.visuals(), gameMaterials)) dynamicVisualRevision++;
+    if (fluidVisuals.sync(runtime.facade.fluid.visuals(), gameMaterials)) dynamicVisualRevision++;
   } else clearDynamicVisuals();
   return dynamicVisualRevision !== renderedDynamicVisualRevision;
 }
@@ -1499,6 +1502,7 @@ async function disposeBrowser() {
   clean(() => resourceManager.dispose());
   clean(() => ropeVisuals.dispose());
   clean(() => clothVisuals.dispose());
+  clean(() => fluidVisuals.dispose());
   clean(() => releaseObject(scene, true, gameMaterials.values()));
   clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());

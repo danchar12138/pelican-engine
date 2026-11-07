@@ -1,4 +1,4 @@
-import * as THREE from "three/webgpu";
+﻿import * as THREE from "three/webgpu";
 import { createUIRenderer } from "./ui.ts";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { PhysicsService } from "../../sdk/src/index.ts";
@@ -9,6 +9,7 @@ import { createPhysicsFactory } from "../../physics/index.ts";
 import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createRopePlugin } from "../../simulation/src/rope-plugin.ts";
 import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
+import { createFluidPlugin } from "../../simulation/src/fluid-plugin.ts";
 import { createModelLibrary } from "./models.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import type { EntityRecord } from "../../runtime/src/contracts.ts";
@@ -168,6 +169,7 @@ export async function prepareGameplay(
       createNavigationPlugin,
       createRopePlugin,
       createClothPlugin,
+      createFluidPlugin,
       (context) => ({
         id: "$engine.models",
         version: "2",
@@ -562,3 +564,5 @@ export async function prepareGameplay(
   }
 }
 export type GameplayContent = Awaited<ReturnType<typeof prepareGameplay>>;
+
+

@@ -277,6 +277,9 @@ export class RuntimeHost {
       get cloth() {
         return host.service("cloth");
       },
+      get fluid() {
+        return host.service("fluid");
+      },
       entities: {
         resolve: (entity) => this.world.resolve(entity),
         isAlive: (entity) => this.world.isAlive(entity),

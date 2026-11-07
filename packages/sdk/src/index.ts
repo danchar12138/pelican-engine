@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.3.31";
+export const SDK_VERSION = "0.4.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -118,6 +118,7 @@ export interface SystemContext extends EngineFacade {
   readonly navigation: NavigationService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
+  readonly fluid: FluidService;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
  * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
@@ -287,6 +288,31 @@ export interface ClothService {
   releaseAnchor(id: string, index: number): void;
   applyForce(id: string, index: number, force: Vec3): void;
   applyImpulse(id: string, index: number, impulse: Vec3): void;
+  destroy(id: string): void;
+}
+/** CPU WCSPH fluid prototype exposed as a bounded development service. */
+export interface FluidVisualOptions { material: string; radius?: number; castShadow?: boolean; receiveShadow?: boolean }
+export interface FluidDefinition {
+  id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
+  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
+  visual?: FluidVisualOptions;
+}
+export interface FluidParticle { id: string; position: Vec3; radius: number }
+export interface FluidState {
+  tick: number; simulatedSeconds: number; disposed: boolean; particles: FluidParticle[]; bodies: FluidParticle[];
+  contacts: { contactCount: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
+  fluid: { method: "WCSPH"; restDensity: number; minDensity: number; maxDensity: number; maxPressure: number } | null;
+  resources: { particles: number; bodies: number };
+}
+export interface FluidVisualState {
+  id: string; material: string; particles: FluidParticle[]; castShadow: boolean; receiveShadow: boolean;
+}
+export interface FluidService {
+  create(definition: FluidDefinition): void;
+  step(id: string, ticks?: number): FluidState;
+  inspect(id: string): FluidState;
+  visuals(): readonly FluidVisualState[];
+  applyImpulse(id: string, particle: string, impulse: Vec3): void;
   destroy(id: string): void;
 }
 /** Integer cells on a finite 2D orthogonal grid; not continuous, flying or underwater navigation.
