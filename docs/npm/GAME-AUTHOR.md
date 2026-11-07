@@ -182,6 +182,15 @@ Snapshots retain suspension, and older snapshots without it resume normally.
 Clip timing, fades, controls and snapshot restoration remain unverified at
 runtime under the current build-only policy.
 
+Use `ctx.animation.blend("actor", "walk", "run", 0.4)` to play two distinct
+complete clips together, then `ctx.animation.setBlendWeight("actor", 0.7)` to
+adjust the second clip's contribution without restarting. Both clips loop at
+normal speed when blending starts. `pause` and `resume` affect both; `seek` and
+`setSpeed` affect the first clip. Calling `play` exits blend mode, and blend
+state is included in snapshots. This uses normal full-clip blending, not
+bone masks, additive layers, automatic phase synchronization or root-motion
+correction. Animation and snapshot behavior have not been runtime-validated.
+
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
 resumed with `ctx.audio.pause(voice)` and `ctx.audio.resume(voice)`. Both are
 idempotent; a valid unknown voice is a no-op. Playback position follows fixed

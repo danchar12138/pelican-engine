@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds two-clip weighted model animation blending and snapshot state. Bone masks, additive layers, phase synchronization and IK remain incomplete; blending and restoration are unverified.
+
 - Local development adds optional global convolution reverb with deterministic generated impulse responses, dry fallback and snapshot-preserved settings. It is not room acoustics or per-bus sends; sound output, failure recovery, resource cleanup and restoration remain unverified.
 
 - Local development adds per-session dialogue variables and equality-gated choices. Game code still maps quest/inventory state and applies consequences; runtime and snapshot behavior are unverified.

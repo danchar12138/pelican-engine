@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add weighted two-clip model animation blending with snapshot state; runtime behavior remains unverified.
+
 - Add configurable global convolution reverb with snapshot settings and dry fallback. Audio behavior remains unverified.
 
 - Add dialogue session variables and equality-gated choices; runtime and snapshot behavior remain unverified.

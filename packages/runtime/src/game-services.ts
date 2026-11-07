@@ -543,6 +543,16 @@ export function createGameServices(
       },
     },
     animation: {
+      blend(entity, first, second, weight) {
+        alive();
+        if (!animation.blend) throw new Error("TC_ANIMATION_ADAPTER: Clip blending is unavailable in this animation adapter.");
+        animation.blend(entity, first, second, weight);
+      },
+      setBlendWeight(entity, weight) {
+        alive();
+        if (!animation.setBlendWeight) throw new Error("TC_ANIMATION_ADAPTER: Clip blending is unavailable in this animation adapter.");
+        animation.setBlendWeight(entity, weight);
+      },
       play(entity, clip, options) {
         alive();
         animation.play(entity, clip, options);

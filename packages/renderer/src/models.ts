@@ -36,6 +36,7 @@ export interface ModelAnimationSnapshot {
   currentClip: string | null;
   /** Optional for compatibility with snapshots created before animation suspension. */
   suspended?: boolean;
+  blend?: { first: string; second: string; weight: number };
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
@@ -142,6 +143,7 @@ interface InstanceState {
   clip: string | null;
   suspended: boolean;
   fades: Map<string, ModelFadeSnapshot>;
+  blend: { first: string; second: string; weight: number } | null;
 }
 
 function attemptCleanup(failures: unknown[], action: () => void): void {
@@ -253,6 +255,31 @@ class ModelLibraryImpl implements ModelLibrary {
 
   readonly animation: AnimationControlService = {
     play: (entity, clip, options = {}) => this.play(entity, clip, options),
+    blend: (entity, first, second, weight) => {
+      const state = this.instance(entity), a = state.clips.get(first), b = state.clips.get(second);
+      if (!a || !b || first === second) throw new Error(`TC_MODEL_BLEND_CLIPS: ${entity}; choose two distinct existing clips.`);
+      if (!Number.isFinite(weight) || weight < 0 || weight > 1) throw new Error("TC_MODEL_BLEND_WEIGHT: Weight must be finite and within [0,1].");
+      for (const action of state.actions.values()) action.stop();
+      state.actions.clear(); state.fades.clear();
+      const firstAction = state.mixer.clipAction(a), secondAction = state.mixer.clipAction(b);
+      for (const action of [firstAction, secondAction]) {
+        action.reset(); action.setEffectiveTimeScale(1); action.setLoop(THREE.LoopRepeat, Infinity); action.clampWhenFinished = false;
+      }
+      firstAction.setEffectiveWeight(1 - weight).play();
+      secondAction.setEffectiveWeight(weight).play();
+      state.actions.set(first, firstAction); state.actions.set(second, secondAction);
+      state.action = firstAction; state.clip = first; state.blend = { first, second, weight };
+      state.mixer.update(0);
+    },
+    setBlendWeight: (entity, weight) => {
+      const state = this.instance(entity), blend = state.blend;
+      if (!blend) throw new Error(`TC_MODEL_BLEND_MISSING: ${entity}; start a blend first.`);
+      if (!Number.isFinite(weight) || weight < 0 || weight > 1) throw new Error("TC_MODEL_BLEND_WEIGHT: Weight must be finite and within [0,1].");
+      state.actions.get(blend.first)!.setEffectiveWeight(1 - weight);
+      state.actions.get(blend.second)!.setEffectiveWeight(weight);
+      blend.weight = weight;
+      state.mixer.update(0);
+    },
     state: (entity) => {
       const instance = this.instance(entity);
       return {
@@ -669,6 +696,7 @@ class ModelLibraryImpl implements ModelLibrary {
       clip: null,
       suspended: false,
       fades: new Map(),
+      blend: null,
     };
     state.handle = Object.freeze({
       entity: entityId,
@@ -769,6 +797,7 @@ class ModelLibraryImpl implements ModelLibrary {
             asset: state.asset,
             currentClip: state.clip,
             ...(state.suspended ? { suspended: true } : {}),
+            ...(state.blend ? { blend: { ...state.blend } } : {}),
             actions: [...state.actions.entries()].map(([clip, action]) => ({
               clip,
               time: action.time,
@@ -823,6 +852,10 @@ class ModelLibraryImpl implements ModelLibrary {
       )
         throw invalid();
       if (item.suspended !== undefined && typeof item.suspended !== "boolean") throw invalid();
+      const blend = item.blend;
+      if (blend !== undefined && (!blend || typeof blend !== "object" || typeof blend.first !== "string" || typeof blend.second !== "string" ||
+          blend.first === blend.second || !clips.has(blend.first) || !clips.has(blend.second) || item.currentClip !== blend.first ||
+          !Number.isFinite(blend.weight) || blend.weight < 0 || blend.weight > 1)) throw invalid();
       if (!Array.isArray(item.actions)) throw invalid();
       const actionNames = new Set<string>();
       for (const action of item.actions) {
@@ -867,9 +900,12 @@ class ModelLibraryImpl implements ModelLibrary {
           )
             throw invalid();
         }
-        if (action.clip !== item.currentClip && (!fade || fade.to !== 0))
+        if (!blend && action.clip !== item.currentClip && (!fade || fade.to !== 0))
           throw invalid();
       }
+      if (blend && (item.actions.length !== 2 || item.actions.some(action =>
+        (action.clip !== blend.first && action.clip !== blend.second) || action.fade !== null || !action.loop ||
+        Math.abs(action.weight - (action.clip === blend.first ? 1 - blend.weight : blend.weight)) > 1e-7))) throw invalid();
       if (item.currentClip !== null && !actionNames.has(item.currentClip))
         throw invalid();
       if (item.currentClip === null && actionNames.size) throw invalid();
@@ -960,6 +996,7 @@ class ModelLibraryImpl implements ModelLibrary {
     state.fades.clear();
     state.action = null;
     state.clip = null;
+    state.blend = item.blend ? { ...item.blend } : null;
     state.suspended = item.suspended ?? false;
     for (const saved of item.actions) {
       const action = state.mixer.clipAction(state.clips.get(saved.clip)!);
@@ -1082,6 +1119,7 @@ class ModelLibraryImpl implements ModelLibrary {
     )
       throw new Error(`TC_MODEL_INVALID_ANIMATION_OPTIONS: '${clipName}' startAt must be within [0, ${clip.duration}] seconds; fade and speed must be finite and loop must be boolean.`);
     const action = state.mixer.clipAction(clip);
+    state.blend = null;
     if (fade > 0) {
       for (const [name, old] of state.actions) {
         if (old === action) continue;
