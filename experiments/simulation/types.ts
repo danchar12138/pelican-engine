@@ -10,6 +10,8 @@ export interface SimulationOptions {
   twoWayCoupling?: boolean;
   contacts?: boolean;
   gravity?: Vec3;
+  /** World-space translation of the reference particles and container. */
+  origin?: Vec3;
   bodyPosition?: Vec3;
   bodyVelocity?: Vec3;
 }
@@ -21,6 +23,7 @@ export interface ResolvedOptions {
   twoWayCoupling: boolean;
   contacts: boolean;
   gravity: Vec3;
+  origin?: Vec3;
   bodyPosition: Vec3;
   bodyVelocity: Vec3;
 }

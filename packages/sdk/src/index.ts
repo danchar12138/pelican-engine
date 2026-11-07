@@ -296,6 +296,8 @@ export interface FluidVisualOptions { material: string; radius?: number; castSha
 export interface FluidBodyCollider { readonly id: string; readonly entity: string }
 export interface FluidDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
+  /** Translates the reference particles and container in world space. */
+  origin?: Vec3;
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
   bodyColliders?: readonly FluidBodyCollider[];
@@ -324,6 +326,8 @@ export interface SoftBodyVisualOptions { material: string; castShadow?: boolean;
 export interface SoftBodyBodyCollider { readonly id: string; readonly entity: string }
 export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
+  /** Translates the reference particles and container in world space. */
+  origin?: Vec3;
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: SoftBodyVisualOptions;
   bodyColliders?: readonly SoftBodyBodyCollider[];

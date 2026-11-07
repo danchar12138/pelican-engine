@@ -42,7 +42,10 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       if (!item || typeof item !== "object") fail("SNAPSHOT", "Invalid fluid entry.");
       const entry = createEntry(item.definition, fixedDt, materials);
       if (result.has(entry.definition.id)) { entry.simulation.dispose(); fail("SNAPSHOT", "Duplicate fluid id."); }
-      result.set(entry.definition.id, entry); entry.simulation.restore(item.state);
+      result.set(entry.definition.id, entry);
+      const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
+      if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Fluid origin differs from its definition.");
+      entry.simulation.restore(item.state);
     }
     return result;
   } catch (error) { disposeEntries(result); throw error; }

@@ -246,6 +246,13 @@ Use `ctx.fluid.create({ id, autoStep: true, visual: { material: "material-id" } 
 
 The optional `visual.radius` overrides the rendered particle radius without changing the solver's collision radius. When omitted, each particle's solver radius is used. This presentation remains unverified at runtime.
 
+Fluid and soft-body definitions accept `origin: [x, y, z]` to translate the
+reference particles and their fixed container into world space. Components must
+be finite and in `[-100, 100]`. The default is `[0, 0, 0]`; an explicitly
+configured `bodyPosition` and bound rigid bodies remain in world coordinates.
+This positions the bounded reference simulation, not a general fluid volume or
+arbitrary soft-body mesh. Runtime and snapshot behavior remain unverified.
+
 Manual fluid and soft-body `step` calls attempt to restore the pre-call solver snapshot if stepping fails. If restoration also fails, the diagnostic reports `partialState=true`; a host-level checkpoint may still be needed for other systems. This rollback path has not been runtime-validated.
 
 ### Development-stage tetrahedral soft body

@@ -177,8 +177,8 @@ export function createSimulation(
     if (p.inverseMass === 0) return;
     for (let k = 0; k < 3; k++)
       p.position[k] = Math.max(
-        LOWER[k] + p.radius,
-        Math.min(UPPER[k] - p.radius, p.position[k]),
+        LOWER[k] + (state.options.origin?.[k] ?? 0) + p.radius,
+        Math.min(UPPER[k] + (state.options.origin?.[k] ?? 0) - p.radius, p.position[k]),
       );
   }
 
@@ -422,6 +422,7 @@ function validateSnapshot(
     if (
       !input.options ||
       !isVec3(input.options.gravity) ||
+      (input.options.origin !== undefined && !isVec3(input.options.origin)) ||
       !isVec3(input.options.bodyPosition) ||
       !isVec3(input.options.bodyVelocity)
     )

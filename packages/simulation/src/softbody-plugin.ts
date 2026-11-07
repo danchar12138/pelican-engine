@@ -35,6 +35,7 @@ function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: Read
     ...options,
     fixedDt,
     ...(definition.bodyColliders?.length ? { twoWayCoupling: definition.bodyReactions ?? false } : {}),
+    origin: definition.origin ? [...definition.origin] as [number, number, number] : undefined,
     gravity: definition.gravity ? [...definition.gravity] as [number, number, number] : undefined,
     bodyPosition: definition.bodyPosition ? [...definition.bodyPosition] as [number, number, number] : undefined,
     bodyVelocity: definition.bodyVelocity ? [...definition.bodyVelocity] as [number, number, number] : undefined,
@@ -55,6 +56,8 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       const entry = createEntry(item.definition, fixedDt, materials);
       if (result.has(entry.definition.id)) { entry.simulation.dispose(); return fail("SNAPSHOT", `Duplicate soft-body id '${entry.definition.id}'.`); }
       result.set(entry.definition.id, entry);
+      const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
+      if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Soft-body origin differs from its definition.");
       entry.simulation.restore(item.state);
     }
     return result;

@@ -30,9 +30,10 @@ export function resolveOptions(
     twoWayCoupling: options.twoWayCoupling ?? true,
     contacts: options.contacts ?? true,
     gravity: copy(options.gravity ?? [0, -2, 0]),
+    ...(options.origin === undefined ? {} : { origin: copy(options.origin) }),
     bodyPosition: copy(
       options.bodyPosition ??
-        (kind === "cloth" ? [0.08, 0.15, -0.72] : [-0.78, 0.15, 0]),
+        (kind === "cloth" ? [0.08, 0.15, -0.72] : [-0.78, 0.15, 0]).map((value, axis) => value + (options.origin?.[axis] ?? 0)) as Vec3,
     ),
     bodyVelocity: copy(
       options.bodyVelocity ?? (kind === "cloth" ? [0, 0, 1.6] : [1.6, 0, 0]),
@@ -59,7 +60,8 @@ export function resolveOptions(
     typeof result.twoWayCoupling !== "boolean"
   )
     fail("SIM_OPTIONS", "Contact options must be boolean.");
-  for (const key of ["gravity", "bodyPosition", "bodyVelocity"] as const) {
+  for (const key of ["gravity", "bodyPosition", "bodyVelocity", "origin"] as const) {
+    if (key === "origin" && result.origin === undefined) continue;
     if (!isVec3(result[key]) || result[key].some((x) => Math.abs(x) > 100))
       fail(
         "SIM_OPTIONS",
@@ -109,7 +111,7 @@ export function makeScene(
     const index = s.particles.length;
     // Seeded small perturbation breaks symmetry; no random forces / prescribed trajectories.
     const p = position.map(
-      (x) => x + (pinned ? 0 : (rng() - 0.5) * 0.001),
+      (x, axis) => x + (options.origin?.[axis] ?? 0) + (pinned ? 0 : (rng() - 0.5) * 0.001),
     ) as Vec3;
     s.particles.push({
       id: `particle:${index}`,
