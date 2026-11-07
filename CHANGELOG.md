@@ -24,13 +24,6 @@
 - Refreshed fluid body bindings before every automatic tick instead of sampling only at creation.
 - Build-only release; runtime, stability, performance, rendering, and snapshot compatibility remain unverified.
 
-## 0.6.0 - 2026-11-07
-
-- Added the public `ctx.softBodies` service backed by the bounded CPU tetrahedral XPBD reference solver.
-- Added dynamic soft-body surface presentation and automatic fixed-step scheduling.
-- Refreshed fluid body bindings before every automatic tick instead of sampling only at creation.
-- Build-only release; runtime, stability, performance, rendering, and snapshot compatibility remain unverified.
-
 ## 0.5.0 - 2026-11-06
 
 - Added optional fluid binding to one dynamic sphere with fixed-step WCSPH sampling and approximate reaction impulse submission.
