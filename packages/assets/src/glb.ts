@@ -128,7 +128,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         "Expected a nonempty array of objects.",
       );
   }
-  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength"]);
+  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength", "KHR_texture_transform"]);
   for (const key of ["extensionsUsed", "extensionsRequired"] as const)
     if (json[key] !== undefined) {
       ctx.check(
@@ -175,7 +175,9 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         );
         for (const [name, payload] of Object.entries(child)) {
           const at = location + "/extensions/" + name;
-          if (!supported.has(name) || !/^glTF\/materials\/(0|[1-9]\d*)$/.test(location))
+          const materialLocation = /^glTF\/materials\/(0|[1-9]\d*)$/.test(location);
+          const textureLocation = /^glTF\/materials\/(0|[1-9]\d*)\/(?:pbrMetallicRoughness\/(?:baseColorTexture|metallicRoughnessTexture)|normalTexture|occlusionTexture|emissiveTexture|extensions\/KHR_materials_specular\/(?:specularTexture|specularColorTexture))$/.test(location);
+          if (!supported.has(name) || (name === "KHR_texture_transform" ? !textureLocation : !materialLocation))
             ctx.unsupported(at, `Extension payload ${name} is not supported at this location.`);
           ctx.check(used.has(name), at, `${name} must be declared in extensionsUsed.`);
           encountered.add(name);
@@ -187,6 +189,16 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
             }
             if (field === "extensions" || field === "extras") {
               checkExtensions({ [field]: fieldValue }, at);
+              continue;
+            }
+            if (name === "KHR_texture_transform") {
+              ctx.check(["offset", "rotation", "scale", "texCoord"].includes(field), at + "/" + field, "Unknown texture transform property.");
+              if (field === "offset" || field === "scale")
+                ctx.check(Array.isArray(fieldValue) && fieldValue.length === 2 && fieldValue.every(v => typeof v === "number" && Number.isFinite(v) && Number.isFinite(Math.fround(v))), at + "/" + field, "Expected two finite f32 values.");
+              else if (field === "rotation")
+                ctx.check(typeof fieldValue === "number" && Number.isFinite(fieldValue) && Number.isFinite(Math.fround(fieldValue)), at + "/" + field, "Expected a finite f32 rotation.");
+              else
+                ctx.check(fieldValue === 0 || fieldValue === 1, at + "/texCoord", "Only TEXCOORD_0 and TEXCOORD_1 are supported.");
               continue;
             }
             const allowed = name === "KHR_materials_specular"

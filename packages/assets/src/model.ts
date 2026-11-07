@@ -1,6 +1,6 @@
 ﻿import { NodeIO, type GLTF } from "@gltf-transform/core";
 import { InspectionContext } from "./errors.ts";
-import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular } from "@gltf-transform/extensions";
+import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRTextureTransform } from "@gltf-transform/extensions";
 import { parseGLB, type AccessorData } from "./glb.ts";
 import { normalizeSparseGLB } from "./glb-sparse.ts";
 import { inspectTexture } from "./texture.ts";
@@ -143,7 +143,7 @@ export async function inspectModel(
       "Expected texture info object.",
     );
     ref(textures, info.index, at + "/index");
-    ctx.integer(info.texCoord ?? 0, at + "/texCoord");
+    ctx.integer(info.texCoord ?? 0, at + "/texCoord", 0, 1);
     return info.index;
   };
   const materials = (json.materials ?? []).map((m, i) => {
@@ -156,7 +156,8 @@ export async function inspectModel(
     const specularTexture = (info: GLTF.ITextureInfo | undefined, field: string) => {
       const location = `${at}/extensions/KHR_materials_specular/${field}`;
       const index = textureInfo(info, location);
-      if (info && info.texCoord !== undefined && info.texCoord !== 0)
+      const transform = info?.extensions?.KHR_texture_transform as { texCoord?: number } | undefined;
+      if (info && (transform?.texCoord ?? info.texCoord ?? 0) !== 0)
         ctx.unsupported(location + "/texCoord", "Specular textures only support TEXCOORD_0.");
       return index;
     };
@@ -460,7 +461,7 @@ export async function inspectModel(
         ])
           if (info)
             ctx.check(
-              p.attributes[`TEXCOORD_${info.texCoord ?? 0}`] !== undefined,
+              p.attributes[`TEXCOORD_${(info.extensions?.KHR_texture_transform as { texCoord?: number } | undefined)?.texCoord ?? info.texCoord ?? 0}`] !== undefined,
               loc + "/material",
               "Textured material references a missing texture coordinate set.",
             );
@@ -881,7 +882,7 @@ export async function inspectModel(
   });
   // The mature reader is used only after resource and semantic validation; no URI is read.
   const document = await new NodeIO()
-    .registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular])
+    .registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRTextureTransform])
     .setStrictResources(true).readBinary(normalizeSparseGLB(data));
   const sceneIndex = json.scene ?? (json.scenes?.length ? 0 : null);
   let bounds: { min: number[]; max: number[] } | null = null;

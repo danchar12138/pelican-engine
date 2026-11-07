@@ -1,5 +1,5 @@
 import { NodeIO, Logger } from "@gltf-transform/core";
-import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular } from "@gltf-transform/extensions";
+import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRTextureTransform } from "@gltf-transform/extensions";
 import { dedup, weld } from "@gltf-transform/functions";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +17,7 @@ export async function optimizeModel(input: string, output: string) {
     throw new Error("TC_ASSET_OPTIMIZE_PATH: Output must use .glb.");
   const before = await inspectAsset(input, "model");
   const sourceBytes = await readFile(input);
-  const io = new NodeIO().registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular]);
+  const io = new NodeIO().registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRTextureTransform]);
   const document = await io.readBinary(normalizeSparseGLB(sourceBytes));
   document.setLogger(new Logger(Logger.Verbosity.SILENT));
   // Weld compares the complete vertex stream bit-for-bit; names remain stable for animations and author references.
@@ -42,28 +42,35 @@ export async function optimizeModel(input: string, output: string) {
         ...(m.ior ? { ior: m.ior.ior ?? 1.5 } : {}),
         ...((m.emissiveStrength?.emissiveStrength ?? 1) !== 1 ? { emissiveStrength: m.emissiveStrength!.emissiveStrength } : {}) })))].sort();
     };
-    const specularTextures = (bytes: Buffer) => {
+    const materialTextures = (bytes: Buffer) => {
       const { json, bin } = parseGLB(bytes, new InspectionContext("optimization.glb"));
-      const binding = (info: { index: number; texCoord?: number } | undefined) => {
+      type TextureInfo = { index: number; texCoord?: number; scale?: number; strength?: number; extensions?: Record<string, unknown> };
+      const binding = (info: TextureInfo | undefined) => {
         if (!info) return null;
         const texture = json.textures![info.index];
         const image = json.images![texture.source!];
         const view = json.bufferViews![image.bufferView!];
         const sampler = json.samplers?.[texture.sampler!];
         const start = view.byteOffset ?? 0;
+        const transform = info.extensions?.KHR_texture_transform as { offset?: number[]; rotation?: number; scale?: number[]; texCoord?: number } | undefined;
         return {
           hash: createHash("sha256").update(bin.subarray(start, start + view.byteLength)).digest("hex"),
           mimeType: image.mimeType,
-          texCoord: info.texCoord ?? 0,
+          texCoord: transform?.texCoord ?? info.texCoord ?? 0,
+          offset: transform?.offset ?? [0, 0],
+          rotation: transform?.rotation ?? 0,
+          scale: transform?.scale ?? [1, 1],
+          normalScale: info.scale ?? 1,
+          occlusionStrength: info.strength ?? 1,
           magFilter: sampler?.magFilter ?? null,
           minFilter: sampler?.minFilter ?? null,
           wrapS: sampler?.wrapS ?? 10497,
           wrapT: sampler?.wrapT ?? 10497,
         };
       };
-      return [...new Set((json.materials ?? []).filter(m => m.extensions?.KHR_materials_specular).map(m => {
-        const specular = m.extensions!.KHR_materials_specular as { specularTexture?: { index: number; texCoord?: number }; specularColorTexture?: { index: number; texCoord?: number } };
-        return JSON.stringify({ name: m.name ?? "", intensity: binding(specular.specularTexture), color: binding(specular.specularColorTexture) });
+      return [...new Set((json.materials ?? []).map(m => {
+        const specular = m.extensions?.KHR_materials_specular as { specularTexture?: TextureInfo; specularColorTexture?: TextureInfo } | undefined;
+        return JSON.stringify({ name: m.name ?? "", baseColor: binding(m.pbrMetallicRoughness?.baseColorTexture), metallicRoughness: binding(m.pbrMetallicRoughness?.metallicRoughnessTexture), normal: binding(m.normalTexture), occlusion: binding(m.occlusionTexture), emissive: binding(m.emissiveTexture), specular: binding(specular?.specularTexture), specularColor: binding(specular?.specularColorTexture) });
       }))].sort();
     };
     if (
@@ -73,7 +80,7 @@ export async function optimizeModel(input: string, output: string) {
       before.skinCount !== after.skinCount ||
       before.jointCount !== after.jointCount ||
       JSON.stringify(physicalExtensions(before)) !== JSON.stringify(physicalExtensions(after)) ||
-      JSON.stringify(specularTextures(sourceBytes)) !== JSON.stringify(specularTextures(Buffer.from(content)))
+      JSON.stringify(materialTextures(sourceBytes)) !== JSON.stringify(materialTextures(Buffer.from(content)))
     )
       throw new Error(
         "TC_ASSET_OPTIMIZE_INVARIANT: Geometry bounds, triangles, skin, animation or physical material extension metadata changed.",

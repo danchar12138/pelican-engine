@@ -23,6 +23,8 @@ The CLI exposes `optimize --project <game> --asset <model-id> --output <new-proj
 
 Self-contained GLB sparse accessors with packed or zero-initialized bases are inspected after applying their indexed replacements. Indices must be strictly increasing and in range; offsets and buffer views are validated. The runtime model loader expands sparse accessors, including interleaved bases and 32-bit matrix accessors, into tightly packed buffer views before handing bytes to Three.js. Sparse normalization is bounded to 128 MiB of expanded accessor data and preserves the original asset bytes on disk. Sub-32-bit matrix accessors remain unsupported. This development change has only been compiled, not runtime-validated.
 
+Material texture slots accept `KHR_texture_transform` offset, rotation, scale and UV-set override. UV sets are limited to `TEXCOORD_0` and `TEXCOORD_1`; specular texture slots remain limited to `TEXCOORD_0`. The optimizer preserves texture images, sampler settings and transforms across supported material slots. Rendering and optimizer behavior for this addition remain unverified at runtime.
+
 ## Metadata contract for compiler and services
 
 Every successful result includes `format`, `bytes` (whole file length) and
@@ -153,7 +155,7 @@ Float WAVE uses `encoding: "ieee-float"` and requires a matching `fact` frame co
 
 Remaining gaps deliberately return unsupported: `.gltf`, external/data resources,
 glTF extensions other than the `KHR_materials_specular` factor and UV0 texture subset,
-`KHR_materials_ior`, and `KHR_materials_emissive_strength` (including Draco/Meshopt/KTX2),
+`KHR_materials_ior`, `KHR_materials_emissive_strength`, and `KHR_texture_transform` (including Draco/Meshopt/KTX2),
 sub-32-bit matrix accessors, cameras, joint/weight sets beyond 0, APNG,
 progressive/lossless/arithmetic/multiple-scan/CMYK JPEG, RF64/RIFX/WAVE extensible,
 compressed WAVE, MP3/Ogg/AAC and other image/audio codecs. The package does not
