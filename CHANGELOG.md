@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh tracing triangle medium IDs when the medium catalog changes without geometry changes; rendering and retry behavior remain unverified.
+
 - Add development-stage orthographic hybrid/path rays, raster-primary sampling and motion reprojection for non-volume scenes; GPU behavior is unverified.
 
 ## 0.11.0 - 2026-11-07

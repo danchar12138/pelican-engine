@@ -184,6 +184,8 @@ export class SurfaceTracer {
   private mediumFaces: readonly SurfaceTriangle[] = [];
   private mediumSignature = "";
   private mediumRevision = 0;
+  /** Medium IDs currently committed to the captured triangle buffer. */
+  private geometryMediumRevision = -1;
   private initialMedia: readonly number[] = [];
   private initialMediaKey = "";
   private lightBufferDirty = true;
@@ -759,6 +761,7 @@ export class SurfaceTracer {
     this.mediumFaces = [];
     this.mediumSignature = "";
     this.mediumRevision++;
+    this.geometryMediumRevision = -1;
     this.initialMedia = [];
     this.initialMediaKey = "";
     this.mediumParams = [0, 0, 0, 0];
@@ -1060,7 +1063,9 @@ export class SurfaceTracer {
       }
     }
     this.copyFragmentBuffers(fragmentPlan);
-    if (!this.frame || accelerationOutOfSync || frame.changes.kind !== "none") {
+    // A material can become transmissive or opaque without moving triangles.
+    // IDs live in the geometry buffer, not the material table.
+    if (!this.frame || accelerationOutOfSync || frame.changes.kind !== "none" || this.geometryMediumRevision !== this.mediumRevision) {
       const geometry = packSurfaceGeometry(
           captured.surface,
           frame.orderedTriangles,
@@ -1140,6 +1145,8 @@ export class SurfaceTracer {
     }
     this.environment = captured.environment;
     this.environmentTexture = captured.environmentTexture;
+    // Commit only after all capture uploads have completed; a failed update must retry.
+    this.geometryMediumRevision = this.mediumRevision;
     this.frame = frame;
     this.capturedSurface = captured.surface;
     this.lastUploadMs = performance.now() - uploadStart;
