@@ -13,6 +13,7 @@ import type {
   RopeService,
   ClothService,
   FluidService,
+  SoftBodyService,
   Vec3,
 } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
@@ -37,6 +38,7 @@ export interface RuntimeServices {
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;
+  softBodies: SoftBodyService;
 }
 /** Private bridge; native physics objects never cross this interface. */
 export interface RopePhysicsSphere {

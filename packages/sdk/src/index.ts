@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.5.0";
+export const SDK_VERSION = "0.6.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -119,6 +119,7 @@ export interface SystemContext extends EngineFacade {
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
+  readonly softBodies: SoftBodyService;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
  * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
@@ -315,6 +316,32 @@ export interface FluidService {
   step(id: string, ticks?: number): FluidState;
   inspect(id: string): FluidState;
   visuals(): readonly FluidVisualState[];
+  applyImpulse(id: string, particle: string, impulse: Vec3): void;
+  destroy(id: string): void;
+}
+/** CPU tetrahedral soft-body service backed by the bounded XPBD reference solver. */
+export interface SoftBodyVisualOptions { material: string; castShadow?: boolean; receiveShadow?: boolean }
+export interface SoftBodyDefinition {
+  id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
+  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
+  visual?: SoftBodyVisualOptions;
+}
+export interface SoftBodyState {
+  tick: number; simulatedSeconds: number; disposed: boolean;
+  positions: Vec3[]; triangles: [number, number, number][];
+  contacts: { contactCount: number; reactionImpulse: Vec3; absoluteReactionImpulse: number; maxContactCorrection: number; maxObservedSpeed: number };
+  maxDistanceError: number; maxVolumeRelativeError: number; minSignedVolumeRatio: number | null;
+  resources: { particles: number; bodies: number; constraints: number; triangles: number };
+}
+export interface SoftBodyVisualState {
+  id: string; material: string; positions: Vec3[]; triangles: [number, number, number][];
+  uvs: Vec2[]; castShadow: boolean; receiveShadow: boolean;
+}
+export interface SoftBodyService {
+  create(definition: SoftBodyDefinition): void;
+  step(id: string, ticks?: number): SoftBodyState;
+  inspect(id: string): SoftBodyState;
+  visuals(): readonly SoftBodyVisualState[];
   applyImpulse(id: string, particle: string, impulse: Vec3): void;
   destroy(id: string): void;
 }

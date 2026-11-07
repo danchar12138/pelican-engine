@@ -58,6 +58,14 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
   let entries = new Map<string, Entry>(), disposed = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Fluid service is disposed."); };
   const get = (id: string) => { alive(); if (!validId(id)) return fail("ID", "Expected a nonempty fluid id."); return entries.get(id) ?? fail("MISSING", `Fluid '${id}' does not exist.`); };
+  const syncBinding = (entry: Entry) => {
+    const binding = entry.definition.bodyColliders?.[0];
+    if (!binding) return;
+    const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "bodyColliders require the physics plugin.");
+    if (!context.world.isAlive(binding.entity)) fail("BODY_COLLIDER", `Body '${binding.entity}' is no longer live.`);
+    const sample = bridge.sampleSphere(binding.entity);
+    entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number]);
+  };
   const sampleBinding = (definition: FluidDefinition) => {
     const binding = definition.bodyColliders?.[0];
     if (!binding) return undefined;
@@ -76,7 +84,7 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
   };
   return {
     id: "$engine.fluid", version: "1", services: { fluid: service },
-    afterPhysics() { alive(); const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = []; try { for (const entry of [...entries.values()].filter(e => e.definition.autoStep).sort((a,b) => a.definition.id.localeCompare(b.definition.id))) { const snapshot = entry.simulation.snapshot(); committed.push({ entry, snapshot }); entry.simulation.step(1); if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) { const binding = entry.definition.bodyColliders[0]; const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin."); const impulse = entry.simulation.inspect().contacts.reactionImpulse; bridge.applySphereReactions([{ entity: binding.entity, impulse: [...impulse] as Vec3, moment: [0, 0, 0] }]); } } } catch (error) { const failures: string[] = []; for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); } if (failures.length) throw new Error(`TC_FLUID_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`); throw error; } },
+    afterPhysics() { alive(); const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = []; try { for (const entry of [...entries.values()].filter(e => e.definition.autoStep).sort((a,b) => a.definition.id.localeCompare(b.definition.id))) { const snapshot = entry.simulation.snapshot(); committed.push({ entry, snapshot }); syncBinding(entry); entry.simulation.step(1); if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) { const binding = entry.definition.bodyColliders[0]; const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin."); const impulse = entry.simulation.inspect().contacts.reactionImpulse; bridge.applySphereReactions([{ entity: binding.entity, impulse: [...impulse] as Vec3, moment: [0, 0, 0] }]); } } } catch (error) { const failures: string[] = []; for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); } if (failures.length) throw new Error(`TC_FLUID_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`); throw error; } },
     legacySnapshot: () => ({ version: 1, fluids: [] }),
     snapshot: () => ({ version: 1, fluids: [...entries.values()].sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => ({ definition: cloneSerializable(entry.definition), state: entry.simulation.snapshot() })) }),
     validateSnapshot(value) { const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(staged); },
@@ -84,6 +92,3 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },
   };
 };
-
-
-

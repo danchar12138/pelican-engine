@@ -328,6 +328,15 @@ export function createSimulation(
       }
       return inspect();
     },
+    setBodyState(id: string, position: Vec3, velocity: Vec3) {
+      alive();
+      const body = state.bodies.find((item) => item.id === id);
+      if (!body) fail("SIM_BODY", `Unknown body '${id}'.`);
+      if (!isVec3(position) || !isVec3(velocity))
+        fail("SIM_BODY", "Body position and velocity must be finite vectors.");
+      body.position = copy(position);
+      body.velocity = copy(velocity);
+    },
     snapshot() {
       alive();
       return copy(state);

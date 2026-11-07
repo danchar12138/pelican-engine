@@ -280,6 +280,9 @@ export class RuntimeHost {
       get fluid() {
         return host.service("fluid");
       },
+      get softBodies() {
+        return host.service("softBodies");
+      },
       entities: {
         resolve: (entity) => this.world.resolve(entity),
         isAlive: (entity) => this.world.isAlive(entity),
