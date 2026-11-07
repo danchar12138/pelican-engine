@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds an optional fixed-clock maximum duration for audio voices, including loops and legacy unknown-duration sounds. Pause timing, reclamation and snapshot restoration remain unverified.
+
 - Local development adds per-voice gain control and detached logical voice inspection. Audio output, lifecycle and snapshot restoration remain unverified.
 
 - Local development marks runtime light and material surface changes for tracing recapture even when a draw otherwise has no scene-change flag. Raster and tracing behavior remain unverified.

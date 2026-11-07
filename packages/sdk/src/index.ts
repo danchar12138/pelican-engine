@@ -1242,12 +1242,13 @@ export interface AudioReverb { wet: number; decay: number; preDelay: number }
 export interface AudioVoiceState {
   id: string; sound: string; volume: number; loop: boolean; entity: string | null;
   bus?: string; priority: number; paused: boolean; occlusion: boolean;
+  maxDuration?: number;
 }
 export interface AudioService {
   /** Optional occlusion uses a 3D physics ray between the listener and a live entity. */
   play(
     id: string,
-    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean },
+    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean; maxDuration?: number },
   ): string;
   stop(voice: string): void;
   /** Pause/resume are idempotent; an unknown valid voice id is a no-op. Playback time follows fixed simulation ticks, even while audio is locked. */

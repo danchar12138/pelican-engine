@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add optional fixed-clock maximum duration for audio voices; timing and restoration remain unverified.
+
 - Add per-voice volume control and logical voice inspection; playback remains unverified.
 
 - Mark runtime light and material changes for tracing recapture during unchanged draws; rendering behavior remains unverified.

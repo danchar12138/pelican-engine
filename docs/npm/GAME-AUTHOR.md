@@ -228,8 +228,13 @@ state, including pause and routing, or `null` for an unknown or reclaimed voice.
 An unknown valid ID is a no-op for `setVoiceVolume`; the gain must still be in
 0–1. Voice state is included in snapshots. Browser playback, audio-device
 locking and restoration are unverified; logical state is not proof of audibility.
-Voices without known duration are not reclaimed by the fixed-tick duration
-mechanism; explicitly stop them when no longer needed.
+Compiled WAV assets carry duration metadata for fixed-tick reclamation of
+non-looping voices. For looping voices or legacy assets without duration,
+`ctx.audio.play("sound", { loop: true, maxDuration: 10 })` limits active
+playback to at most 10 fixed-clock seconds. The limit accepts positive seconds
+up to 86400, excludes paused time, and is saved in snapshots. With no limit,
+explicitly stop looping or unknown-duration voices when no longer needed.
+Timing and restoration remain unverified.
 
 Use `ctx.audio.setReverb({ wet: 0.25, decay: 1.5, preDelay: 0.02 })` to add
 global convolution reverb after the master mix. `wet` is between 0 and 1,

@@ -40,6 +40,7 @@ export interface GameServicesInspection {
       pausedTicks?: number;
       priority?: number;
       occlusion?: boolean;
+      maxDuration?: number;
     }[];
   };
   storage: StorageState;
@@ -779,7 +780,7 @@ export function createGameServices(
             typeof values === "object" &&
             !Array.isArray(values) &&
             Object.keys(values).every((key) =>
-              ["volume", "loop", "entity", "bus", "priority", "occlusion"].includes(key),
+              ["volume", "loop", "entity", "bus", "priority", "occlusion", "maxDuration"].includes(key),
             ),
           "TC_AUDIO_VALUE",
           "Unknown audio options.",
@@ -797,6 +798,8 @@ export function createGameServices(
         const priority = Object.hasOwn(values, "priority") ? values.priority : 0;
         integer(priority, "TC_AUDIO_PRIORITY", "Voice priority", 0);
         check(priority <= 255, "TC_AUDIO_PRIORITY", "Voice priority must be 0..255.");
+        if (Object.hasOwn(values, "maxDuration"))
+          finite(values.maxDuration, "TC_AUDIO_DURATION", "Voice maxDuration", Number.MIN_VALUE, 86400);
         check(
           typeof loop === "boolean",
           "TC_AUDIO_VALUE",
@@ -829,6 +832,7 @@ export function createGameServices(
           ...(bus !== undefined ? { bus } : {}),
           ...(priority !== 0 ? { priority } : {}),
           ...(values.occlusion ? { occlusion: true } : {}),
+          ...(values.maxDuration !== undefined ? { maxDuration: values.maxDuration } : {}),
           volume,
           loop,
           entity: values.entity ?? null,
@@ -878,7 +882,8 @@ export function createGameServices(
         if (!voice) return null;
         return { id: voice.id, sound: voice.sound, volume: voice.volume, loop: voice.loop, entity: voice.entity,
           ...(voice.bus === undefined ? {} : { bus: voice.bus }), priority: voice.priority ?? 0,
-          paused: voice.pausedAt != null, occlusion: voice.occlusion === true };
+          paused: voice.pausedAt != null, occlusion: voice.occlusion === true,
+          ...(voice.maxDuration === undefined ? {} : { maxDuration: voice.maxDuration }) };
       },
       volume(value) {
         alive();
@@ -1150,7 +1155,7 @@ export function createGameServices(
     for (const voice of data.audio.voices) {
       object(
         voice,
-        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "occlusion") ? ["occlusion"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : [])],
+        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "occlusion") ? ["occlusion"] : []), ...(Object.hasOwn(voice, "maxDuration") ? ["maxDuration"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : [])],
         SNAPSHOT_ERROR,
       );
       check(
@@ -1191,6 +1196,8 @@ export function createGameServices(
         name(voice.entity, SNAPSHOT_ERROR, "Voice entity");
       if (Object.hasOwn(voice, "occlusion"))
         check(voice.occlusion === true && voice.entity !== null && context?.getPhysicsService?.(), SNAPSHOT_ERROR, "Occluded voice requires an entity and 3D physics service.");
+      if (Object.hasOwn(voice, "maxDuration"))
+        finite(voice.maxDuration, SNAPSHOT_ERROR, "Voice maxDuration", Number.MIN_VALUE, 86400);
       integer(voice.startedAt, SNAPSHOT_ERROR, "Voice startedAt");
       check(
         voice.startedAt <= data.tick,
@@ -1209,6 +1216,9 @@ export function createGameServices(
         );
       }
       const duration = durations[voice.sound];
+      const playedTicks = (voice.pausedAt ?? data.tick) - voice.startedAt - (voice.pausedTicks ?? 0);
+      check(voice.maxDuration === undefined || data.fixedDt === null || playedTicks === 0 || playedTicks * data.fixedDt < voice.maxDuration,
+        SNAPSHOT_ERROR, "Voice exceeding maxDuration must have been reclaimed.");
       check(
         voice.loop ||
           duration === null ||
@@ -1402,11 +1412,12 @@ export function createGameServices(
             gamepad,
           };
           state.audio.voices = state.audio.voices.filter(
-            (voice) =>
-              voice.loop ||
-              voice.pausedAt != null ||
-              durations[voice.sound] === null ||
-              (state.tick - voice.startedAt - (voice.pausedTicks ?? 0)) * dt < durations[voice.sound]!,
+            (voice) => {
+              if (voice.pausedAt != null) return true;
+              const age = (state.tick - voice.startedAt - (voice.pausedTicks ?? 0)) * dt;
+              return (voice.maxDuration === undefined || age < voice.maxDuration) &&
+                (voice.loop || durations[voice.sound] === null || age < durations[voice.sound]!);
+            },
           );
           for (const bus of state.audio.busVolumes ?? []) {
             if (!bus.fade) continue;
