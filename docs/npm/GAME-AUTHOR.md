@@ -54,8 +54,10 @@ hybrid behavior has not been runtime-validated.
 Direct light tracing respects light and mesh `castShadow` and mesh
 `receiveShadow` settings. Indirect rays still interact with visible geometry;
 this distinction and cross-mode shadow behavior have not been runtime-validated.
-Static definitions support constants such as `Math.PI`; arbitrary function calls
-are not evaluated when compiling scene declarations.
+Static definitions support constants such as `Math.PI` and the pure functions
+`Math.abs`, `acos`, `asin`, `atan`, `atan2`, `ceil`, `cos`, `floor`, `pow`,
+`round`, `sin`, `sqrt` and `tan` with finite static numeric arguments. Other
+function calls are not evaluated when compiling scene declarations.
 
 ```ts
 { id: "lamp", transform: { position: [2, 4, 3] },

@@ -26,6 +26,21 @@ const declarations: Record<string, string> = {
   defineSystem: "system",
   defineGame: "game",
 };
+const staticMath: Readonly<Record<string, { arity: number; evaluate: (...args: number[]) => number }>> = {
+  abs: { arity: 1, evaluate: Math.abs },
+  acos: { arity: 1, evaluate: Math.acos },
+  asin: { arity: 1, evaluate: Math.asin },
+  atan: { arity: 1, evaluate: Math.atan },
+  atan2: { arity: 2, evaluate: Math.atan2 },
+  ceil: { arity: 1, evaluate: Math.ceil },
+  cos: { arity: 1, evaluate: Math.cos },
+  floor: { arity: 1, evaluate: Math.floor },
+  pow: { arity: 2, evaluate: Math.pow },
+  round: { arity: 1, evaluate: Math.round },
+  sin: { arity: 1, evaluate: Math.sin },
+  sqrt: { arity: 1, evaluate: Math.sqrt },
+  tan: { arity: 1, evaluate: Math.tan },
+};
 export class ExtractionFailure extends Error {}
 export class Extractor {
   readonly diagnostics: Diagnostic[] = [];
@@ -449,6 +464,22 @@ export class Extractor {
       return result;
     }
     if (ts.isCallExpression(node)) {
+      const expression = node.expression;
+      if (!node.questionDotToken && ts.isPropertyAccessExpression(expression) &&
+          !expression.questionDotToken && ts.isIdentifier(expression.expression) &&
+          expression.expression.text === "Math" && !mod.bindings.has("Math") && !mod.imports.has("Math") &&
+          Object.hasOwn(staticMath, expression.name.text)) {
+        const operation = staticMath[expression.name.text];
+        if (node.typeArguments?.length || node.arguments.length !== operation.arity || node.arguments.some(ts.isSpreadElement))
+          this.fail("TC_STATIC_TYPE", `Math.${expression.name.text} requires ${operation.arity} static numeric argument(s).`, node);
+        const values = node.arguments.map(argument => this.evaluate(argument, mod));
+        if (values.some(value => typeof value !== "number" || !Number.isFinite(value)))
+          this.fail("TC_STATIC_TYPE", `Math.${expression.name.text} requires finite numeric arguments.`, node);
+        const result = operation.evaluate(...values as number[]);
+        if (!Number.isFinite(result))
+          this.fail("TC_STATIC_TYPE", `Math.${expression.name.text} must produce a finite number.`, node);
+        return result;
+      }
       const name = ts.isIdentifier(node.expression)
         ? mod.imports.get(node.expression.text)
         : undefined;
