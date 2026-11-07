@@ -193,6 +193,7 @@ export const createNavigationPlugin: RuntimePluginFactory = context => {
     },
     createAgent(input) { agentManager.create(input); },
     setAgentTarget(id, target) { agentManager.target(id, target); },
+    followAgentTarget(id, entity) { agentManager.follow(id, entity); },
     stopAgent(id) { agentManager.stop(id); },
     inspectAgent(id) { return agentManager.inspect(id); },
     listAgents() { return agentManager.list(); },

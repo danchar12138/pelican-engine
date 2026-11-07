@@ -702,6 +702,15 @@ sets a stable error code. Update the grid or call `setAgentTarget` again to retr
 agents before destroying their grid. A destroyed entity leaves a `missing`
 agent: destroy and recreate the agent to bind a replacement with the same ID.
 
+`ctx.navigation.followAgentTarget("guard-nav", "player")` follows a different
+live root entity on the same grid. The target's position is sampled each fixed
+tick and a new path is requested only when its cell changes. If it leaves the
+grid or becomes parented, the agent blocks and retries when it returns. If the
+target is destroyed, the binding is removed and an error is recorded; a new
+entity with the same ID is not automatically followed. Use `stopAgent` or
+`setAgentTarget` to replace the follow command. Follow state is included in
+snapshots, but movement and restore behavior remain unverified.
+
 At most 128 agents are supported, with at most 65,536 cells per resulting path
 and 64 traversed segments per agent per tick; excess per-tick travel is not
 carried forward. Agent paths, queued replanning and targets are included in host

@@ -32,6 +32,7 @@ const inGrid = (point: NavigationCell, grid: NavigationGrid) => !!point && typeo
   point.x < grid.width && point.y < grid.height;
 const publicState = (agent: Agent): NavigationAgentState => cloneSerializable({
   id: agent.id, entity: agent.entity, grid: agent.grid, plane: agent.plane, rowDirection: agent.rowDirection, target: agent.target,
+  ...(agent.followEntity === undefined ? {} : { followEntity: agent.followEntity }),
   status: agent.status, error: agent.error, path: agent.path, cursor: agent.cursor,
 });
 
@@ -40,7 +41,7 @@ export function createNavigationAgents(
   context: RuntimePluginContext,
   navigation: Pick<NavigationService, "getGrid" | "findPath">,
 ) {
-  let agents = new Map<string, Agent>(), handles = new Map<string, EntityHandle>(), cursor = 0, disposed = false;
+  let agents = new Map<string, Agent>(), handles = new Map<string, EntityHandle>(), followedHandles = new Map<string, EntityHandle>(), cursor = 0, disposed = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Navigation agents are disposed."); };
   const get = (id: string) => {
     alive();
@@ -73,20 +74,36 @@ export function createNavigationAgents(
       target: null, path: [], cursor: 0, status: "idle", error: null, dirty: false });
     handles.set(value.id, handle);
   }
+  function planTarget(agent: Agent, point: NavigationCell): void {
+    agent.target = { x: point.x, y: point.y };
+    agent.path = []; agent.cursor = 0; agent.status = "planning"; agent.error = null; agent.dirty = true;
+  }
   function target(id: string, point: NavigationCell): void {
     const agent = get(id), grid = navigation.getGrid(agent.grid);
     if (agent.status === "missing" || !handles.get(id) || !context.world.isAlive(handles.get(id)!))
       return fail("AGENT_ENTITY", `Entity '${agent.entity}' is no longer alive; create a new agent for its replacement.`);
     if (!inGrid(point, grid)) return fail("CELL", `Target must be within grid '${grid.id}'.`);
-    agent.target = { x: point.x, y: point.y };
-    agent.path = []; agent.cursor = 0; agent.status = "planning"; agent.error = null; agent.dirty = true;
+    delete agent.followEntity; followedHandles.delete(id);
+    planTarget(agent, point);
+  }
+  function follow(id: string, entity: string): void {
+    const agent = get(id);
+    if (agent.status === "missing" || !handles.get(id) || !context.world.isAlive(handles.get(id)!))
+      return fail("AGENT_ENTITY", `Entity '${agent.entity}' is no longer alive; create a new agent for its replacement.`);
+    if (!name(entity) || entity === agent.entity || !context.world.isAlive(entity))
+      return fail("FOLLOW_TARGET", "Follow target must be a different live root entity.");
+    const handle = context.world.resolve(entity);
+    if (context.world.identity(handle).parent !== undefined) return fail("FOLLOW_TARGET", "Follow target must be a root entity.");
+    agent.followEntity = entity; followedHandles.set(id, handle);
+    agent.target = null; agent.path = []; agent.cursor = 0; agent.status = "idle"; agent.error = null; agent.dirty = false;
   }
   function stop(id: string): void {
     const agent = get(id);
+    delete agent.followEntity; followedHandles.delete(id);
     agent.target = null; agent.path = []; agent.cursor = 0; agent.dirty = false;
     if (agent.status !== "missing") { agent.status = "idle"; agent.error = null; }
   }
-  function remove(id: string): void { get(id); agents.delete(id); handles.delete(id); }
+  function remove(id: string): void { get(id); agents.delete(id); handles.delete(id); followedHandles.delete(id); }
   function inspect(id: string): NavigationAgentState { return publicState(get(id)); }
   function list(): NavigationAgentState[] { alive(); return [...agents.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(publicState); }
   function dirtyGrid(grid: string): void {
@@ -101,6 +118,12 @@ export function createNavigationAgents(
   function missing(agent: Agent): void {
     agent.status = "missing"; agent.error = "TC_NAVIGATION_AGENT_ENTITY";
     agent.dirty = false; agent.path = []; agent.cursor = 0; handles.delete(agent.id);
+    delete agent.followEntity; followedHandles.delete(agent.id);
+  }
+  function followMissing(agent: Agent): void {
+    delete agent.followEntity; followedHandles.delete(agent.id);
+    agent.target = null; agent.path = []; agent.cursor = 0; agent.status = "blocked";
+    agent.error = "TC_NAVIGATION_FOLLOW_TARGET"; agent.dirty = false;
   }
   function tick(dt: number): void {
     alive();
@@ -117,12 +140,34 @@ export function createNavigationAgents(
       if (!handle || !context.world.isAlive(handle)) { missing(agent); continue; }
       const record = records.get(agent.entity);
       if (!record) { missing(agent); continue; }
+      if (agent.followEntity !== undefined) {
+        const targetHandle = followedHandles.get(agent.id);
+        if (!targetHandle || !context.world.isAlive(targetHandle)) { followMissing(agent); continue; }
+        const targetRecord = records.get(agent.followEntity);
+        if (!targetRecord || targetRecord.parent !== undefined) {
+          agent.target = null; agent.path = []; agent.cursor = 0; agent.status = "blocked";
+          agent.error = "TC_NAVIGATION_FOLLOW_TARGET"; agent.dirty = false;
+          continue;
+        }
+        const position = context.world.getTransform(targetHandle).position;
+        const second = agent.plane === "xy" ? position[1] : position[2];
+        const direction = agent.rowDirection === "negative" ? -1 : 1;
+        const point = { x: Math.floor((position[0] - agent.origin[0]) / agent.cellSize),
+          y: Math.floor((second - agent.origin[1]) / (agent.cellSize * direction)) };
+        if (!inGrid(point, navigation.getGrid(agent.grid))) {
+          agent.target = null; agent.path = []; agent.cursor = 0; agent.status = "blocked";
+          agent.error = "TC_NAVIGATION_FOLLOW_OUTSIDE"; agent.dirty = false;
+          continue;
+        }
+        if (!agent.target || point.x !== agent.target.x || point.y !== agent.target.y) planTarget(agent, point);
+      }
       const definition = resolveEntityDefinition(context.scene, record);
       if (record.parent !== undefined || definition?.rigidBody || definition?.character || context.getPhysics2DBridge?.()?.hasEntity(agent.entity)) {
         agent.status = "blocked"; agent.error = "TC_NAVIGATION_AGENT_BODY";
         agent.dirty = false; agent.path = []; agent.cursor = 0;
         continue;
       }
+      if (agent.error === "TC_NAVIGATION_AGENT_BODY" && agent.target) planTarget(agent, agent.target);
       if (!agent.target) continue;
       const position = context.world.getTransform(handle).position;
       const second = agent.plane === "xy" ? position[1] : position[2];
@@ -180,6 +225,8 @@ export function createNavigationAgents(
     for (const agent of saved) {
       if (!agent || !name(agent.id) || !name(agent.entity) || !name(agent.grid) || ids.has(agent.id) || entities.has(agent.entity))
         return fail("AGENT_SNAPSHOT", "Agent identities must be unique and nonempty.");
+      if (agent.followEntity !== undefined && (!name(agent.followEntity) || agent.followEntity === agent.entity || agent.status === "missing"))
+        return fail("AGENT_SNAPSHOT", "Follow target must identify a different live entity.");
       ids.add(agent.id); entities.add(agent.entity);
       // Older snapshots predate plane selection and use the original X/Z positive-row behavior.
       if (agent.plane === undefined) agent.plane = "xz";
@@ -219,6 +266,8 @@ export function createNavigationAgents(
     for (const agent of agents.values()) {
       const handle = handles.get(agent.id);
       if (agent.status !== "missing" && (!handle || !context.world.isAlive(handle))) missing(agent);
+      const followed = followedHandles.get(agent.id);
+      if (agent.followEntity !== undefined && (!followed || !context.world.isAlive(followed))) followMissing(agent);
     }
     return cloneSerializable({ agents: [...agents.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0), agentCursor: cursor });
   }
@@ -226,13 +275,16 @@ export function createNavigationAgents(
     const ids = new Set(world.entities.map(item => item.id));
     for (const agent of data.agents) if (agent.status !== "missing" && !ids.has(agent.entity))
       fail("AGENT_SNAPSHOT", `Agent '${agent.id}' entity '${agent.entity}' is missing from world snapshot.`);
+    for (const agent of data.agents) if (agent.followEntity !== undefined && !ids.has(agent.followEntity))
+      fail("AGENT_SNAPSHOT", `Follow target '${agent.followEntity}' is missing from world snapshot.`);
   }
   function restore(data: AgentSnapshot): void {
     alive();
-    const nextHandles = new Map<string, EntityHandle>();
+    const nextHandles = new Map<string, EntityHandle>(), nextFollowed = new Map<string, EntityHandle>();
     for (const agent of data.agents) if (agent.status !== "missing") nextHandles.set(agent.id, context.world.resolve(agent.entity));
-    agents = new Map(data.agents.map(agent => [agent.id, agent])); handles = nextHandles; cursor = data.agentCursor;
+    for (const agent of data.agents) if (agent.followEntity !== undefined) nextFollowed.set(agent.id, context.world.resolve(agent.followEntity));
+    agents = new Map(data.agents.map(agent => [agent.id, agent])); handles = nextHandles; followedHandles = nextFollowed; cursor = data.agentCursor;
   }
-  return { create, target, stop, remove, inspect, list, dirtyGrid, assertGridUnused, tick, parse, snapshot, validateWorld, restore,
-    dispose() { disposed = true; agents.clear(); handles.clear(); } };
+  return { create, target, follow, stop, remove, inspect, list, dirtyGrid, assertGridUnused, tick, parse, snapshot, validateWorld, restore,
+    dispose() { disposed = true; agents.clear(); handles.clear(); followedHandles.clear(); } };
 }

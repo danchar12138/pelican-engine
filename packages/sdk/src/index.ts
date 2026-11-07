@@ -654,6 +654,8 @@ export interface NavigationAgentState {
   plane: "xz" | "xy";
   rowDirection: "positive" | "negative";
   target: NavigationCell | null;
+  /** Live root entity followed by this agent, if any. */
+  followEntity?: string;
   status: "idle" | "planning" | "moving" | "arrived" | "blocked" | "missing";
   /** Stable diagnostic code when movement is blocked or the entity was removed. */
   error: string | null;
@@ -676,6 +678,8 @@ export interface NavigationService {
   /** Movement is processed at fixed-tick boundaries; the entity must be a non-physical root. */
   createAgent(definition: NavigationAgentDefinition): void;
   setAgentTarget(id: string, target: NavigationCell): void;
+  /** Follow a live root entity, replanning when it enters a different grid cell. */
+  followAgentTarget(id: string, entity: string): void;
   stopAgent(id: string): void;
   inspectAgent(id: string): NavigationAgentState;
   listAgents(): readonly NavigationAgentState[];
