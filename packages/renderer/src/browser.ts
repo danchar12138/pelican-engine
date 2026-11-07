@@ -285,6 +285,8 @@ let restoring = false;
 let frameRequest: number | undefined;
 let disposal: Promise<void> | undefined;
 let gameMaterials = new Map<string, THREE.MeshStandardNodeMaterial>();
+type SurfaceDefaults = { color: THREE.Color; emissive: THREE.Color; roughness: number; metalness: number; emissiveIntensity: number };
+let gameSurfaceDefaults = new Map<string, SurfaceDefaults>();
 const componentState = new Map<string, Record<string, ComponentData>>();
 const transforms = new Map<string, Transform>();
 const materialGraphs: {
@@ -722,6 +724,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
   };
   const nextRoot = new THREE.Group();
   const nextMaterials = new Map<string, THREE.MeshStandardNodeMaterial>();
+  const nextSurfaceDefaults = new Map<string, SurfaceDefaults>();
   const nextObjects = new Map<string, THREE.Object3D>();
   const nextGraphs: typeof materialGraphs = [];
   try {
@@ -875,6 +878,8 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       if (definition.texture)
         material.map = nextGameplay!.textures.get(definition.texture)!;
       nextMaterials.set(definition.id, material);
+      nextSurfaceDefaults.set(definition.id, { color: material.color.clone(), emissive: material.emissive.clone(),
+        roughness: material.roughness, metalness: material.metalness, emissiveIntensity: material.emissiveIntensity });
       if (definition.graph || definition.graphs || definition.vertex) {
         const graphs = { ...(definition.graph ? { baseColor: definition.graph } : {}), ...definition.graphs };
         const uniforms = new Map<string, ReturnType<typeof uniform>>();
@@ -968,6 +973,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     gameplay = nextGameplay;
     contentScope = nextScope;
     gameMaterials = nextMaterials;
+    gameSurfaceDefaults = nextSurfaceDefaults;
     committed = true;
     clearDynamicVisuals();
     if (nextRoot.children.length) gameRoot.add(...nextRoot.children);
@@ -1080,6 +1086,15 @@ async function processGameRequests() {
 function animate() {
   const time = tick / 60;
   graphTime.value = time;
+  if (renderControl) for (const [id, material] of gameMaterials) {
+    const defaults = gameSurfaceDefaults.get(id)!;
+    const patch = renderControl.service.materialSurface(id);
+    if (patch.color) material.color.fromArray(patch.color); else material.color.copy(defaults.color);
+    if (patch.emissive) material.emissive.fromArray(patch.emissive); else material.emissive.copy(defaults.emissive);
+    material.roughness = patch.roughness ?? defaults.roughness;
+    material.metalness = patch.metalness ?? defaults.metalness;
+    material.emissiveIntensity = patch.emissiveIntensity ?? defaults.emissiveIntensity;
+  }
   for (const item of materialGraphs) {
     item.binding.time = time;
     item.binding.parameters = renderControl!.service.materialParameters(item.binding.id);
@@ -1618,6 +1633,7 @@ async function disposeBrowser() {
   clean(() => device?.destroy());
   gameObjects.clear();
   gameMaterials.clear();
+  gameSurfaceDefaults.clear();
   transforms.clear();
   componentState.clear();
   materialGraphs.length = 0;

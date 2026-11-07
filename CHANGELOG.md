@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add runtime non-graph material surface overrides and snapshot state; raster/tracing behavior remains unverified.
+
 - Add weighted two-clip model animation blending with snapshot state; runtime behavior remains unverified.
 
 - Add configurable global convolution reverb with snapshot settings and dry fallback. Audio behavior remains unverified.

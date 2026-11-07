@@ -104,6 +104,16 @@ Raster, tracing, lifecycle and snapshot behavior remain unverified.
 Direct light tracing respects light and mesh `castShadow` and mesh
 `receiveShadow` settings. Indirect rays still interact with visible geometry;
 this distinction and cross-mode shadow behavior have not been runtime-validated.
+
+Use `ctx.render.setMaterialSurface("material-id", { color: [0.2, 0.5, 1],
+roughness: 0.4, emissive: [0.1, 0.2, 0.5], emissiveIntensity: 2 })` to
+update declared material channels at runtime. Colors use linear RGB in [0,1];
+roughness and metalness use [0,1], and emissive intensity uses [0,65536].
+Patches merge; `materialSurface(id)` returns current overrides and
+`resetMaterialSurface(id)` restores authored values. A material graph owns its
+declared channel and cannot be overridden this way: change its graph parameters
+instead. Overrides affect every object sharing the material and are saved in
+snapshots. Raster, path/hybrid capture and restoration remain unverified.
 Static definitions support constants such as `Math.PI` and the pure functions
 `Math.abs`, `acos`, `asin`, `atan`, `atan2`, `ceil`, `cos`, `floor`, `pow`,
 `round`, `sin`, `sqrt` and `tan` with finite static numeric arguments. Other

@@ -750,12 +750,21 @@ export interface RenderSettings {
   indirectLighting: boolean;
   debug: "beauty" | "albedo" | "normal" | "depth" | "samples";
 }
+/** Runtime values for non-graph material channels; colors are linear RGB. */
+export interface MaterialSurfacePatch {
+  color?: Vec3; emissive?: Vec3; roughness?: number; metalness?: number; emissiveIntensity?: number;
+}
 export interface RenderService {
   configure(settings: Partial<RenderSettings>): void;
   state(): Readonly<RenderSettings>;
   capabilities(): Readonly<RenderCapabilities>;
   setMaterialParameter(material: string, name: string, value: GraphValue): void;
   materialParameters(material: string): Readonly<Record<string, GraphValue>>;
+  /** Merge values for a declared material; graph-controlled channels reject overrides. */
+  setMaterialSurface(material: string, patch: MaterialSurfacePatch): void;
+  materialSurface(material: string): Readonly<MaterialSurfacePatch>;
+  /** Restore all authored surface values for a material. */
+  resetMaterialSurface(material: string): void;
   readonly effects: PostProcessService;
   readonly buffers: RenderBufferBindings;
   readonly textures: RenderTextureBindings;

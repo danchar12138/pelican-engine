@@ -2,6 +2,7 @@ import type { RenderSettings, RenderService, GraphParameter, RenderCapabilities,
 import type { PostProcessIR } from "../../compiler/src/types.ts";
 import { renderCapabilities, validateRenderCapabilities } from "./render-capabilities.ts";
 import { createMaterialParameters } from "./material-parameters.ts";
+import { createMaterialSurfaceOwner } from "./material-surface.ts";
 import { createPostProcessOwner } from "./postprocess.ts";
 import { createRenderBufferOwner, type RenderBufferPeerSnapshots } from "./render-buffers.ts";
 import type { RenderBufferProvider } from "./render-buffer-contract.ts";
@@ -69,13 +70,14 @@ export function resolveRenderSettings(
 }
 export function createRenderSettingsDriver(
   initial: Partial<RenderSettings> = {},
-  materials: readonly { id: string; parameters?: readonly GraphParameter[]; buffers?: readonly MaterialBufferInput[]; textures?: readonly MaterialTextureInput[] }[] = [],
+  materials: readonly { id: string; graph?: unknown; graphs?: Partial<Record<string, unknown>>; parameters?: readonly GraphParameter[]; buffers?: readonly MaterialBufferInput[]; textures?: readonly MaterialTextureInput[] }[] = [],
   capabilities?: () => RenderCapabilities,
   postProcesses: readonly PostProcessIR[] = [],
   provider?: RenderBufferProvider,
   textureProvider?: RenderTextureProvider,
 ) {
   const parameters = createMaterialParameters(materials);
+  const surfaces = createMaterialSurfaceOwner(materials);
   const postProcessOwner = createPostProcessOwner(postProcesses);
   const defaults = resolveRenderSettings(initial);
   if (capabilities) validateRenderCapabilities(defaults, capabilities());
@@ -136,6 +138,9 @@ export function createRenderSettingsDriver(
     },
     setMaterialParameter(material, name, value) { active(); parameters.set(material, name, value); },
     materialParameters(material) { active(); return parameters.get(material); },
+    setMaterialSurface(material, patch) { active(); surfaces.set(material, patch); },
+    materialSurface(material) { active(); return surfaces.get(material); },
+    resetMaterialSurface(material) { active(); surfaces.reset(material); },
     effects: Object.assign(postProcessOwner.service, { buffers: effectBuffers.service, textures: effectTextures.service }),
     buffers: bufferOwner.service,
     textures: textureOwner.service,
@@ -144,7 +149,7 @@ export function createRenderSettingsDriver(
     active();
     if (
       !snapshotRecord(value) ||
-      Object.keys(value).some(key => !["version", "defaults", "settings", "parameters", "postProcesses", "bufferBindings", "effectBufferBindings", "textureBindings", "effectTextureBindings"].includes(key)) ||
+      Object.keys(value).some(key => !["version", "defaults", "settings", "parameters", "surfaces", "postProcesses", "bufferBindings", "effectBufferBindings", "textureBindings", "effectTextureBindings"].includes(key)) ||
       value.version !== 1 ||
       !snapshotRecord(value.defaults) ||
       Object.keys(value.defaults).length !== Object.keys(defaults).length ||
@@ -158,6 +163,8 @@ export function createRenderSettingsDriver(
     const materialState = Object.hasOwn(value, "parameters") ? value.parameters : undefined;
     const effects = Object.hasOwn(value, "postProcesses") ? value.postProcesses : undefined;
     parameters.validateSnapshot(materialState);
+    const surfaceState = Object.hasOwn(value, "surfaces") ? value.surfaces : undefined;
+    surfaces.validateSnapshot(surfaceState);
     postProcessOwner.validateSnapshot(effects);
     const bufferBindings = Object.hasOwn(value, "bufferBindings") ? value.bufferBindings : undefined;
     bufferOwner.validateSnapshot(bufferBindings);
@@ -166,7 +173,7 @@ export function createRenderSettingsDriver(
     const textureBindings = Object.hasOwn(value, "textureBindings") ? value.textureBindings : undefined;
     const effectTextureBindings = Object.hasOwn(value, "effectTextureBindings") ? value.effectTextureBindings : undefined;
     textureOwner.validateSnapshot(textureBindings); effectTextures.validateSnapshot(effectTextureBindings);
-    return { settings, materialState, effects, bufferBindings, effectBufferBindings, textureBindings, effectTextureBindings };
+    return { settings, materialState, surfaceState, effects, bufferBindings, effectBufferBindings, textureBindings, effectTextureBindings };
   };
   const dispose = () => {
     if (disposed) return;
@@ -176,6 +183,7 @@ export function createRenderSettingsDriver(
     finally { deferPins = false; }
     disposed = true;
     parameters.dispose();
+    surfaces.dispose();
     postProcessOwner.dispose();
   };
   const factory = ((_context: Parameters<RuntimePluginFactory>[0]) => ({
@@ -186,10 +194,11 @@ export function createRenderSettingsDriver(
       active();
       const effects = postProcessOwner.snapshot();
       const materialState = parameters.snapshot();
+      const surfaceState = surfaces.snapshot();
       const bufferBindings = bufferOwner.snapshot();
       const effectBufferBindings = effectBuffers.snapshot();
       const textureBindings = textureOwner.snapshot(), effectTextureBindings = effectTextures.snapshot();
-      return { version: 1, defaults: { ...defaults }, settings: service.state(), ...(materialState ? { parameters: materialState } : {}), ...(effects ? { postProcesses: effects } : {}), ...(bufferBindings ? { bufferBindings } : {}), ...(effectBufferBindings ? { effectBufferBindings } : {}), ...(textureBindings ? { textureBindings } : {}), ...(effectTextureBindings ? { effectTextureBindings } : {}) };
+      return { version: 1, defaults: { ...defaults }, settings: service.state(), ...(materialState ? { parameters: materialState } : {}), ...(surfaceState.length ? { surfaces: surfaceState } : {}), ...(effects ? { postProcesses: effects } : {}), ...(bufferBindings ? { bufferBindings } : {}), ...(effectBufferBindings ? { effectBufferBindings } : {}), ...(textureBindings ? { textureBindings } : {}), ...(effectTextureBindings ? { effectTextureBindings } : {}) };
     },
     validateSnapshot(value) { preflight(value); },
     validatePeers(value: unknown, peers: RenderBufferPeerSnapshots) {
@@ -206,6 +215,7 @@ export function createRenderSettingsDriver(
       try { bufferOwner.restore(staged.bufferBindings); effectBuffers.restore(staged.effectBufferBindings); textureOwner.restore(staged.textureBindings); effectTextures.restore(staged.effectTextureBindings); }
       finally { deferPins = false; }
       parameters.restore(staged.materialState);
+      surfaces.restore(staged.surfaceState);
       postProcessOwner.restore(staged.effects);
       current = staged.settings;
     },

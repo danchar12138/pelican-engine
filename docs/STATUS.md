@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds runtime surface overrides for declared non-graph material channels, with snapshot persistence and graph ownership checks. Shared-material propagation, raster/tracing consistency and restoration are unverified.
+
 - Local development adds two-clip weighted model animation blending and snapshot state. Bone masks, additive layers, phase synchronization and IK remain incomplete; blending and restoration are unverified.
 
 - Local development adds optional global convolution reverb with deterministic generated impulse responses, dry fallback and snapshot-preserved settings. It is not room acoustics or per-bus sends; sound output, failure recovery, resource cleanup and restoration remain unverified.
