@@ -566,6 +566,30 @@ class ModelLibraryImpl implements ModelLibrary {
       );
     }
     const root = cloneSkeleton(template.scene);
+    const clones = new Map<THREE.Object3D, THREE.Object3D>();
+    const pending: [THREE.Object3D, THREE.Object3D][] = [[template.scene, root]];
+    while (pending.length) {
+      const [source, copy] = pending.pop()!;
+      clones.set(source, copy);
+      for (let i = 0; i < source.children.length; i++)
+        pending.push([source.children[i], copy.children[i]]);
+    }
+    for (const [source, copy] of clones) {
+      if ((source instanceof THREE.DirectionalLight && copy instanceof THREE.DirectionalLight) ||
+          (source instanceof THREE.SpotLight && copy instanceof THREE.SpotLight)) {
+        const detachedChild = source.children.find(child =>
+          child.type === "Object3D" && child.children.length === 0 &&
+          child.position.equals(source.target.position) &&
+          child.quaternion.equals(source.target.quaternion) &&
+          child.scale.equals(source.target.scale));
+        const target = clones.get(source.target) ?? (detachedChild && clones.get(detachedChild));
+        if (!target) {
+          disposeInstanceSkeletons(root);
+          throw new Error(`TC_MODEL_LIGHT_TARGET: ${entityId}: light '${source.name}' has no target in its model; re-export the model.`);
+        }
+        copy.target = target;
+      }
+    }
     root.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         if (material !== undefined)

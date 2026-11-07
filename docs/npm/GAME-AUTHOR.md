@@ -40,6 +40,10 @@ lighting; they do not emit light into the scene. Import, optimization and
 raster/path/hybrid behavior for this addition have not been runtime-validated.
 Ambient occlusion maps on other unlit materials are not supported by the tracer.
 
+Embedded GLB `KHR_lights_punctual` directional, point and spot lights are
+imported with their node transforms. Their import, optimization and rendering
+are not runtime-validated under the current build-only policy.
+
 Scene lights support `kind: "spot"` with a world-space `target`, cone half-angle
 in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Point and spot
 lights accept a cutoff `distance` (0 means unlimited) and a `decay` exponent

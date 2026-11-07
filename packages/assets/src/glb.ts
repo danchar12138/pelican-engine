@@ -128,7 +128,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         "Expected a nonempty array of objects.",
       );
   }
-  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength", "KHR_materials_unlit", "KHR_texture_transform"]);
+  const supported = new Set(["KHR_materials_specular", "KHR_materials_ior", "KHR_materials_emissive_strength", "KHR_materials_unlit", "KHR_texture_transform", "KHR_lights_punctual"]);
   for (const key of ["extensionsUsed", "extensionsRequired"] as const)
     if (json[key] !== undefined) {
       ctx.check(
@@ -177,11 +177,43 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
           const at = location + "/extensions/" + name;
           const materialLocation = /^glTF\/materials\/(0|[1-9]\d*)$/.test(location);
           const textureLocation = /^glTF\/materials\/(0|[1-9]\d*)\/(?:pbrMetallicRoughness\/(?:baseColorTexture|metallicRoughnessTexture)|normalTexture|occlusionTexture|emissiveTexture|extensions\/KHR_materials_specular\/(?:specularTexture|specularColorTexture))$/.test(location);
-          if (!supported.has(name) || (name === "KHR_texture_transform" ? !textureLocation : !materialLocation))
+          const lightLocation = location === "glTF" || /^glTF\/nodes\/(0|[1-9]\d*)$/.test(location);
+          if (!supported.has(name) || (name === "KHR_texture_transform" ? !textureLocation : name === "KHR_lights_punctual" ? !lightLocation : !materialLocation))
             ctx.unsupported(at, `Extension payload ${name} is not supported at this location.`);
           ctx.check(used.has(name), at, `${name} must be declared in extensionsUsed.`);
           encountered.add(name);
           ctx.check(payload && typeof payload === "object" && !Array.isArray(payload), at, "Expected extension object.");
+          if (name === "KHR_lights_punctual") {
+            const data = payload as Record<string, unknown>;
+            if (location === "glTF") {
+              ctx.check(Object.keys(data).every(key => ["lights", "extras"].includes(key)), at, "Unknown punctual lights property.");
+              ctx.check(Array.isArray(data.lights) && data.lights.length > 0, at + "/lights", "Expected a nonempty lights array.");
+              for (const [index, item] of data.lights.entries()) {
+                const lightAt = `${at}/lights/${index}`;
+                ctx.check(item && typeof item === "object" && !Array.isArray(item), lightAt, "Expected a light object.");
+                const light = item as Record<string, unknown>;
+                ctx.check(Object.keys(light).every(key => ["name", "type", "color", "intensity", "range", "spot", "extras"].includes(key)), lightAt, "Unknown light property.");
+                ctx.check(["directional", "point", "spot"].includes(String(light.type)), lightAt + "/type", "Expected directional, point, or spot.");
+                if (light.name !== undefined) ctx.check(typeof light.name === "string", lightAt + "/name", "Expected a name string.");
+                if (light.color !== undefined) ctx.check(Array.isArray(light.color) && light.color.length === 3 && light.color.every(v => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1), lightAt + "/color", "Expected RGB values in [0,1].");
+                if (light.intensity !== undefined) ctx.check(typeof light.intensity === "number" && light.intensity >= 0 && Number.isFinite(light.intensity) && Number.isFinite(Math.fround(light.intensity)), lightAt + "/intensity", "Expected nonnegative finite float32 intensity.");
+                if (light.range !== undefined) ctx.check(light.type !== "directional" && typeof light.range === "number" && light.range > 0 && Number.isFinite(Math.fround(light.range)) && Math.fround(light.range) > 0, lightAt + "/range", "Expected a positive float32 range on a point or spot light.");
+                if (light.spot !== undefined) {
+                  ctx.check(light.type === "spot" && light.spot && typeof light.spot === "object" && !Array.isArray(light.spot), lightAt + "/spot", "Expected spot properties only on a spot light.");
+                  const spot = light.spot as Record<string, unknown>;
+                  ctx.check(Object.keys(spot).every(key => ["innerConeAngle", "outerConeAngle", "extras"].includes(key)), lightAt + "/spot", "Unknown spot property.");
+                  const inner = spot.innerConeAngle ?? 0, outer = spot.outerConeAngle ?? Math.PI / 4;
+                  ctx.check(typeof inner === "number" && typeof outer === "number" && Number.isFinite(inner) && Number.isFinite(outer) && inner >= 0 && inner < outer && outer <= Math.PI / 2, lightAt + "/spot", "Require 0 <= innerConeAngle < outerConeAngle <= PI/2.");
+                }
+              }
+            } else {
+              ctx.check(Object.keys(data).every(key => ["light", "extras"].includes(key)), at, "Unknown node light property.");
+              const root = (json.extensions as Record<string, { lights?: unknown[] }> | undefined)?.KHR_lights_punctual;
+              ctx.check(Array.isArray(root?.lights), at, "Root punctual lights are missing.");
+              ctx.integer(data.light, at + "/light", 0, root.lights.length - 1);
+            }
+            continue;
+          }
           for (const [field, fieldValue] of Object.entries(payload)) {
             if (name === "KHR_materials_specular" && (field === "specularTexture" || field === "specularColorTexture")) {
               checkExtensions(fieldValue, at + "/" + field);
@@ -223,7 +255,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
   };
   checkExtensions(json, "glTF");
   for (const name of used)
-    ctx.check(encountered.has(name), "extensionsUsed", `${name} is declared but not used by a material.`);
+    ctx.check(encountered.has(name), "extensionsUsed", `${name} is declared but has no extension payload.`);
   const buffers = json.buffers ?? [];
   for (let i = 0; i < buffers.length; i++)
     if (buffers[i].uri !== undefined)

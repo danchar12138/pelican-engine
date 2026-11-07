@@ -1,5 +1,5 @@
 import { NodeIO, Logger } from "@gltf-transform/core";
-import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform } from "@gltf-transform/extensions";
+import { KHRLightsPunctual, KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform } from "@gltf-transform/extensions";
 import { dedup, weld } from "@gltf-transform/functions";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +17,7 @@ export async function optimizeModel(input: string, output: string) {
     throw new Error("TC_ASSET_OPTIMIZE_PATH: Output must use .glb.");
   const before = await inspectAsset(input, "model");
   const sourceBytes = await readFile(input);
-  const io = new NodeIO().registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform]);
+  const io = new NodeIO().registerExtensions([KHRLightsPunctual, KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform]);
   const document = await io.readBinary(normalizeSparseGLB(sourceBytes));
   document.setLogger(new Logger(Logger.Verbosity.SILENT));
   // Weld compares the complete vertex stream bit-for-bit; names remain stable for animations and author references.
@@ -89,6 +89,7 @@ export async function optimizeModel(input: string, output: string) {
       before.triangleCount !== after.triangleCount ||
       JSON.stringify(before.bounds) !== JSON.stringify(after.bounds) ||
       JSON.stringify(before.animations) !== JSON.stringify(after.animations) ||
+      JSON.stringify(before.punctualLights) !== JSON.stringify(after.punctualLights) ||
       before.skinCount !== after.skinCount ||
       before.jointCount !== after.jointCount ||
       JSON.stringify(materialFactors(before)) !== JSON.stringify(materialFactors(after)) ||

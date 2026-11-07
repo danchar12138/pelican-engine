@@ -1,6 +1,6 @@
 ﻿import { NodeIO, type GLTF } from "@gltf-transform/core";
 import { InspectionContext } from "./errors.ts";
-import { KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform } from "@gltf-transform/extensions";
+import { KHRLightsPunctual, KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform, type Light as GLTFLight } from "@gltf-transform/extensions";
 import { parseGLB, type AccessorData } from "./glb.ts";
 import { normalizeSparseGLB } from "./glb-sparse.ts";
 import { inspectTexture } from "./texture.ts";
@@ -879,8 +879,21 @@ export async function inspectModel(
   });
   // The mature reader is used only after resource and semantic validation; no URI is read.
   const document = await new NodeIO()
-    .registerExtensions([KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform])
+    .registerExtensions([KHRLightsPunctual, KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsUnlit, KHRTextureTransform])
     .setStrictResources(true).readBinary(normalizeSparseGLB(data));
+  const punctualLights = document.getRoot().listNodes().flatMap(node => {
+    const light = node.getExtension<GLTFLight>("KHR_lights_punctual");
+    if (!light) return [];
+    return [{
+      node: node.getName(), name: light.getName(), type: light.getType(),
+      color: light.getColor(), intensity: light.getIntensity(), range: light.getRange(),
+      ...(light.getType() === "spot" ? { innerConeAngle: light.getInnerConeAngle(), outerConeAngle: light.getOuterConeAngle() } : {}),
+      worldMatrix: node.getWorldMatrix(),
+    }];
+  }).sort((a, b) => {
+    const first = JSON.stringify(a), second = JSON.stringify(b);
+    return first < second ? -1 : first > second ? 1 : 0;
+  });
   const sceneIndex = json.scene ?? (json.scenes?.length ? 0 : null);
   let bounds: { min: number[]; max: number[] } | null = null;
   if (sceneIndex !== null) {
@@ -937,6 +950,7 @@ export async function inspectModel(
     images,
     skins,
     animations,
+    punctualLights,
     bounds,
     boundsScene: sceneIndex,
     boundsSpace: "world-static-default-pose",
