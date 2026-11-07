@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Track material graph parameter, time and managed GPU resource changes for path/hybrid recapture; runtime rendering remains unverified.
+
 - Add read-only project-lock backup discovery for the explicit migration restore workflow; behavior remains unverified.
 
 - Add per-body 3D gravity scaling with recorded state; runtime and snapshot replay remain unverified.

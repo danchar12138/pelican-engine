@@ -236,6 +236,8 @@ scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisual
 let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
 // Raster frames do not update the surface tracer, even when they consume a scene revision.
 let traceContentDirty = true;
+let observedGraphOwner: typeof renderControl;
+let observedGraphRevision = -1, observedGraphTick = -1;
 const clearDynamicVisuals = () => {
   const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear(), tilemapsChanged = tilemapVisuals.clear();
   if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged || spritesChanged || tilemapsChanged) dynamicVisualRevision++;
@@ -1238,11 +1240,29 @@ async function drawFrame(accumulate = false, changed = true) {
   const start = performance.now();
   const ropeChanged = syncRuntime();
   changed = changed || ropeChanged;
+  if (renderControl && materialGraphs.length) {
+    const graphRevision = renderControl.parameters.inspect().revision;
+    if (observedGraphOwner !== renderControl || observedGraphRevision !== graphRevision || observedGraphTick !== tick) {
+      // Keep this pending across raster frames and capture failures as well as unchanged draws.
+      traceContentDirty = true;
+      changed = true;
+      observedGraphOwner = renderControl;
+      observedGraphRevision = graphRevision;
+      observedGraphTick = tick;
+    }
+  }
   changed = animate() || changed;
   const ropeRevision = dynamicVisualRevision;
   if (changed) traceContentDirty = true;
-  renderBufferBridge?.update();
-  renderTextureBridge?.update();
+  try {
+    // A compute task can update a resident resource without a simulation tick.
+    if (renderBufferBridge?.update()) { traceContentDirty = true; changed = true; }
+    if (renderTextureBridge?.update()) { traceContentDirty = true; changed = true; }
+  } catch (error) {
+    // A failed resource update may already have changed a GPU allocation.
+    traceContentDirty = true;
+    throw error;
+  }
   const settings =
     renderControl?.service.state() ?? resolveRenderSettings({ mode });
   const effects = postComposer && renderControl?.postProcesses.states().some(effect => effect.enabled) ? postComposer : undefined;

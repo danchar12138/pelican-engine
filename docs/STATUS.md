@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development tracks material graph parameter/time changes and managed render-buffer/texture copies for path/hybrid recapture, retaining pending state after bridge failures and raster frames. GPU rendering and recovery remain unverified.
+
 - Local development adds read-only discovery of project-lock backups and their current digests for the existing explicit restore workflow. This does not establish backup provenance or game/save compatibility; listing and restoration are unverified at runtime.
 
 - Local development adds per-dynamic-body gravity scaling to 3D physics history. Native behavior, wakeup and snapshot replay remain unverified; the first-step deletion and unsafe historical replay defects remain open.

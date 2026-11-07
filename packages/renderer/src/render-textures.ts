@@ -58,7 +58,7 @@ export function createRenderTextureBridge(renderer: THREE.Renderer, source: () =
       return TSL.select(finite, value, TSL.vec4(0));
     },
     update() {
-      if (!entries.size) return; active(); const owner = source() ?? fail("CAPABILITY", "Missing compute texture executor.");
+      if (!entries.size) return false; active(); const owner = source() ?? fail("CAPABILITY", "Missing compute texture executor.");
       const planned: { entry: Entry; descriptor: ComputeExecutionInput }[] = [];
       for (const [material, slots] of entries) { const current = resources(material.name); for (const entry of slots.values()) { const descriptor = current[entry.name] ?? fail("UNBOUND", material.name + ":" + entry.name); if (!descriptor.texture || descriptor.type !== "vec4" || descriptor.values.length !== descriptor.texture.width * descriptor.texture.height) fail("RESOURCE", "Invalid managed texture descriptor."); planned.push({ entry, descriptor }); } }
       const encoder = device!.createCommandEncoder({ label: "Pelican managed render texture copies" }), staged: { entry: Entry; descriptor: ComputeExecutionInput; texture: THREE.StorageTexture; previous?: THREE.StorageTexture }[] = [];
@@ -80,6 +80,7 @@ export function createRenderTextureBridge(renderer: THREE.Renderer, source: () =
         const shape = item.descriptor.texture!; if (item.previous) { item.entry.texture = item.texture; item.entry.width = shape.width; item.entry.height = shape.height; item.entry.size.value.set(shape.width, shape.height); for (const node of item.entry.nodes) node.value = item.texture; item.entry.material.needsUpdate = true; item.previous.dispose(); releases++; }
         item.entry.key = item.descriptor.key; item.entry.revision = item.descriptor.revision; copies++; bytes += shape.width * shape.height * 16;
       }
+      return staged.length > 0;
     },
     inspect() { return { disposed, slots: [...entries.values()].reduce((n, m) => n + m.size, 0), allocations, released: releases, liveTextures: allocations - releases, gpuCopies: copies, gpuCopyBytes: bytes, cpuResultUploads: 0, bindings: [...entries.values()].flatMap(slots => [...slots.values()].map(e => ({ target: e.material.name, name: e.name, width: e.width, height: e.height, key: e.key, revision: e.revision }))) }; },
     dispose() { if (disposed) return; disposed = true; for (const slots of entries.values()) for (const entry of slots.values()) { entry.texture.dispose(); releases++; } entries.clear(); },

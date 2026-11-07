@@ -65,7 +65,7 @@ export function createRenderBufferBridge(renderer: THREE.Renderer, source: () =>
       for (const [name, type] of Object.entries(names)) get(material, name, type);
     },
     update() {
-      if (!entries.size) return;
+      if (!entries.size) return false;
       active();
       const executor = source() ?? fail("CAPABILITY", "No managed compute GPU owner is attached.");
       const planned: { entry: Entry; descriptor: ComputeExecutionInput }[] = [];
@@ -98,6 +98,7 @@ export function createRenderBufferBridge(renderer: THREE.Renderer, source: () =>
       }
       if (committed.length) device!.queue.submit([encoder.finish()]);
       for (const item of committed) { item.entry.key = item.key; item.entry.revision = item.revision; copies++; copyBytes += item.bytes; }
+      return committed.length > 0;
     },
     inspect() { return { disposed, slots: [...entries.values()].reduce((count, slots) => count + slots.size, 0), allocations, released, liveAttributes: allocations - released, gpuCopies: copies, gpuCopyBytes: copyBytes, cpuResultUploads: 0, bindings: [...entries.values()].flatMap(slots => [...slots.values()].map(entry => ({ material: entry.material.name, name: entry.name, type: entry.type, count: entry.count, key: entry.key, revision: entry.revision }))) }; },
     dispose() {
