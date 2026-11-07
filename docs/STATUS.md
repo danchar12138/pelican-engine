@@ -11,6 +11,7 @@
 
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.
+- Local changes after 0.3.35 include spot lights, local light falloff, light and mesh shadow flags in direct tracing, and GLB unlit materials and punctual lights. These changes have not been published or runtime-validated.
 - A known rigid-body first-step removal issue remains open. Historical candidates and risky snapshots are archived evidence, not current acceptance evidence.
 - Navigation supports batch obstacle and weighted cell-cost updates for a finite orthogonal grid; this is not continuous-world streaming or physics integration. Weighted routing is not runtime-validated.
 - Ropes support manual and automatic fixed stepping, sampled sphere bindings, segmented presentation, segment contacts, and non-adjacent self-contact. Full two-way coupling, cross-rope contact, continuous collision, and tearing remain incomplete.
