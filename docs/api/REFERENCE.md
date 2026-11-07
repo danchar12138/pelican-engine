@@ -1759,6 +1759,10 @@ export interface SceneInput {
     background?: string;
     /** Optional equirectangular panorama used as the visible background, not scene lighting. */
     backgroundTexture?: AssetDefinition | string;
+    /** Panorama rotation around the vertical axis in radians; defaults to 0. */
+    backgroundRotation?: number;
+    /** Panorama brightness multiplier; defaults to 1. */
+    backgroundIntensity?: number;
     ambientIntensity?: number;
     lighting?: "none" | "studio";
   };
@@ -1777,7 +1781,7 @@ export interface SceneInput {
 
 ## SceneDefinition
 
-来源：`packages/sdk/src/index.ts:917`
+来源：`packages/sdk/src/index.ts:921`
 
 ```ts
 export interface SceneDefinition extends SceneInput {
@@ -1787,7 +1791,7 @@ export interface SceneDefinition extends SceneInput {
 
 ## SystemInput
 
-来源：`packages/sdk/src/index.ts:920`
+来源：`packages/sdk/src/index.ts:924`
 
 ```ts
 export interface SystemInput {
@@ -1804,7 +1808,7 @@ export interface SystemInput {
 
 ## SystemDefinition
 
-来源：`packages/sdk/src/index.ts:930`
+来源：`packages/sdk/src/index.ts:934`
 
 ```ts
 export interface SystemDefinition extends SystemInput {
@@ -1814,7 +1818,7 @@ export interface SystemDefinition extends SystemInput {
 
 ## GameInput
 
-来源：`packages/sdk/src/index.ts:933`
+来源：`packages/sdk/src/index.ts:937`
 
 ```ts
 export interface GameInput {
@@ -1840,7 +1844,7 @@ export interface GameInput {
 
 ## GameDefinition
 
-来源：`packages/sdk/src/index.ts:952`
+来源：`packages/sdk/src/index.ts:956`
 
 ```ts
 export interface GameDefinition extends GameInput {
@@ -1850,7 +1854,7 @@ export interface GameDefinition extends GameInput {
 
 ## GameInstance
 
-来源：`packages/sdk/src/index.ts:955`
+来源：`packages/sdk/src/index.ts:959`
 
 ```ts
 export interface GameInstance {
@@ -1861,7 +1865,7 @@ export interface GameInstance {
 
 ## defineComponent
 
-来源：`packages/sdk/src/index.ts:959`
+来源：`packages/sdk/src/index.ts:963`
 
 ```ts
 export function defineComponent<const S extends ComponentSchema>(input: {
@@ -1872,7 +1876,7 @@ export function defineComponent<const S extends ComponentSchema>(input: {
 
 ## defineMaterial
 
-来源：`packages/sdk/src/index.ts:965`
+来源：`packages/sdk/src/index.ts:969`
 
 ```ts
 export function defineMaterial(input: MaterialInput): MaterialDefinition;
@@ -1880,7 +1884,7 @@ export function defineMaterial(input: MaterialInput): MaterialDefinition;
 
 ## definePostProcess
 
-来源：`packages/sdk/src/index.ts:968`
+来源：`packages/sdk/src/index.ts:972`
 
 ```ts
 export function definePostProcess(input: PostProcessInput): PostProcessDefinition;
@@ -1888,7 +1892,7 @@ export function definePostProcess(input: PostProcessInput): PostProcessDefinitio
 
 ## defineCompute
 
-来源：`packages/sdk/src/index.ts:971`
+来源：`packages/sdk/src/index.ts:975`
 
 ```ts
 export function defineCompute(input: ComputeInput): ComputeDefinition;
@@ -1896,7 +1900,7 @@ export function defineCompute(input: ComputeInput): ComputeDefinition;
 
 ## defineAsset
 
-来源：`packages/sdk/src/index.ts:974`
+来源：`packages/sdk/src/index.ts:978`
 
 ```ts
 export function defineAsset(input: AssetInput): AssetDefinition;
@@ -1904,7 +1908,7 @@ export function defineAsset(input: AssetInput): AssetDefinition;
 
 ## definePrefab
 
-来源：`packages/sdk/src/index.ts:977`
+来源：`packages/sdk/src/index.ts:981`
 
 ```ts
 export function definePrefab(input: PrefabInput): PrefabDefinition;
@@ -1912,7 +1916,7 @@ export function definePrefab(input: PrefabInput): PrefabDefinition;
 
 ## defineScene
 
-来源：`packages/sdk/src/index.ts:980`
+来源：`packages/sdk/src/index.ts:984`
 
 ```ts
 export function defineScene(input: SceneInput): SceneDefinition;
@@ -1920,7 +1924,7 @@ export function defineScene(input: SceneInput): SceneDefinition;
 
 ## defineSystem
 
-来源：`packages/sdk/src/index.ts:983`
+来源：`packages/sdk/src/index.ts:987`
 
 ```ts
 export function defineSystem(input: SystemInput): SystemDefinition;
@@ -1928,7 +1932,7 @@ export function defineSystem(input: SystemInput): SystemDefinition;
 
 ## defineGame
 
-来源：`packages/sdk/src/index.ts:986`
+来源：`packages/sdk/src/index.ts:990`
 
 ```ts
 export function defineGame(input: GameInput): GameDefinition;
@@ -1936,7 +1940,7 @@ export function defineGame(input: GameInput): GameDefinition;
 
 ## instantiateGame
 
-来源：`packages/sdk/src/index.ts:990`
+来源：`packages/sdk/src/index.ts:994`
 
 ```ts
 export function instantiateGame(

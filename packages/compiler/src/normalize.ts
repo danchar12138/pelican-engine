@@ -1129,6 +1129,8 @@ export async function normalize(
       if (registry("asset").get(backgroundTexture)?.type !== "texture")
         error("TC_ASSET_TYPE", "Background panorama must reference a texture asset.", environment, "backgroundTexture");
     }
+    if (backgroundTexture === undefined && (environment.backgroundRotation !== undefined || environment.backgroundIntensity !== undefined))
+      error("TC_BACKGROUND_TEXTURE", "backgroundRotation and backgroundIntensity require backgroundTexture.", environment, "backgroundTexture");
     const near = num(camera.near, camera, "near", 0.1, Number.EPSILON);
     const far = num(camera.far, camera, "far", 1000, near + Number.EPSILON);
     let follow: SceneIR["scene"]["follow"];
@@ -1162,6 +1164,10 @@ export async function normalize(
       },
       environment: {
         ...(backgroundTexture !== undefined ? { backgroundTexture } : {}),
+        ...(backgroundTexture !== undefined ? {
+          backgroundRotation: num(environment.backgroundRotation, environment, "backgroundRotation", 0, -1e6, 1e6),
+          backgroundIntensity: num(environment.backgroundIntensity, environment, "backgroundIntensity", 1, 0, 1e6),
+        } : {}),
         ...(environment.lighting !== undefined
           ? { lighting: environment.lighting as "none" | "studio" }
           : {}),

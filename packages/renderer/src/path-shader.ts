@@ -1,5 +1,5 @@
 /** Shared path and raster-visibility hybrid integrator. Core surface/BVH/BSDF are concatenated before this module. */
-export const TRACE_PARAMETER_FLOATS = 92;
+export const TRACE_PARAMETER_FLOATS = 96;
 export const TRACE_PARAMETER_BYTES = TRACE_PARAMETER_FLOATS * 4;
 export const TRACE_PARAMETERS_SHADER = /* wgsl */ String.raw`
 struct TraceParameters{
@@ -8,7 +8,7 @@ struct TraceParameters{
  view0:vec4f,view1:vec4f,view2:vec4f,view3:vec4f,
  environment:vec4f,environment0:vec4f,environment1:vec4f,environment2:vec4f,
  medium:vec4f,
- previousView0:vec4f,previousView1:vec4f,previousView2:vec4f,previousView3:vec4f,previousOrigin:vec4f,
+ previousView0:vec4f,previousView1:vec4f,previousView2:vec4f,previousView3:vec4f,previousOrigin:vec4f,backgroundSettings:vec4f,
 }
 `;
 export const TRACE_RANDOM_SHADER = /* wgsl */ String.raw`
@@ -31,8 +31,10 @@ fn traceMediumIor(id:u32)->f32{if(id==0u){return 1.0;}return traceLights[u32(tra
 fn traceMediumSigma(id:u32)->vec3f{if(id==0u){return vec3f(0);}return traceLights[u32(traceParams.medium.x)+id-1u].position.yzw;}
 fn traceBackground(direction:vec3f)->vec3f{
  if(traceParams.background.w<0.5){return traceParams.background.rgb;}
- let uv=vec2f((atan2(direction.z,direction.x)+3.141592653589793)/6.283185307179586,asin(clamp(direction.y,-1.0,1.0))/3.141592653589793+0.5);
- return surfaceMap(traceParams.background.w-1.0,vec4f(uv,0,0)).rgb;
+ let c=traceParams.backgroundSettings.y;let s=traceParams.backgroundSettings.z;
+ let local=vec3f(c*direction.x-s*direction.z,direction.y,s*direction.x+c*direction.z);
+ let uv=vec2f((atan2(local.z,local.x)+3.141592653589793)/6.283185307179586,asin(clamp(local.y,-1.0,1.0))/3.141592653589793+0.5);
+ return surfaceMap(traceParams.background.w-1.0,vec4f(uv,0,0)).rgb*traceParams.backgroundSettings.x;
 }
 fn traceShadowBeer(media:TraceShadowMedia,geometric:vec3f,direction:vec3f,distance:f32)->vec3f{
  if(!traceVolumeEnabled){return vec3f(1);}return exp(-select(media.incident,media.transmitted,dot(geometric,direction)<0.0)*distance);

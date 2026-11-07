@@ -223,6 +223,8 @@ export class SurfaceTracer {
   private environmentImage: THREE.DataTexture | undefined;
   private environmentIndex = -1;
   private backgroundIndex = -1;
+  private backgroundIntensity = 1;
+  private backgroundRotation = 0;
   private environmentProposal:
     | ReturnType<typeof buildEnvironmentImportance>
     | undefined;
@@ -805,10 +807,10 @@ export class SurfaceTracer {
       );
     if (scene.background && !(scene.background instanceof THREE.Color) &&
         (!(scene.background instanceof THREE.Texture) || scene.background.mapping !== THREE.EquirectangularReflectionMapping ||
-          scene.backgroundBlurriness !== 0 || scene.backgroundIntensity !== 1 ||
-          scene.backgroundRotation.x !== 0 || scene.backgroundRotation.y !== 0 || scene.backgroundRotation.z !== 0))
+          scene.backgroundBlurriness !== 0 || !Number.isFinite(scene.backgroundIntensity) || scene.backgroundIntensity < 0 ||
+          scene.backgroundRotation.x !== 0 || !Number.isFinite(scene.backgroundRotation.y) || scene.backgroundRotation.z !== 0))
       throw new Error(
-        "TC_TRACE_BACKGROUND_STAGE: Use an unrotated equirectangular background without blur or intensity adjustment.",
+        "TC_TRACE_BACKGROUND_STAGE: Use an equirectangular background with finite nonnegative intensity, vertical-axis rotation and no blur.",
       );
     const source = scene.environment,
       revision = source ? describeEnvironment(source) : undefined;
@@ -906,12 +908,16 @@ export class SurfaceTracer {
       });
     }
     this.environmentIntensity = scene.environmentIntensity;
+    this.backgroundIntensity = scene.backgroundIntensity;
+    this.backgroundRotation = scene.backgroundRotation.y;
     this.environmentRotation
       .makeRotationFromEuler(scene.environmentRotation)
       .transpose();
     const environmentState = JSON.stringify([
       this.environmentIndex,
       this.backgroundIndex,
+      this.backgroundIntensity,
+      this.backgroundRotation,
       this.environmentIntensity,
       ...this.environmentRotation.elements,
     ]);
@@ -1482,6 +1488,10 @@ export class SurfaceTracer {
       ...this.previousViewProjection.elements,
       ...this.previousCameraOrigin.toArray(),
       this.previousCameraValid ? 1 : 0,
+      this.backgroundIntensity,
+      Math.cos(this.backgroundRotation),
+      Math.sin(this.backgroundRotation),
+      0,
     ]);
     this.device.queue.writeBuffer(this.uniform, 0, params);
     this.groups();

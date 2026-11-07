@@ -900,6 +900,10 @@ export interface SceneInput {
     background?: string;
     /** Optional equirectangular panorama used as the visible background, not scene lighting. */
     backgroundTexture?: AssetDefinition | string;
+    /** Panorama rotation around the vertical axis in radians; defaults to 0. */
+    backgroundRotation?: number;
+    /** Panorama brightness multiplier; defaults to 1. */
+    backgroundIntensity?: number;
     ambientIntensity?: number;
     lighting?: "none" | "studio";
   };

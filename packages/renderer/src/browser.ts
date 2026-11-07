@@ -921,6 +921,8 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     materialGraphs.splice(0, materialGraphs.length, ...nextGraphs);
     authoredCamera = nextCamera;
     scene.background = nextGameplay?.background ?? nextBackground;
+    scene.backgroundRotation.set(0, ir.scene.environment.backgroundRotation ?? 0, 0);
+    scene.backgroundIntensity = ir.scene.environment.backgroundIntensity ?? 1;
     scene.environment = nextGameplay?.environment ?? null;
     camera.fov = ir.scene.camera.fov;
     camera.near = ir.scene.camera.near;

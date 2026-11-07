@@ -36,8 +36,9 @@ implemented. A merely declared optional extension without such a channel does
 not cause this runtime rejection.
 
 Set `environment.backgroundTexture` to a declared texture asset to display an
-equirectangular panorama. It replaces the visible background color but does not
-provide environment lighting. PNG and JPEG follow the texture asset's color-space
+equirectangular panorama. `backgroundRotation` sets its horizontal angle in radians
+and `backgroundIntensity` controls its brightness. It replaces the visible background
+color but does not provide environment lighting. PNG and JPEG follow the texture asset's color-space
 setting. Raster, path, hybrid and device-recovery behavior are not runtime-validated.
 
 GLB `KHR_materials_unlit` materials use their base color and texture without
