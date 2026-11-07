@@ -247,6 +247,39 @@ search uses an octile lower-bound heuristic and still enforces the same search
 budget. This option changes only that search, not the grid or snapshot, and has
 not been runtime-validated.
 
+### Grid-following agents
+
+A game can ask the engine to move a root entity without a rigid body or
+character controller along a grid path:
+
+```ts
+ctx.navigation.createGrid({ id: "level", owner: "scene", width: 8, height: 8 });
+ctx.navigation.createAgent({ id: "guard-nav", entity: "guard", grid: "level",
+  origin: [-4, -4], cellSize: 1, speed: 2, allowDiagonal: true });
+ctx.navigation.setAgentTarget("guard-nav", { x: 7, y: 7 });
+```
+
+The grid origin is the X/Z lower corner of cell (0,0); grid `y` maps to world
+Z. An agent moves toward cell centers on fixed ticks and preserves its height.
+`inspectAgent(id)` and `listAgents()` return detached status and path data;
+statuses include planning, moving, arrived, blocked and missing. Grid obstacle
+or cost updates queue a new search; at most eight agents replan per tick, in
+round-robin order. An unreachable, blocked, out-of-grid or search-budget result
+sets a stable error code. Update the grid or call `setAgentTarget` again to retry.
+`stopAgent` clears the target, and `destroyAgent` releases the binding. Remove
+agents before destroying their grid. A destroyed entity leaves a `missing`
+agent: destroy and recreate the agent to bind a replacement with the same ID.
+
+At most 128 agents are supported, with at most 65,536 cells per resulting path
+and 64 traversed segments per agent per tick; excess per-tick travel is not
+carried forward. Agent paths, queued replanning and targets are included in host
+snapshots. Movement owns the root transform; do not simultaneously control that
+transform from another system. This is point-agent grid movement, not a physics
+character, collision response, crowd avoidance, flying, continuous-world
+navigation or automatic geometry-to-obstacle synchronization. Runtime movement,
+replanning and snapshot restoration are unverified. The repository example
+`examples/navigation-agents` illustrates two agents and a changing obstacle.
+
 Use `ctx.navigation.setBlockedBatch(id, updates)` to change multiple cells in
 one grid. Each update has `{ cell: { x, y }, blocked: boolean }`. The service
 validates every entry before changing the grid; a bad entry rejects the whole

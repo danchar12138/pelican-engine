@@ -1,6 +1,7 @@
 import { aStar } from "ngraph.path";
 import type { NavigationCell, NavigationGrid, NavigationService } from "../../sdk/src/index.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
+import { createNavigationAgents } from "./agents.ts";
 
 type Grid = { id: string; owner: string; width: number; height: number; blocked: number[]; costs: Map<number, number>; searchCellBudget?: number };
 const DEFAULT_SEARCH_CELLS = 65536;
@@ -64,7 +65,7 @@ function parseSnapshot(value: unknown): Map<string, Grid> {
   }
   return result;
 }
-export const createNavigationPlugin: RuntimePluginFactory = () => {
+export const createNavigationPlugin: RuntimePluginFactory = context => {
   let grids = new Map<string, Grid>();
   let disposed = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Navigation is disposed."); };
@@ -73,6 +74,7 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
     if (!name(id)) return fail("GRID", "Expected a non-empty grid id.");
     return grids.get(id) ?? fail("MISSING", `Grid '${id}' does not exist.`);
   };
+  let agentManager: ReturnType<typeof createNavigationAgents>;
   const service: NavigationService = {
     createGrid(input) {
       alive();
@@ -90,8 +92,8 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
       if (typeof blocked !== "boolean") fail("BLOCKED", "Expected a boolean.");
       const lower = blockedIndex(grid, index);
       const exists = grid.blocked[lower] === index;
-      if (blocked && !exists) grid.blocked.splice(lower, 0, index);
-      else if (!blocked && exists) grid.blocked.splice(lower, 1);
+      if (blocked && !exists) { grid.blocked.splice(lower, 0, index); agentManager.dirtyGrid(id); }
+      else if (!blocked && exists) { grid.blocked.splice(lower, 1); agentManager.dirtyGrid(id); }
     },
     setBlockedBatch(id, updates) {
       const grid = get(id);
@@ -111,6 +113,7 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
         else blocked.delete(index);
       }
       grid.blocked = [...blocked].sort((a, b) => a - b);
+      agentManager.dirtyGrid(id);
     },
     getCost(id, point) { const grid = get(id); return grid.costs.get(cell(grid, point)) ?? 1; },
     setCostsBatch(id, updates) {
@@ -125,6 +128,7 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
       for (const [index, cost] of changes) {
         if (cost === 1) grid.costs.delete(index); else grid.costs.set(index, cost);
       }
+      if (changes.size) agentManager.dirtyGrid(id);
     },
     findPath(id, start, end, options) {
       const grid = get(id), from = cell(grid, start), to = cell(grid, end);
@@ -187,20 +191,44 @@ export const createNavigationPlugin: RuntimePluginFactory = () => {
       if (!path.length) return fail("UNREACHABLE", `Destination is unreachable on grid '${id}'.`);
       return path.reverse().map(({ x, y }) => ({ x, y }));
     },
-    destroyGrid(id) { get(id); grids.delete(id); },
+    createAgent(input) { agentManager.create(input); },
+    setAgentTarget(id, target) { agentManager.target(id, target); },
+    stopAgent(id) { agentManager.stop(id); },
+    inspectAgent(id) { return agentManager.inspect(id); },
+    listAgents() { return agentManager.list(); },
+    destroyAgent(id) { agentManager.remove(id); },
+    destroyGrid(id) { get(id); agentManager.assertGridUnused(id); grids.delete(id); },
     destroyOwner(owner) {
       alive();
       if (!name(owner)) fail("OWNER", "Expected a non-empty owner.");
-      for (const [id, grid] of grids) if (grid.owner === owner) grids.delete(id);
+      const owned = [...grids.values()].filter(grid => grid.owner === owner);
+      for (const grid of owned) agentManager.assertGridUnused(grid.id);
+      for (const grid of owned) grids.delete(grid.id);
     },
+  };
+  agentManager = createNavigationAgents(context, service);
+  const parse = (value: unknown) => {
+    const restoredGrids = parseSnapshot(value);
+    const restoredAgents = agentManager.parse(value, id => {
+      const grid = restoredGrids.get(id);
+      return grid ? definition(grid) : undefined;
+    });
+    return { restoredGrids, restoredAgents };
   };
   const empty = () => ({ version: 1, grids: [] });
   return {
     id: "$engine.navigation", version: "1", services: { navigation: service },
-    snapshot: () => ({ version: 1, grids: [...grids.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(definition) }),
+    systems: [{ id: "$engine.navigation.agents", phase: "update", writes: ["Transform"], run(dt) { agentManager.tick(dt); } }],
+    snapshot: () => ({ version: 1, grids: [...grids.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(definition), ...agentManager.snapshot() }),
     legacySnapshot: empty,
-    validateSnapshot(value) { parseSnapshot(value); },
-    restore(value) { alive(); grids = parseSnapshot(value); },
-    dispose() { disposed = true; grids.clear(); },
+    validateSnapshot(value) { parse(value); },
+    validateWorld(value, world) { agentManager.validateWorld(parse(value).restoredAgents, world); },
+    restore(value) {
+      alive();
+      const restored = parse(value);
+      agentManager.restore(restored.restoredAgents);
+      grids = restored.restoredGrids;
+    },
+    dispose() { agentManager.dispose(); disposed = true; grids.clear(); },
   };
 };

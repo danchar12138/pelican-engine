@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add grid-following point agents with fixed-tick movement, bounded obstacle/cost replanning and snapshot state. Runtime behavior is unverified; this is not physics or crowd avoidance.
+
 - Allow chunk-owned static prefab roots to be built and removed at runtime, with bounded deferred active-chunk edits and snapshot persistence. Runtime behavior is unverified.
 
 - Add bounded focus-based chunk residency for static prefab roots, including transform/component preservation and host snapshots. Runtime behavior is unverified; this is not asset or dynamic-physics streaming.

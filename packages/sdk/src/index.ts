@@ -445,6 +445,30 @@ export interface NavigationGrid {
 }
 /** Options for one grid search. Diagonal movement never crosses blocked corners. */
 export interface NavigationPathOptions { readonly allowDiagonal?: boolean }
+/** A non-physical root entity moving on a finite X/Z navigation grid. */
+export interface NavigationAgentDefinition {
+  id: string;
+  entity: string;
+  grid: string;
+  /** World-space X/Z coordinates of grid cell (0, 0)'s lower corner; defaults to [0, 0]. */
+  origin?: Vec2;
+  /** World units per cell; defaults to 1. */
+  cellSize?: number;
+  /** World units per second; defaults to 1. */
+  speed?: number;
+  allowDiagonal?: boolean;
+}
+export interface NavigationAgentState {
+  id: string;
+  entity: string;
+  grid: string;
+  target: NavigationCell | null;
+  status: "idle" | "planning" | "moving" | "arrived" | "blocked" | "missing";
+  /** Stable diagnostic code when movement is blocked or the entity was removed. */
+  error: string | null;
+  path: readonly NavigationCell[];
+  cursor: number;
+}
 export interface NavigationService {
   createGrid(grid: NavigationGrid): void;
   /** Returns a detached description, including the current blocked cells. */
@@ -458,6 +482,13 @@ export interface NavigationService {
   setCostsBatch(id: string, updates: readonly NavigationCostUpdate[]): void;
   /** Four-directional by default; diagonals cost sqrt(2) times the entered cell cost. */
   findPath(id: string, start: NavigationCell, end: NavigationCell, options?: NavigationPathOptions): readonly NavigationCell[];
+  /** Movement is processed at fixed-tick boundaries; the entity must be a non-physical root. */
+  createAgent(definition: NavigationAgentDefinition): void;
+  setAgentTarget(id: string, target: NavigationCell): void;
+  stopAgent(id: string): void;
+  inspectAgent(id: string): NavigationAgentState;
+  listAgents(): readonly NavigationAgentState[];
+  destroyAgent(id: string): void;
   destroyGrid(id: string): void;
   destroyOwner(owner: string): void;
 }

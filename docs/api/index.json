@@ -856,10 +856,41 @@
       ]
     },
     {
+      "name": "NavigationAgentDefinition",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface NavigationAgentDefinition {\n  id: string;\n  entity: string;\n  grid: string;\n  /** World-space X/Z coordinates of grid cell (0, 0)'s lower corner; defaults to [0, 0]. */\n  origin?: Vec2;\n  /** World units per cell; defaults to 1. */\n  cellSize?: number;\n  /** World units per second; defaults to 1. */\n  speed?: number;\n  allowDiagonal?: boolean;\n}",
+      "line": 449,
+      "fields": [
+        "id",
+        "entity",
+        "grid",
+        "origin",
+        "cellSize",
+        "speed",
+        "allowDiagonal"
+      ]
+    },
+    {
+      "name": "NavigationAgentState",
+      "kind": "InterfaceDeclaration",
+      "signature": "export interface NavigationAgentState {\n  id: string;\n  entity: string;\n  grid: string;\n  target: NavigationCell | null;\n  status: \"idle\" | \"planning\" | \"moving\" | \"arrived\" | \"blocked\" | \"missing\";\n  /** Stable diagnostic code when movement is blocked or the entity was removed. */\n  error: string | null;\n  path: readonly NavigationCell[];\n  cursor: number;\n}",
+      "line": 461,
+      "fields": [
+        "id",
+        "entity",
+        "grid",
+        "target",
+        "status",
+        "error",
+        "path",
+        "cursor"
+      ]
+    },
+    {
       "name": "NavigationService",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface NavigationService {\n  createGrid(grid: NavigationGrid): void;\n  /** Returns a detached description, including the current blocked cells. */\n  getGrid(id: string): NavigationGrid;\n  isBlocked(id: string, cell: NavigationCell): boolean;\n  setBlocked(id: string, cell: NavigationCell, blocked: boolean): void;\n  /** Validates the entire batch before committing; the last change for a repeated cell wins. */\n  setBlockedBatch(id: string, updates: readonly NavigationObstacleUpdate[]): void;\n  getCost(id: string, cell: NavigationCell): number;\n  /** Applies all validated updates together; repeated cells use the last cost. */\n  setCostsBatch(id: string, updates: readonly NavigationCostUpdate[]): void;\n  /** Four-directional by default; diagonals cost sqrt(2) times the entered cell cost. */\n  findPath(id: string, start: NavigationCell, end: NavigationCell, options?: NavigationPathOptions): readonly NavigationCell[];\n  destroyGrid(id: string): void;\n  destroyOwner(owner: string): void;\n}",
-      "line": 448,
+      "signature": "export interface NavigationService {\n  createGrid(grid: NavigationGrid): void;\n  /** Returns a detached description, including the current blocked cells. */\n  getGrid(id: string): NavigationGrid;\n  isBlocked(id: string, cell: NavigationCell): boolean;\n  setBlocked(id: string, cell: NavigationCell, blocked: boolean): void;\n  /** Validates the entire batch before committing; the last change for a repeated cell wins. */\n  setBlockedBatch(id: string, updates: readonly NavigationObstacleUpdate[]): void;\n  getCost(id: string, cell: NavigationCell): number;\n  /** Applies all validated updates together; repeated cells use the last cost. */\n  setCostsBatch(id: string, updates: readonly NavigationCostUpdate[]): void;\n  /** Four-directional by default; diagonals cost sqrt(2) times the entered cell cost. */\n  findPath(id: string, start: NavigationCell, end: NavigationCell, options?: NavigationPathOptions): readonly NavigationCell[];\n  /** Movement is processed at fixed-tick boundaries; the entity must be a non-physical root. */\n  createAgent(definition: NavigationAgentDefinition): void;\n  setAgentTarget(id: string, target: NavigationCell): void;\n  stopAgent(id: string): void;\n  inspectAgent(id: string): NavigationAgentState;\n  listAgents(): readonly NavigationAgentState[];\n  destroyAgent(id: string): void;\n  destroyGrid(id: string): void;\n  destroyOwner(owner: string): void;\n}",
+      "line": 472,
       "fields": [
         "createGrid",
         "getGrid",
@@ -869,6 +900,12 @@
         "getCost",
         "setCostsBatch",
         "findPath",
+        "createAgent",
+        "setAgentTarget",
+        "stopAgent",
+        "inspectAgent",
+        "listAgents",
+        "destroyAgent",
         "destroyGrid",
         "destroyOwner"
       ]
@@ -877,7 +914,7 @@
       "name": "WorldStreamingOptions",
       "kind": "InterfaceDeclaration",
       "signature": "export interface WorldStreamingOptions {\n  /** World units per chunk. Defaults to 32. */\n  chunkSize?: number;\n  /** Chebyshev radius in chunks to activate. Defaults to 1. */\n  loadRadius?: number;\n  /** Radius beyond which to deactivate; must be at least loadRadius. Defaults to 2. */\n  unloadRadius?: number;\n  /** Maximum chunk transitions per fixed tick. Defaults to 4. */\n  maxChangesPerTick?: number;\n}",
-      "line": 465,
+      "line": 496,
       "fields": [
         "chunkSize",
         "loadRadius",
@@ -889,7 +926,7 @@
       "name": "WorldChunkDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface WorldChunkDefinition {\n  x: number;\n  z: number;\n  /** Root entities with declared prefabs and absolute world-space transforms. */\n  entities: readonly SpawnInput[];\n}",
-      "line": 475,
+      "line": 506,
       "fields": [
         "x",
         "z",
@@ -900,7 +937,7 @@
       "name": "WorldStreamingService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface WorldStreamingService {\n  configure(options: WorldStreamingOptions): void;\n  defineChunk(chunk: WorldChunkDefinition): void;\n  /** Add a root prefab to a chunk. Active-chunk edits take effect at a later structural boundary. */\n  addEntity(x: number, z: number, entity: SpawnInput): void;\n  /** Remove a chunk-owned root. Active-chunk edits take effect at a later structural boundary. */\n  removeEntity(x: number, z: number, entityId: string): void;\n  /** Detached committed entity data and queued edit identifiers. */\n  getChunk(x: number, z: number): {\n    x: number; z: number; active: boolean;\n    entities: readonly SpawnInput[];\n    pending: readonly { kind: \"add\" | \"remove\"; id: string }[];\n  };\n  /** Set a world-space observer, or null to suspend automatic residency changes. */\n  setFocus(position: Vec3 | null): void;\n  /** Removes an inactive definition; loaded chunks must first move out of range. */\n  removeChunk(x: number, z: number): void;\n  inspect(): {\n    focus: Vec3 | null;\n    options: Required<WorldStreamingOptions>;\n    chunks: readonly { x: number; z: number; active: boolean; entities: number }[];\n  };\n}",
-      "line": 481,
+      "line": 512,
       "fields": [
         "configure",
         "defineChunk",
@@ -916,13 +953,13 @@
       "name": "RenderMode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type RenderMode = \"raster\" | \"hybrid\" | \"path\";",
-      "line": 504
+      "line": 535
     },
     {
       "name": "RenderCapabilities",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderCapabilities {\n  backend: \"webgpu\" | \"webgl2\" | \"uninitialized\";\n  compute: boolean;\n  availableModes: readonly RenderMode[];\n}",
-      "line": 505,
+      "line": 536,
       "fields": [
         "backend",
         "compute",
@@ -933,7 +970,7 @@
       "name": "RenderSettings",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderSettings {\n  mode: RenderMode;\n  samplesPerFrame: number;\n  maxBounces: number;\n  denoise: boolean;\n  denoiseIterations: number;\n  exposure: number;\n  directLighting: boolean;\n  indirectLighting: boolean;\n  debug: \"beauty\" | \"albedo\" | \"normal\" | \"depth\" | \"samples\";\n}",
-      "line": 510,
+      "line": 541,
       "fields": [
         "mode",
         "samplesPerFrame",
@@ -950,7 +987,7 @@
       "name": "RenderService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderService {\n  configure(settings: Partial<RenderSettings>): void;\n  state(): Readonly<RenderSettings>;\n  capabilities(): Readonly<RenderCapabilities>;\n  setMaterialParameter(material: string, name: string, value: GraphValue): void;\n  materialParameters(material: string): Readonly<Record<string, GraphValue>>;\n  readonly effects: PostProcessService;\n  readonly buffers: RenderBufferBindings;\n  readonly textures: RenderTextureBindings;\n}",
-      "line": 521,
+      "line": 552,
       "fields": [
         "configure",
         "state",
@@ -966,7 +1003,7 @@
       "name": "MaterialBufferInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialBufferInput {\n  /** Shared slot declaration for material and postprocess graphs. */\n  name: string;\n  type: GraphType;\n  /** Optional initial logical compute-buffer ID. */\n  buffer?: string;\n  /** Optional exact element count required by this slot. */\n  count?: number;\n}",
-      "line": 531,
+      "line": 562,
       "fields": [
         "name",
         "type",
@@ -978,7 +1015,7 @@
       "name": "RenderBufferReference",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderBufferReference {\n  id: string;\n  type: GraphType;\n  count: number;\n}",
-      "line": 540,
+      "line": 571,
       "fields": [
         "id",
         "type",
@@ -989,7 +1026,7 @@
       "name": "RenderBufferBindings",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderBufferBindings {\n  bind(target: string, name: string, buffer: ComputeBufferHandle): void;\n  unbind(target: string, name: string): void;\n  state(target: string): Readonly<Record<string, RenderBufferReference>>;\n}",
-      "line": 545,
+      "line": 576,
       "fields": [
         "bind",
         "unbind",
@@ -1000,7 +1037,7 @@
       "name": "MaterialTextureInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialTextureInput extends ComputeTextureBinding {\n  /** Initial managed texture ID; asset import uses computeTextures/createTexture. */\n  texture?: string;\n  width?: number;\n  height?: number;\n}",
-      "line": 550,
+      "line": 581,
       "fields": [
         "texture",
         "width",
@@ -1011,7 +1048,7 @@
       "name": "RenderTextureReference",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderTextureReference extends ComputeTextureSize {\n  id: string;\n  format: \"rgba32float\";\n}",
-      "line": 556,
+      "line": 587,
       "fields": [
         "id",
         "format"
@@ -1021,7 +1058,7 @@
       "name": "RenderTextureBindings",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RenderTextureBindings {\n  bind(target: string, name: string, texture: ComputeTextureHandle): void;\n  unbind(target: string, name: string): void;\n  state(target: string): Readonly<Record<string, RenderTextureReference>>;\n}",
-      "line": 560,
+      "line": 591,
       "fields": [
         "bind",
         "unbind",
@@ -1032,7 +1069,7 @@
       "name": "PostProcessState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessState {\n  id: string;\n  enabled: boolean;\n  parameters: Readonly<Record<string, GraphValue>>;\n}",
-      "line": 565,
+      "line": 596,
       "fields": [
         "id",
         "enabled",
@@ -1043,7 +1080,7 @@
       "name": "PostProcessService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessService {\n  /** Compute-buffer slots declared by definePostProcess, addressed by pass ID. */\n  readonly buffers: RenderBufferBindings;\n  readonly textures: RenderTextureBindings;\n  configure(id: string, settings: { enabled: boolean }): void;\n  state(id: string): Readonly<PostProcessState>;\n  setParameter(id: string, name: string, value: GraphValue): void;\n  /** Clears temporal effect images; it does not modify game or trace accumulation state. */\n  resetHistory(id?: string): void;\n}",
-      "line": 570,
+      "line": 601,
       "fields": [
         "buffers",
         "textures",
@@ -1057,7 +1094,7 @@
       "name": "ComputeBufferHandle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeBufferHandle {\n  readonly owner: number;\n  readonly index: number;\n  readonly generation: number;\n}",
-      "line": 580,
+      "line": 611,
       "fields": [
         "owner",
         "index",
@@ -1068,7 +1105,7 @@
       "name": "ComputeTaskHandle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTaskHandle {\n  readonly owner: number;\n  readonly id: number;\n}",
-      "line": 585,
+      "line": 616,
       "fields": [
         "owner",
         "id"
@@ -1078,7 +1115,7 @@
       "name": "ComputeBufferInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeBufferInput {\n  id: string;\n  type: GraphType;\n  count: number;\n  data?: readonly GraphValue[];\n}",
-      "line": 589,
+      "line": 620,
       "fields": [
         "id",
         "type",
@@ -1090,7 +1127,7 @@
       "name": "ComputeTextureHandle",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureHandle {\n  readonly owner: number;\n  readonly index: number;\n  readonly generation: number;\n  readonly kind: \"texture\";\n}",
-      "line": 595,
+      "line": 626,
       "fields": [
         "owner",
         "index",
@@ -1102,7 +1139,7 @@
       "name": "ComputeTextureSize",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureSize {\n  width: number;\n  height: number;\n}",
-      "line": 601,
+      "line": 632,
       "fields": [
         "width",
         "height"
@@ -1112,7 +1149,7 @@
       "name": "ComputeTextureDataInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureDataInput extends ComputeTextureSize {\n  id: string;\n  /** Linear rgba32float texels in row-major order, without color-space conversion. */\n  data?: readonly Vec4[];\n  asset?: never;\n}",
-      "line": 605,
+      "line": 636,
       "fields": [
         "id",
         "data",
@@ -1123,7 +1160,7 @@
       "name": "ComputeTextureAssetInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureAssetInput {\n  id: string;\n  asset: AssetDefinition | string;\n  width?: never;\n  height?: never;\n  data?: never;\n}",
-      "line": 611,
+      "line": 642,
       "fields": [
         "id",
         "asset",
@@ -1136,13 +1173,13 @@
       "name": "ComputeTextureInput",
       "kind": "TypeAliasDeclaration",
       "signature": "export type ComputeTextureInput = ComputeTextureDataInput | ComputeTextureAssetInput;",
-      "line": 618
+      "line": 649
     },
     {
       "name": "ComputeTextureBinding",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTextureBinding {\n  name: string;\n  filter?: \"nearest\" | \"linear\";\n  wrapU?: \"clamp\" | \"repeat\" | \"mirror\";\n  wrapV?: \"clamp\" | \"repeat\" | \"mirror\";\n}",
-      "line": 619,
+      "line": 650,
       "fields": [
         "name",
         "filter",
@@ -1154,7 +1191,7 @@
       "name": "ComputeDispatchInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDispatchInput {\n  output: ComputeBufferHandle | ComputeTextureHandle;\n  /** Handles capture dispatch-time data; task bindings consume that exact successful output revision. */\n  bindings?: Readonly<Record<string, ComputeBufferHandle | { task: ComputeTaskHandle }>>;\n  /** Named sampled rgba32float textures; task bindings capture that exact texture result. */\n  textures?: Readonly<Record<string, ComputeTextureHandle | { task: ComputeTaskHandle }>>;\n  /** Ordering only. It never silently refreshes ordinary handle bindings. */\n  after?: readonly ComputeTaskHandle[];\n  parameters?: Readonly<Record<string, GraphValue>>;\n  /** Fixed simulation time by default, not wall-clock time. */\n  time?: number;\n}",
-      "line": 625,
+      "line": 656,
       "fields": [
         "output",
         "bindings",
@@ -1168,7 +1205,7 @@
       "name": "ComputeTaskState",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeTaskState {\n  status: \"queued\" | \"running\" | \"succeeded\" | \"failed\" | \"cancelled\";\n  error?: { code: string; message: string; remediation: string };\n}",
-      "line": 637,
+      "line": 668,
       "fields": [
         "status",
         "error"
@@ -1178,7 +1215,7 @@
       "name": "ComputeService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeService {\n  createTexture(input: ComputeTextureInput): ComputeTextureHandle;\n  resolveTexture(id: string): ComputeTextureHandle;\n  describeTexture(texture: ComputeTextureHandle): Readonly<ComputeTextureSize & { id: string; format: \"rgba32float\"; revision: number }>;\n  readTexture(texture: ComputeTextureHandle): readonly Vec4[];\n  writeTexture(texture: ComputeTextureHandle, data: readonly Vec4[], region?: ComputeTextureSize & { x: number; y: number }): void;\n  releaseTexture(texture: ComputeTextureHandle): void;\n  createBuffer(input: ComputeBufferInput): ComputeBufferHandle;\n  resolve(id: string): ComputeBufferHandle;\n  describeBuffer(buffer: ComputeBufferHandle): Readonly<{ id: string; type: GraphType; count: number; revision: number }>;\n  /** Last committed GPU result; detached CPU data, never a GPU object. */\n  readBuffer(buffer: ComputeBufferHandle): readonly GraphValue[];\n  writeBuffer(buffer: ComputeBufferHandle, values: readonly GraphValue[], offset?: number): void;\n  releaseBuffer(buffer: ComputeBufferHandle): void;\n  dispatch(kernel: ComputeDefinition | string, input: ComputeDispatchInput): ComputeTaskHandle;\n  task(task: ComputeTaskHandle): Readonly<ComputeTaskState>;\n  tasks(): readonly { handle: ComputeTaskHandle; state: ComputeTaskState }[];\n  cancel(task: ComputeTaskHandle): void;\n  releaseTask(task: ComputeTaskHandle): void;\n}",
-      "line": 641,
+      "line": 672,
       "fields": [
         "createTexture",
         "resolveTexture",
@@ -1203,7 +1240,7 @@
       "name": "InputService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface InputService {\n  held(action: string): boolean;\n  pressed(action: string): boolean;\n  released(action: string): boolean;\n  axis(negative: string, positive: string): number;\n}",
-      "line": 661,
+      "line": 692,
       "fields": [
         "held",
         "pressed",
@@ -1215,7 +1252,7 @@
       "name": "PhysicsService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PhysicsService {\n  moveCharacter(entity: string, displacement: Vec3): void;\n  grounded(entity: string): boolean;\n  velocity(entity: string): Vec3;\n  /** World-space rigid-body center of mass, including collider offsets. */\n  centerOfMass(entity: string): Vec3;\n  setVelocity(entity: string, velocity: Vec3): void;\n  impulse(entity: string, impulse: Vec3): void;\n  /** Angular velocity in world-space radians per second. */\n  angularVelocity(entity: string): Vec3;\n  setAngularVelocity(entity: string, velocity: Vec3): void;\n  /** Instantaneous world-space angular impulse, in angular-momentum units. */\n  torqueImpulse(entity: string, impulse: Vec3): void;\n  /** Apply world-space impulse at a world-space point, changing linear and angular motion. */\n  impulseAtPoint(entity: string, impulse: Vec3, point: Vec3): void;\n  raycast(\n    origin: Vec3,\n    direction: Vec3,\n    maxDistance: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;\n  /** Find entities whose colliders overlap a world-space sphere, sorted by entity ID. */\n  overlapSphere(\n    center: Vec3,\n    radius: number,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping an oriented box; halfExtents are positive world units, rotation is XYZ radians. */\n  overlapBox(\n    center: Vec3,\n    halfExtents: Vec3,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n  /** Find entities overlapping a capsule aligned to local Y; halfHeight excludes the rounded ends. */\n  overlapCapsule(\n    center: Vec3,\n    halfHeight: number,\n    radius: number,\n    rotation?: Vec3,\n    options?: { exclude?: readonly string[]; includeTriggers?: boolean },\n  ): readonly string[];\n}",
-      "line": 667,
+      "line": 698,
       "fields": [
         "moveCharacter",
         "grounded",
@@ -1237,7 +1274,7 @@
       "name": "AnimationService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationService {\n  /** Start at a clip-local time in seconds. Reverse playback defaults to the clip end. */\n  play(\n    entity: string,\n    clip: string,\n    options?: { fade?: number; speed?: number; loop?: boolean; startAt?: number },\n  ): void;\n  state(entity: string): {\n    clip: string | null;\n    time: number;\n    playing: boolean;\n  };\n}",
-      "line": 710,
+      "line": 741,
       "fields": [
         "play",
         "state"
@@ -1247,7 +1284,7 @@
       "name": "AnimationControlService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AnimationControlService extends AnimationService {\n  /** Available model clips and their durations in seconds. */\n  clips(entity: string): readonly { name: string; duration: number }[];\n  /** Pause or resume all active clips and fades for this model; remains in effect across play calls. */\n  pause(entity: string): void;\n  resume(entity: string): void;\n  /** Move the current clip to a local time in [0, duration] without changing pause state. */\n  seek(entity: string, time: number): void;\n  /** Change current clip playback speed; negative values reverse it, zero freezes clip time. */\n  setSpeed(entity: string, speed: number): void;\n}",
-      "line": 724,
+      "line": 755,
       "fields": [
         "clips",
         "pause",
@@ -1260,7 +1297,7 @@
       "name": "CameraService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface CameraService {\n  follow(\n    entity: string,\n    options?: {\n      distance?: number;\n      height?: number;\n      lookHeight?: number;\n      yaw?: number;\n      smoothing?: number;\n    },\n  ): void;\n  orbit(yaw: number): void;\n}",
-      "line": 735,
+      "line": 766,
       "fields": [
         "follow",
         "orbit"
@@ -1270,7 +1307,7 @@
       "name": "UIService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIService {\n  setText(id: string, text: string): void;\n  setProgress(id: string, value: number): void;\n  setVisible(id: string, visible: boolean): void;\n}",
-      "line": 748,
+      "line": 779,
       "fields": [
         "setText",
         "setProgress",
@@ -1281,7 +1318,7 @@
       "name": "AudioService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioService {\n  play(\n    id: string,\n    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number },\n  ): string;\n  stop(voice: string): void;\n  /** Pause/resume are idempotent; an unknown valid voice id is a no-op. Playback time follows fixed simulation ticks, even while audio is locked. */\n  pause(voice: string): void;\n  resume(voice: string): void;\n  volume(value: number): void;\n  /** Set a declared bus gain, independently of master and voice gain. */\n  busVolume(id: string, value: number): void;\n  /** Fade a declared bus over fixed-tick seconds; busVolume or another fade replaces it. */\n  fadeBus(id: string, target: number, duration: number): void;\n}",
-      "line": 753,
+      "line": 784,
       "fields": [
         "play",
         "stop",
@@ -1296,7 +1333,7 @@
       "name": "StorageService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface StorageService {\n  save(slot: string): void;\n  load(slot: string): void;\n  status(): {\n    state: \"idle\" | \"saving\" | \"loading\" | \"saved\" | \"loaded\" | \"failed\";\n    slot: string | null;\n    error: string | null;\n  };\n}",
-      "line": 768,
+      "line": 799,
       "fields": [
         "save",
         "load",
@@ -1307,7 +1344,7 @@
       "name": "SceneService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneService {\n  current(): string;\n  load(id: string): void;\n}",
-      "line": 777,
+      "line": 808,
       "fields": [
         "current",
         "load"
@@ -1317,7 +1354,7 @@
       "name": "ModelDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ModelDefinition {\n  /** Optional whole-model material override; omitted keeps the asset's original materials. */\n  material?: MaterialDefinition | string;\n  /** Replace all asset material slots with the given exact material name. Mutually exclusive with material. */\n  materialSlots?: Record<string, MaterialDefinition | string>;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n  /** Enable lights embedded in the model; defaults to true. */\n  embeddedLights?: boolean;\n  /** Enable shadows for embedded lights; defaults to false. */\n  embeddedLightShadows?: boolean;\n  asset: AssetDefinition | string;\n  scale?: number;\n  offset?: Vec3;\n  rotation?: Vec3;\n  animation?: { clip: string; speed?: number; loop?: boolean };\n}",
-      "line": 781,
+      "line": 812,
       "fields": [
         "material",
         "materialSlots",
@@ -1336,7 +1373,7 @@
       "name": "RigidBodyDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface RigidBodyDefinition {\n  type: \"fixed\" | \"dynamic\" | \"kinematic\";\n  collider: {\n    shape: \"box\" | \"sphere\" | \"capsule\";\n    size?: Vec3;\n    radius?: number;\n    halfHeight?: number;\n    offset?: Vec3;\n  };\n  mass?: number;\n  friction?: number;\n  restitution?: number;\n  trigger?: boolean;\n}",
-      "line": 798,
+      "line": 829,
       "fields": [
         "type",
         "collider",
@@ -1350,7 +1387,7 @@
       "name": "CharacterDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface CharacterDefinition {\n  radius: number;\n  height: number;\n  speed: number;\n  jumpSpeed?: number;\n  /** Downward acceleration magnitude in world units/s^2; defaults to 9.81. Scene.gravity is a signed vector. */\n  gravity?: number;\n}",
-      "line": 812,
+      "line": 843,
       "fields": [
         "radius",
         "height",
@@ -1363,7 +1400,7 @@
       "name": "UIElementDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface UIElementDefinition {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  text?: string;\n  value?: number;\n  visible?: boolean;\n  anchor?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x?: number;\n  y?: number;\n  width?: number;\n  color?: string;\n  world?: { entity: string; offset?: Vec3; occlude?: boolean };\n}",
-      "line": 820,
+      "line": 851,
       "fields": [
         "id",
         "kind",
@@ -1382,7 +1419,7 @@
       "name": "SoundDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoundDefinition {\n  id: string;\n  asset: AssetDefinition | string;\n  volume?: number;\n  loop?: boolean;\n  bus?: string;\n}",
-      "line": 833,
+      "line": 864,
       "fields": [
         "id",
         "asset",
@@ -1395,7 +1432,7 @@
       "name": "AudioBusDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioBusDefinition {\n  id: string;\n  volume?: number;\n}",
-      "line": 840,
+      "line": 871,
       "fields": [
         "id",
         "volume"
@@ -1405,43 +1442,43 @@
       "name": "SYSTEM_PHASES",
       "kind": "constant",
       "signature": "SYSTEM_PHASES = [\n  \"input\",\n  \"prePhysics\",\n  \"physics\",\n  \"postPhysics\",\n  \"update\",\n  \"presentation\",\n] as const",
-      "line": 844
+      "line": 875
     },
     {
       "name": "SystemPhase",
       "kind": "TypeAliasDeclaration",
       "signature": "export type SystemPhase = (typeof SYSTEM_PHASES)[number];",
-      "line": 852
+      "line": 883
     },
     {
       "name": "Geometry",
       "kind": "TypeAliasDeclaration",
       "signature": "export type Geometry =\n  | { kind: \"box\"; size?: Vec3 }\n  | { kind: \"sphere\"; radius?: number; segments?: number }\n  | { kind: \"plane\"; size?: readonly [number, number] };",
-      "line": 853
+      "line": 884
     },
     {
       "name": "GRAPH_TYPES",
       "kind": "constant",
       "signature": "GRAPH_TYPES = [\"float\", \"vec2\", \"vec3\", \"vec4\", \"bool\"] as const",
-      "line": 857
+      "line": 888
     },
     {
       "name": "GraphType",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphType = typeof GRAPH_TYPES[number];",
-      "line": 858
+      "line": 889
     },
     {
       "name": "GraphValue",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;",
-      "line": 859
+      "line": 890
     },
     {
       "name": "GraphParameter",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GraphParameter {\n  name: string;\n  type: GraphType;\n  default: GraphValue;\n}",
-      "line": 860,
+      "line": 891,
       "fields": [
         "name",
         "type",
@@ -1452,31 +1489,31 @@
       "name": "GRAPH_INPUT_TYPES",
       "kind": "constant",
       "signature": "GRAPH_INPUT_TYPES = {\n  uv: \"vec2\", uv1: \"vec2\", positionWorld: \"vec3\", normalWorld: \"vec3\",\n  viewDirectionWorld: \"vec3\", vertexColor: \"vec4\", index: \"float\",\n  screenSize: \"vec2\", texelSize: \"vec2\",\n  pixelCoord: \"vec2\", outputSize: \"vec2\",\n  positionLocal: \"vec3\", normalLocal: \"vec3\", vertexIndex: \"float\", instanceIndex: \"float\",\n} as const",
-      "line": 865
+      "line": 896
     },
     {
       "name": "GraphInputName",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphInputName = keyof typeof GRAPH_INPUT_TYPES;",
-      "line": 872
+      "line": 903
     },
     {
       "name": "GRAPH_OPERATIONS",
       "kind": "constant",
       "signature": "GRAPH_OPERATIONS = {\n  unary: [\"sin\", \"cos\", \"abs\", \"floor\", \"ceil\", \"fract\", \"negate\", \"saturate\", \"normalize\", \"length\", \"safeSqrt\"] as const,\n  binary: [\"add\", \"subtract\", \"multiply\", \"safeDivide\", \"min\", \"max\", \"dot\", \"cross\", \"step\", \"lessThan\", \"lessEqual\", \"greaterThan\", \"greaterEqual\", \"equal\", \"and\", \"or\"] as const,\n  ternary: [\"mix\", \"clamp\", \"smoothstep\", \"select\"] as const,\n} as const",
-      "line": 873
+      "line": 904
     },
     {
       "name": "GraphNode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphNode =\n  | { id: string; op: \"float\"; value: number }\n  | { id: string; op: \"bool\"; value: boolean }\n  | { id: string; op: \"vec2\"; value: Vec2 }\n  | { id: string; op: \"vec3\"; value: Vec3 }\n  | { id: string; op: \"vec4\"; value: Vec4 }\n  | { id: string; op: \"time\" }\n  | { id: string; op: \"input\"; name: GraphInputName }\n  | { id: string; op: \"parameter\"; name: string }\n  | { id: string; op: typeof GRAPH_OPERATIONS.unary[number] | \"not\"; inputs: readonly [string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.binary[number]; inputs: readonly [string, string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.ternary[number]; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose2\"; inputs: readonly [string, string] }\n  | { id: string; op: \"compose3\"; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose4\"; inputs: readonly [string, string, string, string] }\n  | { id: string; op: \"swizzle\"; inputs: readonly [string]; components: string }\n  | { id: string; op: \"sampleTexture\"; inputs: readonly [string]; texture: AssetDefinition | string }\n  | { id: string; op: \"readBuffer\"; inputs: readonly [string]; buffer: string }\n  | { id: string; op: \"sampleFrame\"; inputs: readonly [string]; channel: string }\n  | { id: string; op: \"sampleHistory\"; inputs: readonly [string]; channel: string };",
-      "line": 878
+      "line": 909
     },
     {
       "name": "Graph",
       "kind": "InterfaceDeclaration",
       "signature": "export interface Graph {\n  nodes: readonly GraphNode[];\n  output: string;\n  parameters?: readonly GraphParameter[];\n}",
-      "line": 898,
+      "line": 929,
       "fields": [
         "nodes",
         "output",
@@ -1487,7 +1524,7 @@
       "name": "MaterialGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialGraphs {\n  baseColor?: Graph;\n  emissive?: Graph;\n  roughness?: Graph;\n  metalness?: Graph;\n  opacity?: Graph;\n  /** Absolute, unsided world-space normal; engine applies material boundary orientation. */\n  normalWorld?: Graph;\n}",
-      "line": 903,
+      "line": 934,
       "fields": [
         "baseColor",
         "emissive",
@@ -1501,7 +1538,7 @@
       "name": "VertexGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface VertexGraphs {\n  /** Absolute object-local position after built-in morph, skin and instance transforms. */\n  position?: Graph;\n  /** Unsided object-local normal in the same domain; zero keeps the normalized input normal. */\n  normal?: Graph;\n}",
-      "line": 912,
+      "line": 943,
       "fields": [
         "position",
         "normal"
@@ -1511,7 +1548,7 @@
       "name": "MaterialInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialInput {\n  id: string;\n  color?: string;\n  roughness?: number;\n  metalness?: number;\n  texture?: AssetDefinition | string;\n  graph?: Graph;\n  graphs?: MaterialGraphs;\n  vertex?: VertexGraphs;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  emissive?: string;\n  emissiveIntensity?: number;\n  opacity?: number;\n  alphaTest?: number;\n  side?: \"front\" | \"back\" | \"double\";\n  /** Closed-volume dielectric fraction; opacity remains independent stochastic coverage. */\n  transmission?: number;\n  ior?: number;\n  /** Nontransmissive dielectric specular strength in [0,1]. Defaults to 1. */\n  specularIntensity?: number;\n  /** Nontransmissive dielectric specular color, a hex or named sRGB color. Defaults to white. */\n  specularColor?: string;\n  attenuationColor?: string;\n  /** World-space distance for Beer absorption; omitted means no absorption. */\n  attenuationDistance?: number;\n}",
-      "line": 918,
+      "line": 949,
       "fields": [
         "id",
         "color",
@@ -1540,7 +1577,7 @@
       "name": "MaterialDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialDefinition extends MaterialInput {\n  readonly kind: \"material\";\n}",
-      "line": 945,
+      "line": 976,
       "fields": [
         "kind"
       ]
@@ -1549,7 +1586,7 @@
       "name": "PostProcessInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessInput {\n  id: string;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  /** Linear HDR vec4 output. Frame channels: scene.color, scene.normal, scene.depth, or an earlier pass ID. */\n  graph: Graph;\n  enabled?: boolean;\n}",
-      "line": 948,
+      "line": 979,
       "fields": [
         "id",
         "buffers",
@@ -1562,7 +1599,7 @@
       "name": "PostProcessDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessDefinition extends PostProcessInput {\n  readonly kind: \"postprocess\";\n}",
-      "line": 956,
+      "line": 987,
       "fields": [
         "kind"
       ]
@@ -1571,7 +1608,7 @@
       "name": "ComputeInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeInput {\n  id: string;\n  graph: Graph;\n  outputType: GraphType;\n  count: number;\n  workgroupSize?: number;\n  buffers?: readonly { name: string; type: GraphType }[];\n  textures?: readonly ComputeTextureBinding[];\n}",
-      "line": 959,
+      "line": 990,
       "fields": [
         "id",
         "graph",
@@ -1586,7 +1623,7 @@
       "name": "ComputeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDefinition extends ComputeInput {\n  readonly kind: \"compute\";\n}",
-      "line": 968,
+      "line": 999,
       "fields": [
         "kind"
       ]
@@ -1595,7 +1632,7 @@
       "name": "AssetInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\" | \"model\" | \"audio\";\n  source?: string;\n  license?: string;\n  attribution?: string;\n  /** Texture imports only; defaults to sRGB color. Data/normal/ORM textures use linear. */\n  colorSpace?: \"srgb\" | \"linear\";\n}",
-      "line": 971,
+      "line": 1002,
       "fields": [
         "id",
         "path",
@@ -1610,7 +1647,7 @@
       "name": "AssetDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetDefinition extends AssetInput {\n  readonly kind: \"asset\";\n}",
-      "line": 981,
+      "line": 1012,
       "fields": [
         "kind"
       ]
@@ -1619,7 +1656,7 @@
       "name": "MeshDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MeshDefinition {\n  geometry: Geometry;\n  material: MaterialDefinition | string;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 984,
+      "line": 1015,
       "fields": [
         "geometry",
         "material",
@@ -1631,7 +1668,7 @@
       "name": "LightDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\" | \"spot\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n  target?: Vec3;\n  /** Spot cone half-angle in radians, greater than zero and at most PI / 2. */\n  angle?: number;\n  /** Spot cone edge softness from 0 to 1. */\n  penumbra?: number;\n  /** Point/spot cutoff distance; 0 means unlimited. */\n  distance?: number;\n  /** Point/spot distance decay exponent; defaults to 2. */\n  decay?: number;\n  shadow?: {\n    mapSize?: number;\n    extent?: number;\n    bias?: number;\n    normalBias?: number;\n    near?: number;\n    far?: number;\n  };\n}",
-      "line": 990,
+      "line": 1021,
       "fields": [
         "kind",
         "color",
@@ -1649,7 +1686,7 @@
       "name": "EntityInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  model?: ModelDefinition;\n  rigidBody?: RigidBodyDefinition;\n  character?: CharacterDefinition;\n  components?: readonly ComponentInstance[];\n}",
-      "line": 1013,
+      "line": 1044,
       "fields": [
         "id",
         "prefab",
@@ -1667,7 +1704,7 @@
       "name": "PrefabInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabInput extends Omit<EntityInput, \"prefab\" | \"parent\"> {\n  extends?: PrefabDefinition | string;\n}",
-      "line": 1025,
+      "line": 1056,
       "fields": [
         "extends"
       ]
@@ -1676,7 +1713,7 @@
       "name": "PrefabDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabDefinition extends PrefabInput {\n  readonly kind: \"prefab\";\n}",
-      "line": 1028,
+      "line": 1059,
       "fields": [
         "kind"
       ]
@@ -1685,7 +1722,7 @@
       "name": "SceneInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: {\n    background?: string;\n    /** Optional equirectangular panorama used as the visible background, not scene lighting. */\n    backgroundTexture?: AssetDefinition | string;\n    /** Panorama rotation around the vertical axis in radians; defaults to 0. */\n    backgroundRotation?: number;\n    /** Panorama brightness multiplier; defaults to 1. */\n    backgroundIntensity?: number;\n    /** Equirectangular texture used for image-based lighting; mutually exclusive with lighting presets. */\n    lightingTexture?: AssetDefinition | string;\n    /** Image-based lighting rotation around the vertical axis in radians; defaults to 0. */\n    lightingRotation?: number;\n    /** Image-based lighting intensity multiplier; defaults to 1. */\n    lightingIntensity?: number;\n    ambientIntensity?: number;\n    lighting?: \"none\" | \"studio\";\n  };\n  follow?: {\n    entity: string;\n    distance?: number;\n    height?: number;\n    lookHeight?: number;\n    yaw?: number;\n    smoothing?: number;\n  };\n  gravity?: Vec3;\n  entities: readonly EntityInput[];\n}",
-      "line": 1031,
+      "line": 1062,
       "fields": [
         "id",
         "camera",
@@ -1699,7 +1736,7 @@
       "name": "SceneDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneDefinition extends SceneInput {\n  readonly kind: \"scene\";\n}",
-      "line": 1068,
+      "line": 1099,
       "fields": [
         "kind"
       ]
@@ -1708,7 +1745,7 @@
       "name": "SystemInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemInput {\n  id: string;\n  phase?: SystemPhase;\n  before?: readonly string[];\n  after?: readonly string[];\n  reads?: readonly string[];\n  writes?: readonly string[];\n  structural?: boolean;\n  run: (engine: SystemContext, dt: number) => void;\n}",
-      "line": 1071,
+      "line": 1102,
       "fields": [
         "id",
         "phase",
@@ -1724,7 +1761,7 @@
       "name": "SystemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemDefinition extends SystemInput {\n  readonly kind: \"system\";\n}",
-      "line": 1081,
+      "line": 1112,
       "fields": [
         "kind"
       ]
@@ -1733,7 +1770,7 @@
       "name": "GameInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  computeBuffers?: readonly ComputeBufferInput[];\n  computeTextures?: readonly ComputeTextureInput[];\n  assets?: readonly AssetDefinition[];\n  scenes?: readonly SceneDefinition[];\n  input?: Readonly<Record<string, readonly string[]>>;\n  ui?: readonly UIElementDefinition[];\n  sounds?: readonly SoundDefinition[];\n  audioBuses?: readonly AudioBusDefinition[];\n  render?: Partial<RenderSettings>;\n  postProcesses?: readonly PostProcessDefinition[];\n}",
-      "line": 1084,
+      "line": 1115,
       "fields": [
         "id",
         "scene",
@@ -1758,7 +1795,7 @@
       "name": "GameDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameDefinition extends GameInput {\n  readonly kind: \"game\";\n}",
-      "line": 1103,
+      "line": 1134,
       "fields": [
         "kind"
       ]
@@ -1767,7 +1804,7 @@
       "name": "GameInstance",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInstance {\n  update(dt: number): void;\n  dispose(): void;\n}",
-      "line": 1106,
+      "line": 1137,
       "fields": [
         "update",
         "dispose"
@@ -1777,61 +1814,61 @@
       "name": "defineComponent",
       "kind": "FunctionDeclaration",
       "signature": "export function defineComponent<const S extends ComponentSchema>(input: {\n  id: string;\n  schema: S;\n}): ComponentDefinition<S>;",
-      "line": 1110
+      "line": 1141
     },
     {
       "name": "defineMaterial",
       "kind": "FunctionDeclaration",
       "signature": "export function defineMaterial(input: MaterialInput): MaterialDefinition;",
-      "line": 1116
+      "line": 1147
     },
     {
       "name": "definePostProcess",
       "kind": "FunctionDeclaration",
       "signature": "export function definePostProcess(input: PostProcessInput): PostProcessDefinition;",
-      "line": 1119
+      "line": 1150
     },
     {
       "name": "defineCompute",
       "kind": "FunctionDeclaration",
       "signature": "export function defineCompute(input: ComputeInput): ComputeDefinition;",
-      "line": 1122
+      "line": 1153
     },
     {
       "name": "defineAsset",
       "kind": "FunctionDeclaration",
       "signature": "export function defineAsset(input: AssetInput): AssetDefinition;",
-      "line": 1125
+      "line": 1156
     },
     {
       "name": "definePrefab",
       "kind": "FunctionDeclaration",
       "signature": "export function definePrefab(input: PrefabInput): PrefabDefinition;",
-      "line": 1128
+      "line": 1159
     },
     {
       "name": "defineScene",
       "kind": "FunctionDeclaration",
       "signature": "export function defineScene(input: SceneInput): SceneDefinition;",
-      "line": 1131
+      "line": 1162
     },
     {
       "name": "defineSystem",
       "kind": "FunctionDeclaration",
       "signature": "export function defineSystem(input: SystemInput): SystemDefinition;",
-      "line": 1134
+      "line": 1165
     },
     {
       "name": "defineGame",
       "kind": "FunctionDeclaration",
       "signature": "export function defineGame(input: GameInput): GameDefinition;",
-      "line": 1137
+      "line": 1168
     },
     {
       "name": "instantiateGame",
       "kind": "FunctionDeclaration",
       "signature": "export function instantiateGame(\n  game: GameDefinition,\n  engine: EngineFacade,\n): GameInstance;",
-      "line": 1141
+      "line": 1172
     }
   ]
 }
