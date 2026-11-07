@@ -561,10 +561,11 @@ export interface PhysicsService {
   ): { entity: string; distance: number; point: Vec3; normal: Vec3 } | null;
 }
 export interface AnimationService {
+  /** Start at a clip-local time in seconds. Reverse playback defaults to the clip end. */
   play(
     entity: string,
     clip: string,
-    options?: { fade?: number; speed?: number; loop?: boolean },
+    options?: { fade?: number; speed?: number; loop?: boolean; startAt?: number },
   ): void;
   state(entity: string): {
     clip: string | null;

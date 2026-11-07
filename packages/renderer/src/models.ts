@@ -121,6 +121,7 @@ type NormalizedModelDefinition = Omit<
   material?: string;
   materialSlots?: Record<string, string>;
 };
+type AnimationPlayOptions = NonNullable<Parameters<AnimationService["play"]>[2]>;
 interface KnownDefinition {
   definition: NormalizedModelDefinition;
   parent?: THREE.Object3D;
@@ -970,7 +971,7 @@ class ModelLibraryImpl implements ModelLibrary {
   private play(
     entity: string,
     clipName: string,
-    options: { fade?: number; speed?: number; loop?: boolean } = {},
+    options: AnimationPlayOptions = {},
   ): void {
     this.assertOpen();
     this.playState(this.instance(entity), clipName, options);
@@ -979,7 +980,7 @@ class ModelLibraryImpl implements ModelLibrary {
   private playState(
     state: InstanceState,
     clipName: string,
-    options: { fade?: number; speed?: number; loop?: boolean },
+    options: AnimationPlayOptions,
   ): void {
     const clip = state.clips.get(clipName);
     if (!clip)
@@ -989,13 +990,16 @@ class ModelLibraryImpl implements ModelLibrary {
     const fade = options.fade ?? 0;
     const speed = options.speed ?? 1;
     const loop = options.loop ?? true;
+    const startAt = options.startAt ?? (speed < 0 ? clip.duration : 0);
     if (
       !Number.isFinite(fade) ||
       fade < 0 ||
       !Number.isFinite(speed) ||
+      !Number.isFinite(startAt) ||
+      startAt < 0 || startAt > clip.duration ||
       typeof loop !== "boolean"
     )
-      throw new Error("TC_MODEL_INVALID_ANIMATION_OPTIONS");
+      throw new Error(`TC_MODEL_INVALID_ANIMATION_OPTIONS: '${clipName}' startAt must be within [0, ${clip.duration}] seconds; fade and speed must be finite and loop must be boolean.`);
     const action = state.mixer.clipAction(clip);
     if (fade > 0) {
       for (const [name, old] of state.actions) {
@@ -1020,6 +1024,7 @@ class ModelLibraryImpl implements ModelLibrary {
     );
     action.clampWhenFinished = !loop;
     action.setEffectiveWeight(fade > 0 ? 0 : 1).play();
+    action.time = startAt;
     if (fade > 0)
       state.fades.set(clipName, { from: 0, to: 1, duration: fade, elapsed: 0 });
     else state.fades.delete(clipName);

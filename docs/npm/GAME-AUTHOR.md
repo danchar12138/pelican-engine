@@ -87,6 +87,12 @@ supported color chunks are gAMA 45455 or 100000, standard sRGB cHRM, sRGB
 intent 0, and cICP [1,13,0,1]; other values are diagnosed. Use supported PNG
 or JPEG and retain diagnostics rather than silently changing material semantics.
 
+Use `ctx.animation.play(entity, clip, { startAt: seconds, speed, loop, fade })`
+to begin a model clip at a local time within its duration. Negative playback
+speed starts at the clip end when `startAt` is omitted; positive speed defaults
+to the beginning. Clip timing, fades and snapshot restoration remain unverified
+at runtime under the current build-only policy.
+
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
 resumed with `ctx.audio.pause(voice)` and `ctx.audio.resume(voice)`. Both are
 idempotent; a valid unknown voice is a no-op. Playback position follows fixed
