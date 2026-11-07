@@ -92,7 +92,9 @@ export async function createBuildOutput(output: string) {
             }
           } catch { /* Preserve both paths for manual recovery. */ }
         }
-        throw new AggregateError([error], `TC_BUILD_COMMIT: Could not install staged dist. ${restored ? "Previous dist was restored." : `Previous output remains at '${backup ?? "none"}'.`} Staged output remains at '${stageRoot}'; inspect paths before retrying.`);
+        const detail = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+          ? error.code : error instanceof Error ? error.message : "unknown failure";
+        throw new AggregateError([error], `TC_BUILD_COMMIT: Could not install staged dist (${detail}). ${restored ? "Previous dist was restored." : `Previous output remains at '${backup ?? "none"}'.`} Staged output remains at '${stageRoot}'; inspect paths before retrying.`);
       }
       return { backup };
     },
