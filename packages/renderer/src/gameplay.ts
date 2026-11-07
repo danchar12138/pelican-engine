@@ -320,11 +320,7 @@ export async function prepareGameplay(
           type === "ui.focus" &&
           payload &&
           typeof payload === "object" &&
-          ir.ui?.some(
-            (element) =>
-              element.id === (payload as { id?: unknown }).id &&
-              element.kind === "input",
-          )
+          services.uiKind((payload as { id: string }).id) === "input"
         )
           for (const key of new Set(Object.values(ir.input ?? {}).flat()))
             uiInput?.(key, false);

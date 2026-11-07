@@ -18,6 +18,7 @@ interface UiElement {
   y: number;
   width: number;
   color: string;
+  generation?: number; // 动态控件的代次；静态控件没有该字段
   world?: {
     entity: string;
     offset: readonly [number, number, number];
@@ -36,19 +37,19 @@ const evidence = ui.inspect();
 ui.dispose();
 ```
 
-上例中的 host 和事件转发函数由主线提供。工厂创建后仍需 `mount()` 才附着 body；卸载后 mount/present 无操作。重复 id 抛出 `TC_UI_DUPLICATE_ID`。present 按 id 保留节点，只在新增、移除或 kind 改变时更换节点；焦点顺序采用本次 elements 的数组顺序。
+上例中的 host 和事件转发函数由主线提供。工厂创建后仍需 `mount()` 才附着 body；卸载后 mount/present 无操作。重复 id 抛出 `TC_UI_DUPLICATE_ID`。present 按 id 保留节点，只在新增、移除或 kind/动态代次改变时更换节点；焦点顺序采用本次 elements 的数组顺序。
 
-保留 `[data-pelican-ui]` 与 `[data-pelican-element="<id>"]`。screen UI 保留旧 gameplay 的 absolute/inset 根布局、padding、圆角、背景、字号、width、color、四角 anchor 和中心 translate；center 与旧实现一样忽略 x/y。普通文本与进度条不接收指针事件，input/button 使用浏览器原生交互。input 不设置 autofocus。
+保留 `[data-pelican-ui]` 与 `[data-pelican-element="<id>"]`。screen UI 保留旧 gameplay 的 absolute/inset 根布局、padding、圆角、背景、字号、width、color、四角 anchor 和中心 translate；center 的 x/y 作为相对于中心的 CSS 像素偏移。普通文本与进度条不接收指针事件，input/button 使用浏览器原生交互。input 不设置 autofocus。
 
 ## World UI 的输入边界
 
-`positions?: ReadonlyMap<string, {x:number; y:number; visible:boolean; occluded:boolean}>` **以 UI 元素 id 为键**，与主线 gameplay 一致。同一实体可有不同 offset 的多个 UI。主线负责 entity/offset 到相机的投影、可见范围判断及 mesh 遮挡，将最终坐标交给本模块；x/y 是根布局内的 CSS 像素，作为元素左上角直接使用，不再叠加 screen 的 x/y 或重复投影。主线必须保证投影 viewport 与根布局的坐标空间一致。
+`positions?: ReadonlyMap<string, {x:number; y:number; visible:boolean; occluded:boolean}>` **以 UI 元素 id 为键**，与主线 gameplay 一致。同一实体可有不同 offset 的多个 UI。主线负责 entity/offset 到相机的投影、可见范围判断及 mesh 遮挡，将最终坐标交给本模块；投影坐标是根布局内的 CSS 像素，元素 x/y 是在投影结果上叠加的屏幕像素偏移，不重复投影。主线必须保证投影 viewport 与根布局的坐标空间一致。
 
 只有元素 visible、投影存在且 visible、坐标有限，以及 occlude=false 或投影未 occluded 时才显示。其余情况同时 hidden、display:none、pointer-events:none、tabIndex=-1，原生交互控件 disabled；当前焦点会失焦。隐藏控件即便被脚本派发 click，也不会触发游戏回调。仅 opacity 不满足这里的语义。
 
 ## 输入、回显与事件
 
-所有事件 payload 都是纯数据：
+所有事件 payload 都是纯数据。动态控件的 `ui.text`、`ui.submit`、`ui.activate` 额外包含 `generation`；静态控件保持表中格式。旧代次的动态文本更新由运行时忽略，游戏逻辑处理 submit/activate 时需要比对当前代次。相关运行行为尚未验证。
 
 | 事件/回调   | 触发与 payload                                                                   |
 | ----------- | -------------------------------------------------------------------------------- | ------------------------------------------------- |

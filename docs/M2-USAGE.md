@@ -26,7 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" dev -
 - 相机：`scene.follow`、`ctx.camera.follow/orbit`；smoothing 为 0–1 的每 60 Hz 插值比例，0 表示立即跟随。跟随相机通过物理射线避开遮挡物。
 - 光栅：GLB PBR/纹理、sRGB、阴影、环境照明；`scene.environment.lighting: "studio"` 是显式 IBL 预设。方向光支持 target 和 shadow mapSize/extent/bias/normalBias/near/far。
 - 资产优化：`optimize --project <game> --asset <id> --output <新.glb>` 显式生成无损优化文件，合并位级相同的顶点及重复资源，保留动画和材质名称，不覆盖原文件。源码采用优化产物前需显式更新资产路径。`build` 额外生成可选 `.br/.gz` 及 `compression-manifest.json`；普通静态服务器可选择配置 Content-Encoding 协商，原始文件始终保留。
-- UI：`game.ui` 声明 text/bar/button/input，使用 `ctx.ui.setText/setProgress/setVisible`。输入框的 `text` 是内容，组合输入只在提交时发送 `ui.text`，Enter 发送 `ui.submit`；按钮发送 `ui.activate`，焦点发送 `ui.focus`，payload 均为普通数据。`world:{entity,offset,occlude}` 将控件锚定到实体，offset 为世界空间偏移，遮挡或离开视锥时不可见、不可点、不可聚焦。输入焦点消费玩法键盘输入，聚焦文本框时释放已按下的映射键。这是 M2 风险原型与基础子集，不代表 M6 完整 UI。
+- UI：`game.ui` 声明 text/bar/button/input，使用 `ctx.ui.setText/setProgress/setVisible`。输入框的 `text` 是内容，组合输入只在提交时发送 `ui.text`，Enter 发送 `ui.submit`；按钮发送 `ui.activate`，焦点发送 `ui.focus`，payload 均为普通数据。`world:{entity,offset,occlude}` 将控件锚定到实体，offset 为世界空间偏移，遮挡或离开视锥时不可见、不可点、不可聚焦。输入焦点消费玩法键盘输入，聚焦文本框时释放已按下的映射键。本地 0.6 开发增量还提供 `ctx.ui.create/remove/get/setLayout` 及动态控件代次，详见 npm 使用指南；输入、布局与快照尚未运行验证。基础子集不代表 M6 完整 UI。
 - 音频：`game.sounds`、`ctx.audio.play/stop/volume`。逻辑 voice ID、音量与已知时长按固定 tick 管理；浏览器禁止自动播放时仅音频等待真实手势，不阻塞 GPU、玩法或测试。
 - 存档与场景：`ctx.storage.save/load/status`、`ctx.scenes.current/load`。请求在完整 tick 之后由平台执行，失败保留当前场景并输出状态；存档绑定引擎、游戏与资产哈希。每 tick 只接受一个存档/切场景请求。
 

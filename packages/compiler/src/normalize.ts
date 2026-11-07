@@ -9,6 +9,7 @@ import {
 } from "../../assets/src/index.ts";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
 import { resolveRenderSettings } from "../../runtime/src/render-settings.ts";
+import { isUiColor } from "../../schema/src/ui-color.ts";
 import { compileGraphDeclaration } from "./graph.ts";
 import { isGraphType, graphValue } from "../../sdk/src/graph-values.ts";
 import type {
@@ -1454,37 +1455,7 @@ export async function normalize(
         "kind",
       );
     const color = text(element.color, element, "color", "#ffffff");
-    const namedColors = new Set([
-      "black",
-      "white",
-      "red",
-      "green",
-      "blue",
-      "yellow",
-      "orange",
-      "purple",
-      "pink",
-      "gray",
-      "grey",
-      "cyan",
-      "magenta",
-      "lime",
-      "navy",
-      "teal",
-      "silver",
-      "maroon",
-      "olive",
-      "aqua",
-      "fuchsia",
-      "rebeccapurple",
-      "transparent",
-    ]);
-    if (
-      !/^(#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})|(?:rgb|rgba|hsl|hsla)\([\d.% ,+-]+\))$/i.test(
-        color,
-      ) &&
-      !namedColors.has(color.toLowerCase())
-    )
+    if (!isUiColor(color))
       error(
         "TC_UI_COLOR",
         "UI color must be a CSS hex color or named color.",

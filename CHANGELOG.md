@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add dynamic game UI controls, editable layout, and generation-aware input events and snapshots. Runtime behavior is unverified.
+
 ## 0.5.1 - 2026-11-07
 
 - Development batch only: tests, runtime behavior, graphics, hardware, performance, stability, and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.

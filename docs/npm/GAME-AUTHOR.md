@@ -184,6 +184,28 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Dynamic game UI
+
+Declare persistent controls in `game.ui` and use `ctx.ui.create` for dynamic
+text, bars, buttons or inputs. `create` accepts the same element definition
+fields as `game.ui` and returns a generation number. Use `ctx.ui.get(id)` to
+read detached state, `ctx.ui.setLayout(id, { x, y, width, color, anchor })` to
+change layout atomically, and `ctx.ui.remove(id)` to remove a dynamic control.
+Authored controls cannot be removed; use `setVisible` instead. Up to 512
+dynamic elements may exist at once. Dynamic world labels must refer to a live
+entity when created. Center-anchored and world-space controls use x/y as pixel
+offsets. UI state, layout, generation counters and dynamic elements are saved
+in host snapshots; old snapshots without dynamic elements remain accepted.
+
+Dynamic `ui.text`, `ui.submit` and `ui.activate` event payloads include the
+control's `generation`. A removed and recreated ID gets a new generation;
+ignore an event whose generation no longer matches the current control. The
+engine ignores stale dynamic text updates, but gameplay code must filter submit
+and activation events itself. Static controls keep their existing payload
+shapes. See `examples/dynamic-ui` for a small reusable-slot menu. This is a
+basic runtime UI increment, not a full layout, localization or accessibility
+system; rendering, input and snapshot behavior have not been runtime-validated.
+
 ### Static world chunk residency
 
 `ctx.streaming` can materialize predefined static prefab entities around a

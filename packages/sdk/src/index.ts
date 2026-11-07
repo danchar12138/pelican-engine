@@ -776,7 +776,30 @@ export interface CameraService {
   ): void;
   orbit(yaw: number): void;
 }
+/** Detached runtime UI state. Dynamic elements carry a monotonically assigned generation. */
+export interface UIElementState {
+  id: string;
+  kind: "text" | "bar" | "button" | "input";
+  text: string;
+  value: number;
+  visible: boolean;
+  anchor: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center";
+  x: number; y: number; width: number; color: string;
+  world?: { entity: string; offset: Vec3; occlude: boolean };
+  generation?: number;
+}
+export interface UILayoutPatch {
+  anchor?: UIElementState["anchor"];
+  x?: number; y?: number; width?: number; color?: string;
+}
 export interface UIService {
+  /** Create a dynamic element and return its generation; declared elements remain in game.ui. */
+  create(definition: UIElementDefinition): number;
+  /** Remove a dynamically created element; authored elements can be hidden instead. */
+  remove(id: string): void;
+  get(id: string): UIElementState;
+  /** Atomically update layout properties. World labels use x/y as screen-pixel offsets. */
+  setLayout(id: string, patch: UILayoutPatch): void;
   setText(id: string, text: string): void;
   setProgress(id: string, value: number): void;
   setVisible(id: string, visible: boolean): void;

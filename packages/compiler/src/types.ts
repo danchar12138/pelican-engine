@@ -162,6 +162,8 @@ export interface SceneIR {
     width: number;
     color: string;
     world?: { entity: string; offset: Vec3; occlude: boolean };
+    /** Runtime-only identity for dynamically created controls. */
+    generation?: number;
   }[];
   sounds?: { id: string; asset: string; volume: number; loop: boolean; bus?: string }[];
   audioBuses?: { id: string; volume: number }[];

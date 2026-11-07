@@ -10,6 +10,8 @@ export interface UiElement {
   y: number;
   width: number;
   color: string;
+  /** Dynamic control incarnation; absent for authored UI. */
+  generation?: number;
   world?: {
     entity: string;
     offset: readonly [number, number, number];
@@ -164,6 +166,7 @@ export function createUIRenderer(
       id: row.definition.id,
       text,
       composing: false,
+      ...(row.definition.generation === undefined ? {} : { generation: row.definition.generation }),
     });
   }
   function listen(type: string, action: (event: Event, row: Row) => void) {
@@ -219,6 +222,7 @@ export function createUIRenderer(
         callbacks.emit("ui.submit", {
           id: row.definition.id,
           text: row.input.value,
+          ...(row.definition.generation === undefined ? {} : { generation: row.definition.generation }),
         });
     }
   });
@@ -227,7 +231,8 @@ export function createUIRenderer(
     trace("activate", row, event);
     callbacks.input("ui:" + row.definition.id, true);
     callbacks.input("ui:" + row.definition.id, false);
-    callbacks.emit("ui.activate", { id: row.definition.id });
+    callbacks.emit("ui.activate", { id: row.definition.id,
+      ...(row.definition.generation === undefined ? {} : { generation: row.definition.generation }) });
   });
   function retire(row: Row) {
     row.shown = false;
@@ -254,7 +259,7 @@ export function createUIRenderer(
     order = elements.map((element) => element.id);
     for (const definition of elements) {
       let row = rows.get(definition.id);
-      if (row && row.definition.kind !== definition.kind) {
+      if (row && (row.definition.kind !== definition.kind || row.definition.generation !== definition.generation)) {
         retire(row);
         rows.delete(definition.id);
         row = undefined;
@@ -347,12 +352,12 @@ export function createUIRenderer(
         style.transform =
           "";
       if (definition.world) {
-        style.left = (position?.x ?? 0) + "px";
-        style.top = (position?.y ?? 0) + "px";
+        style.left = ((position?.x ?? 0) + definition.x) + "px";
+        style.top = ((position?.y ?? 0) + definition.y) + "px";
       } else if (definition.anchor === "center") {
         Object.assign(style, {
-          left: "50%",
-          top: "50%",
+          left: `calc(50% + ${definition.x}px)`,
+          top: `calc(50% + ${definition.y}px)`,
           transform: "translate(-50%,-50%)",
         });
       } else {

@@ -7,6 +7,7 @@ import type {
   RuntimeServices,
 } from "./plugins.ts";
 import { cloneSerializable } from "./random.ts";
+import { isUiColor } from "../../schema/src/ui-color.ts";
 
 type Camera = NonNullable<SceneIR["scene"]["follow"]>;
 type UI = NonNullable<SceneIR["ui"]>;
@@ -41,6 +42,7 @@ export interface GameServicesInspection {
 export interface GameServicesDriver {
   factory: RuntimePluginFactory;
   inspect(): GameServicesInspection;
+  uiKind(id: string): UI[number]["kind"] | undefined;
   takeRequests(): GameServiceRequest[];
   /** Platform transaction handoff only; never exposed through the gameplay SDK. */
   adoptStorageRequest(type: "save" | "load", slot: string): void;
@@ -51,6 +53,7 @@ export interface GameServicesDriver {
 
 /** A failed play never evicts an existing voice or consumes an id. */
 export const GAME_SERVICES_MAX_VOICES = 32;
+const MAX_DYNAMIC_UI = 512;
 const SNAPSHOT_ERROR = "TC_SERVICES_SNAPSHOT";
 const fail = (code: string, message: string): never => {
   throw new Error(`${code}: ${message}`);
@@ -168,9 +171,9 @@ const UI_FIELDS = [
 function uiValue(value: unknown, code: string): asserts value is UI[number] {
   const ui = object(
     value,
-    value && typeof value === "object" && Object.hasOwn(value, "world")
-      ? [...UI_FIELDS, "world"]
-      : UI_FIELDS,
+    [...UI_FIELDS,
+      ...(value && typeof value === "object" && Object.hasOwn(value, "world") ? ["world"] : []),
+      ...(value && typeof value === "object" && Object.hasOwn(value, "generation") ? ["generation"] : [])],
     code,
   );
   name(ui.id, code, "UI id");
@@ -213,7 +216,8 @@ function uiValue(value: unknown, code: string): asserts value is UI[number] {
   finite(ui.x, code, "UI x");
   finite(ui.y, code, "UI y");
   finite(ui.width, code, "UI width", Number.MIN_VALUE);
-  check(typeof ui.color === "string", code, "Invalid UI color.");
+  check(isUiColor(ui.color), code, "UI color must use a supported CSS color.");
+  if (Object.hasOwn(ui, "generation")) integer(ui.generation, code, "UI generation", 1);
 }
 
 /** Pure deterministic gameplay state. The caller owns platform I/O and the animation adapter. */
@@ -336,6 +340,7 @@ export function createGameServices(
     },
     camera: cloneSerializable(initialCamera),
     ui: cloneSerializable(initialUI),
+    uiNextGeneration: 1,
     audio: {
       volume: 1,
       ...(hasBuses ? { busVolumes: cloneSerializable(buses) as NonNullable<GameServicesInspection["audio"]["busVolumes"]> } : {}),
@@ -527,6 +532,53 @@ export function createGameServices(
       },
     },
     ui: {
+      create(definition) {
+        alive();
+        const input = cloneSerializable(definition);
+        check(input && typeof input === "object" && !Array.isArray(input) &&
+          Object.keys(input).every(key => ["id", "kind", "text", "value", "visible", "anchor", "x", "y", "width", "color", "world"].includes(key)),
+          "TC_UI_VALUE", "UI definition contains unknown fields.");
+        name(input.id, "TC_UI_ID", "UI id");
+        check(!state.ui.some(item => item.id === input.id), "TC_UI_ID", `UI ${input.id} already exists.`);
+        check(state.ui.length - initialUI.length < MAX_DYNAMIC_UI, "TC_UI_CAPACITY", `At most ${MAX_DYNAMIC_UI} dynamic UI elements may exist.`);
+        check(Number.isSafeInteger(state.uiNextGeneration) && state.uiNextGeneration < Number.MAX_SAFE_INTEGER,
+          "TC_UI_GENERATION", "UI generation exhausted; start a new scene.");
+        let world: UI[number]["world"];
+        if (input.world !== undefined) {
+          const source = input.world;
+          check(source && typeof source === "object" && !Array.isArray(source) &&
+            Object.keys(source).every(key => ["entity", "offset", "occlude"].includes(key)),
+            "TC_UI_VALUE", "World UI requires an entity and optional offset and occlude.");
+          target(source.entity, "TC_UI_WORLD_ENTITY");
+          world = { entity: source.entity, offset: source.offset === undefined ? [0, 0, 0] : source.offset,
+            occlude: source.occlude === undefined ? true : source.occlude };
+        }
+        const item: UI[number] = { id: input.id, kind: input.kind,
+          text: input.text === undefined ? "" : input.text, value: input.value === undefined ? 0 : input.value,
+          visible: input.visible === undefined ? true : input.visible,
+          anchor: input.anchor === undefined ? "top-left" : input.anchor,
+          x: input.x === undefined ? 0 : input.x, y: input.y === undefined ? 0 : input.y,
+          width: input.width === undefined ? 160 : input.width, color: input.color === undefined ? "#ffffff" : input.color,
+          ...(world ? { world } : {}), generation: state.uiNextGeneration };
+        uiValue(item, "TC_UI_VALUE");
+        state.ui.push(item);
+        return state.uiNextGeneration++;
+      },
+      remove(id) {
+        const item = ui(id);
+        check(item.generation !== undefined, "TC_UI_AUTHORED", `UI ${id} is declared in game.ui; hide it instead.`);
+        state.ui.splice(state.ui.indexOf(item), 1);
+      },
+      get(id) { return cloneSerializable(ui(id)); },
+      setLayout(id, patch) {
+        const item = ui(id), input = cloneSerializable(patch);
+        check(input && typeof input === "object" && !Array.isArray(input) &&
+          Object.keys(input).every(key => ["anchor", "x", "y", "width", "color"].includes(key)),
+          "TC_UI_VALUE", "Layout accepts anchor, x, y, width and color only.");
+        const next = { ...item, ...input };
+        uiValue(next, "TC_UI_VALUE");
+        Object.assign(item, input);
+      },
       setText(id, text) {
         const item = ui(id);
         check(item.kind !== "bar", "TC_UI_KIND", `UI ${id} is a progress bar.`);
@@ -728,6 +780,7 @@ export function createGameServices(
         "input",
         "camera",
         "ui",
+        ...(Object.hasOwn(data, "uiNextGeneration") ? ["uiNextGeneration"] : []),
         "audio",
         "storage",
         "scene",
@@ -807,41 +860,28 @@ export function createGameServices(
         "Initial input must be empty.",
       );
     if (data.camera !== null) cameraValue(data.camera, SNAPSHOT_ERROR);
-    check(
-      Array.isArray(data.ui) && data.ui.length === initialUI.length,
-      SNAPSHOT_ERROR,
-      "UI definitions differ.",
-    );
+    if (!Object.hasOwn(data, "uiNextGeneration")) data.uiNextGeneration = 1;
+    integer(data.uiNextGeneration, SNAPSHOT_ERROR, "Next UI generation", 1);
+    check(Array.isArray(data.ui) && data.ui.length >= initialUI.length && data.ui.length <= initialUI.length + MAX_DYNAMIC_UI,
+      SNAPSHOT_ERROR, "UI definitions or dynamic capacity differ.");
+    const uiIds = new Set<string>(), generations = new Set<number>();
     for (let i = 0; i < data.ui.length; i++) {
       const item = data.ui[i];
       uiValue(item, SNAPSHOT_ERROR);
-      const original = initialUI[i];
-      const immutable = (element: UI[number]) => {
-        const {
-          text: _text,
-          value: _value,
-          visible: _visible,
-          ...rest
-        } = element;
-        return rest;
-      };
-      check(
-        canonical(immutable(item)) === canonical(immutable(original)),
-        SNAPSHOT_ERROR,
-        "Immutable UI layout differs.",
-      );
-      if (item.kind === "bar")
-        check(
-          item.text === original.text,
-          SNAPSHOT_ERROR,
-          "Progress bar text cannot change.",
-        );
-      else
-        check(
-          item.value === original.value,
-          SNAPSHOT_ERROR,
-          "Non-bar progress cannot change.",
-        );
+      check(!uiIds.has(item.id), SNAPSHOT_ERROR, "Duplicate UI id.");
+      uiIds.add(item.id);
+      if (i < initialUI.length) {
+        const original = initialUI[i];
+        check(item.id === original.id && item.kind === original.kind && item.generation === undefined &&
+          canonical(item.world ?? null) === canonical(original.world ?? null), SNAPSHOT_ERROR, "Authored UI identity differs.");
+        if (item.kind === "bar") check(item.text === original.text, SNAPSHOT_ERROR, "Progress bar text cannot change.");
+        else check(item.value === original.value, SNAPSHOT_ERROR, "Non-bar progress cannot change.");
+      } else {
+        const generation = item.generation;
+        check(generation !== undefined && generation < data.uiNextGeneration && !generations.has(generation),
+          SNAPSHOT_ERROR, "Invalid or duplicate dynamic UI generation.");
+        generations.add(generation);
+      }
     }
     object(data.audio, ["volume", "voices", "nextVoice", ...(Object.hasOwn(data.audio, "busVolumes") ? ["busVolumes"] : [])], SNAPSHOT_ERROR);
     finite(data.audio.volume, SNAPSHOT_ERROR, "Master volume", 0, 1);
@@ -1052,7 +1092,7 @@ export function createGameServices(
           for (const event of context!.events("ui.text")) {
             const payload = object(
               event.payload,
-              ["id", "text", "composing"],
+              ["id", "text", "composing", ...(event.payload && typeof event.payload === "object" && Object.hasOwn(event.payload, "generation") ? ["generation"] : [])],
               "TC_UI_INPUT_EVENT",
             );
             name(payload.id, "TC_UI_INPUT_EVENT", "Input id");
@@ -1063,7 +1103,17 @@ export function createGameServices(
               "TC_UI_INPUT_EVENT",
               "Only committed input text up to 4096 characters is delivered to gameplay.",
             );
-            ui(payload.id, "input").text = payload.text;
+            if (Object.hasOwn(payload, "generation")) {
+              integer(payload.generation, "TC_UI_INPUT_EVENT", "UI generation", 1);
+              const item = state.ui.find(entry => entry.id === payload.id);
+              // Retired/replaced dynamic inputs may have an event already in flight.
+              if (!item || item.kind !== "input" || item.generation !== payload.generation) continue;
+              item.text = payload.text;
+            } else {
+              const item = ui(payload.id, "input");
+              check(item.generation === undefined, "TC_UI_INPUT_EVENT", "Dynamic input events require a generation.");
+              item.text = payload.text;
+            }
           }
           const held = new Set(state.input.held);
           const pressed = new Set<string>();
@@ -1153,6 +1203,7 @@ export function createGameServices(
       return plugin;
     },
     inspect,
+    uiKind(id) { alive(); return state.ui.find(item => item.id === id)?.kind; },
     takeRequests() {
       alive();
       const pending = cloneSerializable(state.requests);
