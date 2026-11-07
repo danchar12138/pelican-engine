@@ -4,7 +4,7 @@ import type { EntityHandle } from "../../sdk/src/index.ts";
 import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, validateSampledBodyWorld } from "./sampled-body-binding.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationOptions, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
-import { sameSimulationContainer } from "../../../experiments/simulation/scenes.ts";
+import { differingSimulationOption } from "./snapshot-options.ts";
 
 type Entry = { definition: FluidDefinition; simulation: Simulation; bodyRef?: EntityHandle };
 type Saved = { definition: FluidDefinition; state: SimulationSnapshot };
@@ -44,12 +44,10 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       const entry = createEntry(item.definition, fixedDt, materials);
       if (result.has(entry.definition.id)) { entry.simulation.dispose(); fail("SNAPSHOT", "Duplicate fluid id."); }
       result.set(entry.definition.id, entry);
-      const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
-      if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Fluid origin differs from its definition.");
-      const savedGrid = item.state?.options?.particleGrid ?? [4, 4, 4], expectedGrid = entry.definition.particleGrid ?? [4, 4, 4];
-      if (!Array.isArray(savedGrid) || savedGrid.length !== 3 || savedGrid.some((value, axis) => value !== expectedGrid[axis])) fail("SNAPSHOT", "Fluid particle grid differs from its definition.");
-      if (!sameSimulationContainer(item.state?.options?.container, entry.definition.container)) fail("SNAPSHOT", "Fluid container differs from its definition.");
+      const expected = entry.simulation.snapshot().options;
       entry.simulation.restore(item.state);
+      const differing = differingSimulationOption(entry.simulation.snapshot().options, expected, "fluid", !!entry.definition.bodyColliders?.length);
+      if (differing) fail("SNAPSHOT", `Fluid '${entry.definition.id}' option '${differing}' differs from its definition.`);
     }
     return result;
   } catch (error) { disposeEntries(result); throw error; }

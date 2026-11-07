@@ -4,7 +4,7 @@ import type { EntityHandle } from "../../sdk/src/index.ts";
 import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, validateSampledBodyWorld } from "./sampled-body-binding.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
-import { sameSimulationContainer } from "../../../experiments/simulation/scenes.ts";
+import { differingSimulationOption } from "./snapshot-options.ts";
 
 type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
@@ -59,12 +59,10 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       const entry = createEntry(item.definition, fixedDt, materials);
       if (result.has(entry.definition.id)) { entry.simulation.dispose(); return fail("SNAPSHOT", `Duplicate soft-body id '${entry.definition.id}'.`); }
       result.set(entry.definition.id, entry);
-      const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
-      if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Soft-body origin differs from its definition.");
-      const savedGrid = item.state?.options?.softBodyGrid ?? [3, 3, 3], expectedGrid = entry.definition.softBodyGrid ?? [3, 3, 3];
-      if (!Array.isArray(savedGrid) || savedGrid.length !== 3 || savedGrid.some((value, axis) => value !== expectedGrid[axis])) fail("SNAPSHOT", "Soft-body grid differs from its definition.");
-      if (!sameSimulationContainer(item.state?.options?.container, entry.definition.container)) fail("SNAPSHOT", "Soft-body container differs from its definition.");
+      const expected = entry.simulation.snapshot().options;
       entry.simulation.restore(item.state);
+      const differing = differingSimulationOption(entry.simulation.snapshot().options, expected, "softbody", !!entry.definition.bodyColliders?.length);
+      if (differing) fail("SNAPSHOT", `Soft body '${entry.definition.id}' option '${differing}' differs from its definition.`);
     }
     return result;
   }
