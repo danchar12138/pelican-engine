@@ -1,12 +1,13 @@
-import type { ClothBodyCollider, ClothDefinition, ClothService, Vec2 } from "../../sdk/src/index.ts";
+import type { ClothBodyCollider, ClothDefinition, ClothService, EntityHandle, Vec2 } from "../../sdk/src/index.ts";
 import type { RuntimePluginContext, RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import type { WorldSnapshot } from "../../runtime/src/contracts.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
+import { validateSampledBodyPeers } from "./sampled-body-binding.ts";
 
-type Entry = { definition: ClothDefinition; solver: ClothSolver; uvs: Vec2[] };
+type Entry = { definition: ClothDefinition; solver: ClothSolver; uvs: Vec2[]; bodyRefs: Map<string, EntityHandle> };
 type Saved = { definition: ClothDefinition; state: ClothSnapshot };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_CLOTH_${code}: ${detail}`); };
 const validId = (value: unknown): value is string => typeof value === "string" && value.trim() === value && value.length > 0 && value.length <= 128;
@@ -55,21 +56,27 @@ function createEntry(input: ClothDefinition, fixedDt: number, materials: Readonl
   const solver = createCloth({ ...definition, fixedDt, ...(restoredSelfMode === undefined ? {} : { selfCollisions: restoredSelfMode }), ...(restoredSurfaceMode === undefined ? {} : { surfaceCollisions: restoredSurfaceMode }) } as unknown as ClothOptions);
   try {
     const uvs: Vec2[] = definition.visual ? (definition.visual.uvs ? definition.visual.uvs.map(uv => [uv[0], uv[1]]) : planarUvs(definition.points)) : [];
-    return { definition, solver, uvs };
+    return { definition, solver, uvs, bodyRefs: new Map() };
   } catch (error) { solver.dispose(); throw error; }
 }
 function disposeEntries(entries: Map<string, Entry>): void { for (const entry of entries.values()) entry.solver.dispose(); entries.clear(); }
 function validateBodyBindings(entries: Iterable<Entry>, context: RuntimePluginContext, world?: WorldSnapshot): void {
+  const staged = [...entries];
   const records = world ? new Map(world.entities.map(record => [record.id, record])) : undefined;
-  const bridge = [...entries].some(entry => (entry.definition.bodyColliders?.length ?? 0) > 0)
+  const bridge = staged.some(entry => (entry.definition.bodyColliders?.length ?? 0) > 0)
     ? context.getRopePhysicsBridge?.() : undefined;
-  for (const entry of entries) for (const binding of entry.definition.bodyColliders ?? []) {
+  for (const entry of staged) for (const binding of entry.definition.bodyColliders ?? []) {
     const record = records?.get(binding.entity);
-    if (records && (!record || !resolveEntityDefinition(context.scene, record)?.rigidBody))
-      fail("SNAPSHOT", `Bound body '${binding.entity}' is missing from the restored world.`);
-    if (!context.world.isAlive(binding.entity)) fail("BODY_COLLIDER", `Body '${binding.entity}' is not a live entity.`);
-    if (!bridge) fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
-    bridge!.sampleSphere(binding.entity);
+    if (records) {
+      const body = record && resolveEntityDefinition(context.scene, record)?.rigidBody;
+      if (!body || body.type !== "dynamic" || body.trigger || !["sphere", "box"].includes(body.collider.shape))
+        fail("SNAPSHOT", `Bound body '${binding.entity}' must be a dynamic non-trigger sphere or box in the restored world.`);
+    } else {
+      if (!context.world.isAlive(binding.entity)) fail("BODY_COLLIDER", `Body '${binding.entity}' is not a live entity.`);
+      if (!bridge) fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
+      bridge!.sampleClothBody(binding.entity);
+      entry.bodyRefs.set(binding.id, context.world.resolve(binding.entity));
+    }
   }
 }
 function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<string>): Map<string, Entry> {
@@ -94,12 +101,17 @@ export const createClothPlugin: RuntimePluginFactory = context => {
   const { fixedDt } = context;
   if (typeof fixedDt !== "number" || !Number.isFinite(fixedDt)) return fail("FIXED_DT", "RuntimeHost must provide a finite fixed interval.");
   const hostDt = fixedDt, materials = new Set(context.scene.materials.map(material => material.id));
-  let entries = new Map<string, Entry>(), disposed = false;
+  let entries = new Map<string, Entry>(), disposed = false, pendingRefs = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Cloth service is disposed."); };
+  const ensureRefs = () => {
+    if (!pendingRefs) return;
+    validateBodyBindings(entries.values(), context);
+    pendingRefs = false;
+  };
   const get = (id: string): Entry => { alive(); if (!validId(id)) return fail("ID", "Expected a nonempty cloth id."); return entries.get(id) ?? fail("MISSING", `Cloth '${id}' does not exist.`); };
   const service: ClothService = {
     create(definition) {
-      alive(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty cloth id.");
+      alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty cloth id.");
       if (entries.has(definition.id)) return fail("DUPLICATE", `Cloth '${definition.id}' already exists.`);
       if (entries.size >= 256) return fail("CAPACITY", "At most 256 cloths per host.");
       const entry = createEntry(definition, hostDt, materials);
@@ -118,7 +130,15 @@ export const createClothPlugin: RuntimePluginFactory = context => {
           positions: state.positions, triangles: state.triangles, uvs: entry.uvs.map(uv => [uv[0], uv[1]] as Vec2),
           castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true }; });
     },
-    setColliders(id, colliders) { get(id).solver.setColliders(cloneSerializable(colliders) as ClothCollider[]); },
+    setColliders(id, colliders) {
+      const entry = get(id), values = cloneSerializable(colliders) as ClothCollider[];
+      if (Array.isArray(values)) {
+        const bound = new Set((entry.definition.bodyColliders ?? []).map(item => item.id));
+        if (values.length + bound.size > 4096) return fail("BODY_COLLIDER", "Manual and bound colliders together may not exceed 4096.");
+        if (values.some(collider => collider && bound.has(collider.id))) return fail("BODY_COLLIDER", "Manual collider ids must not conflict with body bindings.");
+      }
+      entry.solver.setColliders(values);
+    },
     setAnchor(id, index, position) { get(id).solver.setAnchor(index, cloneSerializable(position) as Vec3); },
     setAnchors(id, anchors) { get(id).solver.setAnchors(anchors as readonly { index: number; position: Vec3 }[]); },
     releaseAnchor(id, index) { get(id).solver.releaseAnchor(index); },
@@ -131,12 +151,12 @@ export const createClothPlugin: RuntimePluginFactory = context => {
   return {
     id: "$engine.cloth", version: "1", services: { cloth: service },
     afterPhysics() {
-      alive(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition }[] = [];
+      alive(); ensureRefs(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition; refs: Map<string, EntityHandle> }[] = [];
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
         for (const entry of automatic) {
-          const snapshot = entry.solver.snapshot(); committed.push({ entry, solver: entry.solver, snapshot, definition: cloneSerializable(entry.definition) });
+          const snapshot = entry.solver.snapshot(); committed.push({ entry, solver: entry.solver, snapshot, definition: cloneSerializable(entry.definition), refs: entry.bodyRefs });
           const bindings = entry.definition.bodyColliders ?? [];
           if (bindings.length) {
             const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_COLLIDER", "Body bindings require the physics plugin.");
@@ -144,11 +164,17 @@ export const createClothPlugin: RuntimePluginFactory = context => {
             const sampled: ClothCollider[] = [];
             const live: ClothBodyCollider[] = [];
             for (const binding of bindings) {
-              if (!context.world.isAlive(binding.entity)) continue;
-              const sphere = bridge.sampleSphere(binding.entity);
-              sampled.push({ kind: "sphere", id: binding.id, center: [...sphere.center] as Vec3, radius: sphere.radius }); live.push(binding);
+              const ref = entry.bodyRefs.get(binding.id);
+              if (!ref) return fail("BODY_COLLIDER", `Missing handle for '${binding.id}'; restore a known-good checkpoint.`);
+              if (!context.world.isAlive(ref)) continue;
+              const body = bridge.sampleClothBody(binding.entity);
+              if (body.kind === "sphere") sampled.push({ kind: "sphere", id: binding.id, center: [...body.center] as Vec3, radius: body.radius });
+              else sampled.push({ kind: "box", id: binding.id, center: [...body.center] as Vec3,
+                halfExtents: [...body.halfExtents] as Vec3, rotation: [...body.rotation] as Vec3 });
+              live.push(binding);
             }
-            entry.definition = { ...entry.definition, bodyColliders: live };
+            entry.definition = { ...entry.definition, bodyColliders: live, ...(live.length === 0 ? { bodyReactions: false } : {}) };
+            entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.solver.setColliders([...manual, ...sampled]);
           }
           const state = entry.solver.step();
@@ -163,13 +189,14 @@ export const createClothPlugin: RuntimePluginFactory = context => {
               for (let k = 0; k < 3; k++) { current.impulse[k] += contact.reactionImpulse[k]; current.moment[k] += contact.reactionAngularImpulse[k]; }
               reactions.set(entity, current);
             }
-            if (reactions.size) bridge.applySphereReactions([...reactions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([entity, value]) => ({ entity, ...value })));
+            if (reactions.size) bridge.applyClothReactions([...reactions].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([entity, value]) => ({ entity, ...value })));
           }
         }
       } catch (error) {
         const failures: string[] = [];
         for (const item of committed.reverse()) {
           item.entry.definition = item.definition;
+          item.entry.bodyRefs = item.refs;
           try { item.solver.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
         }
         if (failures.length) throw new Error(`TC_CLOTH_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`);
@@ -177,17 +204,24 @@ export const createClothPlugin: RuntimePluginFactory = context => {
       }
     },
     legacySnapshot: () => ({ version: 1, cloths: [] }),
-    snapshot: () => ({ version: 1, cloths: [...entries.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0)
-      .map(({ definition, solver }) => ({ definition: cloneSerializable(definition), state: solver.snapshot() })) }),
+    snapshot: () => { alive(); ensureRefs(); for (const entry of entries.values()) for (const binding of entry.definition.bodyColliders ?? []) {
+      const ref = entry.bodyRefs.get(binding.id);
+      if (!ref || !context.world.isAlive(ref)) fail("BODY_COLLIDER", `Bound body '${binding.entity}' is stale; advance the scene or remove the cloth before saving.`);
+    } return { version: 1, cloths: [...entries.values()].sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0)
+      .map(({ definition, solver }) => ({ definition: cloneSerializable(definition), state: solver.snapshot() })) }; },
     validateSnapshot(value) { const staged = parseSnapshot(value, hostDt, materials); disposeEntries(staged); },
     validateWorld(value, world) {
       const staged = parseSnapshot(value, hostDt, materials);
       try { validateBodyBindings(staged.values(), context, world); } finally { disposeEntries(staged); }
     },
+    validatePeers(value, peers) {
+      const staged = parseSnapshot(value, hostDt, materials);
+      try { validateSampledBodyPeers(peers, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_CLOTH_SNAPSHOT"); }
+      finally { disposeEntries(staged); }
+    },
     restore(value) {
       alive(); const staged = parseSnapshot(value, hostDt, materials);
-      try { validateBodyBindings(staged.values(), context); } catch (error) { disposeEntries(staged); throw error; }
-      disposeEntries(entries); entries = staged;
+      disposeEntries(entries); entries = staged; pendingRefs = true;
     },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },
   };

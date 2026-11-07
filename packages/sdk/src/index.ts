@@ -472,7 +472,7 @@ export interface ClothDefinition {
   selfCollisions?: boolean;
   /** Discrete sphere, plane and sampled-box triangle contacts; defaults to true for new cloth. */
   surfaceCollisions?: boolean;
-  /** Optional live dynamic sphere bindings; sampled after the physics phase. */
+  /** Optional live dynamic non-trigger sphere or box bindings; sampled after the physics phase. */
   bodyColliders?: readonly ClothBodyCollider[];
   /** When true, detected contacts submit approximate reaction impulses to bound bodies. */
   bodyReactions?: boolean;

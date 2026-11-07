@@ -1111,12 +1111,25 @@ manual cloth uses `ctx.cloth.step`. Use `setAnchor`, `releaseAnchor`, `applyForc
 (next tick), `applyImpulse`, `setColliders`, `inspect`, and `destroy` to manage it.
 The source checkout includes `examples/cloth-sheet`.
 
-An automatic cloth may bind a live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The plugin samples the real sphere after physics and uses it as a one-way moving obstacle. Set `bodyReactions: true` to submit approximate normal reaction impulses from
+An automatic cloth may bind a live dynamic, non-trigger sphere or box with
+`bodyColliders: [{ id: "collider-id", entity: "body-id" }]`. The plugin samples
+the collider center, orientation and dimensions after physics and uses it as a
+moving obstacle. A box can rotate; the cloth surface still uses the sampled
+contact method described below. Bindings track entity lifetime, so replacing an
+entity with the same ID does not silently attach the replacement. Set
+`bodyReactions: true` to submit approximate normal reaction impulses from
 particle and triangle-surface contacts through the physics bridge. This changes
 body velocity on the next physics step; it is delayed, projection-derived and
 not mass-coupled with cloth velocity. The body receives no reaction when the
 option is omitted. Destroyed bodies are removed on the next automatic step.
-This is not complete cloth-rigid-body coupling.
+When no bindings remain, reactions are disabled. Do not reuse a bound collider
+ID in `setColliders`. This is not complete cloth-rigid-body coupling; sampling,
+impulses, rotation and snapshot restoration have not been runtime-validated.
+
+If a native reaction operation fails, it reports `partialState=true` and the
+host tick faults; the engine does not automatically replay physics history in
+that failure path. Restart the scene or restore a known-good checkpoint, noting
+that the separately documented 3D historical replay risk remains unresolved.
 
 Sampled planes use the triangle centroid for discrete surface projection; this is not continuous triangle-plane collision.
 

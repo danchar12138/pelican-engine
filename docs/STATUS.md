@@ -11,6 +11,9 @@
 
 ## Current Scope
 
+- Local development adds sampled cloth contact with live dynamic non-trigger 3D boxes as well as spheres, with optional delayed projection-derived reactions and generation-aware binding. This is not fully mass-coupled or continuous collision. Runtime, native-failure and snapshot behavior remain unverified; unsafe 3D historical replay remains an open risk.
+- Native reaction-application failures now report potentially partial state without automatically replaying physics history. The host faults; restart or known-good recovery is required and unverified.
+
 - Local development adds manually sampled oriented box obstacles for rope particles and segments and cloth particles and sampled triangle points. The cloth samples do not guarantee all triangle/box contacts; contacts, stability and snapshot restoration remain unverified. Fluid and soft-body box samples remain axis-aligned.
 
 - The 0.10.0 development batch tracks material graph parameter/time changes and managed render-buffer/texture copies for path/hybrid recapture, retaining pending state after bridge failures and raster frames. GPU rendering and recovery remain unverified.
