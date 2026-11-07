@@ -67,6 +67,7 @@ type Action =
       removed: string[];
     }
   | { kind: "move" | "velocity" | "impulse" | "angularVelocity" | "torqueImpulse"; id: string; value: Vec3 }
+  | { kind: "gravity"; value: Vec3 }
   | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
@@ -555,9 +556,16 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   ) {
     if (
       !action ||
-      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint"].includes(action.kind)
+      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
+    if (action.kind === "gravity") {
+      if (Object.keys(action).length !== 2 || !Object.hasOwn(action, "value"))
+        fail("TC_PHYSICS_SNAPSHOT", "Invalid gravity history action fields.");
+      world.gravity = vec(action.value, "gravity");
+      for (const body of bodies.values()) if (body.type === "dynamic") body.body.wakeUp();
+      return;
+    }
     if (action.kind !== "step") {
       if (["angularVelocity", "torqueImpulse", "impulseAtPoint"].includes(action.kind)) {
         const keys = action.kind === "impulseAtPoint" ? ["kind", "id", "value", "point"] : ["kind", "id", "value"];
@@ -954,6 +962,14 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     }
   }
   const physics: PhysicsServiceWithQueries = {
+    setGravity(value) {
+      alive();
+      record({ kind: "gravity", value: tuple(vec(value, "gravity")) });
+    },
+    gravity() {
+      alive();
+      return tuple(state.world.gravity);
+    },
     moveCharacter(id, value) {
       get(id);
       record({ kind: "move", id, value });

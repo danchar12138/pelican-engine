@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add runtime 3D rigid-body world gravity control with history recording; behavior and replay remain unverified.
+
 - Add a composed public-API gameplay recipe covering inventory, equipment, quests, dialogue, camera and saves; runtime behavior remains unverified.
 
 - Retain pending development reloads across coalesced file events and cache hits; watcher behavior remains unverified.

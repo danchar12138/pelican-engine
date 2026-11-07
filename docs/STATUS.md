@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds runtime 3D rigid-body world gravity changes with history recording and dynamic-body wakeup. Character and other simulation gravities remain separate; runtime, wake and snapshot behavior are unverified, and the first-step removal defect remains open.
+
 - Local development adds an asset-free composed gameplay recipe combining inventory, equipment, quests, conditional dialogue, manual camera and saves through the public API. The recipe and cross-service recovery are unverified.
 
 - Local development improves the cold-reload watcher when file events overlap compilation and a later compilation hits cache or fails. This is not state-preserving hot reload; file watching and browser behavior remain unverified.

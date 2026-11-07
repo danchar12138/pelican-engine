@@ -30,6 +30,14 @@ intentionally contains no example projects, game assets, or engine source. Use
 the same public declarations in your own game project and validate them with the
 installed `pelican` commands. Do not try to import an internal compiled module.
 
+`ctx.physics.setGravity([0, -9.81, 0])` changes gravity for the 3D rigid-body
+world and wakes dynamic bodies; `ctx.physics.gravity()` returns the current
+value. The change is recorded in physics history and restored with the host
+snapshot. Character controllers use their own configured downward gravity;
+2D physics, cloth, rope, fluids and soft bodies have separate gravity settings.
+Gravity changes, wake behavior and snapshot replay remain unverified, and this
+does not fix the known 3D first-step removal defect.
+
 `ctx.physics.overlapSphere(center, radius, options)` finds live physics entities
 overlapping a world-space sphere. Results are sorted entity IDs; triggers are
 excluded unless `includeTriggers: true` is specified. This query uses the current

@@ -938,6 +938,10 @@ export type PhysicsSweepShape =
   | { shape: "capsule"; halfHeight: number; radius: number };
 export interface PhysicsSweepHit { entity: string; fraction: number; distance: number; point: Vec3; normal: Vec3 }
 export interface PhysicsService {
+  /** Set 3D rigid-body world gravity; wakes dynamic bodies. Character controllers keep their own gravity. */
+  setGravity(gravity: Vec3): void;
+  /** Current 3D rigid-body world gravity in world units per second squared. */
+  gravity(): Vec3;
   moveCharacter(entity: string, displacement: Vec3): void;
   grounded(entity: string): boolean;
   velocity(entity: string): Vec3;
