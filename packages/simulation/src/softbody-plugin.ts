@@ -3,7 +3,7 @@ import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
 
-type Entry = { definition: SoftBodyDefinition; simulation: Simulation };
+type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[] };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_SOFTBODY_${code}: ${detail}`); };
 const validId = (value: unknown): value is string => typeof value === "string" && value.trim() === value && value.length > 0 && value.length <= 128;
@@ -37,13 +37,26 @@ function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: Read
     bodyPosition: definition.bodyPosition ? [...definition.bodyPosition] as [number, number, number] : undefined,
     bodyVelocity: definition.bodyVelocity ? [...definition.bodyVelocity] as [number, number, number] : undefined,
   };
-  return { definition, simulation: createSimulation("softbody", simulationOptions) };
+  const simulation = createSimulation("softbody", simulationOptions);
+  try {
+    const uvs = planarUvs(simulation.getRenderState().particles.map(particle => particle.position));
+    return { definition, simulation, uvs };
+  } catch (error) { simulation.dispose(); throw error; }
 }
 function disposeEntries(entries: Map<string, Entry>): void { for (const entry of entries.values()) entry.simulation.dispose(); entries.clear(); }
 function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<string>): Map<string, Entry> {
-  if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1 || !Array.isArray((value as { softBodies?: unknown }).softBodies)) return fail("SNAPSHOT", "Expected a version 1 soft-body snapshot.");
+  if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1 || !Array.isArray((value as { softBodies?: unknown }).softBodies) || (value as { softBodies: unknown[] }).softBodies.length > 128) return fail("SNAPSHOT", "Expected a version 1 snapshot containing at most 128 soft bodies.");
   const result = new Map<string, Entry>();
-  try { for (const item of (value as { softBodies: Saved[] }).softBodies) { const entry = createEntry(item.definition, fixedDt, materials); if (result.has(entry.definition.id)) return fail("SNAPSHOT", `Duplicate soft-body id '${entry.definition.id}'.`); entry.simulation.restore(item.state); result.set(entry.definition.id, entry); } return result; }
+  try {
+    for (const item of (value as { softBodies: Saved[] }).softBodies) {
+      if (!item || typeof item !== "object") return fail("SNAPSHOT", "Invalid soft-body entry.");
+      const entry = createEntry(item.definition, fixedDt, materials);
+      if (result.has(entry.definition.id)) { entry.simulation.dispose(); return fail("SNAPSHOT", `Duplicate soft-body id '${entry.definition.id}'.`); }
+      result.set(entry.definition.id, entry);
+      entry.simulation.restore(item.state);
+    }
+    return result;
+  }
   catch (error) { disposeEntries(result); throw error; }
 }
 function inspect(entry: Entry): SoftBodyState {
@@ -67,10 +80,10 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
   };
   const service: SoftBodyService = {
-    create(definition) { alive(); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); entries.set(definition.id, createEntry(definition, fixedDt, materials)); },
-    step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Soft body '${id}' is automatically stepped.`); entry.simulation.step(ticks); return inspect(entry); },
+    create(definition) { alive(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty soft-body id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 soft bodies per host."); const entry = createEntry(definition, fixedDt, materials); try { syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
+    step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Soft body '${id}' is automatically stepped.`); const before = entry.simulation.snapshot(); try { entry.simulation.step(ticks); return inspect(entry); } catch (error) { try { entry.simulation.restore(before); } catch (rollbackError) { throw new Error(`TC_SOFTBODY_ROLLBACK: ${String(error)}; partialState=true; rollback failure: ${String(rollbackError)}`); } throw error; } },
     inspect(id) { return inspect(get(id)); },
-    visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual).sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const state = inspect(entry), visual = entry.definition.visual!; return { id: entry.definition.id, material: visual.material, positions: state.positions, triangles: state.triangles, uvs: planarUvs(state.positions), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true } satisfies SoftBodyVisualState; }); },
+    visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual).sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const state = inspect(entry), visual = entry.definition.visual!; return { id: entry.definition.id, material: visual.material, positions: state.positions, triangles: state.triangles, uvs: entry.uvs.map(uv => [uv[0], uv[1]] as Vec2), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true } satisfies SoftBodyVisualState; }); },
     applyImpulse(id, particle, impulse) { get(id).simulation.applyImpulse(particle, [...cloneSerializable(impulse)] as [number, number, number]); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };

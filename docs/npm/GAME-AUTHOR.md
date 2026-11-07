@@ -228,11 +228,15 @@ Use `ctx.fluid.create({ id, autoStep: true, visual: { material: "material-id" } 
 
 The optional `visual.radius` overrides the rendered particle radius without changing the solver's collision radius. When omitted, each particle's solver radius is used. This presentation remains unverified at runtime.
 
+Manual fluid and soft-body `step` calls attempt to restore the pre-call solver snapshot if stepping fails. If restoration also fails, the diagnostic reports `partialState=true`; a host-level checkpoint may still be needed for other systems. This rollback path has not been runtime-validated.
+
 ### Development-stage tetrahedral soft body
 
 Use `ctx.softBodies.create({ id, autoStep: true, visual: { material: "material-id" } })` for the bounded CPU tetrahedral soft-body service. The built-in reference scene provides a small deformable solid with fixed-step scheduling, inspection, snapshots, particle impulses and dynamic surface presentation. Use `ctx.softBodies.step` for manual stepping, and `inspect`, `visuals` or `destroy` for lifecycle management. This service does not provide complete soft-body physics, cloth materials, tearing, continuous collision, GPU solving or rigid-body coupling; runtime, stability, performance, rendering and snapshot compatibility remain unverified.
 
 An automatic soft body can bind one live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The sphere is sampled after physics before each soft-body step. Set `bodyReactions: true` to submit approximate contact impulses back through the physics bridge; this is delayed and projection-derived, not complete mass-coupled rigid-body simulation. Destroyed bindings fail the owning step rather than silently becoming a different collider.
+
+Soft-body surface UVs use the initial particle positions and remain fixed as the body deforms; they are not recalculated from the current pose.
 
 For bound fluid and soft-body simulations, the reference solvers sample the sphere's center, linear velocity and collider radius after each physics step. The reference body still uses a fixed mass of 0.35 and does not account for the actual body's angular velocity or inertia. Reactions are accumulated per tick and applied at the rigid body's center of mass without contact torque. Their contact counters are cumulative, and this approximate behavior has not been runtime-validated.
 
