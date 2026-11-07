@@ -21,6 +21,8 @@
 
 Only the main worktree is active. Git has one registered worktree and no .git/worktrees directory. The old local snapshot directories were deleted before a complete uniqueness audit; some historical candidates may not be recoverable or integrated. Retained Git archive references and formal evidence remain historical, not proof that every candidate was merged.
 
+Four local `refs/pelican-archive/worktrees/` references retain commits outside the current main ancestry. The acceptance-audit implementation and audio fade/priority core are present in current source, but the archived commits themselves were not merged. The public-joints candidate remains unmerged because the recorded native-history failure is unresolved. The independent baseline snapshot contains 3,559 evidence paths and one documentation path not tracked by the current main tree; the reference is retained to preserve access. These observations do not establish runtime correctness or prove that all previously deleted snapshot contents were recovered.
+
 Each delivery batch contains a meaningful feature or coordinated version increment. Small internal fixes are accumulated instead of triggering a separate CI run for every patch. Version locks, API indexes, documents, and examples are updated together at the batch boundary.
 
 ## Release Boundary
