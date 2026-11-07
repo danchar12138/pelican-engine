@@ -45,6 +45,8 @@ in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Point and spot
 lights accept a cutoff `distance` (0 means unlimited) and a `decay` exponent
 (default 2). Keep the target distinct from the light position. Raster, path and
 hybrid behavior has not been runtime-validated.
+Static definitions support constants such as `Math.PI`; arbitrary function calls
+are not evaluated when compiling scene declarations.
 
 ```ts
 { id: "lamp", transform: { position: [2, 4, 3] },

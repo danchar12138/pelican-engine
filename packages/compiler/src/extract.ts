@@ -349,6 +349,15 @@ export class Extractor {
     if (node.kind === ts.SyntaxKind.TrueKeyword) return true;
     if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
     if (node.kind === ts.SyntaxKind.NullKeyword) return null;
+    if (ts.isPropertyAccessExpression(node) && !node.questionDotToken &&
+        ts.isIdentifier(node.expression) && node.expression.text === "Math" &&
+        !mod.bindings.has("Math") && !mod.imports.has("Math")) {
+      const constants: Readonly<Record<string, number>> = {
+        E: Math.E, LN2: Math.LN2, LN10: Math.LN10, LOG2E: Math.LOG2E,
+        LOG10E: Math.LOG10E, PI: Math.PI, SQRT1_2: Math.SQRT1_2, SQRT2: Math.SQRT2,
+      };
+      if (Object.hasOwn(constants, node.name.text)) return constants[node.name.text];
+    }
     if (ts.isIdentifier(node)) return this.binding(mod, node.text);
     if (
       ts.isArrowFunction(node) ||
