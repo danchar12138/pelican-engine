@@ -154,7 +154,9 @@ export function createSimulation(
           penetration = (sampledRadii.get(body.id) ?? body.radius) + p.radius - r;
         if (penetration <= 0) continue;
         const normal: Vec3 = r > 1e-12 ? mul(delta, 1 / r) : [1, 0, 0];
-        const bodyWeight = state.options.twoWayCoupling ? body.inverseMass : 0;
+        // Bound bodies are owned by the physics plugin, not integrated a second time here.
+        const sampled = sampledRadii.has(body.id);
+        const bodyWeight = state.options.twoWayCoupling && !sampled ? body.inverseMass : 0;
         const weight = p.inverseMass + bodyWeight;
         accumulate(p.position, normal, (penetration * p.inverseMass) / weight);
         accumulate(body.position, normal, (-penetration * bodyWeight) / weight);
@@ -163,7 +165,7 @@ export function createSimulation(
           state.counters.maxContactCorrection,
           penetration,
         );
-        if (bodyWeight > 0) {
+        if (state.options.twoWayCoupling && (bodyWeight > 0 || sampled)) {
           const impulse = mul(normal, -penetration / (weight * h));
           accumulate(state.counters.reactionImpulse, impulse);
           state.counters.absoluteReactionImpulse += length(impulse);
@@ -187,6 +189,7 @@ export function createSimulation(
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (p.inverseMass === 0) continue;
+      if (i < state.bodies.length && sampledRadii.has(p.id)) continue;
       accumulate(p.velocity, state.options.gravity, h);
       if (fluid && i >= state.bodies.length)
         accumulate(p.velocity, fluid[i - state.bodies.length], h);
@@ -203,11 +206,12 @@ export function createSimulation(
       solveDistances(h, distanceLambdas);
       solveVolumes(h, volumeLambdas);
       solveContacts(h);
-      for (const p of points) constrainWalls(p);
+      for (const p of points) if (!sampledRadii.has(p.id)) constrainWalls(p);
     }
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (p.inverseMass === 0) continue;
+      if (i < state.bodies.length && sampledRadii.has(p.id)) continue;
       p.velocity = mul(sub(p.position, oldPositions[i]), 1 / h);
       state.counters.maxObservedSpeed = Math.max(
         state.counters.maxObservedSpeed,

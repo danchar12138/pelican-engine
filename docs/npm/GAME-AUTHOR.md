@@ -256,7 +256,7 @@ An automatic soft body can bind one live dynamic sphere with `bodyColliders: [{ 
 
 Soft-body surface UVs use the initial particle positions and remain fixed as the body deforms; they are not recalculated from the current pose.
 
-For bound fluid and soft-body simulations, the reference solvers sample the sphere's center, linear velocity and collider radius after each physics step. The reference body still uses a fixed mass of 0.35 and does not account for the actual body's angular velocity or inertia. Reactions are accumulated per tick and applied at the rigid body's center of mass without contact torque. Their contact counters are cumulative, and this approximate behavior has not been runtime-validated.
+For bound fluid and soft-body simulations, the reference solvers sample the sphere's center, linear velocity and collider radius after each physics step. During the simulation step the sampled sphere is treated as a fixed-position obstacle: it is not advanced by reference-scene gravity or clamped to the reference container. Optional reactions are projection-derived and applied at the rigid body's center of mass without contact torque; this is not mass- or inertia-coupled contact, and sampled velocity does not provide velocity-dependent friction. Contact counters are cumulative, and this approximate behavior has not been runtime-validated.
 
 ### Development-stage triangular cloth
 
