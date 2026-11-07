@@ -234,6 +234,8 @@ const spriteVisuals = createSpriteVisualOwner();
 const tilemapVisuals = createTilemapVisualOwner();
 scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisuals.root, spriteVisuals.root, tilemapVisuals.root);
 let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
+// Raster frames do not update the surface tracer, even when they consume a scene revision.
+let traceContentDirty = true;
 const clearDynamicVisuals = () => {
   const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear(), tilemapsChanged = tilemapVisuals.clear();
   if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged || spritesChanged || tilemapsChanged) dynamicVisualRevision++;
@@ -1226,6 +1228,7 @@ async function drawFrame(accumulate = false, changed = true) {
   changed = changed || ropeChanged;
   changed = animate() || changed;
   const ropeRevision = dynamicVisualRevision;
+  if (changed) traceContentDirty = true;
   renderBufferBridge?.update();
   renderTextureBridge?.update();
   const settings =
@@ -1276,10 +1279,10 @@ async function drawFrame(accumulate = false, changed = true) {
     const surfaceState = surfaceTracer.inspect();
     const needsMotion = settings.denoise && settings.debug === "beauty";
     if (
-      changed ||
+      traceContentDirty ||
       surfaceState.triangleCount === 0 ||
       surfaceState.motion.enabled !== needsMotion
-    )
+    ) {
       await boundedOperation(
         surfaceTracer.update(
           scene,
@@ -1290,6 +1293,8 @@ async function drawFrame(accumulate = false, changed = true) {
         ),
         "surface content capture",
       );
+      traceContentDirty = false;
+    }
     if (effects) await surfaceTracer.prepareLinearPresentation();
     submitMs = surfaceTracer.render(camera, settings, effects?.traceTargets());
     if (effects) effects.present(renderControl!.postProcesses, tick / 60, settings);

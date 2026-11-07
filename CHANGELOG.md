@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve pending tracing recapture across raster frames and mode switches; runtime rendering remains unverified.
+
 - Add optional fixed-clock maximum duration for audio voices; timing and restoration remain unverified.
 
 - Add per-voice volume control and logical voice inspection; playback remains unverified.
