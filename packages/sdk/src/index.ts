@@ -331,6 +331,8 @@ export interface SoftBodyVisualOptions { material: string; castShadow?: boolean;
 export interface SoftBodyBodyCollider { readonly id: string; readonly entity: string }
 export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
+  /** Initial tetrahedral lattice dimensions, each in [2,5]; defaults to [3,3,3]. */
+  softBodyGrid?: readonly [number, number, number];
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
   container?: SimulationContainer;

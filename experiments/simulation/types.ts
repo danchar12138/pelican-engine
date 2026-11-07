@@ -17,6 +17,8 @@ export interface SimulationOptions {
   container?: SimulationContainer;
   /** Initial fluid lattice dimensions; omitted means 4 by 4 by 4. */
   particleGrid?: Vec3;
+  /** Initial soft-body lattice dimensions; omitted means 3 by 3 by 3. */
+  softBodyGrid?: Vec3;
   bodyPosition?: Vec3;
   bodyVelocity?: Vec3;
 }
@@ -31,6 +33,7 @@ export interface ResolvedOptions {
   origin?: Vec3;
   container?: SimulationContainer;
   particleGrid?: Vec3;
+  softBodyGrid?: Vec3;
   bodyPosition: Vec3;
   bodyVelocity: Vec3;
 }

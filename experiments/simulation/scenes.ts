@@ -42,6 +42,7 @@ export function resolveOptions(
     ...(options.origin === undefined ? {} : { origin: copy(options.origin) }),
     ...(options.container === undefined ? {} : { container: copy(options.container) }),
     ...(options.particleGrid === undefined ? {} : { particleGrid: copy(options.particleGrid) }),
+    ...(options.softBodyGrid === undefined ? {} : { softBodyGrid: copy(options.softBodyGrid) }),
     bodyPosition: copy(
       options.bodyPosition ??
         (kind === "cloth" ? [0.08, 0.15, -0.72] : [-0.78, 0.15, 0]).map((value, axis) => value + (options.origin?.[axis] ?? 0)) as Vec3,
@@ -85,6 +86,9 @@ export function resolveOptions(
   if (result.particleGrid !== undefined && (kind !== "fluid" || !isVec3(result.particleGrid) ||
       result.particleGrid.some(value => !Number.isSafeInteger(value) || value < 1 || value > 8)))
     fail("SIM_OPTIONS", "particleGrid is fluid-only and requires three integer dimensions in [1,8].");
+  if (result.softBodyGrid !== undefined && (kind !== "softbody" || !isVec3(result.softBodyGrid) ||
+      result.softBodyGrid.some(value => !Number.isSafeInteger(value) || value < 2 || value > 5)))
+    fail("SIM_OPTIONS", "softBodyGrid is soft-body-only and requires three integer dimensions in [2,5].");
   return result;
 }
 export function makeScene(
@@ -180,21 +184,22 @@ export function makeScene(
         if (y + 2 < n) link(i, i + 2 * n, 5e-5);
       }
   } else if (kind === "softbody") {
+    const [width, height, depth] = options.softBodyGrid ?? [3, 3, 3];
     const index = (x: number, y: number, z: number): number =>
-      z * 9 + y * 3 + x;
-    for (let z = 0; z < 3; z++)
-      for (let y = 0; y < 3; y++)
-        for (let x = 0; x < 3; x++)
+      z * width * height + y * width + x;
+    for (let z = 0; z < depth; z++)
+      for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++)
           particle(
-            [(x - 1) * 0.24, 0.2 + (y - 1) * 0.24, (z - 1) * 0.24],
+            [(x - (width - 1) / 2) * 0.24, 0.2 + (y - (height - 1) / 2) * 0.24, (z - (depth - 1) / 2) * 0.24],
             false,
             0.085,
             0.025,
           );
     const faces = new Map<string, [number, number, number]>();
-    for (let z = 0; z < 2; z++)
-      for (let y = 0; y < 2; y++)
-        for (let x = 0; x < 2; x++) {
+    for (let z = 0; z < depth - 1; z++)
+      for (let y = 0; y < height - 1; y++)
+        for (let x = 0; x < width - 1; x++) {
           const v = [
             index(x, y, z),
             index(x + 1, y, z),

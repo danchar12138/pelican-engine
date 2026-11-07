@@ -35,6 +35,7 @@ function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: Read
   const simulationOptions = {
     ...options,
     fixedDt,
+    softBodyGrid: definition.softBodyGrid ? [...definition.softBodyGrid] as [number, number, number] : undefined,
     ...(definition.bodyColliders?.length ? { twoWayCoupling: definition.bodyReactions ?? false } : {}),
     origin: definition.origin ? [...definition.origin] as [number, number, number] : undefined,
     container: definition.container ? { min: [...definition.container.min] as [number, number, number], max: [...definition.container.max] as [number, number, number] } : undefined,
@@ -60,6 +61,8 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
       result.set(entry.definition.id, entry);
       const savedOrigin = item.state?.options?.origin ?? [0, 0, 0], expectedOrigin = entry.definition.origin ?? [0, 0, 0];
       if (!Array.isArray(savedOrigin) || savedOrigin.length !== 3 || savedOrigin.some((value, axis) => value !== expectedOrigin[axis])) fail("SNAPSHOT", "Soft-body origin differs from its definition.");
+      const savedGrid = item.state?.options?.softBodyGrid ?? [3, 3, 3], expectedGrid = entry.definition.softBodyGrid ?? [3, 3, 3];
+      if (!Array.isArray(savedGrid) || savedGrid.length !== 3 || savedGrid.some((value, axis) => value !== expectedGrid[axis])) fail("SNAPSHOT", "Soft-body grid differs from its definition.");
       if (!sameSimulationContainer(item.state?.options?.container, entry.definition.container)) fail("SNAPSHOT", "Soft-body container differs from its definition.");
       entry.simulation.restore(item.state);
     }

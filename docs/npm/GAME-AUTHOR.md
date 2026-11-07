@@ -280,6 +280,11 @@ Fluid and soft-body bindings retain an entity-generation handle. Destroying a bo
 
 Soft-body surface UVs use the initial particle positions and remain fixed as the body deforms; they are not recalculated from the current pose.
 
+`softBodyGrid: [width, height, depth]` sets the reference solid's tetrahedral
+lattice dimensions. Each dimension is an integer from 2 to 5; the default is
+`[3, 3, 3]`. This adjusts the built-in lattice, not an arbitrary imported mesh.
+Runtime behavior, stability, rendering and snapshot restoration are unverified.
+
 For bound fluid and soft-body simulations, the reference solvers sample the sphere's center, linear velocity and collider radius after each physics step. During the simulation step the sampled sphere is treated as a fixed-position obstacle: it is not advanced by reference-scene gravity or clamped to the reference container. Optional reactions are projection-derived and applied at the rigid body's center of mass without contact torque; this is not mass- or inertia-coupled contact, and sampled velocity does not provide velocity-dependent friction. Contact counters are cumulative, and this approximate behavior has not been runtime-validated.
 
 ### Development-stage triangular cloth
