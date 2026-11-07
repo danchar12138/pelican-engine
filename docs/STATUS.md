@@ -19,7 +19,7 @@
 
 ## Single-Line Development
 
-Only the main worktree is active. Git has one registered worktree and no .git/worktrees directory. Historical snapshots, patches, evidence, and recovery refs are retained as archives; unreviewed unique work is not merged or deleted blindly.
+Only the main worktree is active. Git has one registered worktree and no .git/worktrees directory. The old local snapshot directories were deleted before a complete uniqueness audit; some historical candidates may not be recoverable or integrated. Retained Git archive references and formal evidence remain historical, not proof that every candidate was merged.
 
 Each delivery batch contains a meaningful feature or coordinated version increment. Small internal fixes are accumulated instead of triggering a separate CI run for every patch. Version locks, API indexes, documents, and examples are updated together at the batch boundary.
 
