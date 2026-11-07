@@ -1239,6 +1239,10 @@ export interface LocalizationService {
 }
 /** Global convolution reverb applied after the master mix. */
 export interface AudioReverb { wet: number; decay: number; preDelay: number }
+export interface AudioVoiceState {
+  id: string; sound: string; volume: number; loop: boolean; entity: string | null;
+  bus?: string; priority: number; paused: boolean; occlusion: boolean;
+}
 export interface AudioService {
   /** Optional occlusion uses a 3D physics ray between the listener and a live entity. */
   play(
@@ -1249,6 +1253,10 @@ export interface AudioService {
   /** Pause/resume are idempotent; an unknown valid voice id is a no-op. Playback time follows fixed simulation ticks, even while audio is locked. */
   pause(voice: string): void;
   resume(voice: string): void;
+  /** Set one active voice's gain; an unknown valid voice ID is a no-op. */
+  setVoiceVolume(voice: string, volume: number): void;
+  /** Return detached logical state, or null when the voice is no longer present. */
+  voice(voice: string): AudioVoiceState | null;
   volume(value: number): void;
   /** Set a declared bus gain, independently of master and voice gain. */
   busVolume(id: string, value: number): void;

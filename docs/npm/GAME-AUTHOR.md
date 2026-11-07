@@ -222,6 +222,15 @@ simulation ticks, including while browser audio is locked. Paused time does not
 advance the voice. Snapshots restore playback intent and logical position, not
 the browser's internal audio processing state.
 
+Use `ctx.audio.setVoiceVolume(voice, 0.5)` to change one voice without changing
+its bus or master volume. `ctx.audio.voice(voice)` returns detached logical
+state, including pause and routing, or `null` for an unknown or reclaimed voice.
+An unknown valid ID is a no-op for `setVoiceVolume`; the gain must still be in
+0–1. Voice state is included in snapshots. Browser playback, audio-device
+locking and restoration are unverified; logical state is not proof of audibility.
+Voices without known duration are not reclaimed by the fixed-tick duration
+mechanism; explicitly stop them when no longer needed.
+
 Use `ctx.audio.setReverb({ wet: 0.25, decay: 1.5, preDelay: 0.02 })` to add
 global convolution reverb after the master mix. `wet` is between 0 and 1,
 `decay` is 0.1 to 4 seconds, and `preDelay` is 0 to 0.2 seconds. Set wet to 0

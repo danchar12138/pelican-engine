@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add per-voice volume control and logical voice inspection; playback remains unverified.
+
 - Mark runtime light and material changes for tracing recapture during unchanged draws; rendering behavior remains unverified.
 
 - Add bounded occupied-cell rerouting for waiting navigation agents; runtime and snapshot behavior remain unverified.

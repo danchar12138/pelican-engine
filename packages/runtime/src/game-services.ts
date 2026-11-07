@@ -864,6 +864,22 @@ export function createGameServices(
           voiceVersions.set(voice, (voiceVersions.get(voice) ?? 0) + 1);
         }
       },
+      setVoiceVolume(id, value) {
+        alive();
+        name(id, "TC_AUDIO_VOICE", "Voice id");
+        finite(value, "TC_AUDIO_VOLUME", "Voice volume", 0, 1);
+        const voice = state.audio.voices.find(item => item.id === id);
+        if (voice) voice.volume = value;
+      },
+      voice(id) {
+        alive();
+        name(id, "TC_AUDIO_VOICE", "Voice id");
+        const voice = state.audio.voices.find(item => item.id === id);
+        if (!voice) return null;
+        return { id: voice.id, sound: voice.sound, volume: voice.volume, loop: voice.loop, entity: voice.entity,
+          ...(voice.bus === undefined ? {} : { bus: voice.bus }), priority: voice.priority ?? 0,
+          paused: voice.pausedAt != null, occlusion: voice.occlusion === true };
+      },
       volume(value) {
         alive();
         finite(value, "TC_AUDIO_VOLUME", "Master volume", 0, 1);
