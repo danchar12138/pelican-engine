@@ -142,6 +142,7 @@ export interface SceneIR {
       smoothing: number;
     };
     gravity: Vec3;
+    physics2d?: { gravity: readonly [number, number] };
     entities: EntityIR[];
   };
   /** Additional resolved scenes; primary `scene` remains the default entry. */

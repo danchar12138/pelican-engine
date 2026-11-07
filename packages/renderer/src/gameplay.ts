@@ -317,6 +317,10 @@ export async function prepareGameplay(
         ],
       }),
     ];
+    if (ir.scene.physics2d) {
+      const { createPhysics2DFactory } = await import("../../physics/physics2d.ts");
+      plugins.push(await createPhysics2DFactory());
+    }
     if (
       [...ir.scene.entities, ...ir.prefabs].some(
         (entity) => entity.rigidBody || entity.character,

@@ -107,6 +107,8 @@ export interface SystemContext extends EngineFacade {
   events(type?: string): readonly GameEvent[];
   readonly input: InputService;
   readonly physics: PhysicsService;
+  /** Available only when the current scene opts into physics2d. */
+  readonly physics2d: Physics2DService;
   readonly animation: AnimationControlService;
   readonly camera: CameraService;
   readonly ui: UIService;
@@ -127,6 +129,33 @@ export interface SystemContext extends EngineFacade {
   readonly cloth: ClothService;
   readonly fluid: FluidService;
   readonly softBodies: SoftBodyService;
+}
+export type Physics2DCollider =
+  | { shape: "box"; halfExtents: Vec2; offset?: Vec2 }
+  | { shape: "circle"; radius: number; offset?: Vec2 };
+export interface Physics2DBodyDefinition {
+  id: string; entity: string; type: "fixed" | "dynamic" | "kinematic";
+  collider: Physics2DCollider;
+  mass?: number; friction?: number; restitution?: number;
+  sensor?: boolean; continuous?: boolean;
+}
+export interface Physics2DBodyState {
+  id: string; entity: string; type: Physics2DBodyDefinition["type"];
+  position: Vec2; angle: number; velocity: Vec2; angularVelocity: number; sleeping: boolean;
+}
+/** Independent XY rigid-body world. No native physics objects cross this API. */
+export interface Physics2DService {
+  create(definition: Physics2DBodyDefinition): void;
+  destroy(id: string): void;
+  setVelocity(id: string, velocity: Vec2): void;
+  setAngularVelocity(id: string, velocity: number): void;
+  applyImpulse(id: string, impulse: Vec2): void;
+  setGravity(gravity: Vec2): void;
+  gravity(): Vec2;
+  inspect(id: string): Physics2DBodyState;
+  /** Queries the last completed 2D physics step, not pending transform edits. */
+  raycast(origin: Vec2, direction: Vec2, maxDistance: number, options?: { exclude?: readonly string[]; includeSensors?: boolean }):
+    { body: string; entity: string; distance: number; point: Vec2; normal: Vec2 } | null;
 }
 export interface SpriteAnimation {
   first: number;
@@ -1360,6 +1389,8 @@ export interface SceneInput {
     smoothing?: number;
   };
   gravity?: Vec3;
+  /** Opt into the independent XY physics world; default gravity is [0,-9.81]. */
+  physics2d?: { gravity?: Vec2 };
   entities: readonly EntityInput[];
 }
 export interface SceneDefinition extends SceneInput {

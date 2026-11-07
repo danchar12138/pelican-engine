@@ -1160,6 +1160,17 @@ export async function normalize(
       error("TC_CAMERA_PROJECTION", "orthographicSize requires an orthographic camera.", camera, "orthographicSize");
     if (camera.fov !== undefined && projection === "orthographic")
       error("TC_CAMERA_PROJECTION", "fov is only used by a perspective camera; use orthographicSize instead.", camera, "fov");
+    let physics2d: SceneIR["scene"]["physics2d"];
+    if (scene.physics2d !== undefined) {
+      const definition = obj(scene.physics2d, scene, "physics2d");
+      if (Object.keys(definition).some(key => key !== "gravity"))
+        error("TC_PHYSICS2D_DEFINITION", "physics2d accepts only a gravity vector.", definition, "gravity");
+      const gravity = definition.gravity ?? [0, -9.81];
+      if (!Array.isArray(gravity) || gravity.length !== 2 || gravity.some(value => typeof value !== "number" || !Number.isFinite(value) || Math.abs(value) > 1e6 || !Number.isFinite(Math.fround(value)) || (value !== 0 && Math.fround(value) === 0))) {
+        error("TC_PHYSICS2D_GRAVITY", "physics2d gravity must contain two finite float32-representable values in [-1e6,1e6].", definition, "gravity");
+        physics2d = { gravity: [0, -9.81] };
+      } else physics2d = { gravity: [gravity[0], gravity[1]] };
+    }
     const near = num(camera.near, camera, "near", 0.1, Number.EPSILON);
     const far = num(camera.far, camera, "far", 1000, near + Number.EPSILON);
     let follow: SceneIR["scene"]["follow"];
@@ -1184,6 +1195,7 @@ export async function normalize(
     }
     return {
       id: id(scene),
+      ...(physics2d ? { physics2d } : {}),
       camera: {
         position: vector(camera.position, camera, "position", [5, 4, 7]),
         target: vector(camera.target, camera, "target", [0, 0, 0]),

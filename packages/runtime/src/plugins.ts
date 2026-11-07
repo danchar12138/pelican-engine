@@ -4,6 +4,7 @@ import type {
   CameraService,
   InputService,
   PhysicsService,
+  Physics2DService,
   SceneService,
   StorageService,
   UIService,
@@ -33,6 +34,7 @@ import type { RuntimeEvent } from "./events.ts";
 export interface RuntimeServices {
   input: InputService;
   physics: PhysicsService;
+  physics2d: Physics2DService;
   animation: AnimationControlService;
   camera: CameraService;
   ui: UIService;
@@ -70,11 +72,14 @@ export interface RopePhysicsBridge {
   /** Moment is the sum of contact angular impulses about the world origin. */
   applySphereReactions(reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[]): void;
 }
+/** Private identity-only bridge; native 2D objects are not exposed. */
+export interface Physics2DBridge { hasEntity(entity: string): boolean }
 export interface RuntimePluginContext {
   /** Lazily resolved because physics may be registered after another plugin. */
   getRopePhysicsBridge?(): RopePhysicsBridge | undefined;
   /** Internal lazy bridge; tile maps may be registered before or after navigation. */
   getNavigationService?(): NavigationService | undefined;
+  getPhysics2DBridge?(): Physics2DBridge | undefined;
   /** Host interval; supplied by RuntimeHost to engine plugins. */
   readonly fixedDt?: number;
   world: RuntimeWorld;
@@ -99,6 +104,7 @@ export interface RuntimePlugin {
   afterPhysics?(): void;
   /** Engine-private integration surface, not a game service. */
   ropePhysicsBridge?: RopePhysicsBridge;
+  physics2DBridge?: Physics2DBridge;
   /** Engine boundary after each fixed tick; never awaited inside a game system. */
   settle?(): Promise<void>;
   dispose(): void;

@@ -51,6 +51,8 @@ export interface RuntimeWorld {
   destroy(entity: EntityRef): void;
   resolve(id: string): EntityHandle;
   id(entity: EntityRef): string;
+  /** Entity identity and hierarchy metadata without reading component values. */
+  identity(entity: EntityRef): { id: string; prefab?: string; parent?: string };
   isAlive(entity: EntityRef): boolean;
   getTransform(entity: EntityRef): Transform;
   setTransform(entity: EntityRef, patch: TransformPatch): void;

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add opt-in 2D rigid-body simulation with box/circle colliders, sensors, impulses, events and structured-state restoration. Runtime behavior is unverified.
+
 - Add explicit tile-to-navigation synchronization and XY-plane grid agents. Runtime behavior and rollback are unverified.
 
 - Add editable entity-bound atlas tile maps with chunked rendering and snapshot state. Collision/navigation coupling and runtime behavior remain unverified.

@@ -4,6 +4,7 @@ import path from "node:path";
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
   { id: "orthographic-2d", anchor: "orthographic-raster", title: "Orthographic raster", summary: "Move simple 2D-positioned objects under an orthographic camera." },
+  { id: "physics2d", anchor: "2d-rigid-bodies", title: "2D rigid bodies", summary: "Move an XY body in an independent 2D physics world." },
   { id: "dynamic-ui", anchor: "dynamic-ui", title: "Dynamic UI", summary: "Create and remove reusable menu slots." },
   { id: "inventory", anchor: "inventory", title: "Inventory", summary: "Move stackable items between a backpack and a chest." },
   { id: "quests", anchor: "quest-objectives", title: "Quest objectives", summary: "Advance objectives and grant a game-defined reward." },

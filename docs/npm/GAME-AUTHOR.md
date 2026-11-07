@@ -184,6 +184,46 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### 2D rigid bodies
+
+Enable an independent XY physics world with `physics2d: { gravity: [0, -9.81] }`
+on the scene. In a system that declares `Transform` reads, bind live root
+entities to 2D bodies using `ctx.physics2d`:
+
+```ts
+ctx.physics2d.create({ id: "floor-body", entity: "floor", type: "fixed",
+  collider: { shape: "box", halfExtents: [4, 0.25] } });
+ctx.physics2d.create({ id: "hero-body", entity: "hero", type: "dynamic",
+  collider: { shape: "circle", radius: 0.45 }, mass: 1 });
+ctx.physics2d.applyImpulse("hero-body", [0, 5]);
+```
+
+Bodies may be fixed, dynamic or position-based kinematic; box and circle
+colliders support offsets, friction, restitution and sensors. Dynamic bodies
+support linear/angular velocity, impulses and optional continuous collision
+detection. Entity X/Y and Z-axis rotation are synchronized at the physics fixed
+step; Z position is preserved. Kinematic movement is supplied by changing the
+entity transform. Bodies require root entities with unit scale and no X/Y
+rotation; an entity cannot simultaneously own a 3D rigid body or character.
+Up to 512 bodies are supported. Destroy a body explicitly or remove its entity.
+
+Collision and sensor events use `physics2d.collision.started/ended` and
+`physics2d.trigger.started/ended` with body and entity IDs. Events after removal
+or snapshot restore do not promise uninterrupted contact lifecycle. `raycast`
+queries the last completed 2D physics step and requires another step after body
+creation, removal or restore; pending transform edits are not reflected. Its
+optional `exclude` list contains body IDs, and sensors are excluded unless
+`includeSensors: true` is specified.
+
+Snapshots save validated body definitions and state, then reconstruct a new 2D
+world; they do **not** use native snapshot deserialization. Contact caches,
+kinematic velocity and exact deterministic continuation are not preserved.
+Joints, character controllers, automatic tilemap colliders, 2D/3D coupling and
+complete 2D physics are not included. Runtime, collision, events, queries,
+resource cleanup and restoration have not been validated; the known separate
+3D first-step deletion issue remains open. See the asset-free
+`examples/physics2d` or the corresponding installed recipe.
+
 ### Tile maps
 
 `ctx.tilemaps` creates entity-bound tile grids using a declared textured
@@ -290,7 +330,7 @@ historical `m2` template remains source-only because its sample assets are not
 part of the npm package; it is not a cross-channel capability claim.
 
 `docs/npm/RECIPES.md` contains complete asset-free `game.ts` recipes for
-orthographic raster, UI, inventory, quests, dialogue, localization, navigation and static chunks.
+orthographic raster, 2D rigid bodies, UI, inventory, quests, dialogue, localization, navigation and static chunks.
 The installed package includes this document, not the source checkout's
 `examples/` directories. In a repository or ZIP those paths are editable
 originals; the packaged recipes are generated from the same files at distribution
@@ -545,8 +585,8 @@ At most 128 agents are supported, with at most 65,536 cells per resulting path
 and 64 traversed segments per agent per tick; excess per-tick travel is not
 carried forward. Agent paths, queued replanning and targets are included in host
 snapshots. Movement owns the root transform; do not simultaneously control that
-transform from another system. This is point-agent grid movement, not a physics
-character, collision response, crowd avoidance, flying, continuous-world
+transform from another system. Agents reject entities bound to 2D or 3D
+physics. This is point-agent grid movement, not a physics character, collision response, crowd avoidance, flying, continuous-world
 navigation or automatic geometry-to-obstacle synchronization. Runtime movement,
 replanning and snapshot restoration are unverified. The repository example
 `examples/navigation-agents` illustrates two agents and a changing obstacle.

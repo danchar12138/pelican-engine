@@ -475,6 +475,12 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
       ensure();
       return state.ids[lookup(state, entity)]!;
     },
+    identity(entity) {
+      ensure();
+      const index = lookup(state, entity), parent = state.parents[index];
+      return { id: state.ids[index]!, ...(state.prefabs.has(index) ? { prefab: state.prefabs.get(index)! } : {}),
+        ...(parent === -1 ? {} : { parent: state.ids[parent]! }) };
+    },
     isAlive(entity) {
       ensure();
       if (typeof entity === "string") return state.byId.has(entity);

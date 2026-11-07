@@ -118,7 +118,7 @@ export function createNavigationAgents(
       const record = records.get(agent.entity);
       if (!record) { missing(agent); continue; }
       const definition = resolveEntityDefinition(context.scene, record);
-      if (record.parent !== undefined || definition?.rigidBody || definition?.character) {
+      if (record.parent !== undefined || definition?.rigidBody || definition?.character || context.getPhysics2DBridge?.()?.hasEntity(agent.entity)) {
         agent.status = "blocked"; agent.error = "TC_NAVIGATION_AGENT_BODY";
         agent.dirty = false; agent.path = []; agent.cursor = 0;
         continue;

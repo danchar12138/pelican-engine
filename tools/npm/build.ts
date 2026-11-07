@@ -186,6 +186,7 @@ export async function buildDistribution() {
     "fflate",
     "ngraph.path",
     "@dimforge/rapier3d-compat",
+    "@dimforge/rapier2d-compat",
     "@gltf-transform/core",
     "@gltf-transform/extensions",
     "@gltf-transform/functions",
