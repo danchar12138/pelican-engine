@@ -904,6 +904,12 @@ export interface SceneInput {
     backgroundRotation?: number;
     /** Panorama brightness multiplier; defaults to 1. */
     backgroundIntensity?: number;
+    /** Equirectangular texture used for image-based lighting; mutually exclusive with lighting presets. */
+    lightingTexture?: AssetDefinition | string;
+    /** Image-based lighting rotation around the vertical axis in radians; defaults to 0. */
+    lightingRotation?: number;
+    /** Image-based lighting intensity multiplier; defaults to 1. */
+    lightingIntensity?: number;
     ambientIntensity?: number;
     lighting?: "none" | "studio";
   };

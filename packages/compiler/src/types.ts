@@ -125,6 +125,9 @@ export interface SceneIR {
       backgroundTexture?: string;
       backgroundRotation?: number;
       backgroundIntensity?: number;
+      lightingTexture?: string;
+      lightingRotation?: number;
+      lightingIntensity?: number;
       ambientIntensity: number;
       lighting?: "none" | "studio";
     };

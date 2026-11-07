@@ -36,6 +36,7 @@ export async function prepareGameplay(
   const textures = new Map<string, THREE.Texture>();
   let physics: PhysicsService | undefined;
   let environmentTarget: THREE.RenderTarget | undefined;
+  let environmentTexture: THREE.Texture | undefined;
   let background: THREE.Texture | undefined;
   const diagnostics: string[] = [];
   let audio: AudioContext | undefined;
@@ -85,6 +86,7 @@ export async function prepareGameplay(
     busFadeKeys.clear();
     masterGain?.disconnect();
     environmentTarget?.dispose();
+    environmentTexture?.dispose();
     background?.dispose();
     for (const texture of textures.values()) texture.dispose();
     textures.clear();
@@ -109,6 +111,15 @@ export async function prepareGameplay(
       );
       texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
       textures.set(asset.id, texture);
+    }
+    if (ir.scene.environment.lightingTexture) {
+      const source = textures.get(ir.scene.environment.lightingTexture);
+      if (!source) throw new Error(`TC_ENVIRONMENT_TEXTURE: Missing panorama '${ir.scene.environment.lightingTexture}'.`);
+      environmentTexture = source.clone();
+      environmentTexture.mapping = THREE.EquirectangularReflectionMapping;
+      environmentTexture.wrapS = THREE.RepeatWrapping;
+      environmentTexture.wrapT = THREE.ClampToEdgeWrapping;
+      environmentTexture.needsUpdate = true;
     }
     if (ir.scene.environment.backgroundTexture) {
       const source = textures.get(ir.scene.environment.backgroundTexture);
@@ -302,9 +313,9 @@ export async function prepareGameplay(
             room.dispose();
           }
         }
-        return environmentTarget?.texture;
+        return environmentTexture ?? environmentTarget?.texture;
       },
-      environment: environmentTarget?.texture,
+      environment: environmentTexture ?? environmentTarget?.texture,
       background,
       textures,
       plugins,

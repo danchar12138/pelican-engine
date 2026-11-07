@@ -733,6 +733,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
       ir.scene.follow ||
       ir.scene.environment.lighting === "studio" ||
       ir.scene.environment.backgroundTexture ||
+      ir.scene.environment.lightingTexture ||
       [...ir.scene.entities, ...ir.prefabs].some(
         (entity) => entity.model || entity.rigidBody || entity.character,
       ) ||
@@ -924,6 +925,8 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     scene.backgroundRotation.set(0, ir.scene.environment.backgroundRotation ?? 0, 0);
     scene.backgroundIntensity = ir.scene.environment.backgroundIntensity ?? 1;
     scene.environment = nextGameplay?.environment ?? null;
+    scene.environmentRotation.set(0, ir.scene.environment.lightingRotation ?? 0, 0);
+    scene.environmentIntensity = ir.scene.environment.lightingIntensity ?? 1;
     camera.fov = ir.scene.camera.fov;
     camera.near = ir.scene.camera.near;
     camera.far = ir.scene.camera.far;
