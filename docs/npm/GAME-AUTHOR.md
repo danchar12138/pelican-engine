@@ -232,6 +232,8 @@ Use `ctx.softBodies.create({ id, autoStep: true, visual: { material: "material-i
 
 An automatic soft body can bind one live dynamic sphere with `bodyColliders: [{ id: "sphere-id", entity: "body-id" }]`. The sphere is sampled after physics before each soft-body step. Set `bodyReactions: true` to submit approximate contact impulses back through the physics bridge; this is delayed and projection-derived, not complete mass-coupled rigid-body simulation. Destroyed bindings fail the owning step rather than silently becoming a different collider.
 
+The fluid and soft-body reference solvers use an internal sphere with fixed radius 0.25 and mass 0.35, even when bound to a different-sized or differently weighted rigid body. They sample the body's center and linear velocity, but not its radius or angular velocity. Reactions are accumulated per tick and applied at the rigid body's center of mass without contact torque. Their contact counters are cumulative, and this approximate behavior has not been runtime-validated.
+
 ### Development-stage triangular cloth
 
 Declare a material in `defineGame({ materials: [...] })`, then use

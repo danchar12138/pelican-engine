@@ -32,6 +32,7 @@ function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: Read
   const simulationOptions = {
     ...options,
     fixedDt,
+    ...(definition.bodyColliders?.length ? { twoWayCoupling: definition.bodyReactions ?? false } : {}),
     gravity: definition.gravity ? [...definition.gravity] as [number, number, number] : undefined,
     bodyPosition: definition.bodyPosition ? [...definition.bodyPosition] as [number, number, number] : undefined,
     bodyVelocity: definition.bodyVelocity ? [...definition.bodyVelocity] as [number, number, number] : undefined,
@@ -63,6 +64,7 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     if (!context.world.isAlive(binding.entity)) fail("BODY_COLLIDER", `Body '${binding.entity}' is no longer live.`);
     const sample = bridge.sampleSphere(binding.entity);
     entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number]);
+    entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
   };
   const service: SoftBodyService = {
     create(definition) { alive(); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); entries.set(definition.id, createEntry(definition, fixedDt, materials)); },
@@ -74,7 +76,37 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
   };
   return {
     id: "$engine.softBodies", version: "1", services: { softBodies: service },
-    afterPhysics() { alive(); const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = []; try { for (const entry of [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id))) { const snapshot = entry.simulation.snapshot(); committed.push({ entry, snapshot }); syncBinding(entry); entry.simulation.step(1); if (entry.definition.bodyReactions && entry.definition.bodyColliders?.length) { const binding = entry.definition.bodyColliders[0]; const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin."); const impulse = entry.simulation.inspect().contacts.reactionImpulse; bridge.applySphereReactions([{ entity: binding.entity, impulse: [...impulse] as Vec3, moment: [0, 0, 0] }]); } } } catch (error) { const failures: string[] = []; for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); } if (failures.length) throw new Error(`TC_SOFTBODY_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`); throw error; } },
+    afterPhysics() {
+      alive();
+      const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = [];
+      const reactions = new Map<string, [number, number, number]>();
+      try {
+        for (const entry of [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id))) {
+          const snapshot = entry.simulation.snapshot();
+          committed.push({ entry, snapshot });
+          syncBinding(entry);
+          const state = entry.simulation.step(1);
+          const binding = entry.definition.bodyColliders?.[0];
+          if (entry.definition.bodyReactions && binding) {
+            const impulse = reactions.get(binding.entity) ?? [0, 0, 0];
+            for (let i = 0; i < 3; i++) impulse[i] += state.contacts.reactionImpulse[i] - snapshot.counters.reactionImpulse[i];
+            reactions.set(binding.entity, impulse);
+          }
+        }
+        if (reactions.size) {
+          const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
+          bridge.applySphereReactions([...reactions].sort(([a], [b]) => a.localeCompare(b)).map(([entity, impulse]) => {
+            const c = bridge.sampleSphere(entity).centerOfMass;
+            return { entity, impulse, moment: [c[1] * impulse[2] - c[2] * impulse[1], c[2] * impulse[0] - c[0] * impulse[2], c[0] * impulse[1] - c[1] * impulse[0]] as Vec3 };
+          }));
+        }
+      } catch (error) {
+        const failures: string[] = [];
+        for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }
+        if (failures.length) throw new Error(`TC_SOFTBODY_ROLLBACK: ${String(error)}; partialState=true; rollback failures: ${failures.join("; ")}`);
+        throw error;
+      }
+    },
     legacySnapshot: () => ({ version: 1, softBodies: [] }),
     snapshot: () => ({ version: 1, softBodies: [...entries.values()].sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => ({ definition: cloneSerializable(entry.definition), state: entry.simulation.snapshot() })) }),
     validateSnapshot(value) { const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(staged); },

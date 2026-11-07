@@ -337,6 +337,11 @@ export function createSimulation(
       body.position = copy(position);
       body.velocity = copy(velocity);
     },
+    setTwoWayCoupling(enabled: boolean) {
+      alive();
+      if (typeof enabled !== "boolean") fail("SIM_OPTIONS", "twoWayCoupling must be boolean.");
+      state.options.twoWayCoupling = enabled;
+    },
     snapshot() {
       alive();
       return copy(state);

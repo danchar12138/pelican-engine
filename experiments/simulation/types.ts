@@ -112,6 +112,7 @@ export interface Simulation {
   step(steps?: number): SimulationInspection;
   /** Updates the built-in sampled sphere body used by the CPU reference scenes. */
   setBodyState(id: string, position: Vec3, velocity: Vec3): void;
+  setTwoWayCoupling(enabled: boolean): void;
   snapshot(): SimulationSnapshot;
   restore(snapshot: SimulationSnapshot): void;
   inspect(): SimulationInspection;
