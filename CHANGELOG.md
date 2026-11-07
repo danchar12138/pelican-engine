@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Track runtime entity topology and transform changes for tracing recapture; rendering remains unverified.
+
 - Add circle and oriented-box overlap queries to 2D physics; runtime behavior remains unverified.
 
 - Preserve pending tracing recapture across raster frames and mode switches; runtime rendering remains unverified.

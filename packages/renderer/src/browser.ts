@@ -505,6 +505,10 @@ function createEntityView(
 function syncRuntime(): boolean {
   if (!runtime) { clearDynamicVisuals(); return dynamicVisualRevision !== renderedDynamicVisualRevision; }
   let lightingChanged = false;
+  let entityChanged = false;
+  const markEntityChanged = () => {
+    if (!entityChanged) { entityChanged = true; dynamicVisualRevision++; }
+  };
   transforms.clear();
   componentState.clear();
   const records = runtime.world.records();
@@ -529,11 +533,13 @@ function syncRuntime(): boolean {
   for (const object of gameObjects.values())
     for (let parent = object.parent; parent; parent = parent.parent)
       if (removed.has(parent)) {
+        markEntityChanged();
         gameRoot.add(object);
         break;
       }
   for (const [id, object] of gameObjects)
     if (!live.has(id)) {
+      markEntityChanged();
       gameplay?.models.remove(id);
       releaseObject(object);
       gameObjects.delete(id);
@@ -543,12 +549,14 @@ function syncRuntime(): boolean {
     componentState.set(record.id, structuredClone(record.components));
     let object = gameObjects.get(record.id);
     if (object && object.userData.pelicanPrefab !== record.prefab) {
+      markEntityChanged();
       gameplay?.models.get(record.id)?.node.removeFromParent();
       releaseObject(object);
       gameObjects.delete(record.id);
       object = undefined;
     }
     if (!object) {
+      markEntityChanged();
       const authored = compiledIR
         ? resolveEntityDefinition(compiledIR, record)
         : undefined;
@@ -584,6 +592,10 @@ function syncRuntime(): boolean {
           (target && (oldX !== target.x || oldY !== target.y || oldZ !== target.z)))
         lightingChanged = true;
     }
+    const { position, rotation, scale } = record.transform;
+    if (object.position.x !== position[0] || object.position.y !== position[1] || object.position.z !== position[2] ||
+        object.rotation.x !== rotation[0] || object.rotation.y !== rotation[1] || object.rotation.z !== rotation[2] ||
+        object.scale.x !== scale[0] || object.scale.y !== scale[1] || object.scale.z !== scale[2]) markEntityChanged();
     object.position.fromArray(record.transform.position);
     object.rotation.set(...record.transform.rotation);
     object.scale.fromArray(record.transform.scale);
@@ -591,7 +603,7 @@ function syncRuntime(): boolean {
   for (const record of records) {
     const object = gameObjects.get(record.id)!;
     const parent = record.parent ? gameObjects.get(record.parent) : gameRoot;
-    if (parent && object.parent !== parent) parent.add(object);
+    if (parent && object.parent !== parent) { markEntityChanged(); parent.add(object); }
   }
   gameRoot.updateMatrixWorld(true);
   authoredLights = [];

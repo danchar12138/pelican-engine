@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development tracks entity creation, removal, parent and transform changes as pending scene revisions for tracing recapture. Runtime rendering and failure recovery remain unverified.
+
 - Local development adds 2D circle and oriented-box overlap queries using the last completed physics step. Filtering, native recovery and runtime results are unverified.
 
 - Local development preserves pending path/hybrid scene recapture while raster frames are drawn. Mode switches and failure recovery are unverified.
