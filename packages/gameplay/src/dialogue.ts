@@ -1,16 +1,17 @@
-import type { DialogueDefinition, DialogueService, DialogueSessionState } from "../../sdk/src/index.ts";
+import type { DialogueDefinition, DialogueService, DialogueSessionState, DialogueVariable } from "../../sdk/src/index.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 
-type Choice = { id: string; text: string; next: string | null };
+type Choice = { id: string; text: string; next: string | null; when?: { variable: string; equals: DialogueVariable } };
 type Node = { id: string; speaker: string; text: string; next: string | null; choices: Choice[] };
 type Graph = { id: string; start: string; nodes: Node[] };
-type Session = { id: string; dialogue: string; status: DialogueSessionState["status"]; node: string | null; steps: number };
+type Session = { id: string; dialogue: string; status: DialogueSessionState["status"]; node: string | null; steps: number; variables: { key: string; value: DialogueVariable }[] };
 type Snapshot = { format: "pelican.dialogue"; version: 1; definitions: Graph[]; sessions: Session[] };
 const MAX_GRAPHS = 512, MAX_NODES_PER_GRAPH = 256, MAX_CHOICES_PER_NODE = 16, MAX_SESSIONS = 128;
 const MAX_TOTAL_NODES = 65536, MAX_TOTAL_CHOICES = 262144, MAX_TOTAL_CHARS = 4_194_304;
 const fail = (code: string, message: string): never => { throw new Error(`TC_DIALOGUE_${code}: ${message}`); };
 const validName = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value);
+const validValue = (value: unknown): value is DialogueVariable => typeof value === "boolean" || (typeof value === "string" && value.length <= 1024) || (typeof value === "number" && Number.isFinite(value));
 const fields = (value: unknown, allowed: readonly string[]): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).every(key => allowed.includes(key));
 function graph(input: DialogueDefinition): Graph {
   if (!fields(input, ["id", "start", "nodes"]) || !validName(input.id) || !validName(input.start) ||
@@ -28,12 +29,20 @@ function graph(input: DialogueDefinition): Graph {
     const choicesInput = (value.choices ?? []) as unknown[];
     const choiceIds = new Set<string>();
     const choices: Choice[] = choicesInput.map(choice => {
-      if (!fields(choice, ["id", "text", "next"]) || !validName(choice.id) || choiceIds.has(choice.id) ||
+      if (!fields(choice, ["id", "text", "next", "when"]) || !validName(choice.id) || choiceIds.has(choice.id) ||
           typeof choice.text !== "string" || !choice.text.length || choice.text.length > 1024 ||
           (choice.next !== undefined && choice.next !== null && !validName(choice.next)))
         return fail("CHOICE", `Node '${value.id}' needs distinct choice ids, nonempty text up to 1024 characters and a valid next node or null.`);
+      let when: Choice["when"];
+      if (choice.when !== undefined) {
+        const condition = choice.when;
+        if (!fields(condition, ["variable", "equals"]) || !validName(condition.variable) || !validValue(condition.equals))
+          return fail("CONDITION", `Choice '${choice.id}' needs a variable and finite scalar equality value.`);
+        when = { variable: condition.variable, equals: condition.equals };
+      }
       choiceIds.add(choice.id);
-      return { id: choice.id, text: choice.text, next: (choice.next ?? null) as string | null };
+      return { id: choice.id, text: choice.text, next: (choice.next ?? null) as string | null,
+        ...(when === undefined ? {} : { when }) };
     });
     if (choices.length && value.next !== undefined && value.next !== null)
       return fail("NODE", `Node '${value.id}' cannot have both a linear successor and choices.`);
@@ -68,7 +77,7 @@ function parse(value: unknown): { graphs: Map<string, Graph>; sessions: Map<stri
   budgets(graphs.values());
   const sessions = new Map<string, Session>();
   for (const raw of snapshot.sessions) {
-    if (!fields(raw, ["id", "dialogue", "status", "node", "steps"]) || !validName(raw.id) || !validName(raw.dialogue) ||
+    if (!fields(raw, ["id", "dialogue", "status", "node", "steps", "variables"]) || !validName(raw.id) || !validName(raw.dialogue) ||
         sessions.has(raw.id) || !["active", "completed", "cancelled"].includes(raw.status) ||
         !Number.isSafeInteger(raw.steps) || raw.steps < 0)
       return fail("SNAPSHOT", "Invalid or duplicate session.");
@@ -76,7 +85,15 @@ function parse(value: unknown): { graphs: Map<string, Graph>; sessions: Map<stri
     if (!definition || (raw.status === "active" && (!validName(raw.node) || !definition.nodes.some(node => node.id === raw.node))) ||
         (raw.status !== "active" && raw.node !== null) || (raw.status === "completed" && raw.steps < 1))
       return fail("SNAPSHOT", `Session '${raw.id}' does not match its dialogue or node.`);
-    sessions.set(raw.id, { id: raw.id, dialogue: raw.dialogue, status: raw.status, node: raw.node, steps: raw.steps });
+    const variables = raw.variables === undefined ? [] : raw.variables;
+    if (!Array.isArray(variables) || variables.length > 64) return fail("SNAPSHOT", `Invalid variables for session '${raw.id}'.`);
+    const names = new Set<string>();
+    for (const entry of variables) {
+      if (!fields(entry, ["key", "value"]) || !validName(entry.key) || !validValue(entry.value) || names.has(entry.key))
+        return fail("SNAPSHOT", `Invalid or duplicate variable for session '${raw.id}'.`);
+      names.add(entry.key);
+    }
+    sessions.set(raw.id, { id: raw.id, dialogue: raw.dialogue, status: raw.status, node: raw.node, steps: raw.steps, variables });
   }
   return { graphs, sessions };
 }
@@ -97,8 +114,12 @@ export const createDialoguePlugin: RuntimePluginFactory = () => {
     if (session.status !== "active" || session.node === null) return fail("STATE", `Dialogue session '${session.id}' is not active.`);
     return getGraph(session.dialogue).nodes.find(item => item.id === session.node) ?? fail("NODE", `Current node '${session.node}' does not exist.`);
   };
-  const state = (session: Session): DialogueSessionState => cloneSerializable({ id: session.id, dialogue: session.dialogue,
-    status: session.status, steps: session.steps, node: session.status === "active" ? current(session) : null });
+  const enabled = (session: Session, choice: Choice) => !choice.when || session.variables.some(entry => entry.key === choice.when!.variable && entry.value === choice.when!.equals);
+  const state = (session: Session): DialogueSessionState => {
+    const node = session.status === "active" ? current(session) : null;
+    return cloneSerializable({ id: session.id, dialogue: session.dialogue, status: session.status, steps: session.steps,
+      variables: session.variables, node: node ? { ...node, choices: node.choices.map(choice => ({ id: choice.id, text: choice.text, next: choice.next, enabled: enabled(session, choice) })) } : null });
+  };
   const move = (session: Session, next: string | null) => {
     if (session.steps >= Number.MAX_SAFE_INTEGER) return fail("STEPS", `Session '${session.id}' exhausted its step counter.`);
     session.steps++;
@@ -126,7 +147,15 @@ export const createDialoguePlugin: RuntimePluginFactory = () => {
       const definition = getGraph(dialogue);
       if (sessions.has(id)) return fail("SESSION_DUPLICATE", `Session '${id}' already exists; close it before restarting.`);
       if (sessions.size >= MAX_SESSIONS) return fail("CAPACITY", `At most ${MAX_SESSIONS} sessions may exist.`);
-      sessions.set(id, { id, dialogue, status: "active", node: definition.start, steps: 0 });
+      sessions.set(id, { id, dialogue, status: "active", node: definition.start, steps: 0, variables: [] });
+    },
+    setVariable(id, key, value) {
+      const session = getSession(id); current(session);
+      if (!validName(key) || !(value === null || validValue(value))) return fail("VARIABLE", "Variable requires a printable name and a boolean, finite number, string up to 1024 characters, or null to remove.");
+      const index = session.variables.findIndex(entry => entry.key === key);
+      if (value === null) { if (index >= 0) session.variables.splice(index, 1); return; }
+      if (index < 0 && session.variables.length >= 64) return fail("CAPACITY", "A session supports at most 64 variables.");
+      if (index < 0) session.variables.push({ key, value }); else session.variables[index] = { key, value };
     },
     advance(id) {
       const session = getSession(id), node = current(session);
@@ -138,6 +167,7 @@ export const createDialoguePlugin: RuntimePluginFactory = () => {
       if (!validName(choiceId)) return fail("CHOICE", "Choice id must be nonempty.");
       const choice = node.choices.find(item => item.id === choiceId);
       if (!choice) return fail("CHOICE_MISSING", `Node '${node.id}' has no choice '${choiceId}'.`);
+      if (!enabled(session, choice)) return fail("CHOICE_DISABLED", `Choice '${choiceId}' is disabled by its session variable condition.`);
       move(session, choice.next);
     },
     cancel(id) {

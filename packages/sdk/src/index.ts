@@ -1131,11 +1131,14 @@ export interface QuestService {
   inspect(id: string): QuestState;
   list(): readonly QuestState[];
 }
+export type DialogueVariable = string | number | boolean;
 export interface DialogueChoiceDefinition {
   id: string;
   text: string;
   /** Omit or use null to end the session. */
   next?: string | null;
+  /** Enabled only when the session variable exists and equals this value. */
+  when?: { variable: string; equals: DialogueVariable };
 }
 export interface DialogueNodeDefinition {
   id: string;
@@ -1155,16 +1158,19 @@ export interface DialogueSessionState {
   dialogue: string;
   status: "active" | "completed" | "cancelled";
   steps: number;
+  variables: readonly { key: string; value: DialogueVariable }[];
   node: null | {
     id: string; speaker: string; text: string; next: string | null;
-    choices: readonly { id: string; text: string; next: string | null }[];
+    choices: readonly { id: string; text: string; next: string | null; enabled: boolean }[];
   };
 }
-/** Branching text state only; game code owns UI, conditions and consequences. */
+/** Branching text and session variables; game code owns UI and consequences. */
 export interface DialogueService {
   define(definition: DialogueDefinition): void;
   undefine(id: string): void;
   start(session: string, dialogue: string): void;
+  /** Set a session variable, or remove it with null. */
+  setVariable(session: string, key: string, value: DialogueVariable | null): void;
   /** Advance a node without choices; a terminal node completes the session. */
   advance(session: string): void;
   choose(session: string, choice: string): void;

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add dialogue session variables and equality-gated choices; runtime and snapshot behavior remain unverified.
+
 - Add manual camera poses and fixed-tick camera transitions with snapshot state. Runtime behavior remains unverified.
 
 - Account for collider-center offset in fluid and soft-body reaction torque; runtime behavior remains unverified.

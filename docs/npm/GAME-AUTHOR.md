@@ -518,12 +518,13 @@ when advanced or chosen:
 ```ts
 ctx.dialogue.define({ id: "guide", start: "hello", nodes: [
   { id: "hello", speaker: "Guide", text: "Can you help?", choices: [
-    { id: "yes", text: "Yes", next: "thanks" },
+    { id: "yes", text: "Yes", next: "thanks", when: { variable: "ready", equals: true } },
     { id: "no", text: "Not now" },
   ] },
   { id: "thanks", speaker: "Guide", text: "Thank you." },
 ] });
 ctx.dialogue.start("talk", "guide");
+ctx.dialogue.setVariable("talk", "ready", true);
 const session = ctx.dialogue.inspect("talk");
 // Game UI displays session.node; selecting Yes calls ctx.dialogue.choose("talk", "yes").
 ```
@@ -531,8 +532,13 @@ const session = ctx.dialogue.inspect("talk");
 Use `advance` for a node without choices, `choose` for a listed choice,
 `cancel` to end an active session, and `close` to remove any session. A session
 must be closed before reusing its ID or undefining its dialogue. Graph edges
-must reference defined nodes; loops are allowed. The game decides which choices
-to display and applies quest, inventory and other consequences itself; those
+must reference defined nodes; loops are allowed. A choice's optional `when`
+requires an existing session variable to equal its scalar value. `inspect`
+includes an `enabled` flag for every choice; `choose` rejects disabled choices.
+Use `setVariable(session, key, null)` to remove a variable. Up to 64 variables
+per session are saved with progress; older snapshots start with none. If every
+choice is disabled, update a variable or cancel the session. Game code maps
+quest or inventory state into variables and applies consequences itself; those
 operations are not a shared transaction. `inspect` and `list` return detached
 state. Definitions and session progress are included in host snapshots; older
 snapshots have an empty dialogue service.
@@ -540,7 +546,7 @@ snapshots have an empty dialogue service.
 The service permits 512 dialogue definitions, 256 nodes per graph, 16 choices
 per node and 128 concurrent sessions, with additional total node, choice and
 text budgets. This is a basic branching text-state system, not a dialogue
-editor, voice/lip-sync, localization system or automatic condition/reward
+editor, voice/lip-sync, localization system or automatic quest/reward
 engine. Runtime behavior and snapshot restoration have not been validated.
 `examples/dialogue` connects a conversation to a quest through game code.
 
