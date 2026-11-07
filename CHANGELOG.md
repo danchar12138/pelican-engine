@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-11-07
+
+- Development batch only: tests, runtime behavior, deployment, hardware, performance, resource lifecycle and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.
+
 - Stage build output and preserve an existing dist as a backup before replacement. Concurrent edits and failure recovery remain unverified.
 
 - Add explicit project version-lock planning, backup-based apply and guarded restoration. API and save migration are not included; runtime behavior is unverified.

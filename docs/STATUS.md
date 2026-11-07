@@ -2,9 +2,9 @@
 
 ## Version and Release
 
-- Current source version: 0.6.1. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
-- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. The occupied `0.6.0` identity is preserved; `0.6.1` is the intended batch version under D59.
-- A push to main attempts an npm latest release through GitHub Actions trusted publishing. The local 0.7 development batch removes the duplicate main-push build job and makes an already-published version fail explicitly rather than silently skip. These workflow changes have not yet run on GitHub. GitHub Releases use standard version tags without pre-release suffixes.
+- Current source version: 0.7.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
+- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved; `0.7.0` is the intended development batch version.
+- A push to main attempts an npm latest release through GitHub Actions trusted publishing. The 0.7.0 development batch removes the duplicate main-push build job and makes an already-published version fail explicitly rather than silently skip. Workflow and registry outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
 
@@ -12,7 +12,7 @@
 
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.
-- The local 0.7 batch makes scene, model, texture and audio cleanup best-effort across individual disposal failures, shares in-flight dispose promises and retains cleanup diagnostics. It also adds a plan/apply/restore command for project version locks with backup and hash guards, not API, dependency or save migration. Builds now stage output and retain prior dist in a workspace backup before replacement. Cleanup, build rollback, migration, recovery and absence of leaks are not runtime-validated; failures after a scene commit do not guarantee rollback.
+- The 0.7.0 batch makes scene, model, texture and audio cleanup best-effort across individual disposal failures, shares in-flight dispose promises and retains cleanup diagnostics. It also adds a plan/apply/restore command for project version locks with backup and hash guards, not API, dependency or save migration. Builds now stage output and retain prior dist in a workspace backup before replacement. Cleanup, build rollback, migration, recovery and absence of leaks are not runtime-validated; failures after a scene commit do not guarantee rollback.
 - Changes after 0.3.35 include spot lights, local light falloff, light and mesh shadow flags in direct tracing, and GLB unlit materials and punctual lights. These changes have not been runtime-validated.
 - The 0.4.1 simulation/API batch also adds runtime gravity control and particle velocity/nearest-particle queries for rope, cloth, fluid and soft bodies; atomic batched impulses and anchor updates; and sphere/box/capsule rigid-body overlap queries. These APIs have only been type-compiled and built, not behavior-validated.
 - The 0.4.1 batch adds one-tick forces and manually sampled sphere/plane/axis-aligned box colliders to fluid and soft bodies, improves sampled-collider snapshot restoration, and tightens HDR metadata and scanline diagnostics. It has not been behavior-validated; manual colliders are discrete and do not react on rigid bodies.
