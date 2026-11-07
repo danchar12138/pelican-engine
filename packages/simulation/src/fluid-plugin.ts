@@ -23,7 +23,8 @@ function createEntry(input: FluidDefinition, fixedDt: number, materials: Readonl
   if (definition.visual !== undefined) {
     const visual = definition.visual;
     if (!visual || typeof visual !== "object" || !validId(visual.material) || !materials.has(visual.material)) return fail("VISUAL_MATERIAL", "visual.material must name a declared material.");
-    if (visual.radius !== undefined && (typeof visual.radius !== "number" || !Number.isFinite(visual.radius) || visual.radius <= 0 || visual.radius > 1e6)) return fail("VISUAL_RADIUS", "visual.radius must be positive and finite.");
+    if (visual.radius !== undefined && (typeof visual.radius !== "number" || !Number.isFinite(visual.radius) || visual.radius <= 0 || visual.radius > 1e6 || Math.fround(visual.radius) === 0)) return fail("VISUAL_RADIUS", "visual.radius must be positive, finite and representable as f32.");
+    if ((visual.castShadow !== undefined && typeof visual.castShadow !== "boolean") || (visual.receiveShadow !== undefined && typeof visual.receiveShadow !== "boolean")) return fail("VISUAL_SHADOW", "Shadow options must be boolean.");
   }
   const { id: _id, autoStep: _autoStep, visual: _visual, bodyColliders: _bodyColliders, bodyReactions: _bodyReactions, ...options } = definition;
   const simulation = createSimulation("fluid", { ...options, fixedDt, twoWayCoupling: definition.bodyReactions ?? false,
@@ -79,7 +80,7 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
     create(definition) { alive(); if (entries.has(definition.id)) return fail("DUPLICATE", `Fluid '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 fluids per host."); const entry = createEntry(definition, fixedDt, materials, sampleBinding(definition)); entries.set(entry.definition.id, entry); },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Fluid '${id}' is automatically stepped.`); entry.simulation.step(ticks); return inspect(entry); },
     inspect(id) { return inspect(get(id)); },
-    visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual !== undefined).sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const visual = entry.definition.visual!, state = inspect(entry); return { id: entry.definition.id, material: visual.material, particles: state.particles, castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true }; }); },
+    visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual !== undefined).sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const visual = entry.definition.visual!, state = inspect(entry); return { id: entry.definition.id, material: visual.material, particles: state.particles.map(particle => ({ ...particle, radius: visual.radius ?? particle.radius })), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true }; }); },
     applyImpulse(id, particle, impulse) { get(id).simulation.applyImpulse(particle, [...cloneSerializable(impulse)] as [number, number, number]); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
