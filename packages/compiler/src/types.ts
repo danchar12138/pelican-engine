@@ -83,6 +83,8 @@ export interface EntityIR {
     materialSlots?: Record<string, string>;
     castShadow?: boolean;
     receiveShadow?: boolean;
+    embeddedLights?: boolean;
+    embeddedLightShadows?: boolean;
     asset: string;
     scale: number;
     offset?: Vec3;

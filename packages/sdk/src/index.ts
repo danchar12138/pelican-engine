@@ -644,6 +644,10 @@ export interface ModelDefinition {
   materialSlots?: Record<string, MaterialDefinition | string>;
   castShadow?: boolean;
   receiveShadow?: boolean;
+  /** Enable lights embedded in the model; defaults to true. */
+  embeddedLights?: boolean;
+  /** Enable shadows for embedded lights; defaults to false. */
+  embeddedLightShadows?: boolean;
   asset: AssetDefinition | string;
   scale?: number;
   offset?: Vec3;

@@ -197,11 +197,13 @@ interface PendingTemplate {
   settled: boolean;
 }
 
-function disposeInstanceSkeletons(root: THREE.Object3D): void {
+function disposeInstanceResources(root: THREE.Object3D): void {
   const skeletons = new Set<THREE.Skeleton>();
   root.traverse((object) => {
     if ((object as THREE.SkinnedMesh).isSkinnedMesh)
       skeletons.add((object as THREE.SkinnedMesh).skeleton);
+    if (object instanceof THREE.PointLight || object instanceof THREE.SpotLight || object instanceof THREE.DirectionalLight)
+      object.shadow.dispose();
   });
   for (const skeleton of skeletons) skeleton.dispose();
 }
@@ -433,7 +435,7 @@ class ModelLibraryImpl implements ModelLibrary {
           ![0, 1, 2].every((index) => Number.isFinite(vector[index])))
       )
         throw new Error(`TC_MODEL_INVALID_${label}`);
-    for (const field of ["castShadow", "receiveShadow"] as const)
+    for (const field of ["castShadow", "receiveShadow", "embeddedLights", "embeddedLightShadows"] as const)
       if (
         definition[field] !== undefined &&
         typeof definition[field] !== "boolean"
@@ -480,6 +482,8 @@ class ModelLibraryImpl implements ModelLibrary {
     const normalized: NormalizedModelDefinition = {
       castShadow: definition.castShadow !== false,
       receiveShadow: definition.receiveShadow !== false,
+      embeddedLights: definition.embeddedLights !== false,
+      embeddedLightShadows: definition.embeddedLightShadows === true,
       asset: assetId,
       ...(materialId !== undefined ? { material: materialId } : {}),
       ...(materialSlots !== undefined ? { materialSlots } : {}),
@@ -584,13 +588,17 @@ class ModelLibraryImpl implements ModelLibrary {
           child.scale.equals(source.target.scale));
         const target = clones.get(source.target) ?? (detachedChild && clones.get(detachedChild));
         if (!target) {
-          disposeInstanceSkeletons(root);
+          disposeInstanceResources(root);
           throw new Error(`TC_MODEL_LIGHT_TARGET: ${entityId}: light '${source.name}' has no target in its model; re-export the model.`);
         }
         copy.target = target;
       }
     }
     root.traverse((object) => {
+      if (object instanceof THREE.PointLight || object instanceof THREE.SpotLight || object instanceof THREE.DirectionalLight) {
+        object.visible = definition.embeddedLights !== false;
+        object.castShadow = definition.embeddedLightShadows === true;
+      }
       if (object instanceof THREE.Mesh) {
         if (material !== undefined)
           object.material = Array.isArray(object.material)
@@ -644,7 +652,7 @@ class ModelLibraryImpl implements ModelLibrary {
     state.mixer.stopAllAction();
     state.mixer.uncacheRoot(state.root);
     state.node.removeFromParent();
-    disposeInstanceSkeletons(state.root);
+    disposeInstanceResources(state.root);
   }
 
   private stageInstances(ids: ReadonlySet<string>, definitions = this.definitions, initializeAnimation = true): Map<string, InstanceState> {

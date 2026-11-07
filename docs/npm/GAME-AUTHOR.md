@@ -41,8 +41,10 @@ raster/path/hybrid behavior for this addition have not been runtime-validated.
 Ambient occlusion maps on other unlit materials are not supported by the tracer.
 
 Embedded GLB `KHR_lights_punctual` directional, point and spot lights are
-imported with their node transforms. Their import, optimization and rendering
-are not runtime-validated under the current build-only policy.
+imported with their node transforms. Set `model.embeddedLights: false` to disable
+them or `model.embeddedLightShadows: true` to enable their shadows; defaults are
+true and false respectively. Their import, optimization and rendering are not
+runtime-validated under the current build-only policy.
 
 Scene lights support `kind: "spot"` with a world-space `target`, cone half-angle
 in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Point and spot

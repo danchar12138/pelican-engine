@@ -806,7 +806,7 @@ export async function normalize(
           model,
           "asset",
         );
-      for (const field of ["castShadow", "receiveShadow"] as const)
+      for (const field of ["castShadow", "receiveShadow", "embeddedLights", "embeddedLightShadows"] as const)
         if (model[field] !== undefined && typeof model[field] !== "boolean")
           error("TC_MODEL_VALUE", field + " must be a boolean.", model, field);
       if (model.material !== undefined && model.materialSlots !== undefined)
@@ -826,6 +826,8 @@ export async function normalize(
       result.model = {
         castShadow: model.castShadow !== false,
         receiveShadow: model.receiveShadow !== false,
+        embeddedLights: model.embeddedLights !== false,
+        embeddedLightShadows: model.embeddedLightShadows === true,
         asset,
         scale: num(model.scale, model, "scale", 1, Number.EPSILON),
         ...(model.material !== undefined ? { material: (() => { const name = ref(model.material, model, "material"); requireRef("material", name, model, "material"); return name; })() } : {}),
