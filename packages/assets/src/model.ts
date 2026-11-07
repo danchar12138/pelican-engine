@@ -443,15 +443,18 @@ export async function inspectModel(
           specularTexture?: GLTF.ITextureInfo;
           specularColorTexture?: GLTF.ITextureInfo;
         } | undefined;
-        for (const info of [
-          m.pbrMetallicRoughness?.baseColorTexture,
-          m.pbrMetallicRoughness?.metallicRoughnessTexture,
-          m.normalTexture,
-          m.occlusionTexture,
-          m.emissiveTexture,
-          specular?.specularTexture,
-          specular?.specularColorTexture,
-        ])
+        const activeTextures = m.extensions?.KHR_materials_unlit
+          ? [m.pbrMetallicRoughness?.baseColorTexture]
+          : [
+              m.pbrMetallicRoughness?.baseColorTexture,
+              m.pbrMetallicRoughness?.metallicRoughnessTexture,
+              m.normalTexture,
+              m.occlusionTexture,
+              m.emissiveTexture,
+              specular?.specularTexture,
+              specular?.specularColorTexture,
+            ];
+        for (const info of activeTextures)
           if (info)
             ctx.check(
               p.attributes[`TEXCOORD_${(info.extensions?.KHR_texture_transform as { texCoord?: number } | undefined)?.texCoord ?? info.texCoord ?? 0}`] !== undefined,
