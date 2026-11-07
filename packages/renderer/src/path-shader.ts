@@ -35,6 +35,88 @@ override traceVolumeEnabled:bool=false;
 override traceCaptureFault:bool=false;
 fn traceMediumIor(id:u32)->f32{if(id==0u){return 1.0;}return traceLights[u32(traceParams.medium.x)+id-1u].position.x;}
 fn traceMediumSigma(id:u32)->vec3f{if(id==0u){return vec3f(0);}return traceLights[u32(traceParams.medium.x)+id-1u].position.yzw;}
+// Distance to a closed triangle, for rejecting a primary origin on a medium boundary.
+fn tracePointTriangleDistance2(point:vec3f,a:vec3f,b:vec3f,c:vec3f)->f32{
+ let ab=b-a;let ac=c-a;let ap=point-a;let d1=dot(ab,ap);let d2=dot(ac,ap);
+ if(d1<=0.0&&d2<=0.0){return dot(ap,ap);}
+ let bp=point-b;let d3=dot(ab,bp);let d4=dot(ac,bp);
+ if(d3>=0.0&&d4<=d3){return dot(bp,bp);}
+ let vc=d1*d4-d3*d2;
+ if(vc<=0.0&&d1>=0.0&&d3<=0.0){let v=d1/(d1-d3);let delta=point-(a+v*ab);return dot(delta,delta);}
+ let cp=point-c;let d5=dot(ab,cp);let d6=dot(ac,cp);
+ if(d6>=0.0&&d5<=d6){return dot(cp,cp);}
+ let vb=d5*d2-d1*d6;
+ if(vb<=0.0&&d2>=0.0&&d6<=0.0){let w=d2/(d2-d6);let delta=point-(a+w*ac);return dot(delta,delta);}
+ let va=d3*d6-d5*d4;
+ if(va<=0.0&&(d4-d3)>=0.0&&(d5-d6)>=0.0){let w=(d4-d3)/((d4-d3)+(d5-d6));let delta=point-(b+w*(c-b));return dot(delta,delta);}
+ let total=va+vb+vc;if(total<=0.0){return 0.0;}
+ let delta=point-(a+ab*(vb/total)+ac*(vc/total));return dot(delta,delta);
+}
+struct TraceInitialBoundary{volume:u32,front:bool,ambiguous:bool,near:bool,invalid:bool,}
+// Find the first physical shell, ignoring opaque surfaces. Valid nested closed shells
+// identify the starting medium: front means its parent, back means the shell itself.
+fn traceInitialBoundary(point:vec3f,direction:vec3f)->TraceInitialBoundary{
+ let nodeCount=u32(traceParams.counts.x);let triangleCount=u32(traceParams.counts.y);
+ var result=TraceInitialBoundary(0u,true,false,false,false);
+ if(nodeCount==0u||triangleCount==0u){return result;}
+ let inverse=1.0/select(vec3f(1e-30),direction,abs(direction)>vec3f(1e-20));
+ let roundoff=2.3841858e-7*max(1.0,max(max(abs(point.x),abs(point.y)),abs(point.z)));
+ let margin=traceParams.environment2.w+roundoff;
+ var nearest=1e30;var current=0u;
+ loop{
+  if(current>=nodeCount){break;}
+  let node=surfaceLoadNode(current);
+  let onRay=surfaceEntry(point,direction,inverse,node,nearest)<1e30;
+  let nearPoint=all(point>=node.lo.xyz-vec3f(margin))&&all(point<=node.hi.xyz+vec3f(margin));
+  if(!onRay&&!nearPoint){current=select(u32(node.lo.w),current+1u,node.hi.w>0.0);continue;}
+  if(node.hi.w>0.0){let start=u32(node.lo.w);let count=u32(node.hi.w);
+   for(var slot=0u;slot<count;slot++){
+    let index=start+slot;if(index>=triangleCount){continue;}
+    let offset=nodeCount*2u+index*3u;let a=surfaceAccelerationData[offset];let packedB=surfaceAccelerationData[offset+1u];let b=packedB.xyz;let c=surfaceAccelerationData[offset+2u].xyz;
+    if(surfaceMaterials[u32(a.w)].physical.x<=0.0){continue;}
+    let id=u32(surfaceTriangle(index).nmb.w);
+    if(id==0u||id>u32(traceParams.medium.w)){result.invalid=true;continue;}
+    if(nearPoint){let tolerance=traceLights[u32(traceParams.medium.x)+id-1u].color.y+roundoff;
+     if(tracePointTriangleDistance2(point,a.xyz,b,c)<=tolerance*tolerance){result.near=true;}}
+    if(!onRay){continue;}
+    let edge1=b-a.xyz;let edge2=c-a.xyz;let determinant=dot(edge1,cross(direction,edge2));
+    if(determinant==0.0){continue;}
+    let boundary=surfaceBoundary(point,direction,a.xyz,b,c,nearest);if(boundary.w<0.0){continue;}
+    let front=(determinant>0.0)==(packedB.w>0.0);
+    let uncertain=min(min(boundary.x,boundary.y),boundary.z)<=1e-6||abs(determinant)<=1e-7*length(edge1)*length(edge2);
+    if(boundary.w<nearest){nearest=boundary.w;result.volume=id;result.front=front;result.ambiguous=uncertain;}
+    else if(boundary.w==nearest&&(result.volume!=id||result.front!=front)){result.ambiguous=true;}
+   }
+  }
+  current++;
+ }
+ return result;
+}
+fn traceMediumParent(id:u32)->u32{return u32(traceLights[u32(traceParams.medium.x)+id-1u].color.x);}
+// Each primary sample gets its own stack, independent of all opaque geometry.
+fn traceInitializeOrthoMedia(point:vec3f,media:ptr<function,array<u32,65>>,depth:ptr<function,u32>)->u32{
+ var found=false;var selected=0u;
+ for(var choice=0u;choice<3u;choice++){
+  var direction=normalize(vec3f(1.0,0.37139,0.69421));
+  if(choice==1u){direction=normalize(vec3f(-0.52973,1.0,0.21761));}
+  if(choice==2u){direction=normalize(vec3f(0.19317,-0.61843,1.0));}
+  let boundary=traceInitialBoundary(point,direction);
+  if(boundary.invalid){return 1u;}if(boundary.near){return 16u;}if(boundary.ambiguous){continue;}
+  var candidate=0u;
+  if(boundary.volume!=0u){candidate=select(boundary.volume,traceMediumParent(boundary.volume),boundary.front);}
+  if(found&&candidate!=selected){return 32u;}selected=candidate;found=true;
+ }
+ if(!found){return 32u;}
+ var chain:array<u32,64>;var count=0u;var id=selected;
+ loop{
+  if(id==0u){break;}
+  if(id>u32(traceParams.medium.w)){return 1u;}if(count>=64u){return 8u;}
+  for(var previous=0u;previous<count;previous++){if(chain[previous]==id){return 32u;}}
+  chain[count]=id;count++;id=traceMediumParent(id);
+ }
+ for(var i=0u;i<count;i++){(*media)[i+1u]=chain[count-i-1u];}
+ (*depth)=count+1u;return 0u;
+}
 fn traceBackground(direction:vec3f)->vec3f{
  if(traceParams.background.w<0.5){return traceParams.background.rgb;}
  let c=traceParams.backgroundSettings.y;let s=traceParams.backgroundSettings.z;
@@ -111,9 +193,14 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
   let cameraOrigin=traceCameraOrigin(traceParams.origin.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
   var direction=traceCameraDirection(traceParams.forward.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
   var origin=cameraOrigin+direction*(traceParams.screen.w/max(dot(direction,traceParams.forward.xyz),1e-5));
-  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=cameraOrigin;var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
+  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=select(cameraOrigin,origin,orthographic);var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
   var previousHit=-1;var previousGeometric=vec3f(0);var previousBary=vec3f(0);var previousEvent=0u;var previousFront=false;
-  if(traceVolumeEnabled){let initialCount=u32(traceParams.medium.y);if(initialCount>64u){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,8u);}else{for(var layer=0u;layer<initialCount;layer++){media[layer+1u]=u32(traceLights[u32(traceParams.medium.z)+layer].position.x);}mediumDepth+=initialCount;}}
+  if(traceVolumeEnabled){
+   var initialFault=0u;
+   if(orthographic){initialFault=traceInitializeOrthoMedia(origin,&media,&mediumDepth);}
+   else{let initialCount=u32(traceParams.medium.y);if(initialCount>64u){initialFault=8u;}else{for(var layer=0u;layer<initialCount;layer++){media[layer+1u]=u32(traceLights[u32(traceParams.medium.z)+layer].position.x);}mediumDepth+=initialCount;}}
+   if(initialFault!=0u){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,initialFault);atomicStore(&traceOutput.faultPixel,index);continue;}
+  }
   for(var bounce=0u;bounce<u32(traceParams.settings.z);bounce++){
    var hit:SurfaceHit;
    if(hybrid&&bounce==0u){let primary=textureLoad(primaryHits,vec2i(invocation.xy),0);if(primary.y< -1.5){var coverageSeed=seed;let cosine=max(dot(direction,traceParams.forward.xyz),1e-5);let exact=traceSurface(origin,direction,(traceParams.settings.w-traceParams.screen.w)/cosine,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(&coverageSeed));hit=SurfaceHit(exact.distance+traceParams.screen.w/cosine,exact.index,exact.bary,exact.front);}else{hit=SurfaceHit(abs(primary.x),i32(primary.y),vec3f(1.0-primary.z-primary.w,primary.z,primary.w),primary.x>=0.0);}origin=cameraOrigin;}

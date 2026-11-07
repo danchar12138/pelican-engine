@@ -181,6 +181,7 @@ export class SurfaceTracer {
   private temporalResets = 0;
   private mediumCatalog: MediumCatalog | undefined;
   private mediumIds = new Map<string, number>();
+  private unsupportedOrthographicMedia: readonly string[] = [];
   private mediumFaces: readonly SurfaceTriangle[] = [];
   private mediumSignature = "";
   private mediumRevision = 0;
@@ -758,6 +759,7 @@ export class SurfaceTracer {
     this.mediumCatalog?.dispose();
     this.mediumCatalog = undefined;
     this.mediumIds.clear();
+    this.unsupportedOrthographicMedia = [];
     this.mediumFaces = [];
     this.mediumSignature = "";
     this.mediumRevision++;
@@ -1179,6 +1181,8 @@ export class SurfaceTracer {
           material.ior,
           material.attenuationColor,
           material.attenuationDistance,
+          material.alphaMode,
+          material.alphaTest,
         ];
       }),
     );
@@ -1193,6 +1197,19 @@ export class SurfaceTracer {
       this.mediumIds = new Map(
         candidate?.volumes.map((volume) => [volume.key, volume.id]) ?? [],
       );
+      this.unsupportedOrthographicMedia = candidate?.volumes.flatMap(volume => {
+        const triangles = volume.triangleIndices.map(index => surface.triangles[index]);
+        const n = triangles[0].normalMatrix;
+        const determinant = n[0] * (n[4] * n[8] - n[5] * n[7]) - n[3] * (n[1] * n[8] - n[2] * n[7]) + n[6] * (n[1] * n[5] - n[2] * n[4]);
+        // Existing transport interprets front/back using the authored winding and
+        // cannot yet normalize globally inverted shells or alpha-cutout volumes.
+        const inverted = volume.worldWinding !== (determinant > 0 ? 1 : -1);
+        const filtered = triangles.some(triangle => {
+          const material = materials.get(triangle.materialUuid)!;
+          return material.alphaMode !== "opaque" || material.alphaTest > 0;
+        });
+        return inverted || filtered ? [volume.key] : [];
+      }) ?? [];
       this.mediumFaces = faces;
       this.mediumSignature = signature;
       this.mediumRevision++;
@@ -1246,9 +1263,10 @@ export class SurfaceTracer {
         number,
         number,
       ],
-      key = JSON.stringify([this.mediumRevision, ...position]);
+      key = JSON.stringify([this.mediumRevision, camera instanceof THREE.OrthographicCamera, ...position]);
     if (key !== this.initialMediaKey) {
-      this.initialMedia = this.mediumCatalog?.initial(position) ?? [];
+      // Orthographic primary rays have distinct origins and are classified on the GPU.
+      this.initialMedia = camera instanceof THREE.OrthographicCamera ? [] : (this.mediumCatalog?.initial(position) ?? []);
       if (this.initialMedia.length > 64)
         throw new Error(
           "TC_TRACE_MEDIUM_CAPACITY: Camera starts in more than 64 nested media supported by this pipeline.",
@@ -1270,8 +1288,11 @@ export class SurfaceTracer {
         (initialBase + this.initialMedia.length) * 12,
       );
       if (this.lightData) data.set(this.lightData);
+      const mediumInfo = this.mediumCatalog?.inspect();
+      const parents = new Map(mediumInfo?.nesting.map(item => [item.id, item.parentId]) ?? []);
+      const tolerances = new Map(mediumInfo?.tolerance.map(item => [item.id, item.weld]) ?? []);
       for (const volume of volumes)
-        data.set([volume.ior, ...volume.sigma], (base + volume.id - 1) * 12);
+        data.set([volume.ior, ...volume.sigma, parents.get(volume.id) ?? 0, tolerances.get(volume.id) ?? 0], (base + volume.id - 1) * 12);
       this.initialMedia.forEach((id, index) => {
         data[(initialBase + index) * 12] = id;
       });
@@ -1406,8 +1427,8 @@ export class SurfaceTracer {
         "TC_TRACE_SCENE: Capture the current scene before rendering.",
       );
     const orthographic = camera instanceof THREE.OrthographicCamera;
-    if (orthographic && this.mediumIds.size)
-      throw new Error("TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED: Orthographic tracing cannot yet initialize participating media separately for each primary ray. Use a perspective camera or remove transmissive volumes.");
+    if (orthographic && this.unsupportedOrthographicMedia.length)
+      throw new Error(`TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED: Orthographic volume transport requires outward-authored closed shells without alpha filtering; unsupported object(s): ${this.unsupportedOrthographicMedia.join(", ")}.`);
     const started = performance.now();
     camera.updateWorldMatrix(true, false);
     this.uploadMedium(camera);
@@ -1504,7 +1525,7 @@ export class SurfaceTracer {
       this.environmentRotation.elements[8],
       this.environmentRotation.elements[9],
       this.environmentRotation.elements[10],
-      0,
+      this.mediumCatalog?.inspect().tolerance.reduce((maximum, item) => Math.max(maximum, item.weld), 0) ?? 0,
       ...this.mediumParams,
       ...this.previousViewProjection.elements,
       ...this.previousCameraOrigin.toArray(),
@@ -1959,7 +1980,7 @@ export class SurfaceTracer {
               detail +
               ",pixel=" +
               pixel +
-              "; 1=missing volume, 2=boundary order/duplicate entry, 4=miss inside, 8=capacity)." +
+              "; 1=missing volume, 2=boundary order/duplicate entry, 4=miss inside, 8=capacity, 16=origin near boundary, 32=ambiguous initial classification)." +
               (this.mediumDebug
                 ? " debug=" + JSON.stringify(this.mediumDebug)
                 : ""),

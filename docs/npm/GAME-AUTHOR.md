@@ -532,13 +532,17 @@ camera: { position: [0, 0, 10], target: [0, 0, 0], projection: "orthographic", o
 `orthographicSize` is the vertical visible span in world units; width follows the
 render viewport aspect. Perspective remains the default. `fov` is only accepted
 for perspective cameras; `orthographicSize` only for orthographic cameras.
-On WebGPU, normal game scenes also have development-stage orthographic hybrid
-and path tracing. If a captured scene contains transmissive volumes, these modes
-return `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`: per-ray initial media are not
-implemented yet. Select a perspective camera or remove the volumes; there is no
-silent fallback. The historical M0 tracing sidecar remains perspective-only,
-and WebGL2 remains raster-only. Camera rays, jitter, motion reprojection,
-clipping and hardware behavior have not been runtime-validated. The example
+On WebGPU, normal game scenes have development-stage orthographic hybrid and
+path tracing. Each primary sample initializes its medium stack at the near plane
+using the captured closed-shell hierarchy. A shell must be outward-authored and
+must not use alpha filtering; unsupported shells report
+`TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`. The current catalog also requires
+closed, non-intersecting or strictly nested volumes; camera samples near shell
+boundaries or with ambiguous classification report `TC_TRACE_MEDIUM_STATE`.
+There is no silent fallback. The historical M0 tracing sidecar remains
+perspective-only, and WebGL2 remains raster-only. Medium classification, GPU
+cost, camera rays, jitter, motion reprojection, clipping and hardware behavior
+have not been runtime-validated. The example
 `examples/orthographic-2d` and the installed recipe use simple 3D primitives
 positioned on a plane; it does not itself demonstrate sprite animation or tile
 maps. The camera is not 2D physics or a complete 2D engine. Rendering, WebGL2 fallback, world UI projection and input

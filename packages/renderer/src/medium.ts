@@ -11,6 +11,8 @@ export interface MediumVolume {
   readonly key: string;
   readonly ior: number;
   readonly sigma: SurfaceVec3;
+  /** Sign of the closed shell's world-space signed volume. */
+  readonly worldWinding: 1 | -1;
   readonly bounds: { readonly min: SurfaceVec3; readonly max: SurfaceVec3 };
   readonly triangleIndices: readonly number[];
 }
@@ -255,6 +257,7 @@ function build(
     key,
     ior,
     sigma,
+    worldWinding: signed > 0 ? 1 as const : -1 as const,
     bounds: Object.freeze({ min: tuple(bounds.min), max: tuple(bounds.max) }),
     triangleIndices: Object.freeze(indices.slice()),
   });

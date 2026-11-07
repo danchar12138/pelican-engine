@@ -1,5 +1,7 @@
 # CPU Medium Catalog
 
+> Historical original contract and evidence follow. Current code additionally exposes `worldWinding` per volume and feeds shell nesting to the development-stage GPU integrator; orthographic per-ray classification and GPU behavior are unverified.
+
 ## Contract
 
 Import directly from `src/medium.ts`. No SDK, integrator, GPU ABI, dependency,
