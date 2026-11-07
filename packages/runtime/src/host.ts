@@ -286,6 +286,9 @@ export class RuntimeHost {
       get i18n() {
         return host.service("i18n");
       },
+      get sprites() {
+        return host.service("sprites");
+      },
       get ropes() {
         return host.service("ropes");
       },

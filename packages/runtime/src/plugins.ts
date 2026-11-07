@@ -15,6 +15,7 @@ import type {
   QuestService,
   DialogueService,
   LocalizationService,
+  SpriteService,
   RopeService,
   ClothService,
   FluidService,
@@ -45,6 +46,7 @@ export interface RuntimeServices {
   quests: QuestService;
   dialogue: DialogueService;
   i18n: LocalizationService;
+  sprites: SpriteService;
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;

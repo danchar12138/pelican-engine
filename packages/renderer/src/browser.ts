@@ -4,6 +4,7 @@ import { createRopeVisualOwner } from "./rope-visuals.ts";
 import { createClothVisualOwner } from "./cloth-visuals.ts";
 import { createFluidVisualOwner } from "./fluid-visuals.ts";
 import { createSoftBodyVisualOwner } from "./softbody-visuals.ts";
+import { createSpriteVisualOwner } from "./sprite-visuals.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
 import { SurfaceTracer } from "./surface-tracer.ts";
@@ -226,11 +227,12 @@ const ropeVisuals = createRopeVisualOwner();
 const clothVisuals = createClothVisualOwner();
 const fluidVisuals = createFluidVisualOwner();
 const softBodyVisuals = createSoftBodyVisualOwner();
-scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisuals.root);
+const spriteVisuals = createSpriteVisualOwner();
+scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisuals.root, spriteVisuals.root);
 let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
 const clearDynamicVisuals = () => {
-  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear();
-  if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged) dynamicVisualRevision++;
+  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear();
+  if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged || spritesChanged) dynamicVisualRevision++;
 };
 let authoredCamera = { position: [0, 3.4, 7], target: [0, 0.9, 0] };
 let authoredLights: {
@@ -577,6 +579,7 @@ function syncRuntime(): boolean {
     if (clothVisuals.sync(runtime.facade.cloth.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (fluidVisuals.sync(runtime.facade.fluid.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (softBodyVisuals.sync(runtime.facade.softBodies.visuals(), gameMaterials)) dynamicVisualRevision++;
+    if (spriteVisuals.sync(runtime.facade.sprites.visuals(), gameMaterials, gameObjects)) dynamicVisualRevision++;
   } else clearDynamicVisuals();
   return dynamicVisualRevision !== renderedDynamicVisualRevision;
 }
@@ -832,7 +835,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
         emissive: definition.emissive ?? "#000000",
         emissiveIntensity: definition.emissiveIntensity ?? 1,
         opacity: definition.opacity ?? 1,
-        transparent: (definition.opacity ?? 1) < 1,
+        transparent: definition.transparent ?? (definition.opacity ?? 1) < 1,
         alphaTest: definition.alphaTest ?? 0,
         side:
           definition.side === "double"
@@ -1554,6 +1557,7 @@ async function disposeBrowser() {
   clean(() => clothVisuals.dispose());
   clean(() => fluidVisuals.dispose());
   clean(() => softBodyVisuals.dispose());
+  clean(() => spriteVisuals.dispose());
   clean(() => releaseObject(scene, true, gameMaterials.values()));
   clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());

@@ -121,10 +121,53 @@ export interface SystemContext extends EngineFacade {
   readonly quests: QuestService;
   readonly dialogue: DialogueService;
   readonly i18n: LocalizationService;
+  readonly sprites: SpriteService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
   readonly softBodies: SoftBodyService;
+}
+export interface SpriteAnimation {
+  first: number;
+  last: number;
+  /** Atlas frames per second, greater than zero and at most 240. */
+  fps: number;
+  loop?: boolean;
+}
+export interface SpriteDefinition {
+  id: string;
+  /** Live entity whose world transform positions the sprite plane. */
+  entity: string;
+  /** Declared textured material; use transparent: true for alpha blending. */
+  material: string;
+  size: Vec2;
+  offset?: Vec2;
+  columns?: number;
+  rows?: number;
+  frame?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  /** When supplied, playback begins at the first frame. */
+  animation?: SpriteAnimation;
+}
+export interface SpriteState {
+  id: string; entity: string; material: string;
+  size: Vec2; offset: Vec2; columns: number; rows: number;
+  frame: number; playing: boolean; completed: boolean;
+  castShadow: boolean; receiveShadow: boolean;
+  animation: (SpriteAnimation & { loop: boolean }) | null;
+}
+export interface SpriteService {
+  create(definition: SpriteDefinition): void;
+  /** Restart the supplied or current animation at its first frame. */
+  play(id: string, animation?: SpriteAnimation): void;
+  pause(id: string): void;
+  resume(id: string): void;
+  /** Select any atlas frame and pause playback. */
+  setFrame(id: string, frame: number): void;
+  inspect(id: string): SpriteState;
+  visuals(): readonly SpriteState[];
+  destroy(id: string): void;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed
  * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
@@ -1123,6 +1166,8 @@ export interface MaterialInput {
   emissive?: string;
   emissiveIntensity?: number;
   opacity?: number;
+  /** Enable alpha blending even when opacity is 1, for example for transparent texture pixels. */
+  transparent?: boolean;
   alphaTest?: number;
   side?: "front" | "back" | "double";
   /** Closed-volume dielectric fraction; opacity remains independent stochastic coverage. */

@@ -184,6 +184,42 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Sprite atlases
+
+Use a declared texture and material for an entity-bound sprite plane. Set
+`transparent: true` on the material when the texture's alpha should blend; for
+hard cutouts, use `alphaTest` instead. Material and texture remain shared, while
+each sprite has its own plane and atlas frame:
+
+```ts
+const sheet = defineAsset({ id: "sheet", path: "assets/atlas.png", type: "texture", license: "MIT" });
+const spriteMaterial = defineMaterial({ id: "sprite-material", texture: sheet, transparent: true });
+// Register the asset and material in defineGame, and create a live "hero" entity.
+ctx.sprites.create({ id: "hero-sprite", entity: "hero", material: "sprite-material",
+  size: [2, 2], columns: 4, rows: 1,
+  animation: { first: 0, last: 3, fps: 6, loop: true } });
+```
+
+Atlas frames are zero-based, left to right and top to bottom. `size` and
+`offset` are in the bound entity's local XY plane. `play` restarts a current or
+new animation; `pause`/`resume` preserve its fractional timing, and `setFrame`
+selects a frame and pauses. Non-looping animation retains the last frame and
+reports `completed`. `inspect` and `visuals` return detached data. The sprite
+is removed when its entity handle becomes invalid; a replacement entity with
+the same ID is not silently rebound. State is included in host snapshots.
+
+Sprites use declared, lit materials; independent per-sprite tint, automatic
+billboarding, tile maps, 2D physics and asset generation are not included.
+Atlas filtering can sample neighboring frames, so authors should provide
+suitable padding; transparent sprite ordering follows the renderer's material
+sorting. Animation advances on fixed ticks, so frame rates above the tick rate
+can skip frames. Up to 1024 sprites and 4096 atlas frames per sprite are
+supported. Raster, transparency, animation, resource lifecycle, snapshots and
+perspective tracing have not been runtime-validated; orthographic hybrid/path
+remain unavailable. A source checkout includes `examples/sprite-atlas` and its
+MIT example texture. The npm package does not include that game asset; provide
+your own texture there.
+
 ### Orthographic camera
 
 A scene can use an orthographic camera for 2D-positioned or 2.5D content:

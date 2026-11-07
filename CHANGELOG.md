@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add entity-bound sprite atlas planes, fixed-step frame playback and explicit material alpha blending. Rendering and runtime behavior are unverified.
+
 ## 0.8.0 - 2026-11-07
 
 - Development batch only: independent usage, tests, runtime behavior, graphics, hardware, performance, recovery and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.

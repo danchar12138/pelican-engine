@@ -128,7 +128,7 @@ ctx.render.configure({ mode: "hybrid", denoise: true });
 const settings = ctx.render.state();
 ```
 
-设置是可序列化状态，参加 Host 快照和恢复；未知字段、非法数值或模式明确失败，不公开 GPU 对象。调试视图支持 beauty/albedo/normal/depth/samples。材质新增 emissive/emissiveIntensity/opacity/alphaTest/side，使用相同编译诊断与引擎封装。opacity 的随机覆盖不是折射。
+设置是可序列化状态，参加 Host 快照和恢复；未知字段、非法数值或模式明确失败，不公开 GPU 对象。调试视图支持 beauty/albedo/normal/depth/samples。材质支持 emissive/emissiveIntensity/opacity/transparent/alphaTest/side；`transparent: true` 可在 opacity 为 1 时启用纹理 alpha 混合，默认仍由 opacity 决定。显式关闭混合与 opacity 图或无裁剪的部分不透明度冲突时编译拒绝。相关渲染和路径追踪行为尚未运行验证；opacity 的随机覆盖不是折射。
 
 ## 物理透射开发链路
 

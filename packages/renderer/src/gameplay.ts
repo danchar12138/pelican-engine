@@ -13,6 +13,7 @@ import { createInventoryPlugin } from "../../gameplay/src/inventory.ts";
 import { createQuestPlugin } from "../../gameplay/src/quests.ts";
 import { createDialoguePlugin } from "../../gameplay/src/dialogue.ts";
 import { createLocalizationPlugin } from "../../gameplay/src/localization.ts";
+import { createSpritePlugin } from "../../gameplay/src/sprites.ts";
 import { createRopePlugin } from "../../simulation/src/rope-plugin.ts";
 import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
 import { createFluidPlugin } from "../../simulation/src/fluid-plugin.ts";
@@ -243,6 +244,7 @@ export async function prepareGameplay(
       createQuestPlugin,
       createDialoguePlugin,
       createLocalizationPlugin,
+      createSpritePlugin,
       createRopePlugin,
       createClothPlugin,
       createFluidPlugin,

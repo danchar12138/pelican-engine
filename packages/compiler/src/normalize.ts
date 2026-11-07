@@ -475,6 +475,12 @@ export async function normalize(
       material.opacity = num(def.opacity, def, "opacity", 1, 0, 1);
     if (def.alphaTest !== undefined)
       material.alphaTest = num(def.alphaTest, def, "alphaTest", 0, 0, 1);
+    if (def.transparent !== undefined) {
+      if (typeof def.transparent !== "boolean") error("TC_MATERIAL_TRANSPARENCY", "transparent must be boolean.", def, "transparent");
+      else material.transparent = def.transparent;
+    }
+    if (material.transparent === false && (material.opacity ?? 1) < 1 && !(material.alphaTest! > 0))
+      error("TC_MATERIAL_TRANSPARENCY", "Non-opaque opacity requires transparent: true or a positive alphaTest.", def, "transparent");
     if (def.side !== undefined) {
       if (!["front", "back", "double"].includes(String(def.side)))
         error("TC_MATERIAL_SIDE", "Unknown material side.", def, "side");
@@ -564,6 +570,8 @@ export async function normalize(
       if (material.graph && graphs.baseColor) error("TC_GRAPH_CHANNEL", "Use either legacy graph or graphs.baseColor, not both.", channels, "baseColor");
       if ((material.transmission ?? 0) > 0 && graphs.metalness) error("TC_MATERIAL_TRANSMISSION", "A closed dielectric graph cannot change metalness in this material model.", channels, "metalness");
       material.graphs = graphs;
+      if (material.transparent === false && graphs.opacity)
+        error("TC_MATERIAL_TRANSPARENCY", "An opacity graph requires alpha blending; omit transparent or set it to true.", def, "transparent");
     }
     if (def.vertex !== undefined) {
       const channels = obj(def.vertex, def, "vertex");

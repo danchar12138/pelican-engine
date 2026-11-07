@@ -186,6 +186,7 @@ export interface SceneIR {
     emissive?: string;
     emissiveIntensity?: number;
     opacity?: number;
+    transparent?: boolean;
     alphaTest?: number;
     side?: "front" | "back" | "double";
     transmission?: number;
