@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { verifyRegistryInstallLock, verifyRegistryPackage } from "./verify-registry.ts";
 
-const version = "0.3.0-m3.0", bytes = new TextEncoder().encode("synthetic package bytes");
+const version = "0.3.32", bytes = new TextEncoder().encode("synthetic package bytes");
 const hash = (algorithm: string, encoding: "hex" | "base64") => createHash(algorithm).update(bytes).digest(encoding);
 const metadata = () => ({ name: "pelican-engine", version, dist: {
   tarball: `https://registry.npmjs.org/pelican-engine/-/pelican-engine-${version}.tgz`,

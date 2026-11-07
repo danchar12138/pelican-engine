@@ -1,6 +1,6 @@
 # Releases
 
-Pelican Engine has one npm package, `pelican-engine`, and one public import. The package version is a standard stable semantic version with no milestone suffix. Keep the versions in `package.json`, `package-lock.json`, `engine.manifest.json`, `packages/compiler/package.json`, `packages/sdk/src/index.ts`, and checked-in project locks consistent.
+Pelican Engine has one npm package, `pelican-engine`, and one public import. The package version is a standard stable semantic version with no milestone suffix. The active version line maps the historical phase number to SemVer: M3 uses `0.3.x`, M4 uses `0.4.x`, and so on; `1.0.0` is the final stable line. Keep the versions in `package.json`, `package-lock.json`, `engine.manifest.json`, `packages/compiler/package.json`, `packages/sdk/src/index.ts`, and checked-in project locks consistent.
 
 ## Continuous npm publishing
 

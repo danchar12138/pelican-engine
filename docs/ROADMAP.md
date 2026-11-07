@@ -1,6 +1,6 @@
 # 研发计划、质量门禁与接续任务
 
-状态：M0–M2 已发布。M2 完整游戏切片与资产管线当时通过 695 项测试、15 项门禁及两条冻结 ZIP 独立 AI 使用验收。M3 当前候选版本为 `0.3.0-m3.0`，按 D50 只能作为 compile-only/unverified 预发布；M3–M8 的完整能力与验收尚未完成。实际发布状态以远端 Release 和 npm 发布结果为准。历史结果保存在 `evidence/<阶段>/`，不覆盖历史验收，不把基础完成视为完整首发交付。
+状态：M0–M2 已发布。M2 完整游戏切片与资产管线当时通过 695 项测试、15 项门禁及两条冻结 ZIP 独立 AI 使用验收。M3 当前标准版本线为 `0.3.x`，当前版本为 `0.3.32`；按 D50 仅作为 compile-only/unverified 正式 SemVer 版本；M3–M8 的完整能力与验收尚未完成。实际发布状态以远端 Release 和 npm 发布结果为准。历史结果保存在 `evidence/<阶段>/`，不覆盖历史验收，不把基础完成视为完整首发交付。
 
 产品范围依据 [DECISIONS.md](DECISIONS.md)，模块验收依据 [CAPABILITIES.md](CAPABILITIES.md)，执行规范依据 [AI-WORKFLOW.md](AI-WORKFLOW.md)。
 

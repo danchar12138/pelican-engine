@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const registry = "https://registry.npmjs.org";
 const limit = 128 * 1024 * 1024;
-const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-m[0-8]\.(?:0|[1-9]\d*))?$/;
+const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const digest = (algorithm: "sha1" | "sha256" | "sha512", bytes: Uint8Array, encoding: "hex" | "base64") =>
   createHash(algorithm).update(bytes).digest(encoding);
 

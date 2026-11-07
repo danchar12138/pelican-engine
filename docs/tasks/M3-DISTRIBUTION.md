@@ -18,7 +18,7 @@
 
 2026-11-05 对新增 specular 材质与直接依赖变更重新生成包：当前候选 tarball 188 个文件，SHA-256 `7f9d0b67036bd71fd4b7194ea178e48c74bd32c4a09501fe4dddef484cf894ab`，对应源码指纹 `39a385afcd87626f4c58c0029a3173cb69daa27ca66ce75ebe76584b57b8baab`。在引擎仓库外 Windows 中文临时目录，以 npm 离线缓存安装，`npx pelican dev`、检查、构建、许可和真实 NVIDIA WebGPU／WebGL2 基础流程通过；随后在同一安装项目中仅以公开 SDK 构建包含 `KHR_materials_specular`／`KHR_materials_ior` 的游戏，离线静态子路径部署并阻断外部网络请求，导入材质与 SDK 材质实际像素对照通过。证据 `evidence/m3/development/npm-current-1793895319798/`。
 
-本次不是全新 Windows OS、公开注册表安装、独立 AI 使用或完整 M3 验收；`npm-current-1793895250249` 保留临时脚本中文编码失败，`npm-current-1793895286312` 保留截图采用错误画布尺寸导致的对照失败。原早期 tarball 已备份到 `.pelican/npm/artifacts/pelican-engine-0.3.0-m3.0-before-specular.tgz`；版本仍未正式发布。
+本次不是全新 Windows OS、公开注册表安装、独立 AI 使用或完整 M3 验收；`npm-current-1793895250249` 保留临时脚本中文编码失败，`npm-current-1793895286312` 保留截图采用错误画布尺寸导致的对照失败。原早期 tarball 已备份到 `.pelican/npm/artifacts/historical-pelican-engine-before-specular.tgz`；版本仍未正式发布。
 
 针对 npm 包不包含仓库示例这一实际使用边界，统一游戏开发 AI 入口 `docs/npm/GAME-AUTHOR.md` 新增无需游戏资产或引擎源码的完整公开 API 配方，并明确仓库示例／维护者探针不随包分发。`tests/npm-author-recipe.test.ts` 直接提取该文档代码并通过编译；同一段代码也在已安装 npm 包的仓库外中文临时项目中离线 check／build 通过，记录 `evidence/m3/development/npm-author-recipe-1793895568013/recipe.json`。文档与测试在上次打包后更新，稳定候选须重新打包并验证文档随包分发；这不是独立 AI 正式验收。
 

@@ -32,9 +32,7 @@ export function validatePublishIdentity(input: {
     input.tag !== "v" + input.version ||
     input.engineVersion !== input.version ||
     input.sdkVersion !== input.version ||
-    !/^M[0-8]$/.test(input.milestone) ||
-    (input.version.includes("-") &&
-      !input.version.includes("-" + input.milestone.toLowerCase() + "."))
+    !/^M[0-8]$/.test(input.milestone)
   )
     throw new Error(
       "TC_NPM_RELEASE_VERSION: Milestone, release tag, package, manifest and SDK versions must match exactly.",
@@ -62,7 +60,7 @@ export async function publishGate(root: string, env = process.env) {
     await readFile(path.join(root, "engine.manifest.json"), "utf8"),
   );
   const tag = event.release?.tag_name;
-  if (typeof tag !== "string" || !/^v\d+\.\d+\.\d+(?:-m[0-8]\.\d+)?$/.test(tag))
+  if (typeof tag !== "string" || !/^v\d+\.\d+\.\d+$/.test(tag))
     throw new Error(
       "TC_NPM_RELEASE_VERSION: Release tag is not an exact milestone tag.",
     );

@@ -2,7 +2,7 @@
 
 ## Version and Release
 
-- Current standard version: 0.6.0. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
+- Current standard version: 0.3.32. Package, lock file, engine manifest, SDK, compiler, and examples use the same version.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
 
@@ -28,4 +28,4 @@ Each delivery batch contains a meaningful feature or coordinated version increme
 Every main push attempts npm latest publication. Published versions are never overwritten. Unverified behavior is explicitly marked and is not replaced by historical reports.
 
 - The 0.5.0 line added the bounded CPU WCSPH fluid service with fixed-step Host scheduling, snapshots, optional particle presentation, and optional one-sphere binding with approximate reaction impulses.
-- The 0.6.0 line adds a bounded CPU tetrahedral soft-body service and dynamic surface presentation, and refreshes fluid body bindings on every automatic tick. Runtime behavior, stability, performance, rendering, and snapshot compatibility remain unverified.
+- The 0.3.32 line adds a bounded CPU tetrahedral soft-body service and dynamic surface presentation, and refreshes fluid body bindings on every automatic tick. Runtime behavior, stability, performance, rendering, and snapshot compatibility remain unverified.
