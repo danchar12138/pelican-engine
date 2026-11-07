@@ -321,7 +321,9 @@ export interface TilemapService {
  * contact impulses to dynamic spheres; there is no full rigid-body coupling. */
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
-  | { kind: "plane"; id: string; normal: Vec3; offset: number };
+  | { kind: "plane"; id: string; normal: Vec3; offset: number }
+  /** Stationary, axis-aligned box sampled in world space. */
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 /** Explicit connection between a sampled rope collider id and a dynamic sphere body. */
 export interface RopeBodyCollider { readonly id: string; readonly entity: string }
 /** Optional renderer-owned cylindrical segments following simulated particle positions. */
@@ -424,6 +426,7 @@ export interface RopeService {
   nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;
   /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */
   visuals(): readonly RopeVisualState[];
+  /** Replace sampled colliders. Boxes resolve particles only, not rope-segment interiors. */
   setColliders(id: string, colliders: readonly RopeCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
   /** Pin or move the specified anchors atomically; other anchors are unchanged. */
@@ -498,6 +501,7 @@ export interface ClothService {
   /** Find the nearest centre within maxDistance, or null; ties use particle order. */
   nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;
   visuals(): readonly ClothVisualState[];
+  /** Replace sampled colliders. Boxes resolve particles only, not triangle interiors. */
   setColliders(id: string, colliders: readonly ClothCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
   /** Pin or move the specified anchors atomically; other anchors are unchanged. */
@@ -546,7 +550,7 @@ export interface SimulationImpulse { particle: string; impulse: Vec3 }
 /** Force in newtons, applied to one particle for the next fixed tick. */
 export interface SimulationForce { particle: string; force: Vec3 }
 /** Manual particle obstacle; boxes are axis-aligned in world space. */
-export type ParticleSimulationCollider = RopeCollider | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
+export type ParticleSimulationCollider = RopeCollider;
 /** Nearest particle centre in world space; distance is measured in metres. */
 export interface SimulationParticleHit { particle: string; position: Vec3; distance: number }
 export interface FluidService {

@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local development adds manually sampled axis-aligned box obstacles for rope and cloth particles. Rope segments and cloth triangle interiors do not collide with these boxes; contacts, stability and snapshot restoration remain unverified.
+
 - The 0.10.0 development batch tracks material graph parameter/time changes and managed render-buffer/texture copies for path/hybrid recapture, retaining pending state after bridge failures and raster frames. GPU rendering and recovery remain unverified.
 
 - The 0.10.0 development batch adds read-only discovery of project-lock backups and their current digests for the existing explicit restore workflow. This does not establish backup provenance or game/save compatibility; listing and restoration are unverified at runtime.

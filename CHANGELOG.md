@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add manually sampled axis-aligned box contacts for rope and cloth particles; runtime behavior remains unverified.
+
 ## 0.10.0 - 2026-11-07
 
 - Development batch only: built without tests or runtime, browser, GPU, performance, compatibility and recovery verification. The 3D first-step deletion defect and other 1.0 capabilities remain open.

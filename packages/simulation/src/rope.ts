@@ -1,4 +1,5 @@
 import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
+import { particleBoxContact } from "./box-contact.ts";
 
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
@@ -7,7 +8,8 @@ import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
 export type Vec3 = [number, number, number];
 export type RopeCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
-  | { kind: "plane"; id: string; normal: Vec3; offset: number };
+  | { kind: "plane"; id: string; normal: Vec3; offset: number }
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 /** Private per-tick coupling. The caller owns and discards virtual body state on failure. */
 export interface RopeDynamicCoupling {
   sphere(colliderId: string): { center: Vec3; radius: number } | undefined;
@@ -145,6 +147,11 @@ function readColliders(input: unknown): RopeCollider[] {
     if (!c || typeof c !== "object" || typeof c.id !== "string" || !c.id || ids.has(c.id)) fail("ROPE_INPUT", "collider ids must be unique nonempty strings");
     ids.add(c.id);
     if (c.kind === "sphere") return { kind: "sphere", id: c.id, center: validVec(c.center, "center"), radius: positive(c.radius, "sphere radius") };
+    if (c.kind === "box") {
+      const center = validVec(c.center, "box center"), halfExtents = validVec(c.halfExtents, "box halfExtents");
+      if (halfExtents.some(value => value <= 0)) fail("ROPE_INPUT", "box halfExtents must be positive");
+      return { kind: "box", id: c.id, center, halfExtents };
+    }
     if (c.kind === "plane") {
       const normal = validVec(c.normal, "normal"), n = length(normal);
       if (Math.abs(n - 1) > 1e-6) fail("ROPE_INPUT", "plane normal must have unit length");
@@ -329,6 +336,10 @@ export class RopeSolver {
             if (c.kind === "plane") {
               depth = c.offset + radius - (p[0] * c.normal[0] + p[1] * c.normal[1] + p[2] * c.normal[2]);
               normal = c.normal;
+            } else if (c.kind === "box") {
+              const contact = particleBoxContact(p, radius, c.center, c.halfExtents);
+              if (!contact) continue;
+              normal = contact.normal; depth = contact.depth;
             } else {
               const center = dynamic?.center ?? c.center, colliderRadius = dynamic?.radius ?? c.radius;
               const delta: Vec3 = [p[0] - center[0], p[1] - center[1], p[2] - center[2]];

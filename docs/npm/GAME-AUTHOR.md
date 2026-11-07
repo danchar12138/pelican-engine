@@ -918,12 +918,21 @@ Set anchors, forces and sampled colliders in `prePhysics`; read positions in
 `anchors: []` creates a free rope. `setAnchor`, `releaseAnchor`, `applyForce`
 (next tick only), `applyImpulse`, `inspect`, and `destroy` manage it.
 
-`setColliders` accepts sampled planes and spheres; contacts affect only rope
+`setColliders` accepts sampled planes, spheres and axis-aligned boxes; contacts affect only rope
 particles, not rigid bodies. Host snapshots include the rope definition, mode
 and state. If advancing an automatic rope fails, the engine attempts to restore
 all earlier automatic ropes from that phase; the host tick may still have other
 partial changes and must be recovered from a known-good checkpoint. The source
 checkout includes `examples/rope-particles`.
+
+For example, `ctx.ropes.setColliders("rope", [{ kind: "box", id: "wall",
+center: [0, 1, 0], halfExtents: [0.5, 1, 2] }])` replaces the rope's manually
+sampled obstacles with a world-space box. `ctx.cloth.setColliders` accepts the
+same shape. Box contacts resolve only individual particles, not rope-segment or
+cloth-triangle interiors, and may tunnel during fast motion. Boxes are static
+samples: update them explicitly when geometry moves; they do not update rigid
+bodies or transfer reactions to them. The colliders are included in simulation
+snapshots. Contact behavior and snapshot restoration have not been runtime-validated.
 
 New ropes resolve discrete sphere overlaps along segment interiors as well as at
 particles. Corrections are distributed to movable endpoints; a segment with two
@@ -973,7 +982,7 @@ particle and virtual body corrections share effective mass and address closing
 normal velocity; contacts are not predicted before overlap.
 The actual body's displacement responds on the next body step. Bindings require live dynamic non-trigger spheres and unique
 collider ids and body entities within each rope. Do not use a bound collider id
-in `setColliders`; its manual planes and spheres remain separate. A destroyed body
+in `setColliders`; its manual colliders remain separate. A destroyed body
 is unbound at the next automatic step, and a new entity with the same id is not
 implicitly rebound. Bindings are saved with Host snapshots.
 
@@ -1111,8 +1120,8 @@ Sampled planes use the triangle centroid for discrete surface projection; this i
 New cloth also resolves detected sphere overlaps against triangle surface interiors
 using closest-point barycentric projection. `inspect(id).surfaceContacts` reports
 the triangle and barycentric position. `surfaceCollisions` defaults to true for new
-cloth and can be disabled. This is sphere-only discrete surface contact; planes
-remain particle-only, and there is no edge/face continuous collision or rigid-body
+cloth and can be disabled. Spheres use closest-point surface contact, planes use
+centroid projection, and boxes remain particle-only; there is no edge/face continuous collision or full rigid-body
 reaction. Surface contact state is included in snapshots and invalid state is
 rejected atomically. It has not been runtime or stability validated.
 

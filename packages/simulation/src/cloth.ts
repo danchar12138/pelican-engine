@@ -1,9 +1,12 @@
+import { particleBoxContact } from "./box-contact.ts";
+
 /** CPU position-based triangular cloth. SI units; sampled colliders are one-way. */
 export type Vec3 = [number, number, number];
 export type Triangle = [number, number, number];
 export type ClothCollider =
   | { kind: "sphere"; id: string; center: Vec3; radius: number }
-  | { kind: "plane"; id: string; normal: Vec3; offset: number };
+  | { kind: "plane"; id: string; normal: Vec3; offset: number }
+  | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3 };
 export interface ClothOptions {
   points: Vec3[]; triangles: Triangle[]; mass: number; radius?: number; fixedDt?: number;
   substeps?: number; iterations?: number; damping?: number; gravity?: Vec3; bending?: boolean; selfCollisions?: boolean; surfaceCollisions?: boolean;
@@ -54,6 +57,11 @@ function readColliders(input: unknown): ClothCollider[] {
     if (!collider || typeof collider !== "object" || typeof collider.id !== "string" || !collider.id || ids.has(collider.id)) fail("CLOTH_INPUT", "collider ids must be unique nonempty strings");
     ids.add(collider.id);
     if (collider.kind === "sphere") return { kind: "sphere", id: collider.id, center: readVec(collider.center, "sphere center"), radius: positive(collider.radius, "sphere radius") };
+    if (collider.kind === "box") {
+      const center = readVec(collider.center, "box center"), halfExtents = readVec(collider.halfExtents, "box halfExtents");
+      if (halfExtents.some(value => value <= 0)) fail("CLOTH_INPUT", "box halfExtents must be positive");
+      return { kind: "box", id: collider.id, center, halfExtents };
+    }
     if (collider.kind === "plane") {
       const normal = readVec(collider.normal, "plane normal"), magnitude = Math.hypot(...normal);
       if (Math.abs(magnitude - 1) > 1e-6 || typeof collider.offset !== "number" || !Number.isFinite(collider.offset) || Math.abs(collider.offset) > 1e6)
@@ -230,7 +238,11 @@ export class ClothSolver {
           for (const collider of this.colliders) {
             let depth: number, normal: Vec3;
             if (collider.kind === "plane") { normal = collider.normal; depth = collider.offset + radius - (p[0] * normal[0] + p[1] * normal[1] + p[2] * normal[2]); }
-            else {
+            else if (collider.kind === "box") {
+              const contact = particleBoxContact(p, radius, collider.center, collider.halfExtents);
+              if (!contact) continue;
+              normal = contact.normal; depth = contact.depth;
+            } else {
               const delta: Vec3 = [p[0] - collider.center[0], p[1] - collider.center[1], p[2] - collider.center[2]], length = Math.hypot(...delta);
               depth = collider.radius + radius - length; normal = length < 1e-12 ? [1, 0, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
             }
@@ -246,6 +258,8 @@ export class ClothSolver {
         if (this.config.surfaceCollisions) for (let triangleIndex = 0; triangleIndex < this.config.triangles.length; triangleIndex++) {
           const triangle = this.config.triangles[triangleIndex], a = positions[triangle[0]], b = positions[triangle[1]], c = positions[triangle[2]];
           for (const collider of this.colliders) {
+            // Box support currently resolves particles only, not triangle interiors.
+            if (collider.kind === "box") continue;
             let closest: { point: Vec3; barycentric: [number, number, number] }, normal: Vec3, depth: number;
             if (collider.kind === "sphere") {
               closest = closestTriangle(collider.center, a, b, c);
