@@ -1328,9 +1328,12 @@ export class SurfaceTracer {
         });
         active();
         this.active();
-        this.linearPresent = pipeline;
+        return pipeline;
       },
-    ).finally(() => {
+    ).then((pipeline) => {
+      this.active();
+      this.linearPresent = pipeline;
+    }).finally(() => {
       this.linearPresentPending = undefined;
     });
     return this.linearPresentPending;
