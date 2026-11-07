@@ -1,5 +1,5 @@
 import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
-import { particleBoxContact } from "./box-contact.ts";
+import { particleBoxContact, segmentBoxContact } from "./box-contact.ts";
 
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
@@ -24,7 +24,7 @@ export interface RopeOptions {
   mass: number;
   /** Collision radius of each particle, metres. */
   radius?: number;
-  /** New ropes resolve sphere contacts on segment interiors by default. */
+  /** New ropes resolve sampled sphere and box contacts on segment interiors by default. */
   segmentCollisions?: boolean;
   /** New ropes resolve non-adjacent self contacts by default. */
   selfCollisions?: boolean;
@@ -302,6 +302,7 @@ export class RopeSolver {
     const segmentContacts = new Map<string, RopeSegmentContact>();
     const selfContacts = new Map<string, RopeSelfContact>();
     const spheres = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "sphere" }> => collider.kind === "sphere") : [];
+    const boxes = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "box" }> => collider.kind === "box") : [];
     for (let sub = 0; sub < substeps; sub++) {
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
@@ -434,6 +435,29 @@ export class RopeSolver {
               if (!finiteVector(existing.reactionImpulse) || !finiteVector(existing.reactionAngularImpulse)) fail("ROPE_NUMERIC", "segment reaction accumulation exceeded finite bounds");
             } else segmentContacts.set(key, { tick: this.tickValue + 1, segment: j, colliderId: collider.id, fraction, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
           }
+          for (const collider of boxes) {
+            const contact = segmentBoxContact(a, b, radius, collider.center, collider.halfExtents);
+            if (!contact) continue;
+            const { fraction, point, normal, depth } = contact;
+            const first = this.anchors.has(j) ? 0 : 1 - fraction, second = this.anchors.has(j + 1) ? 0 : fraction;
+            const inverseWeight = first * first + second * second;
+            if (inverseWeight === 0) continue;
+            const magnitude = -mass * depth / (inverseWeight * h);
+            const reaction: Vec3 = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+            const surface: Vec3 = [point[0] + normal[0] * (depth - radius), point[1] + normal[1] * (depth - radius), point[2] + normal[2] * (depth - radius)];
+            const moment: Vec3 = [surface[1] * reaction[2] - surface[2] * reaction[1], surface[2] * reaction[0] - surface[0] * reaction[2], surface[0] * reaction[1] - surface[1] * reaction[0]];
+            if (!finiteVector(reaction) || !finiteVector(moment)) fail("ROPE_NUMERIC", "box segment contact exceeded finite bounds");
+            for (let k = 0; k < 3; k++) {
+              a[k] += normal[k] * depth * first / inverseWeight;
+              b[k] += normal[k] * depth * second / inverseWeight;
+            }
+            const key = `${j}:${collider.id}`, existing = segmentContacts.get(key);
+            if (existing) {
+              existing.penetration = Math.max(existing.penetration, depth); existing.fraction = fraction;
+              for (let k = 0; k < 3; k++) { existing.reactionImpulse![k] += reaction[k]; existing.reactionAngularImpulse![k] += moment[k]; }
+              if (!finiteVector(existing.reactionImpulse) || !finiteVector(existing.reactionAngularImpulse)) fail("ROPE_NUMERIC", "box segment reaction accumulation exceeded finite bounds");
+            } else segmentContacts.set(key, { tick: this.tickValue + 1, segment: j, colliderId: collider.id, fraction, penetration: depth, reactionImpulse: reaction, reactionAngularImpulse: moment });
+          }
         }
         if (this.config.selfCollisions && positions.length >= 4) resolveRopeSelfCollisions(positions, this.anchors, radius, this.tickValue + 1, selfContacts);
       }
@@ -502,7 +526,7 @@ export class RopeSolver {
     if (!Array.isArray(segments) || segments.length > (count - 1) * colliders.length || (!this.config.segmentCollisions && segments.length > 0) ||
         segments.some(contact => !contact || contact.tick !== input.tick ||
           !Number.isSafeInteger(contact.segment) || contact.segment < 0 || contact.segment >= count - 1 ||
-          !colliders.some(collider => collider.id === contact.colliderId && collider.kind === "sphere") ||
+          !colliders.some(collider => collider.id === contact.colliderId && (collider.kind === "sphere" || collider.kind === "box")) ||
           typeof contact.fraction !== "number" || !Number.isFinite(contact.fraction) || contact.fraction <= 0 || contact.fraction >= 1 ||
           typeof contact.penetration !== "number" || !Number.isFinite(contact.penetration) || contact.penetration <= 0 ||
           (contact.reactionImpulse === undefined) !== (contact.reactionAngularImpulse === undefined) ||

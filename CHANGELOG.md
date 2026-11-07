@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add discrete rope-segment contacts against sampled axis-aligned boxes; runtime and snapshot behavior remain unverified.
+
 - Add manually sampled axis-aligned box contacts for rope and cloth particles; runtime behavior remains unverified.
 
 ## 0.10.0 - 2026-11-07

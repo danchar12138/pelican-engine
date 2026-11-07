@@ -928,13 +928,14 @@ checkout includes `examples/rope-particles`.
 For example, `ctx.ropes.setColliders("rope", [{ kind: "box", id: "wall",
 center: [0, 1, 0], halfExtents: [0.5, 1, 2] }])` replaces the rope's manually
 sampled obstacles with a world-space box. `ctx.cloth.setColliders` accepts the
-same shape. Box contacts resolve only individual particles, not rope-segment or
-cloth-triangle interiors, and may tunnel during fast motion. Boxes are static
+same shape. Rope boxes resolve individual particles and, when enabled, segment
+interiors; cloth boxes resolve particles only, not triangle interiors. Contacts
+are discrete and may tunnel during fast motion. Boxes are static
 samples: update them explicitly when geometry moves; they do not update rigid
 bodies or transfer reactions to them. The colliders are included in simulation
 snapshots. Contact behavior and snapshot restoration have not been runtime-validated.
 
-New ropes resolve discrete sphere overlaps along segment interiors as well as at
+New ropes resolve discrete sphere and axis-aligned box overlaps along segment interiors as well as at
 particles. Corrections are distributed to movable endpoints; a segment with two
 fixed anchors cannot move. `ctx.ropes.inspect(id).segmentContacts` reports the
 segment index, closest-point fraction and reaction impulses. Set
@@ -943,7 +944,7 @@ solver snapshots without this field retain particle-only behavior when migrated;
 `inspect(id).segmentCollisions` reports the active mode. Normal Host snapshot
 engine-version restrictions still apply. Plane contacts use particle endpoints.
 The segment index names its first particle; `fraction` runs toward the next.
-Work increases with segment, sphere, substep and iteration counts. This does not
+Work increases with segment, collider, substep and iteration counts. This does not
 provide continuous collision detection; the segment solver and snapshot migration
 have not been runtime validated.
 

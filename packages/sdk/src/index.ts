@@ -356,7 +356,7 @@ export interface RopeDefinition {
   autoStep?: boolean;
   /** Automatically sample and react to existing dynamic, non-trigger sphere bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
-  /** Resolve sphere contacts on segment interiors; defaults to true for new ropes. */
+  /** Resolve sampled sphere and box contacts on segment interiors; defaults to true for new ropes. */
   segmentCollisions?: boolean;
   /** Resolve discrete non-adjacent segment self contacts; defaults to true for new ropes. */
   selfCollisions?: boolean;
@@ -376,7 +376,7 @@ export interface RopeContact {
   /** Angular impulse about the world origin; absent in older snapshots. */
   reactionAngularImpulse?: Vec3;
 }
-/** Contact between an interior rope segment and a sampled sphere. */
+/** Contact between an interior rope segment and a sampled sphere or box. */
 export interface RopeSegmentContact {
   tick: number;
   /** Zero-based index of the first endpoint; the second is segment + 1. */
@@ -426,7 +426,7 @@ export interface RopeService {
   nearestParticle(id: string, position: Vec3, maxDistance: number): IndexedParticleHit | null;
   /** Detached visual descriptions, sorted by rope id; empty when no visuals are requested. */
   visuals(): readonly RopeVisualState[];
-  /** Replace sampled colliders. Boxes resolve particles only, not rope-segment interiors. */
+  /** Replace sampled colliders. Segment contacts support spheres and boxes when enabled. */
   setColliders(id: string, colliders: readonly RopeCollider[]): void;
   setAnchor(id: string, index: number, position: Vec3): void;
   /** Pin or move the specified anchors atomically; other anchors are unchanged. */

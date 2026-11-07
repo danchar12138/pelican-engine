@@ -11,7 +11,7 @@
 
 ## Current Scope
 
-- Local development adds manually sampled axis-aligned box obstacles for rope and cloth particles. Rope segments and cloth triangle interiors do not collide with these boxes; contacts, stability and snapshot restoration remain unverified.
+- Local development adds manually sampled axis-aligned box obstacles for rope particles and segments and cloth particles. Cloth triangle interiors do not collide with these boxes; contacts, stability and snapshot restoration remain unverified.
 
 - The 0.10.0 development batch tracks material graph parameter/time changes and managed render-buffer/texture copies for path/hybrid recapture, retaining pending state after bridge failures and raster frames. GPU rendering and recovery remain unverified.
 
