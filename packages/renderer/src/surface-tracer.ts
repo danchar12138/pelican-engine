@@ -834,16 +834,13 @@ export class SurfaceTracer {
         throw new Error(
           "TC_TRACE_ENVIRONMENT_STALE: Content environment changed during capture.",
         );
-      this.environmentImage?.dispose();
-      this.environmentCache.clear();
-      this.environmentImage = undefined;
+      let nextImage: THREE.DataTexture | undefined;
       if (radiance) {
-        this.environmentProposal = buildEnvironmentImportance(
+        const proposal = buildEnvironmentImportance(
           radiance.data,
           radiance.width,
           radiance.height,
         );
-        this.put("environmentImportance", this.environmentProposal.table);
         const texture = new THREE.DataTexture(
           radiance.data,
           radiance.width,
@@ -858,8 +855,22 @@ export class SurfaceTracer {
         texture.magFilter = THREE.LinearFilter;
         texture.minFilter = THREE.LinearFilter;
         texture.generateMipmaps = false;
-        this.environmentImage = texture;
+        try {
+          this.put("environmentImportance", proposal.table);
+        } catch (error) {
+          texture.dispose();
+          // The GPU buffer may already have been replaced; force recapture even
+          // if the scene switches back to the previous environment.
+          this.environmentRevision = "invalid";
+          this.reset = true;
+          throw error;
+        }
+        nextImage = texture;
+        this.environmentProposal = proposal;
       }
+      this.environmentImage?.dispose();
+      this.environmentCache.clear();
+      this.environmentImage = nextImage;
       this.environmentSource = source;
       this.environmentRevision = revision;
       this.reset = true;
