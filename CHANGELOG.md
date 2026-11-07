@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid duplicate main-push build jobs and report immutable npm version collisions as workflow failures. Workflow behavior is unverified.
+
 ## 0.6.1 - 2026-11-07
 
 - Development batch only: tests, runtime behavior, browser input, graphics, hardware, performance, stability and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.

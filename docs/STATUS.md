@@ -4,7 +4,7 @@
 
 - Current source version: 0.6.1. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
 - Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. The occupied `0.6.0` identity is preserved; `0.6.1` is the intended batch version under D59.
-- A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
+- A push to main attempts an npm latest release through GitHub Actions trusted publishing. The local 0.7 development batch removes the duplicate main-push build job and makes an already-published version fail explicitly rather than silently skip. These workflow changes have not yet run on GitHub. GitHub Releases use standard version tags without pre-release suffixes.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
 

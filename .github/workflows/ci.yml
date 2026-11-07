@@ -1,7 +1,8 @@
 name: Build and pack
 
+# Main pushes already build and pack in npm-publish.yml. Keep this workflow
+# for pull requests and manual builds to avoid a duplicate CI job per release.
 on:
-  push:
   pull_request:
   workflow_dispatch:
 

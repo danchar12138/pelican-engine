@@ -4,13 +4,13 @@ Pelican Engine has one npm package, `pelican-engine`, and one public import. The
 
 ## Continuous npm publishing
 
-Every push to `main` triggers `.github/workflows/npm-publish.yml`. GitHub Actions builds the game distribution and npm tarball, then publishes the exact repository version to npm's `latest` dist-tag using OIDC Trusted Publishing. The workflow does not generate or alter the version and does not require a long-lived npm token. Configure the npm trusted publisher to match GitHub owner `danchar12138`, repository `pelican-engine`, workflow `npm-publish.yml`, with no GitHub environment unless the workflow is deliberately updated to use one.
+Every push to `main` triggers `.github/workflows/npm-publish.yml`. GitHub Actions builds the game distribution and npm tarball, then publishes the exact repository version to npm's `latest` dist-tag using OIDC Trusted Publishing. The separate build-and-pack workflow runs for pull requests and manual dispatch, not for main pushes, so the release does not duplicate that build. The publishing workflow uses the npm dependency cache. The workflow does not generate or alter the version and does not require a long-lived npm token. Configure the npm trusted publisher to match GitHub owner `danchar12138`, repository `pelican-engine`, workflow `npm-publish.yml`, with no GitHub environment unless the workflow is deliberately updated to use one.
 
 For each substantial release batch:
 
 1. Increment the standard version consistently across the files listed above. Never reuse a version already published to npm or an existing release tag; these identities are immutable. If the intended version is occupied, use the next unoccupied patch version in the same minor line (D59).
 2. Keep changes focused in the single `main` worktree. Related features and fixes may have separate Chinese Conventional Commits, accumulated locally until a substantial minor-version batch is ready.
-3. Push `main`. The resulting Actions run is the authoritative publish result. A failed build or publish means the version is not published; fix the cause and use a new version if npm already accepted it.
+3. Push `main`. Inspect the Actions publish step and actual registry state: a failed workflow can occur after npm accepts a package, and npm processing may delay public visibility. If the version is already present, the workflow reports `TC_NPM_VERSION_PUBLISHED` and fails instead of presenting a skipped publication as success. Never overwrite it; use a new version for the next release batch.
 
 GitHub Releases are separate milestone announcements. They do not trigger npm publishing. Assets may be prepared after the allowed build with `node --import tsx tools/release.ts pack --compile-only-unverified`; this inventory does not establish runtime correctness or acceptance. Publish notes must state what was built and what remains unverified.
 
