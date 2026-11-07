@@ -542,8 +542,11 @@ boundaries or with ambiguous classification report `TC_TRACE_MEDIUM_STATE`.
 There is no silent fallback. The historical M0 tracing sidecar remains
 perspective-only, and WebGL2 remains raster-only. Medium classification, GPU
 cost, camera rays, jitter, motion reprojection, clipping and hardware behavior
-have not been runtime-validated. The example
-`examples/orthographic-2d` and the installed recipe use simple 3D primitives
+have not been runtime-validated. Perspective tracing also uses per-ray near-plane
+classification when a conservative camera-near region meets a volume bound;
+alpha-filtered volume shells in that case report `TC_TRACE_NEAR_MEDIA_UNSUPPORTED`.
+The conservative region can trigger extra GPU work even when no ray crosses a
+shell. The example `examples/orthographic-2d` and the installed recipe use simple 3D primitives
 positioned on a plane; it does not itself demonstrate sprite animation or tile
 maps. The camera is not 2D physics or a complete 2D engine. Rendering, WebGL2 fallback, world UI projection and input
 have not been runtime-validated.

@@ -94,7 +94,7 @@ fn traceInitialBoundary(point:vec3f,direction:vec3f)->TraceInitialBoundary{
 }
 fn traceMediumParent(id:u32)->u32{return u32(traceLights[u32(traceParams.medium.x)+id-1u].color.x);}
 // Each primary sample gets its own stack, independent of all opaque geometry.
-fn traceInitializeOrthoMedia(point:vec3f,media:ptr<function,array<u32,65>>,depth:ptr<function,u32>)->u32{
+fn traceInitializePrimaryMedia(point:vec3f,media:ptr<function,array<u32,65>>,depth:ptr<function,u32>)->u32{
  var found=false;var selected=0u;
  for(var choice=0u;choice<3u;choice++){
   var direction=normalize(vec3f(1.0,0.37139,0.69421));
@@ -189,15 +189,15 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
   let hybrid=traceParams.flags.x>0.5;
   var jitter=vec2f(traceRandom(&seed),traceRandom(&seed));if(hybrid){jitter=vec2f(0.5+traceParams.forward.w,0.5+traceParams.right.w);}
   let pixel=((vec2f(invocation.xy)+jitter)/vec2f(f32(width),f32(height)))*2.0-vec2f(1);
-  let orthographic=traceParams.backgroundSettings.w>0.5;
+  let orthographic=traceParams.backgroundSettings.w==1.0;let perRayMedia=traceParams.backgroundSettings.w>0.5;
   let cameraOrigin=traceCameraOrigin(traceParams.origin.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
   var direction=traceCameraDirection(traceParams.forward.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
   var origin=cameraOrigin+direction*(traceParams.screen.w/max(dot(direction,traceParams.forward.xyz),1e-5));
-  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=select(cameraOrigin,origin,orthographic);var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
+  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=select(cameraOrigin,origin,perRayMedia);var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
   var previousHit=-1;var previousGeometric=vec3f(0);var previousBary=vec3f(0);var previousEvent=0u;var previousFront=false;
   if(traceVolumeEnabled){
    var initialFault=0u;
-   if(orthographic){initialFault=traceInitializeOrthoMedia(origin,&media,&mediumDepth);}
+   if(perRayMedia){initialFault=traceInitializePrimaryMedia(origin,&media,&mediumDepth);}
    else{let initialCount=u32(traceParams.medium.y);if(initialCount>64u){initialFault=8u;}else{for(var layer=0u;layer<initialCount;layer++){media[layer+1u]=u32(traceLights[u32(traceParams.medium.z)+layer].position.x);}mediumDepth+=initialCount;}}
    if(initialFault!=0u){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,initialFault);atomicStore(&traceOutput.faultPixel,index);continue;}
   }
@@ -259,7 +259,7 @@ struct PrimaryVertex{@builtin(position) position:vec4f,@location(0) @interpolate
  let triangle=surfaceTriangle(input.index);
  // Raster subpixel setup is not precise barycentric data for ray-space motion.
  let pixel=(input.position.xy+vec2f(primaryParams.forward.w,primaryParams.right.w))/primaryParams.screen.xy*2.0-vec2f(1);
- let orthographic=primaryParams.backgroundSettings.w>0.5;
+ let orthographic=primaryParams.backgroundSettings.w==1.0;
  let origin=traceCameraOrigin(primaryParams.origin.xyz,primaryParams.right.xyz,primaryParams.up.xyz,pixel,orthographic);
  let direction=traceCameraDirection(primaryParams.forward.xyz,primaryParams.right.xyz,primaryParams.up.xyz,pixel,orthographic);
  let edge1=triangle.b.xyz-triangle.a.xyz;let edge2=triangle.c.xyz-triangle.a.xyz;

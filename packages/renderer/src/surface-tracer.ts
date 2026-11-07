@@ -182,7 +182,7 @@ export class SurfaceTracer {
   private mediumCatalog: MediumCatalog | undefined;
   private mediumIds = new Map<string, number>();
   private mediumWindings = new Map<string, 1 | -1>();
-  private unsupportedOrthographicMedia: readonly string[] = [];
+  private alphaFilteredMedia: readonly string[] = [];
   private mediumFaces: readonly SurfaceTriangle[] = [];
   private mediumSignature = "";
   private mediumRevision = 0;
@@ -761,7 +761,7 @@ export class SurfaceTracer {
     this.mediumCatalog = undefined;
     this.mediumIds.clear();
     this.mediumWindings.clear();
-    this.unsupportedOrthographicMedia = [];
+    this.alphaFilteredMedia = [];
     this.mediumFaces = [];
     this.mediumSignature = "";
     this.mediumRevision++;
@@ -1201,7 +1201,7 @@ export class SurfaceTracer {
         candidate?.volumes.map((volume) => [volume.key, volume.id]) ?? [],
       );
       this.mediumWindings = new Map(candidate?.volumes.map(volume => [volume.key, volume.worldWinding]) ?? []);
-      this.unsupportedOrthographicMedia = candidate?.volumes.flatMap(volume => {
+      this.alphaFilteredMedia = candidate?.volumes.flatMap(volume => {
         // Alpha coverage can make a geometrically closed shell optically open.
         const filtered = volume.triangleIndices.some(index => {
           const material = materials.get(surface.triangles[index].materialUuid)!;
@@ -1256,16 +1256,16 @@ export class SurfaceTracer {
       this.computeGroup = undefined;
     }
   }
-  private uploadMedium(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera) {
+  private uploadMedium(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, perRay: boolean) {
     const position = camera.getWorldPosition(new THREE.Vector3()).toArray() as [
         number,
         number,
         number,
       ],
-      key = JSON.stringify([this.mediumRevision, camera instanceof THREE.OrthographicCamera, ...position]);
+      key = JSON.stringify([this.mediumRevision, perRay, ...position]);
     if (key !== this.initialMediaKey) {
-      // Orthographic primary rays have distinct origins and are classified on the GPU.
-      this.initialMedia = camera instanceof THREE.OrthographicCamera ? [] : (this.mediumCatalog?.initial(position) ?? []);
+      // Near-plane samples can differ even when they share one camera position.
+      this.initialMedia = perRay ? [] : (this.mediumCatalog?.initial(position) ?? []);
       if (this.initialMedia.length > 64)
         throw new Error(
           "TC_TRACE_MEDIUM_CAPACITY: Camera starts in more than 64 nested media supported by this pipeline.",
@@ -1426,11 +1426,8 @@ export class SurfaceTracer {
         "TC_TRACE_SCENE: Capture the current scene before rendering.",
       );
     const orthographic = camera instanceof THREE.OrthographicCamera;
-    if (orthographic && this.unsupportedOrthographicMedia.length)
-      throw new Error(`TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED: Orthographic volume transport requires closed shells without alpha filtering; unsupported object(s): ${this.unsupportedOrthographicMedia.join(", ")}.`);
     const started = performance.now();
     camera.updateWorldMatrix(true, false);
-    this.uploadMedium(camera);
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
     const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0),
@@ -1446,6 +1443,23 @@ export class SurfaceTracer {
       right.multiplyScalar(spread * camera.aspect);
       up.multiplyScalar(spread);
     }
+    // The camera-to-near-plane frustum is inside this conservative sphere.
+    // Only a volume whose bounds meet it can change a primary ray's medium.
+    const weld = this.mediumCatalog?.inspect().tolerance.reduce((maximum, item) => Math.max(maximum, item.weld), 0) ?? 0;
+    const numericMargin = 2.3841858e-7 * Math.max(1, Math.abs(cameraOrigin.x), Math.abs(cameraOrigin.y), Math.abs(cameraOrigin.z));
+    const nearRadius = camera.near * Math.hypot(1, right.length(), up.length()) + weld + numericMargin;
+    const perRay = orthographic || (this.mediumCatalog?.volumes.some(volume => {
+      const min = volume.bounds.min, max = volume.bounds.max;
+      const dx = Math.max(min[0] - cameraOrigin.x, 0, cameraOrigin.x - max[0]);
+      const dy = Math.max(min[1] - cameraOrigin.y, 0, cameraOrigin.y - max[1]);
+      const dz = Math.max(min[2] - cameraOrigin.z, 0, cameraOrigin.z - max[2]);
+      return Math.hypot(dx, dy, dz) <= nearRadius;
+    }) ?? false);
+    if (perRay && this.alphaFilteredMedia.length) {
+      const code = orthographic ? "TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED" : "TC_TRACE_NEAR_MEDIA_UNSUPPORTED";
+      throw new Error(`${code}: Per-ray volume initialization requires closed shells without alpha filtering; unsupported object(s): ${this.alphaFilteredMedia.join(", ")}.`);
+    }
+    this.uploadMedium(camera, perRay);
     const viewProjection = camera.projectionMatrix
         .clone()
         .multiply(camera.matrixWorldInverse),
@@ -1524,7 +1538,7 @@ export class SurfaceTracer {
       this.environmentRotation.elements[8],
       this.environmentRotation.elements[9],
       this.environmentRotation.elements[10],
-      this.mediumCatalog?.inspect().tolerance.reduce((maximum, item) => Math.max(maximum, item.weld), 0) ?? 0,
+      weld,
       ...this.mediumParams,
       ...this.previousViewProjection.elements,
       ...this.previousCameraOrigin.toArray(),
@@ -1532,7 +1546,7 @@ export class SurfaceTracer {
       this.backgroundIntensity,
       Math.cos(this.backgroundRotation),
       Math.sin(this.backgroundRotation),
-      orthographic ? 1 : 0,
+      orthographic ? 1 : perRay ? 2 : 0,
     ]);
     this.device.queue.writeBuffer(this.uniform, 0, params);
     this.groups();
@@ -2188,7 +2202,7 @@ export class SurfaceTracer {
     this.mediumFaces = [];
     this.mediumIds.clear();
     this.mediumWindings.clear();
-    this.unsupportedOrthographicMedia = [];
+    this.alphaFilteredMedia = [];
     this.environmentCapture?.dispose();
     this.environmentCache.dispose();
     this.environmentImage?.dispose();

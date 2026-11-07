@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Initialize perspective near-plane media per sample when the camera’s near region may intersect a volume; GPU behavior and cost remain unverified.
+
 - Track closed-medium world winding and orient physical normals for either consistent shell winding, including mirrored instances; GPU behavior remains unverified.
 
 - Initialize orthographic tracing media per sample from closed-shell nesting, with boundary and ambiguity diagnostics; GPU behavior remains unverified.
