@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add standard single-gamepad gameplay input, analog sampling, digital action bindings and UI/game capture modes. Hardware and runtime behavior are unverified.
+
 - Add 2D capsule colliders and one-way kinematic character movement with deferred query refresh and snapshot state. Runtime behavior is unverified.
 
 - Add 2D fixed, revolute, rope and spring joints with structured snapshot reconstruction and a fail-closed native recovery boundary. Runtime behavior is unverified.

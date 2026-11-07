@@ -5,6 +5,7 @@ import { createClothVisualOwner } from "./cloth-visuals.ts";
 import { createFluidVisualOwner } from "./fluid-visuals.ts";
 import { createSoftBodyVisualOwner } from "./softbody-visuals.ts";
 import { createSpriteVisualOwner } from "./sprite-visuals.ts";
+import { sampleGameplayGamepad } from "./gamepad.ts";
 import { createTilemapVisualOwner } from "./tilemap-visuals.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
@@ -217,6 +218,7 @@ let recoveryCount = 0;
 let drawTail: Promise<unknown> = Promise.resolve();
 let tickTail: Promise<void> = Promise.resolve();
 let nativeInputTail: Promise<void> = Promise.resolve();
+let gamepadHost: RuntimeHost | undefined, gamepadFingerprint: string | undefined;
 let inputDrawActive = false,
   inputDrawRequested = false;
 let frameSerial = 0;
@@ -1383,6 +1385,21 @@ function queueNativeInput(operation: () => void | Promise<void>) {
     await operation();
   }).catch(error => { if (!disposed) reportFailure(error); });
 }
+async function pollGameplayGamepad(): Promise<void> {
+  const host = runtime, current = gameplay;
+  if (!host || !current || probeEnabled) return;
+  const config = current.services.gamepadConfig();
+  if (config.mode !== "game") { gamepadHost = host; gamepadFingerprint = undefined; return; }
+  const suppressed = document.hidden || (typeof document.hasFocus === "function" && !document.hasFocus()) || current.blocksGameplayGamepad();
+  const sample = sampleGameplayGamepad(suppressed), fingerprint = JSON.stringify([config.deadzone, sample]);
+  if (gamepadHost === host && gamepadFingerprint === fingerprint) return;
+  queueNativeInput(() => {
+    if (runtime !== host) return;
+    host.emitExternal("input.gamepad", sample);
+    gamepadHost = host; gamepadFingerprint = fingerprint;
+  });
+  await nativeInputTail;
+}
 function onKeyUp(event: KeyboardEvent) {
   if (gameplay?.consumesKeyboard(event)) return;
   if (
@@ -1396,8 +1413,16 @@ function onKeyUp(event: KeyboardEvent) {
     return;
   queueNativeInput(() => { requireRuntime().input(event.key, false); });
 }
+function onWindowBlur() {
+  const host = runtime, current = gameplay;
+  gamepadFingerprint = undefined;
+  if (!host || !current || disposed || terminalFault || loadingContent || restoring || current.services.gamepadConfig().mode !== "game") return;
+  const sample = sampleGameplayGamepad(true);
+  queueNativeInput(() => { if (runtime === host) host.emitExternal("input.gamepad", sample); });
+}
 window.addEventListener("keydown", onKeyDown);
 window.addEventListener("keyup", onKeyUp);
+window.addEventListener("blur", onWindowBlur);
 async function stepRuntime() {
   const started = performance.now();
   const host = requireRuntime();
@@ -1535,6 +1560,7 @@ async function disposeBrowser() {
   document.documentElement.dataset.pelicanReady = "false";
   window.removeEventListener("keydown", onKeyDown);
   window.removeEventListener("keyup", onKeyUp);
+  window.removeEventListener("blur", onWindowBlur);
   rasterCanvas.removeEventListener("webglcontextrestored", onContextRestored);
   window.removeEventListener("pagehide", onPageHide);
   const pending: Promise<unknown>[] = [];
@@ -1984,6 +2010,7 @@ async function boot() {
           for (const object of nextTopology) releaseObject(object, true);
         }
         restoring = false;
+        gamepadFingerprint = undefined;
       }
       await draw();
       await submittedWork("GPU submission");
@@ -2141,18 +2168,21 @@ async function boot() {
             break;
           case "replay": {
             const host = requireRuntime();
-            const replay = await host.replayAsync(command.trace);
-            tick = host.inspect().scheduler.tick;
-            if (replay.status !== "passed") {
-              const error = new Error(
-                `TC_REPLAY_DIVERGENCE: ${replay.fault?.message ?? "Replay did not complete."}`,
-              );
-              reportFailure(error);
-              throw error;
-            }
-            data = replay;
-            syncRuntime();
-            await draw();
+            restoring = true;
+            try {
+              const replay = await host.replayAsync(command.trace);
+              tick = host.inspect().scheduler.tick;
+              if (replay.status !== "passed") {
+                const error = new Error(
+                  `TC_REPLAY_DIVERGENCE: ${replay.fault?.message ?? "Replay did not complete."}`,
+                );
+                reportFailure(error);
+                throw error;
+              }
+              data = replay;
+              syncRuntime();
+              await draw();
+            } finally { restoring = false; gamepadFingerprint = undefined; }
             break;
           }
           case "restore":
@@ -2208,6 +2238,7 @@ async function boot() {
         !restoring &&
         !recoveringGpu
       ) {
+        await pollGameplayGamepad();
         const elapsed =
           lastFrameTime === undefined ? 0 : (now - lastFrameTime) / 1000;
         lastFrameTime = now;

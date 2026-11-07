@@ -19,6 +19,7 @@ import {
 import type { RuntimeWorld, WorldSnapshot } from "./contracts.ts";
 import type { RuntimeEvent } from "./events.ts";
 import { cloneSerializable } from "./random.ts";
+import { neutralGamepad } from "./gamepad.ts";
 import { resolveEntityDefinition } from "./prefabs.ts";
 import { diagnosticFrom, type RuntimeDiagnostic } from "./error.ts";
 import type {
@@ -412,7 +413,14 @@ export class RuntimeHost {
         if (previous) return previous;
         const proxy = new Proxy(value, {
           get: (target, property) => {
-            const member = Reflect.get(target, property);
+            let member = Reflect.get(target, property);
+            if (key === "input" && typeof member !== "function") {
+              if (property === "gamepad") member = () => neutralGamepad(false, true);
+              else if (property === "setGamepadMode") member = (mode: unknown) => {
+                if (mode !== "ui") throw new Error("TC_GAMEPAD_UNAVAILABLE: This input plugin does not provide gameplay gamepad support.");
+              };
+              else if (property === "setGamepadDeadzone") member = () => { throw new Error("TC_GAMEPAD_UNAVAILABLE: This input plugin does not provide gameplay gamepad support."); };
+            }
             if (key === "render" && (property === "effects" || property === "buffers" || property === "textures") && member && typeof member === "object") return guarded(member);
             if (typeof member !== "function") return member;
             return (...args: unknown[]) => {

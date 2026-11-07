@@ -14,6 +14,7 @@ Recipes are independent; use one at a time and adapt IDs, input, UI and rules to
 - [Orthographic raster](#orthographic-raster) — Move simple 2D-positioned objects under an orthographic camera.
 - [2D rigid bodies](#2d-rigid-bodies) — Move an XY body in an independent 2D physics world.
 - [2D character](#2d-character) — Drive a kinematic character against 2D obstacles.
+- [Gamepad input](#gamepad-input) — Combine standard gamepad input with keyboard bindings.
 - [Dynamic UI](#dynamic-ui) — Create and remove reusable menu slots.
 - [Inventory](#inventory) — Move stackable items between a backpack and a chest.
 - [Quest objectives](#quest-objectives) — Advance objectives and grant a game-defined reward.
@@ -155,6 +156,55 @@ export default defineGame({ id: "physics2d-character", components: [State], syst
       { id: "ground", transform: { position: [0, -2, 0] }, mesh: { geometry: { kind: "box", size: [8, 0.5, 0.2] }, material: ground } },
       { id: "wall", transform: { position: [2, -0.75, 0] }, mesh: { geometry: { kind: "box", size: [0.5, 2, 0.2] }, material: ground } },
       { id: "character", transform: { position: [0, 1.5, 0.2] }, mesh: { geometry: { kind: "box", size: [0.6, 1.5, 0.2] }, material: actor } },
+      { id: "sun", transform: { position: [0, 3, 5] }, light: { kind: "directional", intensity: 3 } },
+    ] }),
+});
+````
+
+## Gamepad input
+
+Combine standard gamepad input with keyboard bindings.
+
+Source checkout: `examples/gamepad/game.ts`.
+
+````ts
+import { defineComponent, defineGame, defineMaterial, defineScene, defineSystem } from "pelican-engine";
+
+const State = defineComponent({ id: "GamepadDemo", schema: {
+  initialized: { type: "boolean", default: false }, presses: { type: "number", default: 0 },
+} });
+const actor = defineMaterial({ id: "actor", color: "#6ad9e7", roughness: 0.8 });
+const move = defineSystem({ id: "gamepad-demo", phase: "update", reads: ["GamepadDemo", "Transform"], writes: ["GamepadDemo", "Transform"], run(ctx, dt) {
+  const state = ctx.getComponent("state", State);
+  if (!state.initialized) {
+    ctx.input.setGamepadMode("game");
+    ctx.input.setGamepadDeadzone(0.15);
+    ctx.setComponent("state", State, { initialized: true });
+  }
+  const pad = ctx.input.gamepad(), position = ctx.getTransform("actor").position;
+  const horizontal = pad.axes[0] ? pad.axes[0] : ctx.input.axis("left", "right");
+  const vertical = pad.axes[1] ? -pad.axes[1] : ctx.input.axis("down", "up");
+  ctx.setTransform("actor", { position: [Math.max(-6, Math.min(6, position[0] + horizontal * 3 * dt)),
+    Math.max(-3, Math.min(3, position[1] + vertical * 3 * dt)), position[2]] });
+  const presses = state.presses + Number(ctx.input.pressed("action"));
+  if (presses !== state.presses) ctx.setComponent("state", State, { presses });
+  ctx.ui.setText("status", `Arrows or left stick: move | Space or button 0: action | pad: ${pad.connected ? pad.index : "none"} | presses: ${presses}`);
+} });
+
+export default defineGame({ id: "gamepad-demo", components: [State], systems: [move], materials: [actor],
+  input: {
+    left: ["ArrowLeft", "gamepad:axis:0:negative", "gamepad:button:14"],
+    right: ["ArrowRight", "gamepad:axis:0:positive", "gamepad:button:15"],
+    up: ["ArrowUp", "gamepad:axis:1:negative", "gamepad:button:12"],
+    down: ["ArrowDown", "gamepad:axis:1:positive", "gamepad:button:13"],
+    action: [" ", "gamepad:button:0"],
+  },
+  render: { mode: "raster" },
+  ui: [{ id: "status", kind: "text", text: "Arrows or gamepad: move", x: 16, y: 16, width: 720 }],
+  scene: defineScene({ id: "gamepad", camera: { position: [0, 0, 10], target: [0, 0, 0], projection: "orthographic", orthographicSize: 8 },
+    environment: { background: "#172534", ambientIntensity: 1 }, entities: [
+      { id: "state", components: [{ component: State }] },
+      { id: "actor", mesh: { geometry: { kind: "box", size: [0.8, 0.8, 0.2] }, material: actor } },
       { id: "sun", transform: { position: [0, 3, 5] }, light: { kind: "directional", intensity: 3 } },
     ] }),
 });

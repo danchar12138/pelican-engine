@@ -31,7 +31,7 @@ const ui = createUIRenderer(definitions, {
   emit: (type, payload) => forwardExternalEvent(type, payload),
 });
 ui.mount(); // 同步、幂等；不聚焦、不请求 GPU、不需要点击或 RAF。
-ui.present(elements, positions);
+ui.present(elements, positions, gamepadNavigation); // 可省略第三参数，默认开启 UI 导航
 if (ui.consumesKeyboard(event)) return; // host 的 keydown 和 keyup 都须先判断。
 const evidence = ui.inspect();
 ui.dispose();
@@ -67,7 +67,7 @@ ui.dispose();
 
 ## 手柄与检查状态
 
-仅在已 mount 的 present 中读取 `navigator.getGamepads()`；不注册 RAF、定时器或 gamepad 全局事件。只接受 connected、mapping=standard 的控制器。D-pad 12/14 向前、13/15 向后，左摇杆轴 0/1 绝对值超过 0.5 等效；这里只按稳定 UI 数组顺序循环，不做空间最近邻。每次采样只处理一个方向，按住不重复，松开再按才产生新边沿。A/button0 只激活当前 button；input 上 A 不提交，未有焦点时 A 建立首个可交互焦点。隐藏 screen/world、遮挡 world、text/bar 均排除。
+UI 导航仅在已 mount、页面聚焦且 `gamepadNavigation` 开启的 present 中读取 `navigator.getGamepads()`；不注册 RAF、定时器或 gamepad 全局事件。游戏通过 `ctx.input.setGamepadMode("ui" | "game")` 选择 UI 导航或玩法输入，重新启用 UI 时先吸收当前按住的边沿，避免误激活。玩法采样由浏览器宿主单独处理；两条路径只接受 connected、mapping=standard 的控制器，物理设备行为未验证。D-pad 12/14 向前、13/15 向后，左摇杆轴 0/1 绝对值超过 0.5 等效；这里只按稳定 UI 数组顺序循环，不做空间最近邻。每次采样只处理一个方向，按住不重复，松开再按才产生新边沿。A/button0 只激活当前 button；input 上 A 不提交，未有焦点时 A 建立首个可交互焦点。隐藏 screen/world、遮挡 world、text/bar 均排除。
 
 组合输入期间读取并记住手柄边沿，但暂停导航和激活，因此不会抢走 IME 焦点，也不会在组合结束后重放按住的边沿。
 

@@ -1,5 +1,5 @@
 import type { SceneIR } from "../../compiler/src/types.ts";
-import type { AnimationControlService, AnimationService } from "../../sdk/src/index.ts";
+import type { AnimationControlService, AnimationService, GamepadState } from "../../sdk/src/index.ts";
 import type {
   RuntimePlugin,
   RuntimePluginContext,
@@ -8,6 +8,7 @@ import type {
 } from "./plugins.ts";
 import { cloneSerializable } from "./random.ts";
 import { isUiColor } from "../../schema/src/ui-color.ts";
+import { neutralGamepad, parseGamepad } from "./gamepad.ts";
 
 type Camera = NonNullable<SceneIR["scene"]["follow"]>;
 type UI = NonNullable<SceneIR["ui"]>;
@@ -17,7 +18,7 @@ export interface GameServiceRequest {
   id: string;
 }
 export interface GameServicesInspection {
-  input: { held: string[]; pressed: string[]; released: string[] };
+  input: { held: string[]; pressed: string[]; released: string[]; gamepadMode: "ui" | "game"; gamepadDeadzone: number; gamepad: GamepadState };
   camera: Camera | null;
   ui: SceneIR["ui"];
   audio: {
@@ -43,6 +44,7 @@ export interface GameServicesDriver {
   factory: RuntimePluginFactory;
   inspect(): GameServicesInspection;
   uiKind(id: string): UI[number]["kind"] | undefined;
+  gamepadConfig(): { mode: "ui" | "game"; deadzone: number };
   takeRequests(): GameServiceRequest[];
   /** Platform transaction handoff only; never exposed through the gameplay SDK. */
   adoptStorageRequest(type: "save" | "load", slot: string): void;
@@ -102,6 +104,21 @@ function inputKey(value: unknown, code: string): asserts value is string {
     code,
     "Input key must contain 1..64 printable characters; a literal space is valid.",
   );
+}
+/** Convert a reserved gamepad binding into a thresholded action key. */
+function gamepadKey(key: string, pad: GamepadState, previous: boolean): boolean | undefined {
+  const button = /^gamepad:button:(0|[1-9]\d*)$/.exec(key);
+  if (button) {
+    const index = Number(button[1]), value = pad.connected && index < 32 ? pad.buttons[index] ?? 0 : 0;
+    return value >= (previous ? 0.45 : 0.55);
+  }
+  const axis = /^gamepad:axis:(0|[1-9]\d*):(positive|negative)$/.exec(key);
+  if (axis) {
+    const index = Number(axis[1]), value = pad.connected && index < 8 ? pad.axes[index] ?? 0 : 0;
+    const signed = axis[2] === "negative" ? -value : value;
+    return signed >= (previous ? 0.45 : 0.55);
+  }
+  return undefined;
 }
 function finite(
   value: unknown,
@@ -337,6 +354,9 @@ export function createGameServices(
       held: [] as string[],
       pressed: [] as string[],
       released: [] as string[],
+      gamepadMode: "ui" as "ui" | "game",
+      gamepadDeadzone: 0.15,
+      gamepad: neutralGamepad(false, true),
     },
     camera: cloneSerializable(initialCamera),
     ui: cloneSerializable(initialUI),
@@ -433,6 +453,23 @@ export function createGameServices(
   };
   const services: Partial<RuntimeServices> = {
     input: {
+      setGamepadMode(mode) {
+        alive();
+        check(mode === "ui" || mode === "game", "TC_GAMEPAD_MODE", "Gamepad mode must be ui or game.");
+        if (state.input.gamepadMode === mode) return;
+        state.input.gamepadMode = mode;
+        if (mode === "ui") {
+          const before = new Set(state.input.held);
+          state.input.keys = state.input.keys.filter(key => !key.startsWith("gamepad:"));
+          state.input.held = actions.filter(id => bindings[id].some(key => state.input.keys.includes(key))).sort();
+          const released = new Set(state.input.released);
+          for (const id of before) if (!state.input.held.includes(id)) released.add(id);
+          state.input.released = [...released].sort();
+        }
+        state.input.gamepad = neutralGamepad(state.input.gamepad.available, mode === "ui");
+      },
+      setGamepadDeadzone(value) { alive(); finite(value, "TC_GAMEPAD_DEADZONE", "Gamepad deadzone", 0, 0.95); state.input.gamepadDeadzone = value; },
+      gamepad() { alive(); return cloneSerializable(state.input.gamepad); },
       held(id) {
         action(id);
         return state.input.held.includes(id);
@@ -750,7 +787,7 @@ export function createGameServices(
     alive();
     const { held, pressed, released } = state.input;
     return cloneSerializable({
-      input: { held, pressed, released },
+      input: { held, pressed, released, gamepadMode: state.input.gamepadMode, gamepadDeadzone: state.input.gamepadDeadzone, gamepad: state.input.gamepad },
       camera: state.camera,
       ui: state.ui,
       audio: { volume: state.audio.volume, ...(state.audio.busVolumes !== undefined ? { busVolumes: state.audio.busVolumes } : {}), voices: state.audio.voices },
@@ -813,7 +850,17 @@ export function createGameServices(
       SNAPSHOT_ERROR,
       "Clock time exceeds the finite range.",
     );
-    object(data.input, ["keys", "held", "pressed", "released"], SNAPSHOT_ERROR);
+    const inputFields = data.input && typeof data.input === "object" ? data.input : {};
+    object(data.input, ["keys", "held", "pressed", "released", ...(Object.hasOwn(inputFields, "gamepadMode") ? ["gamepadMode"] : []),
+      ...(Object.hasOwn(inputFields, "gamepadDeadzone") ? ["gamepadDeadzone"] : []),
+      ...(Object.hasOwn(inputFields, "gamepad") ? ["gamepad"] : [])], SNAPSHOT_ERROR);
+    if (!Object.hasOwn(data.input, "gamepadMode")) data.input.gamepadMode = "ui";
+    if (!Object.hasOwn(data.input, "gamepadDeadzone")) data.input.gamepadDeadzone = 0.15;
+    if (!Object.hasOwn(data.input, "gamepad")) data.input.gamepad = neutralGamepad(false, true);
+    finite(data.input.gamepadDeadzone, SNAPSHOT_ERROR, "Gamepad deadzone", 0, 0.95);
+    check(data.input.gamepadMode === "ui" || data.input.gamepadMode === "game", SNAPSHOT_ERROR, "Invalid gamepad mode.");
+    data.input.gamepad = parseGamepad(data.input.gamepad, SNAPSHOT_ERROR);
+    if (data.input.gamepadMode === "ui") check(!data.input.gamepad.connected, SNAPSHOT_ERROR, "UI gamepad mode cannot expose a connected gameplay pad.");
     const strings = (
       value: unknown,
       allowed: ReadonlySet<string>,
@@ -855,7 +902,7 @@ export function createGameServices(
     );
     if (data.tick === 0)
       check(
-        Object.values(data.input).every((items) => items.length === 0),
+        [data.input.keys, data.input.held, data.input.pressed, data.input.released].every(items => items.length === 0) && !data.input.gamepad.connected,
         SNAPSHOT_ERROR,
         "Initial input must be empty.",
       );
@@ -1118,27 +1165,32 @@ export function createGameServices(
           const held = new Set(state.input.held);
           const pressed = new Set<string>();
           const released = new Set<string>();
-          for (const event of context!.events("input.key")) {
-            const payload = object(
-              event.payload,
-              ["key", "pressed"],
-              "TC_INPUT_EVENT",
-            );
-            inputKey(payload.key, "TC_INPUT_EVENT");
-            check(
-              typeof payload.pressed === "boolean",
-              "TC_INPUT_EVENT",
-              "pressed must be boolean.",
-            );
-            if (!knownKeys.has(payload.key)) continue;
-            if (payload.pressed) keys.add(payload.key);
-            else keys.delete(payload.key);
+          let gamepad = state.input.gamepad;
+          const applyKey = (key: string, down: boolean) => {
+            if (!knownKeys.has(key)) return;
+            if (down) keys.add(key); else keys.delete(key);
             for (const id of actions) {
-              const down = bindings[id].some((key) => keys.has(key));
-              if (down && !held.has(id)) pressed.add(id);
-              if (!down && held.has(id)) released.add(id);
-              if (down) held.add(id);
-              else held.delete(id);
+              const next = bindings[id].some(binding => keys.has(binding));
+              if (next && !held.has(id)) pressed.add(id);
+              if (!next && held.has(id)) released.add(id);
+              if (next) held.add(id); else held.delete(id);
+            }
+          };
+          // Preserve event sequence when keyboard and gamepad transitions share a tick.
+          for (const event of context!.events()) {
+            if (event.type === "input.key") {
+              const payload = object(event.payload, ["key", "pressed"], "TC_INPUT_EVENT");
+              inputKey(payload.key, "TC_INPUT_EVENT");
+              check(typeof payload.pressed === "boolean", "TC_INPUT_EVENT", "pressed must be boolean.");
+              applyKey(payload.key, payload.pressed);
+            } else if (event.type === "input.gamepad") {
+              const sample = parseGamepad(event.payload, "TC_GAMEPAD_EVENT");
+              gamepad = state.input.gamepadMode === "game" ? { ...sample,
+                axes: sample.axes.map(axis => Math.abs(axis) < state.input.gamepadDeadzone ? 0 : axis) } : neutralGamepad(sample.available, true);
+              for (const key of knownKeys) {
+                const down = gamepadKey(key, gamepad, keys.has(key));
+                if (down !== undefined) applyKey(key, down);
+              }
             }
           }
           state.tick++;
@@ -1148,6 +1200,9 @@ export function createGameServices(
             held: [...held].sort(),
             pressed: [...pressed].sort(),
             released: [...released].sort(),
+            gamepadMode: state.input.gamepadMode,
+            gamepadDeadzone: state.input.gamepadDeadzone,
+            gamepad,
           };
           state.audio.voices = state.audio.voices.filter(
             (voice) =>
@@ -1204,6 +1259,7 @@ export function createGameServices(
     },
     inspect,
     uiKind(id) { alive(); return state.ui.find(item => item.id === id)?.kind; },
+    gamepadConfig() { alive(); return { mode: state.input.gamepadMode, deadzone: state.input.gamepadDeadzone }; },
     takeRequests() {
       alive();
       const pending = cloneSerializable(state.requests);

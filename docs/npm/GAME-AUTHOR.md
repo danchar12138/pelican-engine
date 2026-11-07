@@ -184,6 +184,37 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Gamepad input
+
+Gameplay can use the first connected standard-mapped gamepad without receiving
+browser or native gamepad objects. UI navigation owns the gamepad by default;
+call `ctx.input.setGamepadMode("game")` to route it to gameplay, and switch back
+to `"ui"` for menu navigation. Re-entering UI mode suppresses already-held
+navigation edges until a fresh press. A focused text input, IME composition,
+background page or window blur suppresses gameplay gamepad input.
+
+Declare digital bindings alongside keyboard keys, for example:
+
+```ts
+input: { jump: [" ", "gamepad:button:0"], left: ["ArrowLeft", "gamepad:axis:0:negative"] }
+```
+
+Buttons 0–31 and axes 0–7 are available through reserved keys
+`gamepad:button:N` and `gamepad:axis:N:negative` / `positive`. Digital edges use
+0.55 press and 0.45 release thresholds. `ctx.input.gamepad()` returns detached
+availability, connection, browser index, analog axes and buttons; values are
+quantized to 0.001. Axis deadzone defaults to 0.15 and can be changed with
+`setGamepadDeadzone` in [0, 0.95]; changes apply with the next input sample.
+Input samples enter the fixed-tick event
+stream and state snapshots; runtime recording/replay behavior remains
+unverified. Use `gamepad()` for analog movement and the regular action methods
+for digital bindings. See the asset-free `examples/gamepad` or installed recipe.
+
+This initial implementation selects one standard-mapped pad; nonstandard
+mappings, multiple-player assignment, haptics and complete controller support
+remain open. Browser availability, physical hardware, UI focus, disconnect,
+recording and restoration have not been runtime-validated.
+
 ### 2D rigid bodies
 
 Enable an independent XY physics world with `physics2d: { gravity: [0, -9.81] }`
@@ -385,7 +416,7 @@ historical `m2` template remains source-only because its sample assets are not
 part of the npm package; it is not a cross-channel capability claim.
 
 `docs/npm/RECIPES.md` contains complete asset-free `game.ts` recipes for
-orthographic raster, 2D rigid bodies, UI, inventory, quests, dialogue, localization, navigation and static chunks.
+orthographic raster, 2D rigid bodies, gamepad input, UI, inventory, quests, dialogue, localization, navigation and static chunks.
 The installed package includes this document, not the source checkout's
 `examples/` directories. In a repository or ZIP those paths are editable
 originals; the packaged recipes are generated from the same files at distribution

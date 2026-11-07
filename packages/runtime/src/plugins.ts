@@ -3,6 +3,7 @@ import type {
   AudioService,
   CameraService,
   InputService,
+  GamepadInputService,
   PhysicsService,
   Physics2DService,
   SceneService,
@@ -32,7 +33,7 @@ import type {
 } from "./contracts.ts";
 import type { RuntimeEvent } from "./events.ts";
 export interface RuntimeServices {
-  input: InputService;
+  input: GamepadInputService;
   physics: PhysicsService;
   physics2d: Physics2DService;
   animation: AnimationControlService;
@@ -93,7 +94,7 @@ export interface RuntimePlugin {
   id: string;
   version?: string;
   legacySnapshot?(): unknown;
-  services?: Partial<RuntimeServices>;
+  services?: Partial<Omit<RuntimeServices, "input">> & { input?: InputService & Partial<GamepadInputService> };
   systems?: readonly ScheduledSystem[];
   inspect?(): unknown;
   /** A failed native owner cannot provide a trustworthy rollback snapshot. */

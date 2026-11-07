@@ -66,8 +66,10 @@ export interface UIRenderer {
   present(
     elements: readonly UiElement[],
     positions?: ReadonlyMap<string, UiPosition>,
+    gamepadNavigation?: boolean,
   ): void;
   consumesKeyboard(event: KeyboardEvent): boolean;
+  blocksGameplayGamepad(): boolean;
   inspect(): UiInspection;
   dispose(): void;
 }
@@ -108,6 +110,7 @@ export function createUIRenderer(
   const traces: Trace[] = [];
   const listeners: { type: string; listener: EventListener }[] = [];
   let previousPads = new Map<number, boolean[]>();
+  let gamepadNavigationActive = true;
   let gamepad: UiInspection["gamepad"] = {
     source: "none",
     hardwareVerified: false,
@@ -407,11 +410,10 @@ export function createUIRenderer(
     candidates[next].node.focus({ preventScroll: true });
     trace("gamepad.focus", candidates[next]);
   }
-  function pollGamepads() {
-    const samples =
-      typeof navigator.getGamepads === "function"
-        ? navigator.getGamepads()
-        : [];
+  function pollGamepads(suppressEdges: boolean) {
+    let samples: readonly (Gamepad | null)[] = [];
+    try { if (typeof navigator.getGamepads === "function") samples = navigator.getGamepads(); }
+    catch { /* Gamepad access can be unavailable in an embedded or restricted context. */ }
     const nextPads = new Map<number, boolean[]>();
     gamepad = {
       source: "none",
@@ -447,8 +449,8 @@ export function createUIRenderer(
         false,
       ];
       nextPads.set(pad.index, state);
-      // Consume edges during IME without moving focus or activating another control.
-      if ([...rows.values()].some((row) => row.composing)) continue;
+      // Consume edges during IME or when UI navigation has just been re-enabled.
+      if (suppressEdges || [...rows.values()].some((row) => row.composing)) continue;
       const direction = state.findIndex(
         (value, index) => index < 4 && value && !previous[index],
       );
@@ -469,10 +471,18 @@ export function createUIRenderer(
       mounted = true;
       trace("mount");
     },
-    present(elements, positions) {
+    present(elements, positions, gamepadNavigation = true) {
       if (disposed) return;
       render(elements, positions);
-      if (mounted) pollGamepads();
+      if (mounted && gamepadNavigation && !document.hidden && (typeof document.hasFocus !== "function" || document.hasFocus())) {
+        const suppressEdges = !gamepadNavigationActive;
+        gamepadNavigationActive = true;
+        pollGamepads(suppressEdges);
+      } else {
+        gamepadNavigationActive = false;
+        previousPads.clear();
+        gamepad = { source: "none", hardwareVerified: false, index: null, connected: 0 };
+      }
     },
     consumesKeyboard(event) {
       if (disposed || !mounted) return false;
@@ -482,6 +492,9 @@ export function createUIRenderer(
         !!focused()?.input ||
         !!targetRow(event)?.input
       );
+    },
+    blocksGameplayGamepad() {
+      return mounted && !disposed && ([...rows.values()].some(row => row.composing) || !!focused()?.input);
     },
     inspect() {
       const focus = focused();

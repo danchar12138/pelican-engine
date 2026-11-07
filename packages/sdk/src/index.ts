@@ -105,7 +105,7 @@ export interface SystemContext extends EngineFacade {
   random(): number;
   emit(type: string, payload: unknown): void;
   events(type?: string): readonly GameEvent[];
-  readonly input: InputService;
+  readonly input: GamepadInputService;
   readonly physics: PhysicsService;
   /** Available only when the current scene opts into physics2d. */
   readonly physics2d: Physics2DService;
@@ -875,11 +875,29 @@ export interface ComputeService {
   cancel(task: ComputeTaskHandle): void;
   releaseTask(task: ComputeTaskHandle): void;
 }
+export interface GamepadState {
+  /** Browser gamepad API is present and readable. */
+  available: boolean;
+  connected: boolean;
+  /** Browser index of the selected standard-mapped pad; no device identifier is exposed. */
+  index: number | null;
+  axes: readonly number[];
+  buttons: readonly number[];
+  /** Gameplay input is suppressed, for example while UI owns the gamepad. */
+  suppressed: boolean;
+}
 export interface InputService {
   held(action: string): boolean;
   pressed(action: string): boolean;
   released(action: string): boolean;
   axis(negative: string, positive: string): number;
+}
+export interface GamepadInputService extends InputService {
+  /** Choose UI navigation or gameplay input; defaults to UI for backward compatibility. */
+  setGamepadMode(mode: "ui" | "game"): void;
+  /** Analog axis deadzone in [0, 0.95]; defaults to 0.15. */
+  setGamepadDeadzone(value: number): void;
+  gamepad(): GamepadState;
 }
 export interface PhysicsService {
   moveCharacter(entity: string, displacement: Vec3): void;

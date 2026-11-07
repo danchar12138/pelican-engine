@@ -390,6 +390,9 @@ export async function prepareGameplay(
       consumesKeyboard(event: KeyboardEvent) {
         return ui?.consumesKeyboard(event) ?? false;
       },
+      blocksGameplayGamepad() {
+        return ui?.blocksGameplayGamepad() ?? false;
+      },
       unlockAudio() {
         void audio
           ?.resume()
@@ -527,7 +530,7 @@ export async function prepareGameplay(
             occluded,
           });
         }
-        ui?.present(state.ui ?? [], positions);
+        ui?.present(state.ui ?? [], positions, state.input.gamepadMode === "ui");
         const clock = services.audioClock();
         if (clock.revision !== audioRevision) {
           for (const id of [...voices.keys()]) stopVoice(id);

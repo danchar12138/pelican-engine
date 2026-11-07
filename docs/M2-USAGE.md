@@ -19,7 +19,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<engine>\pelican.ps1" dev -
 
 - 内容定义：`defineComponent/definePrefab/defineScene/defineAsset/defineMaterial/defineSystem/defineGame`；`game.scenes` 定义额外场景。
 - 实体：`entities.spawn({id,prefab,transform,components})` 按编译预制体默认值生成，`entities.destroy` 在阶段边界提交。省略 prefab 创建仅含变换和组件的逻辑实体。实体句柄在恢复后须重新解析。
-- 输入：`game.input` 将 action 映射至 `KeyboardEvent.key` 字符串，`ctx.input.held/pressed/released/axis` 读取固定 tick 状态，Space 是单个空格。UI 按钮可映射 `ui:<id>`；同 tick 按下与释放会保留 pressed 边沿。
+- 输入：`game.input` 将 action 映射至 `KeyboardEvent.key` 字符串，`ctx.input.held/pressed/released/axis` 读取固定 tick 状态，Space 是单个空格。UI 按钮可映射 `ui:<id>`；同 tick 按下与释放会保留 pressed 边沿。本地开发增量还提供标准手柄玩法输入与 UI/游戏模式切换，详见 Game Author 指南；设备行为未验证。
 - 角色：`character` 定义胶囊，`physics.moveCharacter` 提交下一物理步 XYZ 位移；`setVelocity` 设置持续速度，正 Y 跳跃。角色 gravity 是向下加速度大小，默认 9.81；场景 gravity 为带符号向量。
 - 物理：声明 `rigidBody`，使用速度、冲量、射线及碰撞/触发事件。射线可传 `{exclude:[entity],includeTriggers:false}`。所有第三方对象都由引擎持有。
 - 模型与动画：`model.asset/scale/offset/rotation/animation/castShadow/receiveShadow`；`ctx.animation.play/state` 支持片段切换和淡入。GLB 使用私有 GLTFLoader，骨骼和 Morph 实例独立。
