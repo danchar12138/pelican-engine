@@ -1185,10 +1185,9 @@ class ModelLibraryImpl implements ModelLibrary {
             };
           });
           const normalized = normalizeSparseGLB(bytes);
-          const normalizedBytes = normalized.buffer.slice(
-            normalized.byteOffset,
-            normalized.byteOffset + normalized.byteLength,
-          ) as ArrayBuffer;
+          const normalizedBytes = normalized.buffer === bytes && normalized.byteOffset === 0 && normalized.byteLength === bytes.byteLength
+            ? bytes
+            : normalized.buffer.slice(normalized.byteOffset, normalized.byteOffset + normalized.byteLength) as ArrayBuffer;
           const gltf = await loader.parseAsync(normalizedBytes, new URL(".", url).href);
           resources.collect(gltf.scenes);
           const template = this.makeTemplate(id, gltf, resources);

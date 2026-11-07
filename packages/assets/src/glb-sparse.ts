@@ -61,12 +61,13 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
     return fail("Each accessor must be an object.");
   const sparse = accessors.filter(accessor => accessor.sparse !== undefined);
   if (!sparse.length) return bytes;
-  if (!Array.isArray(json.buffers) || json.buffers.length !== 1 || !json.buffers[0] || typeof json.buffers[0] !== "object" || json.buffers[0].uri !== undefined)
+  if (!Array.isArray(json.buffers) || json.buffers.length !== 1 || !json.buffers[0] || typeof json.buffers[0] !== "object" || Array.isArray(json.buffers[0]) || json.buffers[0].uri !== undefined)
     return fail("Sparse normalization requires one embedded GLB buffer.");
   const binChunks = chunks.filter(chunk => chunk.type === 0x004e4942);
   if (binChunks.length !== 1 || chunks.filter(chunk => chunk.type === 0x4e4f534a).length !== 1)
     return fail("Sparse data requires one JSON and one BIN chunk.");
   const binChunk = binChunks[0];
+  if (chunks[1] !== binChunk) return fail("BIN must immediately follow the JSON chunk.");
   const originalLength = json.buffers[0].byteLength;
   if (!Number.isSafeInteger(originalLength) || originalLength < 0 || originalLength > binChunk.data.byteLength || binChunk.data.byteLength - originalLength > 3)
     return fail("Declared buffer length does not match BIN data.");
@@ -75,12 +76,12 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
   const bufferViews: BufferView[] = json.bufferViews;
   const totalExpanded = sparse.reduce((sum, accessor) => {
     const size = COMPONENT_BYTES[accessor.componentType], components = COMPONENTS[accessor.type];
-    if (!size || !components || (accessor.type.startsWith("MAT") && size !== 4)) return fail("Unsupported accessor component layout.");
+    if (typeof accessor.type !== "string" || !size || !components || (accessor.type.startsWith("MAT") && size !== 4)) return fail("Unsupported accessor component layout.");
     const bytes = accessor.count * size * components;
     if (!Number.isSafeInteger(bytes) || bytes < 0) return fail("Accessor byte length is not representable.");
     return sum + bytes;
   }, 0);
-  if (totalExpanded > 128 * 1024 * 1024) return fail("Expanded sparse accessor data exceeds 128 MiB.");
+  if (!Number.isSafeInteger(totalExpanded) || totalExpanded > 128 * 1024 * 1024) return fail("Expanded sparse accessor data exceeds 128 MiB.");
   const denseParts: Uint8Array[] = [source];
   let cursor = originalLength;
   for (const accessor of sparse) {
@@ -97,7 +98,7 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
     if (accessor.bufferView !== undefined) {
       const baseView = bufferViews[accessor.bufferView];
       if (!Number.isSafeInteger(accessor.bufferView) || accessor.bufferView < 0 || !baseView || baseView.buffer !== 0) return fail("Invalid sparse accessor base buffer view.");
-      if (!Number.isSafeInteger(baseView.byteOffset ?? 0) || (baseView.byteOffset ?? 0) < 0 || !Number.isSafeInteger(baseView.byteLength) || baseView.byteLength < 1)
+      if (!Number.isSafeInteger(baseView.byteOffset ?? 0) || (baseView.byteOffset ?? 0) < 0 || !Number.isSafeInteger(baseView.byteLength) || baseView.byteLength < 1 || !Number.isSafeInteger((baseView.byteOffset ?? 0) + baseView.byteLength) || (baseView.byteOffset ?? 0) + baseView.byteLength > source.byteLength)
         return fail("Invalid sparse accessor base buffer view range.");
       const baseOffset = (baseView.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
       const stride = baseView.byteStride ?? elementSize;
@@ -110,7 +111,7 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
     const readPart = (part: SparsePart, byteCount: number, alignment: number, label: string) => {
       const partView = bufferViews[part.bufferView];
       if (!Number.isSafeInteger(part.bufferView) || part.bufferView < 0 || !partView || partView.buffer !== 0 || partView.byteStride !== undefined || partView.target !== undefined) return fail(`Invalid sparse ${label} view.`);
-      if (!Number.isSafeInteger(partView.byteOffset ?? 0) || (partView.byteOffset ?? 0) < 0 || !Number.isSafeInteger(partView.byteLength) || partView.byteLength < 1)
+      if (!Number.isSafeInteger(partView.byteOffset ?? 0) || (partView.byteOffset ?? 0) < 0 || !Number.isSafeInteger(partView.byteLength) || partView.byteLength < 1 || !Number.isSafeInteger((partView.byteOffset ?? 0) + partView.byteLength) || (partView.byteOffset ?? 0) + partView.byteLength > source.byteLength)
         return fail(`Invalid sparse ${label} view range.`);
       const start = (partView.byteOffset ?? 0) + (part.byteOffset ?? 0);
       if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(part.byteOffset ?? 0) || (part.byteOffset ?? 0) < 0 || (part.byteOffset ?? 0) % alignment || start % alignment || !Number.isSafeInteger(start + byteCount) || start + byteCount > (partView.byteOffset ?? 0) + partView.byteLength || start + byteCount > source.byteLength)
