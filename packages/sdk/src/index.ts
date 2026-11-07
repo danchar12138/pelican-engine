@@ -637,7 +637,11 @@ export interface NavigationGrid {
   readonly searchCellBudget?: number;
 }
 /** Options for one grid search. Diagonal movement never crosses blocked corners. */
-export interface NavigationPathOptions { readonly allowDiagonal?: boolean }
+export interface NavigationPathOptions {
+  readonly allowDiagonal?: boolean;
+  /** Additional blocked cells for this search only; does not modify the grid. */
+  readonly blocked?: readonly NavigationCell[];
+}
 /** A non-physical root entity moving on a finite X/Z or X/Y navigation grid. */
 export interface NavigationAgentDefinition {
   id: string;

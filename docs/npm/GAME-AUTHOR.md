@@ -844,6 +844,14 @@ deadlocks; agents moving in opposite directions in a one-cell corridor can
 wait indefinitely. This is not continuous crowd avoidance or physics collision.
 Waiting state is saved; movement and restoration are unverified.
 
+For game-driven alternate routes, `ctx.navigation.findPath("level", start,
+end, { blocked: occupiedCells, allowDiagonal: true })` accepts up to 4096
+additional blocked cells for that search. They do not change the grid or queue
+agent replanning. Start or destination in the combined blocked set reports
+`TC_NAVIGATION_BLOCKED`; diagonal corner rules also use the temporary cells.
+This does not automatically reroute `avoidAgents` agents, and behavior remains
+runtime-unverified.
+
 At most 128 agents are supported, with at most 65,536 cells per resulting path
 and 64 traversed segments per agent per tick; excess per-tick travel is not
 carried forward. Agent paths, queued replanning and targets are included in host

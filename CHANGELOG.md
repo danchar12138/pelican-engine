@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add per-search temporary navigation obstacles without changing shared grid state; runtime behavior remains unverified.
+
 - Add explicit normalized-time alignment for blended animation clips; runtime behavior remains unverified.
 
 - Add opt-in grid-cell reservations and waiting for navigation agents; runtime behavior remains unverified.

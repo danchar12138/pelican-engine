@@ -133,11 +133,13 @@ export const createNavigationPlugin: RuntimePluginFactory = context => {
     findPath(id, start, end, options) {
       const grid = get(id), from = cell(grid, start), to = cell(grid, end);
       if (options !== undefined && (!options || typeof options !== "object" || Array.isArray(options) ||
-          Object.keys(options).some(key => key !== "allowDiagonal") ||
-          (options.allowDiagonal !== undefined && typeof options.allowDiagonal !== "boolean")))
-        fail("OPTIONS", "Path options require an optional boolean allowDiagonal.");
+          Object.keys(options).some(key => key !== "allowDiagonal" && key !== "blocked") ||
+          (options.allowDiagonal !== undefined && typeof options.allowDiagonal !== "boolean") ||
+          (options.blocked !== undefined && (!Array.isArray(options.blocked) || options.blocked.length > 4096))))
+        fail("OPTIONS", "Path options accept allowDiagonal and at most 4096 temporary blocked cells.");
       const diagonal = options?.allowDiagonal === true;
       const blocked = new Set(grid.blocked);
+      for (const point of options?.blocked ?? []) blocked.add(cell(grid, point));
       if (blocked.has(from) || blocked.has(to)) fail("BLOCKED", "Start or destination is blocked.");
       const budget = grid.searchCellBudget ?? DEFAULT_SEARCH_CELLS;
       type Node = { id: number; x: number; y: number };
