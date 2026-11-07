@@ -186,6 +186,12 @@ Invalid priority or a non-winning full voice returns a stable diagnostic.
 
 ### Self-contained game recipes
 
+`pelican create` defaults to the same minimal starter and current working
+directory in the installed package and source checkout. Pass `--project` to
+choose another directory; existing project files are never overwritten. The
+historical `m2` template remains source-only because its sample assets are not
+part of the npm package; it is not a cross-channel capability claim.
+
 `docs/npm/RECIPES.md` contains complete asset-free `game.ts` recipes for
 UI, inventory, quests, dialogue, localization, navigation and static chunks.
 The installed package includes this document, not the source checkout's

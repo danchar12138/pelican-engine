@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Align the default `create` template and current-directory behavior for source and npm use. Runtime and cross-channel behavior are unverified.
+
 - Generate offline npm game-author recipes from the same asset-free source examples used by the repository. Runtime and cross-channel use are unverified.
 
 ## 0.7.0 - 2026-11-07

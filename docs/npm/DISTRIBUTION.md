@@ -81,6 +81,10 @@ The renderer prioritizes WebGPU and can use Three.js's built-in WebGL2 raster fa
 
 ## Documentation
 
+`pelican create` defaults to the minimal starter in the current directory in
+both the installed package and source checkout; `--project` selects another
+location. The legacy asset-bearing `m2` sample remains source-only.
+
 For complete, asset-free starter recipes available offline in the installed
 package, read `docs/npm/RECIPES.md` in the package. A source checkout or ZIP
 contains the same recipe originals under `examples/`. These examples are not

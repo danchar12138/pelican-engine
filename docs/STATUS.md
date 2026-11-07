@@ -11,7 +11,7 @@
 ## Current Scope
 
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
-- The local 0.8 development batch generates asset-free game-author recipe documentation from source examples for both the repository and npm package. It does not ship example projects or assets; cross-channel use is not runtime-validated.
+- The local 0.8 development batch generates asset-free game-author recipe documentation from source examples for both the repository and npm package, and aligns the default `create` template and project directory. It does not ship example projects or assets; the legacy asset-bearing `m2` template remains source-only. Cross-channel use is not runtime-validated.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.
 - The 0.7.0 batch makes scene, model, texture and audio cleanup best-effort across individual disposal failures, shares in-flight dispose promises and retains cleanup diagnostics. It also adds a plan/apply/restore command for project version locks with backup and hash guards, not API, dependency or save migration. Builds now stage output and retain prior dist in a workspace backup before replacement. Cleanup, build rollback, migration, recovery and absence of leaks are not runtime-validated; failures after a scene commit do not guarantee rollback.
 - Changes after 0.3.35 include spot lights, local light falloff, light and mesh shadow flags in direct tracing, and GLB unlit materials and punctual lights. These changes have not been runtime-validated.

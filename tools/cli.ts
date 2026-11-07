@@ -53,7 +53,7 @@ const option = (name: string, fallback?: string) => {
   return index >= 0 ? args[index + 1] : fallback;
 };
 const projectRoot = path.resolve(
-  command === "api" ? defaultProject : option("project", defaultProject)!,
+  command === "api" ? defaultProject : option("project", command === "create" ? process.cwd() : defaultProject)!,
 );
 const taskId = `${command}-${Date.now()}`;
 const envelope = (
@@ -86,7 +86,9 @@ async function main() {
         commands: [
           "doctor",
           "setup [--install-browser] [--offline]",
-          "create --project <directory> [--template minimal|m2]",
+          layout.installed
+            ? "create [--project <directory>] [--template minimal]"
+            : "create [--project <directory>] [--template minimal|m2] (m2 is a source-only legacy sample)",
           "migrate [--project <directory>] [--apply --from <version|unlocked>]",
           "migrate [--project <directory>] --restore <backup-name> --expect-current <sha256> --expect-backup <sha256>",
           "check --project <directory>",
@@ -307,7 +309,7 @@ async function main() {
     return;
   }
   if (command === "create") {
-    const template = option("template", layout.installed ? "minimal" : "m2");
+    const template = option("template", "minimal");
     if (
       !["minimal", "m2"].includes(template!) ||
       (layout.installed && template !== "minimal")
@@ -315,8 +317,6 @@ async function main() {
       throw new Error(
         "TC_CREATE_TEMPLATE: Use minimal in either distribution; m2 sample assets are available in source checkouts only.",
       );
-    if (!layout.installed && !option("project"))
-      throw new Error("TC_CREATE_PATH: --project is required.");
     if (template === "minimal") {
       for (const filename of ["game.ts", "pelican.project.json", "AGENTS.md"])
         try {

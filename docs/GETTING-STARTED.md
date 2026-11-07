@@ -49,7 +49,7 @@ npx --no-install pelican api
 npx --no-install pelican api --symbol defineGame
 ```
 
-项目锁与安装版本不一致时，应先迁移项目，再明确更新 `pelican.project.json` 中的版本；不要通过修改 `node_modules` 绕过诊断。更多使用细节见 [npm 分发指南](npm/DISTRIBUTION.md)、[Game Author 指南](npm/GAME-AUTHOR.md) 和 [游戏开发配方](npm/RECIPES.md)。
+项目锁与安装版本不一致时，应先迁移项目，再明确更新 `pelican.project.json` 中的版本；不要通过修改 `node_modules` 绕过诊断。`pelican create` 在 npm 与源码渠道默认都创建 minimal 项目，未指定 `--project` 时使用当前目录；已有项目文件不会被覆盖。历史 `m2` 资产样例仍仅存在于源码渠道。更多使用细节见 [npm 分发指南](npm/DISTRIBUTION.md)、[Game Author 指南](npm/GAME-AUTHOR.md) 和 [游戏开发配方](npm/RECIPES.md)。
 
 ## 方式二：从仓库使用引擎
 
