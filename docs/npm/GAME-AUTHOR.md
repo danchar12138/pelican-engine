@@ -184,6 +184,37 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Inventory and item stacks
+
+`ctx.inventory` supplies bounded, game-defined item containers without exposing
+engine internals. Define an item once, create a container with an explicit owner
+label, then add or transfer complete amounts:
+
+```ts
+ctx.inventory.defineItem({ id: "potion", label: "Potion", maxStack: 5, tags: ["consumable"] });
+ctx.inventory.create({ id: "backpack", owner: "player", capacity: 12 });
+ctx.inventory.add("backpack", "potion", 3);
+const bag = ctx.inventory.inspect("backpack"); // detached slots, each a stack or null
+```
+
+`add` fills existing stacks first, then empty slots; `remove` consumes in slot
+order. `transfer(from, to, item, count)` moves the requested amount atomically,
+and `moveSlot(id, from, to, count?)` splits, merges or swaps stacks within a
+container. Capacity, insufficient quantity and invalid slot errors leave the
+involved containers unchanged. `count`, `getItem` and `listItems` read state;
+`destroy` discards a container and its contents, and `destroyOwner` discards
+all containers with that explicit label. Owners do not track entity lifetime.
+An item definition cannot be removed while any container holds it.
+
+The service supports up to 4096 item definitions, 512 containers, 256 slots
+per container and 65536 slots overall; each stack holds at most 1,000,000 of an
+item. Definitions, slots and owners are included in host snapshots; older
+snapshots have an empty inventory service. This is a basic stack/container
+module, not equipment slots, item instances with durability/metadata, crafting,
+loot, weight or a ready-made inventory UI. Behavior and snapshot restoration
+have not been runtime-validated. The source example `examples/inventory`
+shows a backpack and chest.
+
 ### Dynamic game UI
 
 Declare persistent controls in `game.ui` and use `ctx.ui.create` for dynamic

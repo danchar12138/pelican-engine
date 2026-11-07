@@ -11,6 +11,7 @@ import type {
   ComputeService,
   NavigationService,
   WorldStreamingService,
+  InventoryService,
   RopeService,
   ClothService,
   FluidService,
@@ -37,6 +38,7 @@ export interface RuntimeServices {
   compute: ComputeService;
   navigation: NavigationService;
   streaming: WorldStreamingService;
+  inventory: InventoryService;
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;

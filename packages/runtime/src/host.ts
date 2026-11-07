@@ -274,6 +274,9 @@ export class RuntimeHost {
       get streaming() {
         return host.service("streaming");
       },
+      get inventory() {
+        return host.service("inventory");
+      },
       get ropes() {
         return host.service("ropes");
       },

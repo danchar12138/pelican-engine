@@ -117,6 +117,7 @@ export interface SystemContext extends EngineFacade {
   readonly compute: ComputeService;
   readonly navigation: NavigationService;
   readonly streaming: WorldStreamingService;
+  readonly inventory: InventoryService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -803,6 +804,44 @@ export interface UIService {
   setText(id: string, text: string): void;
   setProgress(id: string, value: number): void;
   setVisible(id: string, visible: boolean): void;
+}
+/** Item stack rules; tags and label are game-defined, not localized automatically. */
+export interface InventoryItemDefinition {
+  id: string;
+  maxStack?: number;
+  label?: string;
+  tags?: readonly string[];
+}
+export interface InventoryDefinition {
+  id: string;
+  /** Explicit grouping label, not an entity lifetime binding. */
+  owner: string;
+  capacity: number;
+}
+export interface InventorySlot { item: string; count: number }
+export interface InventoryState {
+  id: string;
+  owner: string;
+  slots: readonly (InventorySlot | null)[];
+}
+/** Deterministic bounded item containers; mutating operations are atomic on failure. */
+export interface InventoryService {
+  defineItem(definition: InventoryItemDefinition): void;
+  getItem(id: string): Required<InventoryItemDefinition>;
+  listItems(): readonly Required<InventoryItemDefinition>[];
+  undefineItem(id: string): void;
+  create(definition: InventoryDefinition): void;
+  inspect(id: string): InventoryState;
+  /** Counts all stacks of an item in one inventory. */
+  count(id: string, item: string): number;
+  add(id: string, item: string, count: number): void;
+  remove(id: string, item: string, count: number): void;
+  /** Transfers an entire requested amount or leaves both inventories unchanged. */
+  transfer(from: string, to: string, item: string, count: number): void;
+  /** Split, merge or swap slots; a swap requires the whole source stack. */
+  moveSlot(id: string, from: number, to: number, count?: number): void;
+  destroy(id: string): void;
+  destroyOwner(owner: string): void;
 }
 export interface AudioService {
   play(

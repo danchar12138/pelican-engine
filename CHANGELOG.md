@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add stackable items and bounded inventory containers with atomic operations and snapshot state. Runtime behavior is unverified.
+
 - Add dynamic game UI controls, editable layout, and generation-aware input events and snapshots. Runtime behavior is unverified.
 
 ## 0.5.1 - 2026-11-07
