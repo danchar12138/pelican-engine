@@ -502,6 +502,7 @@ function createEntityView(
 }
 function syncRuntime(): boolean {
   if (!runtime) { clearDynamicVisuals(); return dynamicVisualRevision !== renderedDynamicVisualRevision; }
+  let lightingChanged = false;
   transforms.clear();
   componentState.clear();
   const records = runtime.world.records();
@@ -566,12 +567,20 @@ function syncRuntime(): boolean {
     const light = object.children.find((child): child is THREE.Light => child instanceof THREE.Light);
     if (definition && light) {
       const override = lightOverrides.get(record.id);
+      const oldRed = light.color.r, oldGreen = light.color.g, oldBlue = light.color.b;
+      const oldIntensity = light.intensity, oldVisible = light.visible;
+      const target = light instanceof THREE.DirectionalLight || light instanceof THREE.SpotLight ? light.target.position : undefined;
+      const oldX = target?.x, oldY = target?.y, oldZ = target?.z;
       light.intensity = override?.intensity ?? definition.intensity ?? 1;
       light.color.set(definition.color ?? "#ffffff");
       if (override?.color) light.color.setRGB(...override.color);
       light.visible = override?.visible ?? true;
       if (light instanceof THREE.DirectionalLight || light instanceof THREE.SpotLight)
         light.target.position.fromArray(override?.target ?? definition.target ?? [0, 0, 0]);
+      if (oldRed !== light.color.r || oldGreen !== light.color.g || oldBlue !== light.color.b ||
+          oldIntensity !== light.intensity || oldVisible !== light.visible ||
+          (target && (oldX !== target.x || oldY !== target.y || oldZ !== target.z)))
+        lightingChanged = true;
     }
     object.position.fromArray(record.transform.position);
     object.rotation.set(...record.transform.rotation);
@@ -601,6 +610,7 @@ function syncRuntime(): boolean {
     if (tilemapVisuals.sync(runtime.facade.tilemaps.visuals(), gameMaterials, gameObjects,
       (id, x, y) => runtime!.facade.tilemaps.readChunk(id, x, y))) dynamicVisualRevision++;
   } else clearDynamicVisuals();
+  if (lightingChanged) dynamicVisualRevision++;
   return dynamicVisualRevision !== renderedDynamicVisualRevision;
 }
 let simulation: Simulation | undefined;
@@ -1083,17 +1093,24 @@ async function processGameRequests() {
     }
   }
 }
-function animate() {
+function animate(): boolean {
   const time = tick / 60;
   graphTime.value = time;
+  let surfaceChanged = false;
   if (renderControl) for (const [id, material] of gameMaterials) {
     const defaults = gameSurfaceDefaults.get(id)!;
     const patch = renderControl.service.materialSurface(id);
+    const oldRed = material.color.r, oldGreen = material.color.g, oldBlue = material.color.b;
+    const oldEmissiveRed = material.emissive.r, oldEmissiveGreen = material.emissive.g, oldEmissiveBlue = material.emissive.b;
+    const oldRoughness = material.roughness, oldMetalness = material.metalness, oldIntensity = material.emissiveIntensity;
     if (patch.color) material.color.fromArray(patch.color); else material.color.copy(defaults.color);
     if (patch.emissive) material.emissive.fromArray(patch.emissive); else material.emissive.copy(defaults.emissive);
     material.roughness = patch.roughness ?? defaults.roughness;
     material.metalness = patch.metalness ?? defaults.metalness;
     material.emissiveIntensity = patch.emissiveIntensity ?? defaults.emissiveIntensity;
+    if (oldRed !== material.color.r || oldGreen !== material.color.g || oldBlue !== material.color.b ||
+        oldEmissiveRed !== material.emissive.r || oldEmissiveGreen !== material.emissive.g || oldEmissiveBlue !== material.emissive.b || oldRoughness !== material.roughness ||
+        oldMetalness !== material.metalness || oldIntensity !== material.emissiveIntensity) surfaceChanged = true;
   }
   for (const item of materialGraphs) {
     item.binding.time = time;
@@ -1128,6 +1145,8 @@ function animate() {
   camera.updateMatrixWorld();
   vertexBounds?.update(scene, new Map(materialGraphs.map(item => [item.material, item.binding])));
   gameplay?.present(camera, gameObjects, playing ? 1 / 60 : 0, tick);
+  if (surfaceChanged) dynamicVisualRevision++;
+  return surfaceChanged;
 }
 function updateTraceGeometry() {
   const start = performance.now();
@@ -1204,9 +1223,9 @@ async function drawFrame(accumulate = false, changed = true) {
   await computeControl?.flush();
   const start = performance.now();
   const ropeChanged = syncRuntime();
-  const ropeRevision = dynamicVisualRevision;
   changed = changed || ropeChanged;
-  animate();
+  changed = animate() || changed;
+  const ropeRevision = dynamicVisualRevision;
   renderBufferBridge?.update();
   renderTextureBridge?.update();
   const settings =

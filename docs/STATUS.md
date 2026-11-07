@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development marks runtime light and material surface changes for tracing recapture even when a draw otherwise has no scene-change flag. Raster and tracing behavior remain unverified.
+
 - Local development adds bounded replanning around occupied cells after navigation agents wait; destination blocking, crossing paths and deadlocks still require game handling. Rerouting and snapshot restoration are unverified.
 
 - Local development adds per-search temporary blocked navigation cells without mutating the shared grid. Automatic agent rerouting and runtime behavior remain unverified.

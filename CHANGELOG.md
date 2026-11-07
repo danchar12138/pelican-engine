@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Mark runtime light and material changes for tracing recapture during unchanged draws; rendering behavior remains unverified.
+
 - Add bounded occupied-cell rerouting for waiting navigation agents; runtime and snapshot behavior remain unverified.
 
 - Add per-search temporary navigation obstacles without changing shared grid state; runtime behavior remains unverified.
