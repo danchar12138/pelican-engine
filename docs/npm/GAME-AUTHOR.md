@@ -588,13 +588,28 @@ container. Capacity, insufficient quantity and invalid slot errors leave the
 involved containers unchanged. `count`, `getItem` and `listItems` read state;
 `destroy` discards a container and its contents, and `destroyOwner` discards
 all containers with that explicit label. Owners do not track entity lifetime.
-An item definition cannot be removed while any container holds it.
+An item definition cannot be removed while a container or equipment slot holds it.
+
+```ts
+ctx.inventory.defineItem({ id: "sword", tags: ["weapon"] });
+ctx.inventory.add("backpack", "sword", 1);
+ctx.inventory.createEquipment("gear", "player", [{ id: "hand", requiredTag: "weapon" }]);
+ctx.inventory.equip("gear", "hand", "backpack", "sword");
+ctx.inventory.unequip("gear", "hand", "backpack");
+```
+
+Equipment slots hold one item and can require a tag. The inventory and
+equipment must share an owner. Equipping a replacement returns the previous
+item to the inventory atomically; a full inventory leaves both unchanged.
+`inspectEquipment` returns detached state, and `destroyEquipment` requires
+empty slots. `destroyOwner` discards that owner's equipment and inventories.
+Equipment state is saved in snapshots; older snapshots start with no equipment.
 
 The service supports up to 4096 item definitions, 512 containers, 256 slots
 per container and 65536 slots overall; each stack holds at most 1,000,000 of an
 item. Definitions, slots and owners are included in host snapshots; older
 snapshots have an empty inventory service. This is a basic stack/container
-module, not equipment slots, item instances with durability/metadata, crafting,
+module, not item instances with durability/metadata, crafting,
 loot, weight or a ready-made inventory UI. Behavior and snapshot restoration
 have not been runtime-validated. The source example `examples/inventory`
 shows a backpack and chest.

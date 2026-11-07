@@ -1051,6 +1051,11 @@ export interface InventoryState {
   owner: string;
   slots: readonly (InventorySlot | null)[];
 }
+export interface EquipmentSlotDefinition { id: string; requiredTag?: string }
+export interface EquipmentState {
+  id: string; owner: string;
+  slots: readonly { id: string; requiredTag?: string; item: string | null }[];
+}
 /** Deterministic bounded item containers; mutating operations are atomic on failure. */
 export interface InventoryService {
   defineItem(definition: InventoryItemDefinition): void;
@@ -1067,6 +1072,15 @@ export interface InventoryService {
   transfer(from: string, to: string, item: string, count: number): void;
   /** Split, merge or swap slots; a swap requires the whole source stack. */
   moveSlot(id: string, from: number, to: number, count?: number): void;
+  /** Define named equipment slots; optional requiredTag restricts compatible items. */
+  createEquipment(id: string, owner: string, slots: readonly EquipmentSlotDefinition[]): void;
+  inspectEquipment(id: string): EquipmentState;
+  /** Move one item from an inventory into a slot; an existing item returns to that inventory atomically. */
+  equip(equipment: string, slot: string, inventory: string, item: string): void;
+  /** Move one equipped item back to an inventory belonging to the same owner. */
+  unequip(equipment: string, slot: string, inventory: string): void;
+  /** Empty all slots before destroying equipment. */
+  destroyEquipment(id: string): void;
   destroy(id: string): void;
   destroyOwner(owner: string): void;
 }

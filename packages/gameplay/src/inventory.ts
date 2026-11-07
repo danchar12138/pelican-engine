@@ -4,13 +4,15 @@ import type {
   InventoryService,
   InventorySlot,
   InventoryState,
+  EquipmentState,
 } from "../../sdk/src/index.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 
 type Item = Required<InventoryItemDefinition>;
 type Inventory = { id: string; owner: string; slots: (InventorySlot | null)[] };
-type InventorySnapshot = { format: "pelican.inventory"; version: 1; items: Item[]; inventories: Inventory[] };
+type Equipment = { id: string; owner: string; slots: { id: string; requiredTag?: string; item: string | null }[] };
+type InventorySnapshot = { format: "pelican.inventory"; version: 1; items: Item[]; inventories: Inventory[]; equipment?: Equipment[] };
 const MAX_ITEMS = 4096, MAX_INVENTORIES = 512, MAX_SLOTS = 65536, MAX_CAPACITY = 256, MAX_STACK = 1_000_000;
 const fail = (code: string, message: string): never => { throw new Error(`TC_INVENTORY_${code}: ${message}`); };
 const validName = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value);
@@ -64,10 +66,11 @@ function removeFrom(slots: (InventorySlot | null)[], item: string, count: number
   }
   if (remaining) return fail("INSUFFICIENT", `Not enough '${item}'; reduce the requested count.`);
 }
-function parse(value: unknown): { items: Map<string, Item>; inventories: Map<string, Inventory> } {
+function parse(value: unknown): { items: Map<string, Item>; inventories: Map<string, Inventory>; equipment: Map<string, Equipment> } {
   const snapshot = cloneSerializable(value) as InventorySnapshot;
-  if (!keys(snapshot, ["format", "version", "items", "inventories"]) || snapshot.format !== "pelican.inventory" || snapshot.version !== 1 ||
-      !Array.isArray(snapshot.items) || snapshot.items.length > MAX_ITEMS || !Array.isArray(snapshot.inventories) || snapshot.inventories.length > MAX_INVENTORIES)
+  if (!keys(snapshot, ["format", "version", "items", "inventories", "equipment"]) || snapshot.format !== "pelican.inventory" || snapshot.version !== 1 ||
+      !Array.isArray(snapshot.items) || snapshot.items.length > MAX_ITEMS || !Array.isArray(snapshot.inventories) || snapshot.inventories.length > MAX_INVENTORIES ||
+      (snapshot.equipment !== undefined && (!Array.isArray(snapshot.equipment) || snapshot.equipment.length > MAX_INVENTORIES)))
     return fail("SNAPSHOT", "Expected a bounded version 1 inventory snapshot.");
   const items = new Map<string, Item>();
   for (const raw of snapshot.items) {
@@ -92,10 +95,27 @@ function parse(value: unknown): { items: Map<string, Item>; inventories: Map<str
     if (total > MAX_SLOTS) return fail("CAPACITY", `At most ${MAX_SLOTS} slots may be restored.`);
     inventories.set(raw.id, { id: raw.id, owner: raw.owner, slots });
   }
-  return { items, inventories };
+  const equipment = new Map<string, Equipment>();
+  for (const entry of snapshot.equipment ?? []) {
+    if (!keys(entry, ["id", "owner", "slots"]) || !validName(entry.id) || !validName(entry.owner) || equipment.has(entry.id) ||
+        !Array.isArray(entry.slots) || entry.slots.length < 1 || entry.slots.length > MAX_CAPACITY)
+      return fail("SNAPSHOT", "Invalid equipment record.");
+    const seen = new Set<string>();
+    for (const slot of entry.slots) {
+      if (!keys(slot, ["id", "requiredTag", "item"]) || !validName(slot.id) || seen.has(slot.id) ||
+          (slot.requiredTag !== undefined && !validName(slot.requiredTag)) ||
+          (slot.item !== null && (!validName(slot.item) || !items.has(slot.item) || (slot.requiredTag !== undefined && !items.get(slot.item)!.tags.includes(slot.requiredTag)))))
+        return fail("SNAPSHOT", `Invalid equipment slot in '${entry.id}'.`);
+      seen.add(slot.id);
+    }
+    total += entry.slots.length;
+    if (total > MAX_SLOTS) return fail("CAPACITY", `At most ${MAX_SLOTS} total slots may be restored.`);
+    equipment.set(entry.id, entry);
+  }
+  return { items, inventories, equipment };
 }
 export const createInventoryPlugin: RuntimePluginFactory = () => {
-  let items = new Map<string, Item>(), inventories = new Map<string, Inventory>(), disposed = false;
+  let items = new Map<string, Item>(), inventories = new Map<string, Inventory>(), equipment = new Map<string, Equipment>(), disposed = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Create a new host before using inventory."); };
   const getItem = (id: string): Item => {
     alive();
@@ -112,6 +132,12 @@ export const createInventoryPlugin: RuntimePluginFactory = () => {
       return fail("SLOT", `Slot index must be within inventory '${inventory.id}'.`);
     return value;
   };
+  const getEquipment = (id: string): Equipment => {
+    alive();
+    if (!validName(id)) return fail("EQUIPMENT", "Expected an equipment id.");
+    return equipment.get(id) ?? fail("EQUIPMENT_MISSING", `Equipment '${id}' does not exist.`);
+  };
+  const equipmentSlot = (entry: Equipment, id: string) => entry.slots.find(slot => slot.id === id) ?? fail("EQUIPMENT_SLOT", `Equipment '${entry.id}' has no slot '${String(id)}'.`);
   const service: InventoryService = {
     defineItem(input) {
       alive();
@@ -126,13 +152,15 @@ export const createInventoryPlugin: RuntimePluginFactory = () => {
       getItem(id);
       for (const inventory of inventories.values())
         if (inventory.slots.some(slot => slot?.item === id)) return fail("ITEM_IN_USE", `Remove all '${id}' stacks before undefining the item.`);
+      for (const entry of equipment.values())
+        if (entry.slots.some(slot => slot.item === id)) return fail("ITEM_IN_USE", `Unequip '${id}' before undefining the item.`);
       items.delete(id);
     },
     create(input) {
       alive();
       const inventory = containerDefinition(cloneSerializable(input));
       if (inventories.has(inventory.id)) return fail("DUPLICATE", `Inventory '${inventory.id}' already exists.`);
-      const currentSlots = [...inventories.values()].reduce((sum, value) => sum + value.slots.length, 0);
+      const currentSlots = [...inventories.values(), ...equipment.values()].reduce((sum, value) => sum + value.slots.length, 0);
       if (inventories.size >= MAX_INVENTORIES || currentSlots + inventory.slots.length > MAX_SLOTS)
         return fail("CAPACITY", `At most ${MAX_INVENTORIES} inventories and ${MAX_SLOTS} total slots are supported.`);
       inventories.set(inventory.id, inventory);
@@ -184,11 +212,51 @@ export const createInventoryPlugin: RuntimePluginFactory = () => {
       }
       inventory.slots = slots;
     },
+    createEquipment(id, owner, input) {
+      alive();
+      const slots = cloneSerializable(input);
+      if (!validName(id) || !validName(owner) || !Array.isArray(slots) || slots.length < 1 || slots.length > MAX_CAPACITY)
+        return fail("EQUIPMENT", `Equipment needs printable id/owner and 1..${MAX_CAPACITY} slots.`);
+      if (equipment.has(id)) return fail("EQUIPMENT_DUPLICATE", `Equipment '${id}' already exists.`);
+      const seen = new Set<string>();
+      for (const slot of slots) {
+        if (!keys(slot, ["id", "requiredTag"]) || !validName(slot.id) || seen.has(slot.id) ||
+            (slot.requiredTag !== undefined && !validName(slot.requiredTag))) return fail("EQUIPMENT_SLOT", "Slot ids must be unique; requiredTag must be printable.");
+        seen.add(slot.id);
+      }
+      const total = [...inventories.values(), ...equipment.values()].reduce((sum, value) => sum + value.slots.length, 0);
+      if (equipment.size >= MAX_INVENTORIES || total + slots.length > MAX_SLOTS) return fail("CAPACITY", "Equipment or total slot capacity exceeded.");
+      equipment.set(id, { id, owner, slots: slots.map(slot => ({ id: slot.id, ...(slot.requiredTag === undefined ? {} : { requiredTag: slot.requiredTag }), item: null })) });
+    },
+    inspectEquipment(id): EquipmentState { return cloneSerializable(getEquipment(id)); },
+    equip(id, slotId, inventoryId, itemId) {
+      const entry = getEquipment(id), slot = equipmentSlot(entry, slotId), inventory = get(inventoryId), item = getItem(itemId);
+      if (entry.owner !== inventory.owner) return fail("OWNER", "Equipment and inventory must have the same owner.");
+      if (slot.requiredTag !== undefined && !item.tags.includes(slot.requiredTag)) return fail("EQUIPMENT_TAG", `Item '${itemId}' requires tag '${slot.requiredTag}' for slot '${slotId}'.`);
+      const slots = copySlots(inventory.slots);
+      removeFrom(slots, itemId, 1);
+      if (slot.item !== null) addTo(slots, getItem(slot.item), 1);
+      inventory.slots = slots; slot.item = itemId;
+    },
+    unequip(id, slotId, inventoryId) {
+      const entry = getEquipment(id), slot = equipmentSlot(entry, slotId), inventory = get(inventoryId);
+      if (entry.owner !== inventory.owner) return fail("OWNER", "Equipment and inventory must have the same owner.");
+      if (slot.item === null) return fail("EQUIPMENT_EMPTY", `Equipment slot '${slotId}' is empty.`);
+      const slots = copySlots(inventory.slots);
+      addTo(slots, getItem(slot.item), 1);
+      inventory.slots = slots; slot.item = null;
+    },
+    destroyEquipment(id) {
+      const entry = getEquipment(id);
+      if (entry.slots.some(slot => slot.item !== null)) return fail("EQUIPMENT_IN_USE", `Unequip all items before destroying '${id}'.`);
+      equipment.delete(id);
+    },
     destroy(id) { get(id); inventories.delete(id); },
     destroyOwner(owner) {
       alive();
       if (!validName(owner)) return fail("OWNER", "Expected a nonempty owner.");
       for (const [id, inventory] of inventories) if (inventory.owner === owner) inventories.delete(id);
+      for (const [id, entry] of equipment) if (entry.owner === owner) equipment.delete(id);
     },
   };
   const empty = (): InventorySnapshot => ({ format: "pelican.inventory", version: 1, items: [], inventories: [] });
@@ -198,11 +266,12 @@ export const createInventoryPlugin: RuntimePluginFactory = () => {
       alive();
       return cloneSerializable({ format: "pelican.inventory", version: 1,
         items: [...items.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-        inventories: [...inventories.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) });
+        inventories: [...inventories.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+        equipment: [...equipment.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) });
     },
     legacySnapshot: empty,
     validateSnapshot(value) { parse(value); },
-    restore(value) { alive(); const next = parse(value); items = next.items; inventories = next.inventories; },
-    dispose() { disposed = true; items.clear(); inventories.clear(); },
+    restore(value) { alive(); const next = parse(value); items = next.items; inventories = next.inventories; equipment = next.equipment; },
+    dispose() { disposed = true; items.clear(); inventories.clear(); equipment.clear(); },
   };
 };

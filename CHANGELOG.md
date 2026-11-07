@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add named equipment slots, tag restrictions and atomic inventory/equipment transfers. Runtime and snapshot restoration remain unverified.
+
 ## 0.9.0 - 2026-11-07
 
 - Development batch only: tests, runtime behavior, graphics, hardware, performance, recovery and snapshot restoration are unverified. The full 1.0 scope remains incomplete.
