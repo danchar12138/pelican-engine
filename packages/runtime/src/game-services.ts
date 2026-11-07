@@ -8,6 +8,7 @@ import type {
 } from "./plugins.ts";
 import { cloneSerializable } from "./random.ts";
 import { isUiColor } from "../../schema/src/ui-color.ts";
+import { UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
 import { neutralGamepad, parseGamepad } from "./gamepad.ts";
 
 type Camera = NonNullable<SceneIR["scene"]["follow"]>;
@@ -620,6 +621,7 @@ export function createGameServices(
           width: input.width === undefined ? 160 : input.width, color: input.color === undefined ? "#ffffff" : input.color,
           ...(world ? { world } : {}), generation: state.uiNextGeneration };
         uiValue(item, "TC_UI_VALUE");
+        check(item.kind !== "input" || item.text.length <= UI_INPUT_MAX_LENGTH, "TC_UI_VALUE", `Input ${item.id} text must be at most ${UI_INPUT_MAX_LENGTH} UTF-16 code units.`);
         state.ui.push(item);
         return state.uiNextGeneration++;
       },
@@ -662,6 +664,7 @@ export function createGameServices(
           "TC_UI_VALUE",
           `UI ${id} text must be a string.`,
         );
+        check(item.kind !== "input" || text.length <= UI_INPUT_MAX_LENGTH, "TC_UI_VALUE", `Input ${id} text must be at most ${UI_INPUT_MAX_LENGTH} UTF-16 code units.`);
         item.text = text;
         state.uiTextBindings = state.uiTextBindings.filter(binding => binding.id !== id);
       },
@@ -1203,7 +1206,7 @@ export function createGameServices(
             name(payload.id, "TC_UI_INPUT_EVENT", "Input id");
             check(
               typeof payload.text === "string" &&
-                payload.text.length <= 4096 &&
+                payload.text.length <= UI_INPUT_MAX_LENGTH &&
                 payload.composing === false,
               "TC_UI_INPUT_EVENT",
               "Only committed input text up to 4096 characters is delivered to gameplay.",

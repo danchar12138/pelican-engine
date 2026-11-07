@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development aligns authored and dynamic input length with the 4096 UTF-16-unit event limit and constrains browser commits without splitting surrogate pairs. IME, paste, focus and restoration remain unverified.
+
 - Local development adds entity-following focus for static world chunk residency, with missing/invalid states and snapshot persistence. It does not stream dynamic physics or assets; following, transitions and restoration are unverified.
 
 - Local development adds named equipment slots, item tag restrictions and atomic inventory/equipment transfers. Equipment and older snapshot compatibility have not been runtime-validated; item instances, stats and durability are not implemented.

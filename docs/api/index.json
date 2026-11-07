@@ -2069,7 +2069,7 @@
     {
       "name": "UIElementDefinition",
       "kind": "InterfaceDeclaration",
-      "signature": "export interface UIElementDefinition {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  text?: string;\n  value?: number;\n  visible?: boolean;\n  anchor?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x?: number;\n  y?: number;\n  width?: number;\n  color?: string;\n  world?: { entity: string; offset?: Vec3; occlude?: boolean };\n}",
+      "signature": "export interface UIElementDefinition {\n  id: string;\n  kind: \"text\" | \"bar\" | \"button\" | \"input\";\n  /** Input values are limited to 4096 UTF-16 code units. */\n  text?: string;\n  value?: number;\n  visible?: boolean;\n  anchor?: \"top-left\" | \"top-right\" | \"bottom-left\" | \"bottom-right\" | \"center\";\n  x?: number;\n  y?: number;\n  width?: number;\n  color?: string;\n  world?: { entity: string; offset?: Vec3; occlude?: boolean };\n}",
       "line": 1255,
       "fields": [
         "id",
@@ -2089,7 +2089,7 @@
       "name": "SoundDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SoundDefinition {\n  id: string;\n  asset: AssetDefinition | string;\n  volume?: number;\n  loop?: boolean;\n  bus?: string;\n}",
-      "line": 1268,
+      "line": 1269,
       "fields": [
         "id",
         "asset",
@@ -2102,7 +2102,7 @@
       "name": "AudioBusDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AudioBusDefinition {\n  id: string;\n  volume?: number;\n}",
-      "line": 1275,
+      "line": 1276,
       "fields": [
         "id",
         "volume"
@@ -2112,43 +2112,43 @@
       "name": "SYSTEM_PHASES",
       "kind": "constant",
       "signature": "SYSTEM_PHASES = [\n  \"input\",\n  \"prePhysics\",\n  \"physics\",\n  \"postPhysics\",\n  \"update\",\n  \"presentation\",\n] as const",
-      "line": 1279
+      "line": 1280
     },
     {
       "name": "SystemPhase",
       "kind": "TypeAliasDeclaration",
       "signature": "export type SystemPhase = (typeof SYSTEM_PHASES)[number];",
-      "line": 1287
+      "line": 1288
     },
     {
       "name": "Geometry",
       "kind": "TypeAliasDeclaration",
       "signature": "export type Geometry =\n  | { kind: \"box\"; size?: Vec3 }\n  | { kind: \"sphere\"; radius?: number; segments?: number }\n  | { kind: \"plane\"; size?: readonly [number, number] };",
-      "line": 1288
+      "line": 1289
     },
     {
       "name": "GRAPH_TYPES",
       "kind": "constant",
       "signature": "GRAPH_TYPES = [\"float\", \"vec2\", \"vec3\", \"vec4\", \"bool\"] as const",
-      "line": 1292
+      "line": 1293
     },
     {
       "name": "GraphType",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphType = typeof GRAPH_TYPES[number];",
-      "line": 1293
+      "line": 1294
     },
     {
       "name": "GraphValue",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;",
-      "line": 1294
+      "line": 1295
     },
     {
       "name": "GraphParameter",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GraphParameter {\n  name: string;\n  type: GraphType;\n  default: GraphValue;\n}",
-      "line": 1295,
+      "line": 1296,
       "fields": [
         "name",
         "type",
@@ -2159,31 +2159,31 @@
       "name": "GRAPH_INPUT_TYPES",
       "kind": "constant",
       "signature": "GRAPH_INPUT_TYPES = {\n  uv: \"vec2\", uv1: \"vec2\", positionWorld: \"vec3\", normalWorld: \"vec3\",\n  viewDirectionWorld: \"vec3\", vertexColor: \"vec4\", index: \"float\",\n  screenSize: \"vec2\", texelSize: \"vec2\",\n  pixelCoord: \"vec2\", outputSize: \"vec2\",\n  positionLocal: \"vec3\", normalLocal: \"vec3\", vertexIndex: \"float\", instanceIndex: \"float\",\n} as const",
-      "line": 1300
+      "line": 1301
     },
     {
       "name": "GraphInputName",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphInputName = keyof typeof GRAPH_INPUT_TYPES;",
-      "line": 1307
+      "line": 1308
     },
     {
       "name": "GRAPH_OPERATIONS",
       "kind": "constant",
       "signature": "GRAPH_OPERATIONS = {\n  unary: [\"sin\", \"cos\", \"abs\", \"floor\", \"ceil\", \"fract\", \"negate\", \"saturate\", \"normalize\", \"length\", \"safeSqrt\"] as const,\n  binary: [\"add\", \"subtract\", \"multiply\", \"safeDivide\", \"min\", \"max\", \"dot\", \"cross\", \"step\", \"lessThan\", \"lessEqual\", \"greaterThan\", \"greaterEqual\", \"equal\", \"and\", \"or\"] as const,\n  ternary: [\"mix\", \"clamp\", \"smoothstep\", \"select\"] as const,\n} as const",
-      "line": 1308
+      "line": 1309
     },
     {
       "name": "GraphNode",
       "kind": "TypeAliasDeclaration",
       "signature": "export type GraphNode =\n  | { id: string; op: \"float\"; value: number }\n  | { id: string; op: \"bool\"; value: boolean }\n  | { id: string; op: \"vec2\"; value: Vec2 }\n  | { id: string; op: \"vec3\"; value: Vec3 }\n  | { id: string; op: \"vec4\"; value: Vec4 }\n  | { id: string; op: \"time\" }\n  | { id: string; op: \"input\"; name: GraphInputName }\n  | { id: string; op: \"parameter\"; name: string }\n  | { id: string; op: typeof GRAPH_OPERATIONS.unary[number] | \"not\"; inputs: readonly [string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.binary[number]; inputs: readonly [string, string] }\n  | { id: string; op: typeof GRAPH_OPERATIONS.ternary[number]; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose2\"; inputs: readonly [string, string] }\n  | { id: string; op: \"compose3\"; inputs: readonly [string, string, string] }\n  | { id: string; op: \"compose4\"; inputs: readonly [string, string, string, string] }\n  | { id: string; op: \"swizzle\"; inputs: readonly [string]; components: string }\n  | { id: string; op: \"sampleTexture\"; inputs: readonly [string]; texture: AssetDefinition | string }\n  | { id: string; op: \"readBuffer\"; inputs: readonly [string]; buffer: string }\n  | { id: string; op: \"sampleFrame\"; inputs: readonly [string]; channel: string }\n  | { id: string; op: \"sampleHistory\"; inputs: readonly [string]; channel: string };",
-      "line": 1313
+      "line": 1314
     },
     {
       "name": "Graph",
       "kind": "InterfaceDeclaration",
       "signature": "export interface Graph {\n  nodes: readonly GraphNode[];\n  output: string;\n  parameters?: readonly GraphParameter[];\n}",
-      "line": 1333,
+      "line": 1334,
       "fields": [
         "nodes",
         "output",
@@ -2194,7 +2194,7 @@
       "name": "MaterialGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialGraphs {\n  baseColor?: Graph;\n  emissive?: Graph;\n  roughness?: Graph;\n  metalness?: Graph;\n  opacity?: Graph;\n  /** Absolute, unsided world-space normal; engine applies material boundary orientation. */\n  normalWorld?: Graph;\n}",
-      "line": 1338,
+      "line": 1339,
       "fields": [
         "baseColor",
         "emissive",
@@ -2208,7 +2208,7 @@
       "name": "VertexGraphs",
       "kind": "InterfaceDeclaration",
       "signature": "export interface VertexGraphs {\n  /** Absolute object-local position after built-in morph, skin and instance transforms. */\n  position?: Graph;\n  /** Unsided object-local normal in the same domain; zero keeps the normalized input normal. */\n  normal?: Graph;\n}",
-      "line": 1347,
+      "line": 1348,
       "fields": [
         "position",
         "normal"
@@ -2218,7 +2218,7 @@
       "name": "MaterialInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialInput {\n  id: string;\n  color?: string;\n  roughness?: number;\n  metalness?: number;\n  texture?: AssetDefinition | string;\n  graph?: Graph;\n  graphs?: MaterialGraphs;\n  vertex?: VertexGraphs;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  emissive?: string;\n  emissiveIntensity?: number;\n  opacity?: number;\n  /** Enable alpha blending even when opacity is 1, for example for transparent texture pixels. */\n  transparent?: boolean;\n  alphaTest?: number;\n  side?: \"front\" | \"back\" | \"double\";\n  /** Closed-volume dielectric fraction; opacity remains independent stochastic coverage. */\n  transmission?: number;\n  ior?: number;\n  /** Nontransmissive dielectric specular strength in [0,1]. Defaults to 1. */\n  specularIntensity?: number;\n  /** Nontransmissive dielectric specular color, a hex or named sRGB color. Defaults to white. */\n  specularColor?: string;\n  attenuationColor?: string;\n  /** World-space distance for Beer absorption; omitted means no absorption. */\n  attenuationDistance?: number;\n}",
-      "line": 1353,
+      "line": 1354,
       "fields": [
         "id",
         "color",
@@ -2248,7 +2248,7 @@
       "name": "MaterialDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MaterialDefinition extends MaterialInput {\n  readonly kind: \"material\";\n}",
-      "line": 1382,
+      "line": 1383,
       "fields": [
         "kind"
       ]
@@ -2257,7 +2257,7 @@
       "name": "PostProcessInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessInput {\n  id: string;\n  buffers?: readonly MaterialBufferInput[];\n  textures?: readonly MaterialTextureInput[];\n  /** Linear HDR vec4 output. Frame channels: scene.color, scene.normal, scene.depth, or an earlier pass ID. */\n  graph: Graph;\n  enabled?: boolean;\n}",
-      "line": 1385,
+      "line": 1386,
       "fields": [
         "id",
         "buffers",
@@ -2270,7 +2270,7 @@
       "name": "PostProcessDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PostProcessDefinition extends PostProcessInput {\n  readonly kind: \"postprocess\";\n}",
-      "line": 1393,
+      "line": 1394,
       "fields": [
         "kind"
       ]
@@ -2279,7 +2279,7 @@
       "name": "ComputeInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeInput {\n  id: string;\n  graph: Graph;\n  outputType: GraphType;\n  count: number;\n  workgroupSize?: number;\n  buffers?: readonly { name: string; type: GraphType }[];\n  textures?: readonly ComputeTextureBinding[];\n}",
-      "line": 1396,
+      "line": 1397,
       "fields": [
         "id",
         "graph",
@@ -2294,7 +2294,7 @@
       "name": "ComputeDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface ComputeDefinition extends ComputeInput {\n  readonly kind: \"compute\";\n}",
-      "line": 1405,
+      "line": 1406,
       "fields": [
         "kind"
       ]
@@ -2303,7 +2303,7 @@
       "name": "AssetInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetInput {\n  id: string;\n  path: string;\n  type: \"texture\" | \"binary\" | \"model\" | \"audio\";\n  source?: string;\n  license?: string;\n  attribution?: string;\n  /** Texture imports only; defaults to sRGB color. Data/normal/ORM textures use linear. */\n  colorSpace?: \"srgb\" | \"linear\";\n}",
-      "line": 1408,
+      "line": 1409,
       "fields": [
         "id",
         "path",
@@ -2318,7 +2318,7 @@
       "name": "AssetDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface AssetDefinition extends AssetInput {\n  readonly kind: \"asset\";\n}",
-      "line": 1418,
+      "line": 1419,
       "fields": [
         "kind"
       ]
@@ -2327,7 +2327,7 @@
       "name": "MeshDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface MeshDefinition {\n  geometry: Geometry;\n  material: MaterialDefinition | string;\n  castShadow?: boolean;\n  receiveShadow?: boolean;\n}",
-      "line": 1421,
+      "line": 1422,
       "fields": [
         "geometry",
         "material",
@@ -2339,7 +2339,7 @@
       "name": "LightDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightDefinition {\n  kind: \"directional\" | \"point\" | \"spot\";\n  color?: string;\n  intensity?: number;\n  castShadow?: boolean;\n  target?: Vec3;\n  /** Spot cone half-angle in radians, greater than zero and at most PI / 2. */\n  angle?: number;\n  /** Spot cone edge softness from 0 to 1. */\n  penumbra?: number;\n  /** Point/spot cutoff distance; 0 means unlimited. */\n  distance?: number;\n  /** Point/spot distance decay exponent; defaults to 2. */\n  decay?: number;\n  shadow?: {\n    mapSize?: number;\n    extent?: number;\n    bias?: number;\n    normalBias?: number;\n    near?: number;\n    far?: number;\n  };\n}",
-      "line": 1427,
+      "line": 1428,
       "fields": [
         "kind",
         "color",
@@ -2357,7 +2357,7 @@
       "name": "LightPatch",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightPatch { intensity?: number; color?: Vec3; target?: Vec3; visible?: boolean }",
-      "line": 1451,
+      "line": 1452,
       "fields": [
         "intensity",
         "color",
@@ -2369,7 +2369,7 @@
       "name": "LightOverride",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightOverride extends LightPatch { entity: string }",
-      "line": 1452,
+      "line": 1453,
       "fields": [
         "entity"
       ]
@@ -2378,7 +2378,7 @@
       "name": "LightService",
       "kind": "InterfaceDeclaration",
       "signature": "export interface LightService {\n  /** Merge a patch into a live entity's declared light overrides. */\n  set(entity: string, patch: LightPatch): void;\n  /** Remove overrides, restoring the authored light values. */\n  reset(entity: string): void;\n  /** Detached active overrides for renderer integration. */\n  visuals(): readonly LightOverride[];\n}",
-      "line": 1453,
+      "line": 1454,
       "fields": [
         "set",
         "reset",
@@ -2389,7 +2389,7 @@
       "name": "EntityInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface EntityInput {\n  id: string;\n  prefab?: PrefabDefinition | string;\n  parent?: string;\n  transform?: TransformPatch;\n  mesh?: MeshDefinition;\n  light?: LightDefinition;\n  model?: ModelDefinition;\n  rigidBody?: RigidBodyDefinition;\n  character?: CharacterDefinition;\n  components?: readonly ComponentInstance[];\n}",
-      "line": 1461,
+      "line": 1462,
       "fields": [
         "id",
         "prefab",
@@ -2407,7 +2407,7 @@
       "name": "PrefabInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabInput extends Omit<EntityInput, \"prefab\" | \"parent\"> {\n  extends?: PrefabDefinition | string;\n}",
-      "line": 1473,
+      "line": 1474,
       "fields": [
         "extends"
       ]
@@ -2416,7 +2416,7 @@
       "name": "PrefabDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface PrefabDefinition extends PrefabInput {\n  readonly kind: \"prefab\";\n}",
-      "line": 1476,
+      "line": 1477,
       "fields": [
         "kind"
       ]
@@ -2425,7 +2425,7 @@
       "name": "SceneInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneInput {\n  id: string;\n  camera?: {\n    position: Vec3;\n    target: Vec3;\n    /** Perspective by default. Orthographic currently supports raster mode only. */\n    projection?: \"perspective\" | \"orthographic\";\n    /** Orthographic vertical span in world units; defaults to 10. */\n    orthographicSize?: number;\n    fov?: number;\n    near?: number;\n    far?: number;\n  };\n  environment?: {\n    background?: string;\n    /** Optional equirectangular panorama used as the visible background, not scene lighting. */\n    backgroundTexture?: AssetDefinition | string;\n    /** Panorama rotation around the vertical axis in radians; defaults to 0. */\n    backgroundRotation?: number;\n    /** Panorama brightness multiplier; defaults to 1. */\n    backgroundIntensity?: number;\n    /** Equirectangular texture used for image-based lighting; mutually exclusive with lighting presets. */\n    lightingTexture?: AssetDefinition | string;\n    /** Image-based lighting rotation around the vertical axis in radians; defaults to 0. */\n    lightingRotation?: number;\n    /** Image-based lighting intensity multiplier; defaults to 1. */\n    lightingIntensity?: number;\n    ambientIntensity?: number;\n    lighting?: \"none\" | \"studio\";\n  };\n  follow?: {\n    entity: string;\n    distance?: number;\n    height?: number;\n    lookHeight?: number;\n    yaw?: number;\n    smoothing?: number;\n  };\n  gravity?: Vec3;\n  /** Opt into the independent XY physics world; default gravity is [0,-9.81]. */\n  physics2d?: { gravity?: Vec2 };\n  entities: readonly EntityInput[];\n}",
-      "line": 1479,
+      "line": 1480,
       "fields": [
         "id",
         "camera",
@@ -2440,7 +2440,7 @@
       "name": "SceneDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SceneDefinition extends SceneInput {\n  readonly kind: \"scene\";\n}",
-      "line": 1522,
+      "line": 1523,
       "fields": [
         "kind"
       ]
@@ -2449,7 +2449,7 @@
       "name": "SystemInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemInput {\n  id: string;\n  phase?: SystemPhase;\n  before?: readonly string[];\n  after?: readonly string[];\n  reads?: readonly string[];\n  writes?: readonly string[];\n  structural?: boolean;\n  run: (engine: SystemContext, dt: number) => void;\n}",
-      "line": 1525,
+      "line": 1526,
       "fields": [
         "id",
         "phase",
@@ -2465,7 +2465,7 @@
       "name": "SystemDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface SystemDefinition extends SystemInput {\n  readonly kind: \"system\";\n}",
-      "line": 1535,
+      "line": 1536,
       "fields": [
         "kind"
       ]
@@ -2474,7 +2474,7 @@
       "name": "GameInput",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInput {\n  id: string;\n  scene: SceneDefinition;\n  systems?: readonly SystemDefinition[];\n  components?: readonly ComponentDefinition[];\n  prefabs?: readonly PrefabDefinition[];\n  materials?: readonly MaterialDefinition[];\n  computes?: readonly ComputeDefinition[];\n  computeBuffers?: readonly ComputeBufferInput[];\n  computeTextures?: readonly ComputeTextureInput[];\n  assets?: readonly AssetDefinition[];\n  scenes?: readonly SceneDefinition[];\n  input?: Readonly<Record<string, readonly string[]>>;\n  ui?: readonly UIElementDefinition[];\n  sounds?: readonly SoundDefinition[];\n  audioBuses?: readonly AudioBusDefinition[];\n  render?: Partial<RenderSettings>;\n  postProcesses?: readonly PostProcessDefinition[];\n}",
-      "line": 1538,
+      "line": 1539,
       "fields": [
         "id",
         "scene",
@@ -2499,7 +2499,7 @@
       "name": "GameDefinition",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameDefinition extends GameInput {\n  readonly kind: \"game\";\n}",
-      "line": 1557,
+      "line": 1558,
       "fields": [
         "kind"
       ]
@@ -2508,7 +2508,7 @@
       "name": "GameInstance",
       "kind": "InterfaceDeclaration",
       "signature": "export interface GameInstance {\n  update(dt: number): void;\n  dispose(): void;\n}",
-      "line": 1560,
+      "line": 1561,
       "fields": [
         "update",
         "dispose"
@@ -2518,61 +2518,61 @@
       "name": "defineComponent",
       "kind": "FunctionDeclaration",
       "signature": "export function defineComponent<const S extends ComponentSchema>(input: {\n  id: string;\n  schema: S;\n}): ComponentDefinition<S>;",
-      "line": 1564
+      "line": 1565
     },
     {
       "name": "defineMaterial",
       "kind": "FunctionDeclaration",
       "signature": "export function defineMaterial(input: MaterialInput): MaterialDefinition;",
-      "line": 1570
+      "line": 1571
     },
     {
       "name": "definePostProcess",
       "kind": "FunctionDeclaration",
       "signature": "export function definePostProcess(input: PostProcessInput): PostProcessDefinition;",
-      "line": 1573
+      "line": 1574
     },
     {
       "name": "defineCompute",
       "kind": "FunctionDeclaration",
       "signature": "export function defineCompute(input: ComputeInput): ComputeDefinition;",
-      "line": 1576
+      "line": 1577
     },
     {
       "name": "defineAsset",
       "kind": "FunctionDeclaration",
       "signature": "export function defineAsset(input: AssetInput): AssetDefinition;",
-      "line": 1579
+      "line": 1580
     },
     {
       "name": "definePrefab",
       "kind": "FunctionDeclaration",
       "signature": "export function definePrefab(input: PrefabInput): PrefabDefinition;",
-      "line": 1582
+      "line": 1583
     },
     {
       "name": "defineScene",
       "kind": "FunctionDeclaration",
       "signature": "export function defineScene(input: SceneInput): SceneDefinition;",
-      "line": 1585
+      "line": 1586
     },
     {
       "name": "defineSystem",
       "kind": "FunctionDeclaration",
       "signature": "export function defineSystem(input: SystemInput): SystemDefinition;",
-      "line": 1588
+      "line": 1589
     },
     {
       "name": "defineGame",
       "kind": "FunctionDeclaration",
       "signature": "export function defineGame(input: GameInput): GameDefinition;",
-      "line": 1591
+      "line": 1592
     },
     {
       "name": "instantiateGame",
       "kind": "FunctionDeclaration",
       "signature": "export function instantiateGame(\n  game: GameDefinition,\n  engine: EngineFacade,\n): GameInstance;",
-      "line": 1595
+      "line": 1596
     }
   ]
 }

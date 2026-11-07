@@ -616,6 +616,11 @@ shows a backpack and chest.
 
 ### Dynamic game UI
 
+Input values are limited to 4096 UTF-16 code units. Authored and
+`setText` values above that limit produce `TC_UI_VALUE`; browser input and
+IME commits are constrained before `ui.text` or `ui.submit` is emitted. IME,
+clipboard and browser behavior remain unverified under the build-only policy.
+
 Declare persistent controls in `game.ui` and use `ctx.ui.create` for dynamic
 text, bars, buttons or inputs. `create` accepts the same element definition
 fields as `game.ui` and returns a generation number. Use `ctx.ui.get(id)` to

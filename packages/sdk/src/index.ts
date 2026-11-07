@@ -1255,6 +1255,7 @@ export interface CharacterDefinition {
 export interface UIElementDefinition {
   id: string;
   kind: "text" | "bar" | "button" | "input";
+  /** Input values are limited to 4096 UTF-16 code units. */
   text?: string;
   value?: number;
   visible?: boolean;

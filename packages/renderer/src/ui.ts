@@ -1,3 +1,5 @@
+import { limitUiInput, UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
+
 /** Private DOM backend. Games only receive the public typed UI API. */
 export interface UiElement {
   id: string;
@@ -161,7 +163,12 @@ export function createUIRenderer(
   }
   function emitText(row: Row) {
     if (!row.input || row.composing || !interactive(row)) return;
-    const text = row.input.value;
+    const text = limitUiInput(row.input.value);
+    if (row.input.value !== text) {
+      const saved = selection(row)!;
+      row.input.value = text;
+      row.input.setSelectionRange(Math.min(saved.start, text.length), Math.min(saved.end, text.length), saved.direction as "forward" | "backward" | "none");
+    }
     if (row.emittedText === text) return;
     row.emittedText = text;
     row.pendingCommit = text;
@@ -221,6 +228,7 @@ export function createUIRenderer(
       key.keyCode !== 229
     ) {
       key.preventDefault();
+      emitText(row);
       if (!key.repeat)
         callbacks.emit("ui.submit", {
           id: row.definition.id,
@@ -291,6 +299,7 @@ export function createUIRenderer(
           definition.kind === "input" ? (node as HTMLInputElement) : null;
         if (input) {
           input.type = "text";
+          input.maxLength = UI_INPUT_MAX_LENGTH;
           input.autocomplete = "off";
           input.value = definition.text;
         }

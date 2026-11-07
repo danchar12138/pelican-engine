@@ -10,6 +10,7 @@ import {
 import { SDK_VERSION } from "../../sdk/src/index.ts";
 import { resolveRenderSettings } from "../../runtime/src/render-settings.ts";
 import { isUiColor } from "../../schema/src/ui-color.ts";
+import { UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
 import { compileGraphDeclaration } from "./graph.ts";
 import { isGraphType, graphValue } from "../../sdk/src/graph-values.ts";
 import type {
@@ -1505,10 +1506,13 @@ export async function normalize(
       error("TC_UI_ANCHOR", "Unknown UI anchor.", element, "anchor");
     if (element.visible !== undefined && typeof element.visible !== "boolean")
       error("TC_UI_VALUE", "UI visible must be a boolean.", element, "visible");
+    const uiText = text(element.text, element, "text", "");
+    if (kind === "input" && uiText.length > UI_INPUT_MAX_LENGTH)
+      error("TC_UI_VALUE", `Input text must be at most ${UI_INPUT_MAX_LENGTH} UTF-16 code units.`, element, "text");
     ui.push({
       id: name,
       kind: (kind ?? "text") as "text" | "bar" | "button" | "input",
-      text: text(element.text, element, "text", ""),
+      text: uiText,
       value: num(element.value, element, "value", 0, 0, 1),
       visible: element.visible !== false,
       anchor: anchor as NonNullable<SceneIR["ui"]>[number]["anchor"],
