@@ -2,69 +2,70 @@
 
 ## Version and Release
 
-- Current source version: 0.9.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run; this development batch is not a complete 1.0 release.
+- Current source version: 0.10.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run; this development batch is not a complete 1.0 release.
 - Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved.
-- A push to main attempts an npm latest release through GitHub Actions trusted publishing. The 0.7.0 development batch removes the duplicate main-push build job and makes an already-published version fail explicitly rather than silently skip. Workflow and registry outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
+- A push to main attempts an npm latest release through GitHub Actions trusted publishing. Existing npm versions cannot be overwritten; the publication command reports failure rather than silently skipping. Workflow outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
+- The 0.9.0 GitHub Release exists, but its npm workflow and one retry failed on November 7, 2026 with transparency-log HTTP 500 errors. This is not evidence that the npm version was published.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
 
 ## Current Scope
 
-- Local development tracks material graph parameter/time changes and managed render-buffer/texture copies for path/hybrid recapture, retaining pending state after bridge failures and raster frames. GPU rendering and recovery remain unverified.
+- The 0.10.0 development batch tracks material graph parameter/time changes and managed render-buffer/texture copies for path/hybrid recapture, retaining pending state after bridge failures and raster frames. GPU rendering and recovery remain unverified.
 
-- Local development adds read-only discovery of project-lock backups and their current digests for the existing explicit restore workflow. This does not establish backup provenance or game/save compatibility; listing and restoration are unverified at runtime.
+- The 0.10.0 development batch adds read-only discovery of project-lock backups and their current digests for the existing explicit restore workflow. This does not establish backup provenance or game/save compatibility; listing and restoration are unverified at runtime.
 
-- Local development adds per-dynamic-body gravity scaling to 3D physics history. Native behavior, wakeup and snapshot replay remain unverified; the first-step deletion and unsafe historical replay defects remain open.
+- The 0.10.0 development batch adds per-dynamic-body gravity scaling to 3D physics history. Native behavior, wakeup and snapshot replay remain unverified; the first-step deletion and unsafe historical replay defects remain open.
 
-- Local development tracks entity creation, removal, parent and transform changes as pending scene revisions for tracing recapture. Runtime rendering and failure recovery remain unverified.
+- The 0.10.0 development batch tracks entity creation, removal, parent and transform changes as pending scene revisions for tracing recapture. Runtime rendering and failure recovery remain unverified.
 
-- Local development adds 2D circle and oriented-box overlap queries using the last completed physics step. Filtering, native recovery and runtime results are unverified.
+- The 0.10.0 development batch adds 2D circle and oriented-box overlap queries using the last completed physics step. Filtering, native recovery and runtime results are unverified.
 
-- Local development preserves pending path/hybrid scene recapture while raster frames are drawn. Mode switches and failure recovery are unverified.
+- The 0.10.0 development batch preserves pending path/hybrid scene recapture while raster frames are drawn. Mode switches and failure recovery are unverified.
 
-- Local development adds an optional fixed-clock maximum duration for audio voices, including loops and legacy unknown-duration sounds. Pause timing, reclamation and snapshot restoration remain unverified.
+- The 0.10.0 development batch adds an optional fixed-clock maximum duration for audio voices, including loops and legacy unknown-duration sounds. Pause timing, reclamation and snapshot restoration remain unverified.
 
-- Local development adds per-voice gain control and detached logical voice inspection. Audio output, lifecycle and snapshot restoration remain unverified.
+- The 0.10.0 development batch adds per-voice gain control and detached logical voice inspection. Audio output, lifecycle and snapshot restoration remain unverified.
 
-- Local development marks runtime light and material surface changes for tracing recapture even when a draw otherwise has no scene-change flag. Raster and tracing behavior remain unverified.
+- The 0.10.0 development batch marks runtime light and material surface changes for tracing recapture even when a draw otherwise has no scene-change flag. Raster and tracing behavior remain unverified.
 
-- Local development adds bounded replanning around occupied cells after navigation agents wait; destination blocking, crossing paths and deadlocks still require game handling. Rerouting and snapshot restoration are unverified.
+- The 0.10.0 development batch adds bounded replanning around occupied cells after navigation agents wait; destination blocking, crossing paths and deadlocks still require game handling. Rerouting and snapshot restoration are unverified.
 
-- Local development adds per-search temporary blocked navigation cells without mutating the shared grid. Automatic agent rerouting and runtime behavior remain unverified.
+- The 0.10.0 development batch adds per-search temporary blocked navigation cells without mutating the shared grid. Automatic agent rerouting and runtime behavior remain unverified.
 
-- Local development adds explicit normalized-time alignment for two blended model clips. It is not automatic phase matching or root-motion correction; playback and restoration remain unverified.
+- The 0.10.0 development batch adds explicit normalized-time alignment for two blended model clips. It is not automatic phase matching or root-motion correction; playback and restoration remain unverified.
 
-- Local development adds opt-in grid-cell reservations, waiting and bounded rerouting for navigation agents with identical mappings. This is not continuous crowd avoidance, physics collision or guaranteed deadlock resolution; behavior and snapshot restoration are unverified.
+- The 0.10.0 development batch adds opt-in grid-cell reservations, waiting and bounded rerouting for navigation agents with identical mappings. This is not continuous crowd avoidance, physics collision or guaranteed deadlock resolution; behavior and snapshot restoration are unverified.
 
-- Local development adds disabled button/input states and accessible labels, persisted in UI state. Keyboard, gamepad, IME, screen reader and snapshot behavior remain unverified; this is not a complete accessibility system.
+- The 0.10.0 development batch adds disabled button/input states and accessible labels, persisted in UI state. Keyboard, gamepad, IME, screen reader and snapshot behavior remain unverified; this is not a complete accessibility system.
 
-- Local development adds runtime 3D rigid-body world gravity changes with history recording and dynamic-body wakeup. Character and other simulation gravities remain separate; runtime, wake and snapshot behavior are unverified, and the first-step removal defect remains open.
+- The 0.10.0 development batch adds runtime 3D rigid-body world gravity changes with history recording and dynamic-body wakeup. Character and other simulation gravities remain separate; runtime, wake and snapshot behavior are unverified, and the first-step removal defect remains open.
 
-- Local development adds an asset-free composed gameplay recipe combining inventory, equipment, quests, conditional dialogue, manual camera and saves through the public API. The recipe and cross-service recovery are unverified.
+- The 0.10.0 development batch adds an asset-free composed gameplay recipe combining inventory, equipment, quests, conditional dialogue, manual camera and saves through the public API. The recipe and cross-service recovery are unverified.
 
-- Local development improves the cold-reload watcher when file events overlap compilation and a later compilation hits cache or fails. This is not state-preserving hot reload; file watching and browser behavior remain unverified.
+- The 0.10.0 development batch improves the cold-reload watcher when file events overlap compilation and a later compilation hits cache or fails. This is not state-preserving hot reload; file watching and browser behavior remain unverified.
 
-- Local development adds a staged tile/navigation/2D-collider update with full mapped-grid synchronization and explicit partial-state diagnostics. It is not a persistent binding or guaranteed native rollback; behavior and restoration remain unverified.
+- The 0.10.0 development batch adds a staged tile/navigation/2D-collider update with full mapped-grid synchronization and explicit partial-state diagnostics. It is not a persistent binding or guaranteed native rollback; behavior and restoration remain unverified.
 
-- Local development adds opt-in discrete non-edge-adjacent particle self-contact for tetrahedral soft bodies, with a cumulative projection counter. It does not handle continuous, surface or edge self-collision; stability, performance and snapshot behavior remain unverified.
+- The 0.10.0 development batch adds opt-in discrete non-edge-adjacent particle self-contact for tetrahedral soft bodies, with a cumulative projection counter. It does not handle continuous, surface or edge self-collision; stability, performance and snapshot behavior remain unverified.
 
-- Local development adds runtime surface overrides for declared non-graph material channels, with snapshot persistence and graph ownership checks. Shared-material propagation, raster/tracing consistency and restoration are unverified.
+- The 0.10.0 development batch adds runtime surface overrides for declared non-graph material channels, with snapshot persistence and graph ownership checks. Shared-material propagation, raster/tracing consistency and restoration are unverified.
 
-- Local development adds two-clip weighted model animation blending and snapshot state. Bone masks, additive layers, phase synchronization and IK remain incomplete; blending and restoration are unverified.
+- The 0.10.0 development batch adds two-clip weighted model animation blending and snapshot state. Bone masks, additive layers, phase synchronization and IK remain incomplete; blending and restoration are unverified.
 
-- Local development adds optional global convolution reverb with deterministic generated impulse responses, dry fallback and snapshot-preserved settings. It is not room acoustics or per-bus sends; sound output, failure recovery, resource cleanup and restoration remain unverified.
+- The 0.10.0 development batch adds optional global convolution reverb with deterministic generated impulse responses, dry fallback and snapshot-preserved settings. It is not room acoustics or per-bus sends; sound output, failure recovery, resource cleanup and restoration remain unverified.
 
-- Local development adds per-session dialogue variables and equality-gated choices. Game code still maps quest/inventory state and applies consequences; runtime and snapshot behavior are unverified.
+- The 0.10.0 development batch adds per-session dialogue variables and equality-gated choices. Game code still maps quest/inventory state and applies consequences; runtime and snapshot behavior are unverified.
 
-- Local development adds fixed-tick manual camera poses and linear transitions with snapshot state. Camera collision avoidance for manual poses, cinematic timelines, rendering and restoration remain incomplete or unverified.
+- The 0.10.0 development batch adds fixed-tick manual camera poses and linear transitions with snapshot state. Camera collision avoidance for manual poses, cinematic timelines, rendering and restoration remain incomplete or unverified.
 
-- Local development accounts for the offset between a bound sphere collider and its rigid-body center of mass when applying fluid/soft-body normal reaction impulses. This remains discrete, approximate coupling; forces, torque, rollback and stability are unverified.
+- The 0.10.0 development batch accounts for the offset between a bound sphere collider and its rigid-body center of mass when applying fluid/soft-body normal reaction impulses. This remains discrete, approximate coupling; forces, torque, rollback and stability are unverified.
 
-- Local development aligns authored and dynamic input length with the 4096 UTF-16-unit event limit and constrains browser commits without splitting surrogate pairs. IME, paste, focus and restoration remain unverified.
+- The 0.10.0 development batch aligns authored and dynamic input length with the 4096 UTF-16-unit event limit and constrains browser commits without splitting surrogate pairs. IME, paste, focus and restoration remain unverified.
 
-- Local development adds entity-following focus for static world chunk residency, with missing/invalid states and snapshot persistence. It does not stream dynamic physics or assets; following, transitions and restoration are unverified.
+- The 0.10.0 development batch adds entity-following focus for static world chunk residency, with missing/invalid states and snapshot persistence. It does not stream dynamic physics or assets; following, transitions and restoration are unverified.
 
-- Local development adds named equipment slots, item tag restrictions and atomic inventory/equipment transfers. Equipment and older snapshot compatibility have not been runtime-validated; item instances, stats and durability are not implemented.
+- The 0.10.0 development batch adds named equipment slots, item tag restrictions and atomic inventory/equipment transfers. Equipment and older snapshot compatibility have not been runtime-validated; item instances, stats and durability are not implemented.
 
 - The 0.9.0 development batch exposes 3D sphere, box and capsule linear shape casts with live-entity and trigger filters. Query results, initial overlap handling and runtime behavior are unverified; this does not fix the 3D first-step removal defect.
 

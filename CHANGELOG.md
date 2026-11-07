@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-11-07
+
+- Development batch only: built without tests or runtime, browser, GPU, performance, compatibility and recovery verification. The 3D first-step deletion defect and other 1.0 capabilities remain open.
+- CI publishes the explicitly maintained version using OIDC; the npm registry rejects an existing version without a separate registry preflight.
+
 - Track material graph parameter, time and managed GPU resource changes for path/hybrid recapture; runtime rendering remains unverified.
 
 - Add read-only project-lock backup discovery for the explicit migration restore workflow; behavior remains unverified.
