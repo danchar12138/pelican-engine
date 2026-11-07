@@ -156,7 +156,7 @@ Float WAVE uses `encoding: "ieee-float"` and requires a matching `fact` frame co
 Remaining gaps deliberately return unsupported: `.gltf`, external/data resources,
 glTF extensions other than the `KHR_materials_specular` factor and UV0/UV1 texture subset,
 `KHR_materials_ior`, `KHR_materials_emissive_strength`, `KHR_materials_unlit`, and `KHR_texture_transform` (including Draco/Meshopt/KTX2),
-sub-32-bit matrix accessors, cameras, joint/weight sets beyond 0, APNG,
+matrix accessors requiring column padding, cameras, joint/weight sets beyond 0, APNG,
 progressive/lossless/arithmetic/multiple-scan/CMYK JPEG, RF64/RIFX/WAVE extensible,
 compressed WAVE, MP3/Ogg/AAC and other image/audio codecs. The package does not
 provide lossy transcoding, asset generation, a general-purpose authoring system,

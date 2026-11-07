@@ -309,10 +309,11 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
     );
     const size = sizes[a.componentType],
       components = counts[a.type];
-    if (a.type.startsWith("MAT") && size < 4)
+    const matrix = a.type.startsWith("MAT"), alignment = matrix ? 4 : size;
+    if (matrix && (Math.sqrt(components) * size) % 4 !== 0)
       ctx.unsupported(
         at,
-        "Matrix accessors with sub-32-bit components are not implemented.",
+        "Matrix accessors requiring column padding are not implemented.",
       );
     if (a.normalized !== undefined)
       ctx.check(
@@ -341,7 +342,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
       stride = view.byteStride ?? stride;
       ctx.check(
         stride >= size * components &&
-          stride % size === 0 &&
+          stride % alignment === 0 &&
           byteOffset + (a.count - 1) * stride + size * components <=
             view.byteLength,
         at,
@@ -349,7 +350,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
       );
       start = (view.byteOffset ?? 0) + byteOffset;
       ctx.check(
-        start % size === 0,
+        start % alignment === 0,
         at,
         "Accessor absolute byte offset is misaligned.",
       );
@@ -375,18 +376,18 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
       ctx.check(sparse.values && typeof sparse.values === "object" && !Array.isArray(sparse.values), sparseAt + "/values", "Expected sparse values.");
       const indexSize = sizes[sparse.indices.componentType];
       ctx.check([5121, 5123, 5125].includes(sparse.indices.componentType), sparseAt + "/indices/componentType", "Sparse indices must be unsigned byte, short, or int.");
-      const sparseStart = (part: typeof sparse.indices | typeof sparse.values, label: string, alignment: number, length: number) => {
+      const sparseStart = (part: typeof sparse.indices | typeof sparse.values, label: string, absoluteAlignment: number, length: number, offsetAlignment = absoluteAlignment) => {
         const resource = sparseAt + "/" + label;
         const index = ctx.integer(part.bufferView, resource + "/bufferView", 0, (json.bufferViews?.length ?? 0) - 1);
         const view = json.bufferViews![index];
         const offset = ctx.integer(part.byteOffset ?? 0, resource + "/byteOffset");
         ctx.check(view.byteStride === undefined && view.target === undefined, resource + "/bufferView", "Sparse buffer views cannot have byteStride or target.");
-        ctx.check(offset % alignment === 0 && ((view.byteOffset ?? 0) + offset) % alignment === 0, resource + "/byteOffset", "Sparse data is misaligned.");
+        ctx.check(offset % offsetAlignment === 0 && ((view.byteOffset ?? 0) + offset) % absoluteAlignment === 0, resource + "/byteOffset", "Sparse data is misaligned.");
         ctx.check(offset + length <= view.byteLength, resource, "Sparse data exceeds buffer view boundary.");
         return (view.byteOffset ?? 0) + offset;
       };
       const indexStart = sparseStart(sparse.indices, "indices", indexSize, count * indexSize);
-      const valueStart = sparseStart(sparse.values, "values", size, count * components * size);
+      const valueStart = sparseStart(sparse.values, "values", alignment, count * components * size, size);
       let previous = -1;
       for (let n = 0; n < count; n++) {
         const p = indexStart + n * indexSize;
