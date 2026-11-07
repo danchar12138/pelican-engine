@@ -10,6 +10,7 @@ import type {
   RenderService,
   ComputeService,
   NavigationService,
+  WorldStreamingService,
   RopeService,
   ClothService,
   FluidService,
@@ -35,6 +36,7 @@ export interface RuntimeServices {
   render: RenderService;
   compute: ComputeService;
   navigation: NavigationService;
+  streaming: WorldStreamingService;
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;

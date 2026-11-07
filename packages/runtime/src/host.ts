@@ -271,6 +271,9 @@ export class RuntimeHost {
       get navigation() {
         return host.service("navigation");
       },
+      get streaming() {
+        return host.service("streaming");
+      },
       get ropes() {
         return host.service("ropes");
       },

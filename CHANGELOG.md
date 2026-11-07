@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add bounded focus-based chunk residency for static prefab roots, including transform/component preservation and host snapshots. Runtime behavior is unverified; this is not asset or dynamic-physics streaming.
+
 - Add optional diagonal weighted grid paths with blocked-corner protection. Runtime behavior is unverified.
 
 - Add model animation clip discovery, pause/resume, seeking and speed control, including snapshot suspension state. Runtime behavior is unverified.

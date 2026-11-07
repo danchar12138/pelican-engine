@@ -184,6 +184,41 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Static world chunk residency
+
+`ctx.streaming` can materialize predefined static prefab entities around a
+world-space focus. Define each chunk once, then update the focus in a game
+system; transitions occur at the update phase's structural commit boundary:
+
+```ts
+ctx.streaming.configure({ chunkSize: 32, loadRadius: 1, unloadRadius: 2, maxChangesPerTick: 4 });
+ctx.streaming.defineChunk({
+  x: 0, z: 0,
+  entities: [{ id: "tree-0", prefab: "tree", transform: { position: [2, 0, 3] } }],
+});
+ctx.streaming.setFocus(ctx.entities.getTransform("player").position);
+```
+
+Chunk coordinates use floor(position / chunkSize) on X/Z; entity transforms are
+absolute world coordinates, not offsets from the chunk. `defineChunk` requires
+unique entity IDs and declared prefabs. Only root entities without characters
+or moving rigid bodies are accepted. A fixed body is allowed. Each chunk may
+hold at most 512 entities; the service permits up to 4096 chunks and 65536
+entities in total. `inspect()` reports residency, and `setFocus(null)` freezes
+residency changes. Load/unload uses Chebyshev distance and hysteresis; a bounded
+number of chunks change per fixed tick. Load/unload is not immediate.
+
+On unload, surviving roots retain their world transform and components; roots
+already destroyed by the game stay destroyed. Reusing a live chunk-owned ID is
+rejected, and attached child entities must be removed before unloading. Host
+snapshots include chunk data and residency. Asset downloads/residency, dynamic
+body velocities, animation playback, cross-system transactions, navigation
+updates, terrain and precision rebasing are **not** streamed by this service.
+Models and physics are recreated through existing systems; expect one or more
+phase/tick boundaries before all systems reflect a change. If another system's
+structural commands cause a failed tick, restore a known-good host checkpoint.
+This implementation and its save/restore behavior have not been runtime-validated.
+
 For orthogonal grid routing, game systems may call `ctx.navigation.createGrid`
 with `{ id, owner, width, height }`, then `setBlocked(id, { x, y }, true)` and
 `findPath(id, start, end)`. Paths contain both endpoints; `destroyGrid` and

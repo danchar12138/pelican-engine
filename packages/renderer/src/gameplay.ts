@@ -8,6 +8,7 @@ import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { createGameServices } from "../../runtime/src/game-services.ts";
 import { createPhysicsFactory } from "../../physics/index.ts";
 import { createNavigationPlugin } from "../../navigation/src/index.ts";
+import { createWorldStreamingPlugin } from "../../runtime/src/world-streaming.ts";
 import { createRopePlugin } from "../../simulation/src/rope-plugin.ts";
 import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
 import { createFluidPlugin } from "../../simulation/src/fluid-plugin.ts";
@@ -222,6 +223,7 @@ export async function prepareGameplay(
     const plugins: RuntimePluginFactory[] = [
       services.factory,
       createNavigationPlugin,
+      createWorldStreamingPlugin,
       createRopePlugin,
       createClothPlugin,
       createFluidPlugin,

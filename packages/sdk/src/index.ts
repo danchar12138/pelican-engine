@@ -116,6 +116,7 @@ export interface SystemContext extends EngineFacade {
   readonly render: RenderService;
   readonly compute: ComputeService;
   readonly navigation: NavigationService;
+  readonly streaming: WorldStreamingService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -459,6 +460,36 @@ export interface NavigationService {
   findPath(id: string, start: NavigationCell, end: NavigationCell, options?: NavigationPathOptions): readonly NavigationCell[];
   destroyGrid(id: string): void;
   destroyOwner(owner: string): void;
+}
+/** Bounded static-entity chunk streaming on the world's X/Z plane. */
+export interface WorldStreamingOptions {
+  /** World units per chunk. Defaults to 32. */
+  chunkSize?: number;
+  /** Chebyshev radius in chunks to activate. Defaults to 1. */
+  loadRadius?: number;
+  /** Radius beyond which to deactivate; must be at least loadRadius. Defaults to 2. */
+  unloadRadius?: number;
+  /** Maximum chunk transitions per fixed tick. Defaults to 4. */
+  maxChangesPerTick?: number;
+}
+export interface WorldChunkDefinition {
+  x: number;
+  z: number;
+  /** Root entities with declared prefabs and absolute world-space transforms. */
+  entities: readonly SpawnInput[];
+}
+export interface WorldStreamingService {
+  configure(options: WorldStreamingOptions): void;
+  defineChunk(chunk: WorldChunkDefinition): void;
+  /** Set a world-space observer, or null to suspend automatic residency changes. */
+  setFocus(position: Vec3 | null): void;
+  /** Removes an inactive definition; loaded chunks must first move out of range. */
+  removeChunk(x: number, z: number): void;
+  inspect(): {
+    focus: Vec3 | null;
+    options: Required<WorldStreamingOptions>;
+    chunks: readonly { x: number; z: number; active: boolean; entities: number }[];
+  };
 }
 export type RenderMode = "raster" | "hybrid" | "path";
 export interface RenderCapabilities {
