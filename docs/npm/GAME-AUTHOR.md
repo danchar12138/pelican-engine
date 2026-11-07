@@ -427,6 +427,16 @@ your own texture there.
 
 ### Orthographic camera
 
+For a code-driven camera pose or basic cutscene, call
+`ctx.camera.setPose([0, 3, 8], [0, 1, 0])`, then
+`ctx.camera.moveTo([4, 3, 6], [0, 1, 0], 2)` to interpolate position and
+target over two fixed-tick seconds. A transition requires manual pose mode;
+it replaces any prior transition and rejects paths that pass through the
+target. `ctx.camera.follow(entity)` switches back to entity following, while
+`ctx.camera.reset()` restores the scene-authored pose. Manual poses and active
+transitions are stored in snapshots. This is not a timeline editor, collision
+avoidance or a full cinematic system; rendering and restoration are unverified.
+
 A scene can use an orthographic camera for 2D-positioned or 2.5D content:
 
 ```ts

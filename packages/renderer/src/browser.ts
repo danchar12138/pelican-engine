@@ -1105,7 +1105,8 @@ function animate() {
   const offset = base
     .sub(target)
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraPhase);
-  if (!gameplay?.services.inspect().camera) {
+  const cameraState = gameplay?.services.inspect();
+  if (!cameraState?.camera && !cameraState?.cameraPose) {
     camera.position.copy(target).add(offset);
     camera.lookAt(target);
   }

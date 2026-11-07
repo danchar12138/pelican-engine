@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- Local development adds fixed-tick manual camera poses and linear transitions with snapshot state. Camera collision avoidance for manual poses, cinematic timelines, rendering and restoration remain incomplete or unverified.
+
 - Local development accounts for the offset between a bound sphere collider and its rigid-body center of mass when applying fluid/soft-body normal reaction impulses. This remains discrete, approximate coupling; forces, torque, rollback and stability are unverified.
 
 - Local development aligns authored and dynamic input length with the 4096 UTF-16-unit event limit and constrains browser commits without splitting surrogate pairs. IME, paste, focus and restoration remain unverified.

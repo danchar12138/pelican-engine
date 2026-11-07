@@ -1,5 +1,5 @@
 import type { SceneIR } from "../../compiler/src/types.ts";
-import type { AnimationControlService, AnimationService, GamepadState, LocalizationVariables } from "../../sdk/src/index.ts";
+import type { AnimationControlService, AnimationService, GamepadState, LocalizationVariables, Vec3 } from "../../sdk/src/index.ts";
 import type {
   RuntimePlugin,
   RuntimePluginContext,
@@ -12,6 +12,7 @@ import { UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
 import { neutralGamepad, parseGamepad } from "./gamepad.ts";
 
 type Camera = NonNullable<SceneIR["scene"]["follow"]>;
+type CameraPose = { position: Vec3; target: Vec3; transition?: { fromPosition: Vec3; fromTarget: Vec3; toPosition: Vec3; toTarget: Vec3; startedAt: number; duration: number } };
 type UI = NonNullable<SceneIR["ui"]>;
 type StorageState = ReturnType<RuntimeServices["storage"]["status"]>;
 export interface GameServiceRequest {
@@ -21,6 +22,7 @@ export interface GameServiceRequest {
 export interface GameServicesInspection {
   input: { held: string[]; pressed: string[]; released: string[]; gamepadMode: "ui" | "game"; gamepadDeadzone: number; gamepad: GamepadState };
   camera: Camera | null;
+  cameraPose: CameraPose | null;
   ui: SceneIR["ui"];
   audio: {
     volume: number;
@@ -184,6 +186,22 @@ function cameraValue(value: unknown, code: string): asserts value is Camera {
   finite(c.lookHeight, code, "Camera lookHeight", 0);
   finite(c.yaw, code, "Camera yaw");
   finite(c.smoothing, code, "Camera smoothing", 0, 1);
+}
+function poseVector(value: unknown, code: string): asserts value is Vec3 {
+  check(Array.isArray(value) && value.length === 3 && value.every(item => typeof item === "number" && Number.isFinite(item) && Math.abs(item) <= 1e9), code, "Camera vectors must have three finite components in [-1e9, 1e9].");
+}
+function posePair(position: Vec3, target: Vec3, code: string): void {
+  check(Math.hypot(...position.map((value, index) => value - target[index])) > 1e-6, code, "Camera position and target must be distinct.");
+}
+function posePath(fromPosition: Vec3, fromTarget: Vec3, toPosition: Vec3, toTarget: Vec3, code: string): void {
+  const a = fromPosition.map((value, i) => value - fromTarget[i]);
+  const d = toPosition.map((value, i) => value - toTarget[i] - a[i]);
+  const lengthSquared = d.reduce((sum, value) => sum + value * value, 0);
+  const t = lengthSquared ? Math.max(0, Math.min(1, -a.reduce((sum, value, i) => sum + value * d[i], 0) / lengthSquared)) : 0;
+  check(Math.hypot(...a.map((value, i) => value + t * d[i])) > 1e-6, code, "Camera transition must not pass through its target.");
+}
+function blendVector(a: Vec3, b: Vec3, t: number): Vec3 {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 const UI_FIELDS = [
   "id",
@@ -371,6 +389,7 @@ export function createGameServices(
       gamepad: neutralGamepad(false, true),
     },
     camera: cloneSerializable(initialCamera),
+    cameraPose: null as CameraPose | null,
     ui: cloneSerializable(initialUI),
     uiNextGeneration: 1,
     uiTextBindings: [] as UITextBinding[],
@@ -550,6 +569,24 @@ export function createGameServices(
       },
     },
     camera: {
+      setPose(position, target) {
+        alive();
+        const p = cloneSerializable(position), t = cloneSerializable(target);
+        poseVector(p, "TC_CAMERA_VALUE"); poseVector(t, "TC_CAMERA_VALUE"); posePair(p, t, "TC_CAMERA_VALUE");
+        state.camera = null; state.cameraPose = { position: p, target: t };
+      },
+      moveTo(position, target, duration) {
+        alive();
+        const p = cloneSerializable(position), t = cloneSerializable(target);
+        poseVector(p, "TC_CAMERA_VALUE"); poseVector(t, "TC_CAMERA_VALUE"); posePair(p, t, "TC_CAMERA_VALUE");
+        finite(duration, "TC_CAMERA_VALUE", "Camera transition duration", 0, 1e6);
+        const current = state.cameraPose;
+        check(current, "TC_CAMERA_MODE", "Call camera.setPose before starting a manual transition.");
+        if (duration === 0) { state.cameraPose = { position: p, target: t }; return; }
+        posePath(current.position, current.target, p, t, "TC_CAMERA_VALUE");
+        current.transition = { fromPosition: [...current.position], fromTarget: [...current.target], toPosition: p, toTarget: t, startedAt: state.tick, duration };
+      },
+      reset() { alive(); state.camera = null; state.cameraPose = null; },
       follow(entity, options = {}) {
         alive();
         target(entity, "TC_CAMERA_TARGET");
@@ -577,6 +614,7 @@ export function createGameServices(
         };
         cameraValue(next, "TC_CAMERA_VALUE");
         state.camera = next;
+        state.cameraPose = null;
       },
       orbit(yaw) {
         alive();
@@ -838,6 +876,7 @@ export function createGameServices(
     return cloneSerializable({
       input: { held, pressed, released, gamepadMode: state.input.gamepadMode, gamepadDeadzone: state.input.gamepadDeadzone, gamepad: state.input.gamepad },
       camera: state.camera,
+      cameraPose: state.cameraPose,
       ui: state.ui.map(displayUI),
       audio: { volume: state.audio.volume, ...(state.audio.busVolumes !== undefined ? { busVolumes: state.audio.busVolumes } : {}), voices: state.audio.voices },
       storage: state.storage,
@@ -865,6 +904,7 @@ export function createGameServices(
         "fixedDt",
         "input",
         "camera",
+        ...(Object.hasOwn(data, "cameraPose") ? ["cameraPose"] : []),
         "ui",
         ...(Object.hasOwn(data, "uiNextGeneration") ? ["uiNextGeneration"] : []),
         ...(Object.hasOwn(data, "uiTextBindings") ? ["uiTextBindings"] : []),
@@ -957,6 +997,27 @@ export function createGameServices(
         "Initial input must be empty.",
       );
     if (data.camera !== null) cameraValue(data.camera, SNAPSHOT_ERROR);
+    if (!Object.hasOwn(data, "cameraPose")) data.cameraPose = null;
+    if (data.cameraPose !== null) {
+      check(data.camera === null, SNAPSHOT_ERROR, "Manual and follow camera modes cannot both be active.");
+      const pose = object(data.cameraPose, ["position", "target", ...(Object.hasOwn(data.cameraPose, "transition") ? ["transition"] : [])], SNAPSHOT_ERROR);
+      poseVector(pose.position, SNAPSHOT_ERROR); poseVector(pose.target, SNAPSHOT_ERROR); posePair(pose.position, pose.target, SNAPSHOT_ERROR);
+      if (Object.hasOwn(pose, "transition")) {
+        const transition = object(pose.transition, ["fromPosition", "fromTarget", "toPosition", "toTarget", "startedAt", "duration"], SNAPSHOT_ERROR);
+        poseVector(transition.fromPosition, SNAPSHOT_ERROR); poseVector(transition.fromTarget, SNAPSHOT_ERROR);
+        poseVector(transition.toPosition, SNAPSHOT_ERROR); poseVector(transition.toTarget, SNAPSHOT_ERROR);
+        posePair(transition.fromPosition, transition.fromTarget, SNAPSHOT_ERROR); posePair(transition.toPosition, transition.toTarget, SNAPSHOT_ERROR);
+        posePath(transition.fromPosition, transition.fromTarget, transition.toPosition, transition.toTarget, SNAPSHOT_ERROR);
+        integer(transition.startedAt, SNAPSHOT_ERROR, "Camera transition start");
+        finite(transition.duration, SNAPSHOT_ERROR, "Camera transition duration", Number.MIN_VALUE, 1e6);
+        check(transition.startedAt <= data.tick, SNAPSHOT_ERROR, "Camera transition starts in the future.");
+        const progress = (data.tick - transition.startedAt) * (data.fixedDt ?? 0) / transition.duration;
+        check(progress < 1, SNAPSHOT_ERROR, "Camera transition has already expired.");
+        const expectedPosition = blendVector(transition.fromPosition, transition.toPosition, progress);
+        const expectedTarget = blendVector(transition.fromTarget, transition.toTarget, progress);
+        check(expectedPosition.every((value, i) => Math.abs(value - (pose.position as Vec3)[i]) <= 1e-7) && expectedTarget.every((value, i) => Math.abs(value - (pose.target as Vec3)[i]) <= 1e-7), SNAPSHOT_ERROR, "Camera transition pose differs from its fixed-tick state.");
+      }
+    }
     if (!Object.hasOwn(data, "uiNextGeneration")) data.uiNextGeneration = 1;
     integer(data.uiNextGeneration, SNAPSHOT_ERROR, "Next UI generation", 1);
     check(Array.isArray(data.ui) && data.ui.length >= initialUI.length && data.ui.length <= initialUI.length + MAX_DYNAMIC_UI,
@@ -1256,6 +1317,13 @@ export function createGameServices(
           }
           state.tick++;
           state.fixedDt = dt;
+          const pose = state.cameraPose, transition = pose?.transition;
+          if (pose && transition) {
+            const progress = Math.min(1, (state.tick - transition.startedAt) * dt / transition.duration);
+            pose.position = blendVector(transition.fromPosition, transition.toPosition, progress);
+            pose.target = blendVector(transition.fromTarget, transition.toTarget, progress);
+            if (progress === 1) delete pose.transition;
+          }
           state.input = {
             keys: [...keys].sort(),
             held: [...held].sort(),

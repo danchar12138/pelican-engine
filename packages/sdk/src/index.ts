@@ -992,6 +992,12 @@ export interface AnimationControlService extends AnimationService {
   setSpeed(entity: string, speed: number): void;
 }
 export interface CameraService {
+  /** Set a world-space manual pose, replacing follow mode and any transition. */
+  setPose(position: Vec3, target: Vec3): void;
+  /** Linearly transition from the current manual pose using fixed simulation time. */
+  moveTo(position: Vec3, target: Vec3, duration: number): void;
+  /** Return to the scene's authored camera pose. */
+  reset(): void;
   follow(
     entity: string,
     options?: {

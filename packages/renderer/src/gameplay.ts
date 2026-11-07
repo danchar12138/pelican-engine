@@ -411,6 +411,11 @@ export async function prepareGameplay(
         tick: number,
       ) {
         const state = services.inspect();
+        if (state.cameraPose) {
+          camera.position.fromArray(state.cameraPose.position);
+          camera.lookAt(new THREE.Vector3().fromArray(state.cameraPose.target));
+          camera.updateMatrixWorld();
+        }
         if (state.camera) {
           const follow = state.camera,
             object = objects.get(follow.entity);
