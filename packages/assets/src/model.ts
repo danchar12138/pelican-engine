@@ -153,14 +153,6 @@ export async function inspectModel(
       specularTexture?: GLTF.ITextureInfo;
       specularColorTexture?: GLTF.ITextureInfo;
     } | undefined;
-    const specularTexture = (info: GLTF.ITextureInfo | undefined, field: string) => {
-      const location = `${at}/extensions/KHR_materials_specular/${field}`;
-      const index = textureInfo(info, location);
-      const transform = info?.extensions?.KHR_texture_transform as { texCoord?: number } | undefined;
-      if (info && (transform?.texCoord ?? info.texCoord ?? 0) !== 0)
-        ctx.unsupported(location + "/texCoord", "Specular textures only support TEXCOORD_0.");
-      return index;
-    };
     if (p !== undefined)
       ctx.check(
         p && typeof p === "object" && !Array.isArray(p),
@@ -176,8 +168,8 @@ export async function inspectModel(
       normal: textureInfo(m.normalTexture, at + "/normalTexture"),
       occlusion: textureInfo(m.occlusionTexture, at + "/occlusionTexture"),
       emissive: textureInfo(m.emissiveTexture, at + "/emissiveTexture"),
-      specular: specularTexture(specular?.specularTexture, "specularTexture"),
-      specularColor: specularTexture(specular?.specularColorTexture, "specularColorTexture"),
+      specular: textureInfo(specular?.specularTexture, `${at}/extensions/KHR_materials_specular/specularTexture`),
+      specularColor: textureInfo(specular?.specularColorTexture, `${at}/extensions/KHR_materials_specular/specularColorTexture`),
     };
     if (m.normalTexture?.scale !== undefined)
       scalar(

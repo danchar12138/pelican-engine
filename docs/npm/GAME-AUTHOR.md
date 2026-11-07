@@ -76,10 +76,10 @@ project uses the same source and equivalent engine CLI commands listed below.
 GLB `KHR_materials_emissive_strength` factors are accepted and retained by
 asset optimization; their runtime rendering behavior remains unverified.
 GLB material textures may use `KHR_texture_transform` offset, rotation, scale
-and UV-set override. General material slots support UV0 and UV1; specular
-texture slots remain limited to UV0. This addition is not runtime-validated.
+and UV-set override. Material slots, including specular textures, support UV0
+and UV1. Specular UV1 and texture transforms are not runtime-validated.
 Imported opaque GLB materials support `KHR_materials_specular` intensity and
-color textures with `TEXCOORD_0`. Positive transmission combined with specular
+color textures with `TEXCOORD_0` or `TEXCOORD_1`. Positive transmission combined with specular
 textures or non-default specular remains unsupported. The tracer rejects PNG
 color maps with ICC profiles. Low-bit-depth grayscale and indexed Adam7 PNGs
 are decoded with explicit pass/filter validation. For 16-bit PNG,
