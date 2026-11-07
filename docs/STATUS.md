@@ -2,8 +2,8 @@
 
 ## Version and Release
 
-- Current source version: 0.4.1. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
-- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. The occupied `0.4.0` identity is preserved; `0.4.1` is the intended batch version under D59.
+- Current source version: 0.5.1. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run.
+- Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. The occupied `0.5.0` identity is preserved; `0.5.1` is the intended batch version under D59.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. GitHub Releases use standard version tags without pre-release suffixes.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
 - The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
@@ -16,7 +16,7 @@
 - The 0.4.1 simulation/API batch also adds runtime gravity control and particle velocity/nearest-particle queries for rope, cloth, fluid and soft bodies; atomic batched impulses and anchor updates; and sphere/box/capsule rigid-body overlap queries. These APIs have only been type-compiled and built, not behavior-validated.
 - The 0.4.1 batch adds one-tick forces and manually sampled sphere/plane/axis-aligned box colliders to fluid and soft bodies, improves sampled-collider snapshot restoration, and tightens HDR metadata and scanline diagnostics. It has not been behavior-validated; manual colliders are discrete and do not react on rigid bodies.
 - A known rigid-body first-step removal issue remains open. A conservative live-path guard rejects removing moving bodies before the first physics step; it does not protect historical replay and is not runtime-validated. Historical candidates and risky snapshots are archived evidence, not current acceptance evidence.
-- The local 0.5 development batch adds bounded focus-based residency and runtime construction/removal for static prefab roots, with transform/component preservation, queued edits and host snapshots. It does not stream assets, dynamic physics, animation state, terrain or cross-system transactions; runtime behavior is unverified.
+- The 0.5.1 development batch adds bounded focus-based residency and runtime construction/removal for static prefab roots, with transform/component preservation, queued edits and host snapshots. It does not stream assets, dynamic physics, animation state, terrain or cross-system transactions; runtime behavior is unverified.
 - Model animation adds clip listing, pause/resume of active clips and fades, current-clip seek and speed control, and snapshot suspension persistence. These controls have not been runtime-validated; IK, layering and advanced animation systems remain incomplete.
 - Navigation supports batch obstacle and weighted cell-cost updates, optional diagonal paths, and fixed-step movement of non-physical root entities with bounded automatic replanning. It is not continuous-world streaming, physics integration or crowd avoidance. Routing, agent motion and snapshots are not runtime-validated.
 - Ropes support manual and automatic fixed stepping, sampled sphere bindings, segmented presentation, segment contacts, and non-adjacent self-contact. Full two-way coupling, cross-rope contact, continuous collision, and tearing remain incomplete.

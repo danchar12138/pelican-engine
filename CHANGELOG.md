@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.5.1 - 2026-11-07
+
+- Development batch only: tests, runtime behavior, graphics, hardware, performance, stability, and snapshot restoration have not been verified. M3–M8 and the full 1.0 scope remain incomplete.
+
 - Add grid-following point agents with fixed-tick movement, bounded obstacle/cost replanning and snapshot state. Runtime behavior is unverified; this is not physics or crowd avoidance.
 
 - Allow chunk-owned static prefab roots to be built and removed at runtime, with bounded deferred active-chunk edits and snapshot persistence. Runtime behavior is unverified.
