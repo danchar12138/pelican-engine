@@ -838,19 +838,22 @@ Set `avoidAgents: true` on participating agents to reserve occupied and
 next-route grid cells within each fixed tick. An agent whose next cell is
 reserved enters `waiting` and retries on subsequent ticks; processing priority
 rotates. Reservations apply only to opted-in agents with exactly the same grid,
-origin, plane, row direction and cell size. They do not prevent crossings
-between cells, resolve existing overlaps, plan around other agents or break
-deadlocks; agents moving in opposite directions in a one-cell corridor can
-wait indefinitely. This is not continuous crowd avoidance or physics collision.
-Waiting state is saved; movement and restoration are unverified.
+origin, plane, row direction and cell size. After 30 waiting ticks at a cell
+center, an agent attempts a new path around the current occupied cells, subject
+to the shared eight-search-per-tick budget. A blocked destination or failed
+search leaves it waiting and eligible to retry. Reservations do not prevent
+crossings between cells, resolve existing overlaps or guarantee deadlock
+resolution; agents in a one-cell corridor can still wait indefinitely. This is
+not continuous crowd avoidance or physics collision. Waiting state and the
+retry counter are saved; movement and restoration are unverified.
 
 For game-driven alternate routes, `ctx.navigation.findPath("level", start,
 end, { blocked: occupiedCells, allowDiagonal: true })` accepts up to 4096
 additional blocked cells for that search. They do not change the grid or queue
 agent replanning. Start or destination in the combined blocked set reports
 `TC_NAVIGATION_BLOCKED`; diagonal corner rules also use the temporary cells.
-This does not automatically reroute `avoidAgents` agents, and behavior remains
-runtime-unverified.
+Automatic agent rerouting uses occupied cells from its own matching group;
+both mechanisms remain runtime-unverified.
 
 At most 128 agents are supported, with at most 65,536 cells per resulting path
 and 64 traversed segments per agent per tick; excess per-tick travel is not

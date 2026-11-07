@@ -18,6 +18,7 @@ type Agent = NavigationAgentState & {
   speed: number;
   allowDiagonal: boolean;
   dirty: boolean;
+  waitingTicks?: number;
 };
 type AgentSnapshot = { agents: Agent[]; agentCursor: number };
 type GridLookup = (id: string) => NavigationGrid | undefined;
@@ -25,6 +26,7 @@ const MAX_AGENTS = 128;
 const MAX_PATH = 65536;
 const MAX_PLANS_PER_TICK = 8;
 const MAX_SEGMENTS_PER_TICK = 64;
+const REROUTE_WAIT_TICKS = 30;
 const fail = (code: string, message: string): never => { throw new Error(`TC_NAVIGATION_${code}: ${message}`); };
 const name = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const inGrid = (point: NavigationCell, grid: NavigationGrid) => !!point && typeof point === "object" &&
@@ -79,6 +81,7 @@ export function createNavigationAgents(
   }
   function planTarget(agent: Agent, point: NavigationCell): void {
     agent.target = { x: point.x, y: point.y };
+    agent.waitingTicks = 0;
     agent.path = []; agent.cursor = 0; agent.status = "planning"; agent.error = null; agent.dirty = true;
   }
   function target(id: string, point: NavigationCell): void {
@@ -102,6 +105,7 @@ export function createNavigationAgents(
   }
   function stop(id: string): void {
     const agent = get(id);
+    agent.waitingTicks = 0;
     delete agent.followEntity; followedHandles.delete(id);
     agent.target = null; agent.path = []; agent.cursor = 0; agent.dirty = false;
     if (agent.status !== "missing") { agent.status = "idle"; agent.error = null; }
@@ -112,6 +116,7 @@ export function createNavigationAgents(
   function dirtyGrid(grid: string): void {
     for (const agent of agents.values()) if (agent.grid === grid && agent.target && agent.status !== "missing") {
       agent.dirty = true; agent.status = "planning"; agent.error = null; agent.path = []; agent.cursor = 0;
+      agent.waitingTicks = 0;
     }
   }
   function assertGridUnused(id: string): void {
@@ -252,6 +257,34 @@ export function createNavigationAgents(
       }
       if (x !== position[0] || z !== second)
         context.world.setTransform(handle, { position: agent.plane === "xy" ? [x, z, position[2]] : [x, position[1], z] });
+      if (agent.status === "waiting") {
+        agent.waitingTicks = Math.min(REROUTE_WAIT_TICKS, (agent.waitingTicks ?? 0) + 1);
+        const here = { x: Math.floor((x - agent.origin[0]) / agent.cellSize), y: Math.floor((z - agent.origin[1]) / (agent.cellSize * direction)) };
+        const centerX = agent.origin[0] + (here.x + 0.5) * agent.cellSize;
+        const centerY = agent.origin[1] + direction * (here.y + 0.5) * agent.cellSize;
+        if (agent.waitingTicks >= REROUTE_WAIT_TICKS && plans < MAX_PLANS_PER_TICK && Math.hypot(x - centerX, z - centerY) <= 1e-9) {
+          const grid = navigation.getGrid(agent.grid);
+          const blocked: NavigationCell[] = [];
+          for (const other of ordered) {
+            const point = initialPositions.get(other.id);
+            if (other.id === agent.id || !point || !inGrid(point, grid) ||
+                reservationKey(other, point) !== reservationKey(agent, point) ||
+                (point.x === here.x && point.y === here.y)) continue;
+            blocked.push(point);
+          }
+          plans++;
+          agent.waitingTicks = 0;
+          try {
+            const path = navigation.findPath(agent.grid, here, agent.target, { allowDiagonal: agent.allowDiagonal, blocked });
+            if (path.length > MAX_PATH) fail("AGENT_PATH", `Path for '${agent.id}' exceeds ${MAX_PATH} cells; partition the route.`);
+            agent.path = path.map(point => ({ x: point.x, y: point.y }));
+            agent.cursor = 0; agent.status = "moving"; agent.error = null;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/^(TC_NAVIGATION_(?:UNREACHABLE|BLOCKED|CAPACITY|CELL|AGENT_PATH))\b/.test(message)) throw error;
+          }
+        }
+      } else agent.waitingTicks = 0;
       if (agent.cursor === agent.path.length) { agent.status = "arrived"; agent.error = null; }
     }
   }
@@ -271,11 +304,13 @@ export function createNavigationAgents(
       // Older snapshots predate plane selection and use the original X/Z positive-row behavior.
       if (agent.plane === undefined) agent.plane = "xz";
       if (agent.rowDirection === undefined) agent.rowDirection = "positive";
+      if (agent.waitingTicks === undefined) agent.waitingTicks = 0;
       const grid = gridLookup(agent.grid);
       if (!grid || !["xz", "xy"].includes(agent.plane) || !["positive", "negative"].includes(agent.rowDirection) || !Array.isArray(agent.origin) || agent.origin.length !== 2 || agent.origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
           !Number.isFinite(agent.cellSize) || agent.cellSize < 0.001 || agent.cellSize > 1e6 ||
           !Number.isFinite(agent.speed) || agent.speed <= 0 || agent.speed > 1000 || typeof agent.allowDiagonal !== "boolean" || typeof agent.dirty !== "boolean" ||
           (agent.avoidAgents !== undefined && typeof agent.avoidAgents !== "boolean") ||
+          !Number.isSafeInteger(agent.waitingTicks) || agent.waitingTicks < 0 || agent.waitingTicks > REROUTE_WAIT_TICKS ||
           !["idle", "planning", "moving", "waiting", "arrived", "blocked", "missing"].includes(agent.status) ||
           !(agent.error === null || (typeof agent.error === "string" && /^TC_NAVIGATION_[A-Z_]+$/.test(agent.error))) ||
           !Array.isArray(agent.path) || agent.path.length > MAX_PATH || !Number.isSafeInteger(agent.cursor) || agent.cursor < 0 || agent.cursor > agent.path.length ||

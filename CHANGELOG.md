@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add bounded occupied-cell rerouting for waiting navigation agents; runtime and snapshot behavior remain unverified.
+
 - Add per-search temporary navigation obstacles without changing shared grid state; runtime behavior remains unverified.
 
 - Add explicit normalized-time alignment for blended animation clips; runtime behavior remains unverified.
