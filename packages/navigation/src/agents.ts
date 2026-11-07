@@ -33,6 +33,7 @@ const inGrid = (point: NavigationCell, grid: NavigationGrid) => !!point && typeo
 const publicState = (agent: Agent): NavigationAgentState => cloneSerializable({
   id: agent.id, entity: agent.entity, grid: agent.grid, plane: agent.plane, rowDirection: agent.rowDirection, target: agent.target,
   ...(agent.followEntity === undefined ? {} : { followEntity: agent.followEntity }),
+  ...(agent.avoidAgents ? { avoidAgents: true } : {}),
   status: agent.status, error: agent.error, path: agent.path, cursor: agent.cursor,
 });
 
@@ -52,7 +53,7 @@ export function createNavigationAgents(
     alive();
     const value = cloneSerializable(input);
     if (!value || typeof value !== "object" || Array.isArray(value) ||
-        Object.keys(value).some(key => !["id", "entity", "grid", "origin", "cellSize", "speed", "allowDiagonal", "plane", "rowDirection"].includes(key)) ||
+        Object.keys(value).some(key => !["id", "entity", "grid", "origin", "cellSize", "speed", "allowDiagonal", "avoidAgents", "plane", "rowDirection"].includes(key)) ||
         !name(value.id) || !name(value.entity) || !name(value.grid))
       return fail("AGENT", "Agent needs nonempty id, entity and grid names.");
     const origin = value.origin ?? [0, 0], cellSize = value.cellSize ?? 1, speed = value.speed ?? 1, allowDiagonal = value.allowDiagonal ?? false;
@@ -60,6 +61,7 @@ export function createNavigationAgents(
     if (!Array.isArray(origin) || origin.length !== 2 || origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
         !Number.isFinite(cellSize) || cellSize < 0.001 || cellSize > 1e6 ||
         !Number.isFinite(speed) || speed <= 0 || speed > 1000 || typeof allowDiagonal !== "boolean" ||
+        (value.avoidAgents !== undefined && typeof value.avoidAgents !== "boolean") ||
         !["xz", "xy"].includes(plane) || !["positive", "negative"].includes(rowDirection))
       return fail("AGENT", "Origin must be finite, cellSize in [0.001,1e6], speed in (0,1000], and plane/rowDirection must be supported.");
     navigation.getGrid(value.grid);
@@ -71,6 +73,7 @@ export function createNavigationAgents(
     const handle = context.world.resolve(value.entity);
     agents.set(value.id, { id: value.id, entity: value.entity, grid: value.grid,
       origin: [origin[0], origin[1]], cellSize, speed, allowDiagonal, plane, rowDirection,
+      ...(value.avoidAgents ? { avoidAgents: true } : {}),
       target: null, path: [], cursor: 0, status: "idle", error: null, dirty: false });
     handles.set(value.id, handle);
   }
@@ -131,9 +134,40 @@ export function createNavigationAgents(
     if (!agents.size) return;
     const ordered = [...agents.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     const records = new Map(context.world.records().map(record => [record.id, record]));
+    const reservations = new Map<string, Set<string>>();
+    const reservationKey = (agent: Agent, point: NavigationCell) => JSON.stringify([agent.grid, agent.plane, agent.rowDirection, agent.origin[0], agent.origin[1], agent.cellSize, point.x, point.y]);
+    const initialPositions = new Map<string, NavigationCell>();
+    for (const agent of ordered) {
+      if (!agent.avoidAgents || agent.status === "missing") continue;
+      const handle = handles.get(agent.id), record = records.get(agent.entity);
+      if (!handle || !context.world.isAlive(handle) || !record || record.parent !== undefined) continue;
+      const position = record.transform.position, second = agent.plane === "xy" ? position[1] : position[2];
+      const direction = agent.rowDirection === "negative" ? -1 : 1;
+      const point = { x: Math.floor((position[0] - agent.origin[0]) / agent.cellSize), y: Math.floor((second - agent.origin[1]) / (agent.cellSize * direction)) };
+      initialPositions.set(agent.id, point);
+      const key = reservationKey(agent, point), owners = reservations.get(key) ?? new Set<string>();
+      owners.add(agent.id); reservations.set(key, owners);
+    }
+    for (const agent of ordered) {
+      const point = initialPositions.get(agent.id), record = records.get(agent.entity);
+      if (!point || !record) continue;
+      const position = record.transform.position, second = agent.plane === "xy" ? position[1] : position[2];
+      const direction = agent.rowDirection === "negative" ? -1 : 1;
+      const next = agent.path[agent.cursor];
+      const centerX = agent.origin[0] + (point.x + 0.5) * agent.cellSize;
+      const centerY = agent.origin[1] + direction * (point.y + 0.5) * agent.cellSize;
+      const previous = agent.path[Math.max(0, agent.cursor - 1)];
+      if ((agent.status === "moving" || agent.status === "waiting") && next && previous &&
+          (next.x !== previous.x || next.y !== previous.y) &&
+          ((point.x === next.x && point.y === next.y) || Math.hypot(position[0] - centerX, second - centerY) > 1e-9)) {
+        const destination = reservationKey(agent, next);
+        const pending = reservations.get(destination) ?? new Set<string>();
+        if (![...pending].some(owner => owner !== agent.id)) { pending.add(agent.id); reservations.set(destination, pending); }
+      }
+    }
     let plans = 0;
     const start = cursor % ordered.length;
-    cursor = (start + MAX_PLANS_PER_TICK) % ordered.length;
+    cursor = (start + 1) % ordered.length;
     for (let offset = 0; offset < ordered.length; offset++) {
       const agent = ordered[(start + offset) % ordered.length], handle = handles.get(agent.id);
       if (agent.status === "missing") continue;
@@ -174,7 +208,7 @@ export function createNavigationAgents(
       const direction = agent.rowDirection === "negative" ? -1 : 1;
       const current = { x: Math.floor((position[0] - agent.origin[0]) / agent.cellSize),
         y: Math.floor((second - agent.origin[1]) / (agent.cellSize * direction)) };
-      if (agent.status === "moving") {
+      if (agent.status === "moving" || agent.status === "waiting") {
         const next = agent.path[agent.cursor], previous = agent.path[Math.max(0, agent.cursor - 1)];
         if (next && (current.x !== previous.x || current.y !== previous.y) && (current.x !== next.x || current.y !== next.y)) {
           agent.dirty = true; agent.status = "planning"; agent.path = []; agent.cursor = 0;
@@ -196,7 +230,8 @@ export function createNavigationAgents(
           continue;
         }
       }
-      if (agent.status !== "moving") continue;
+      if (agent.status !== "moving" && agent.status !== "waiting") continue;
+      agent.status = "moving";
       let remaining = agent.speed * dt, x = position[0], z = second, segments = 0;
       while (agent.cursor < agent.path.length && segments < MAX_SEGMENTS_PER_TICK) {
         const point = agent.path[agent.cursor];
@@ -205,6 +240,11 @@ export function createNavigationAgents(
         const dx = tx - x, dz = tz - z, distance = Math.hypot(dx, dz);
         if (distance <= 1e-9) { x = tx; z = tz; agent.cursor++; segments++; continue; }
         if (remaining <= 0) break;
+        if (agent.avoidAgents && (point.x !== current.x || point.y !== current.y)) {
+          const key = reservationKey(agent, point), owners = reservations.get(key);
+          if (owners && [...owners].some(owner => owner !== agent.id)) { agent.status = "waiting"; break; }
+          if (owners) owners.add(agent.id); else reservations.set(key, new Set([agent.id]));
+        }
         const step = Math.min(remaining, distance);
         x += dx / distance * step; z += dz / distance * step; remaining -= step;
         if (step >= distance) { x = tx; z = tz; agent.cursor++; segments++; }
@@ -235,7 +275,8 @@ export function createNavigationAgents(
       if (!grid || !["xz", "xy"].includes(agent.plane) || !["positive", "negative"].includes(agent.rowDirection) || !Array.isArray(agent.origin) || agent.origin.length !== 2 || agent.origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
           !Number.isFinite(agent.cellSize) || agent.cellSize < 0.001 || agent.cellSize > 1e6 ||
           !Number.isFinite(agent.speed) || agent.speed <= 0 || agent.speed > 1000 || typeof agent.allowDiagonal !== "boolean" || typeof agent.dirty !== "boolean" ||
-          !["idle", "planning", "moving", "arrived", "blocked", "missing"].includes(agent.status) ||
+          (agent.avoidAgents !== undefined && typeof agent.avoidAgents !== "boolean") ||
+          !["idle", "planning", "moving", "waiting", "arrived", "blocked", "missing"].includes(agent.status) ||
           !(agent.error === null || (typeof agent.error === "string" && /^TC_NAVIGATION_[A-Z_]+$/.test(agent.error))) ||
           !Array.isArray(agent.path) || agent.path.length > MAX_PATH || !Number.isSafeInteger(agent.cursor) || agent.cursor < 0 || agent.cursor > agent.path.length ||
           (agent.target !== null && !inGrid(agent.target, grid)))
@@ -251,11 +292,12 @@ export function createNavigationAgents(
       }
       if ((agent.status === "idle" && (agent.target !== null || agent.path.length !== 0 || agent.dirty)) ||
           (agent.status === "planning" && (!agent.target || !agent.dirty || agent.path.length !== 0)) ||
-          (agent.status === "moving" && (!agent.target || agent.dirty || agent.cursor >= agent.path.length)) ||
+          ((agent.status === "moving" || agent.status === "waiting") && (!agent.target || agent.dirty || agent.cursor >= agent.path.length)) ||
+          (agent.status === "waiting" && !agent.avoidAgents) ||
           (agent.status === "arrived" && (!agent.target || agent.dirty || agent.path.length === 0 || agent.cursor !== agent.path.length)) ||
           ((agent.status === "blocked" || agent.status === "missing") && (agent.dirty || agent.path.length !== 0 || !agent.error)))
         return fail("AGENT_SNAPSHOT", `Agent '${agent.id}' has inconsistent status and path.`);
-      if ((agent.status === "moving" || agent.status === "arrived") && agent.target &&
+      if ((agent.status === "moving" || agent.status === "waiting" || agent.status === "arrived") && agent.target &&
           (agent.path[agent.path.length - 1].x !== agent.target.x || agent.path[agent.path.length - 1].y !== agent.target.y))
         return fail("AGENT_SNAPSHOT", `Agent '${agent.id}' path does not end at its target.`);
     }

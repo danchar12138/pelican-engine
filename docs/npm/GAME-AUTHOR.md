@@ -828,6 +828,16 @@ entity with the same ID is not automatically followed. Use `stopAgent` or
 `setAgentTarget` to replace the follow command. Follow state is included in
 snapshots, but movement and restore behavior remain unverified.
 
+Set `avoidAgents: true` on participating agents to reserve occupied and
+next-route grid cells within each fixed tick. An agent whose next cell is
+reserved enters `waiting` and retries on subsequent ticks; processing priority
+rotates. Reservations apply only to opted-in agents with exactly the same grid,
+origin, plane, row direction and cell size. They do not prevent crossings
+between cells, resolve existing overlaps, plan around other agents or break
+deadlocks; agents moving in opposite directions in a one-cell corridor can
+wait indefinitely. This is not continuous crowd avoidance or physics collision.
+Waiting state is saved; movement and restoration are unverified.
+
 At most 128 agents are supported, with at most 65,536 cells per resulting path
 and 64 traversed segments per agent per tick; excess per-tick travel is not
 carried forward. Agent paths, queued replanning and targets are included in host

@@ -654,6 +654,8 @@ export interface NavigationAgentDefinition {
   /** World units per second; defaults to 1. */
   speed?: number;
   allowDiagonal?: boolean;
+  /** Reserve grid cells against other opted-in agents with the same mapping. */
+  avoidAgents?: boolean;
 }
 export interface NavigationAgentState {
   id: string;
@@ -664,7 +666,8 @@ export interface NavigationAgentState {
   target: NavigationCell | null;
   /** Live root entity followed by this agent, if any. */
   followEntity?: string;
-  status: "idle" | "planning" | "moving" | "arrived" | "blocked" | "missing";
+  avoidAgents?: boolean;
+  status: "idle" | "planning" | "moving" | "waiting" | "arrived" | "blocked" | "missing";
   /** Stable diagnostic code when movement is blocked or the entity was removed. */
   error: string | null;
   path: readonly NavigationCell[];

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add opt-in grid-cell reservations and waiting for navigation agents; runtime behavior remains unverified.
+
 - Add disabled button/input states and accessible UI labels; runtime and assistive-technology behavior remain unverified.
 
 - Add runtime 3D rigid-body world gravity control with history recording; behavior and replay remain unverified.
