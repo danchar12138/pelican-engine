@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add configurable global convolution reverb with snapshot settings and dry fallback. Audio behavior remains unverified.
+
 - Add dialogue session variables and equality-gated choices; runtime and snapshot behavior remain unverified.
 
 - Add manual camera poses and fixed-tick camera transitions with snapshot state. Runtime behavior remains unverified.

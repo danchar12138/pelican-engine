@@ -1196,6 +1196,8 @@ export interface LocalizationService {
   number(value: number): string;
   inspect(): { locale: string | null; fallback: string | null; available: readonly string[] };
 }
+/** Global convolution reverb applied after the master mix. */
+export interface AudioReverb { wet: number; decay: number; preDelay: number }
 export interface AudioService {
   /** Optional occlusion uses a 3D physics ray between the listener and a live entity. */
   play(
@@ -1211,6 +1213,8 @@ export interface AudioService {
   busVolume(id: string, value: number): void;
   /** Fade a declared bus over fixed-tick seconds; busVolume or another fade replaces it. */
   fadeBus(id: string, target: number, duration: number): void;
+  /** Replace global reverb settings; wet is 0..1, decay 0.1..4s, preDelay 0..0.2s. */
+  setReverb(settings: AudioReverb): void;
 }
 export interface StorageService {
   save(slot: string): void;

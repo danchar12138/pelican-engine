@@ -1,5 +1,5 @@
 import type { SceneIR } from "../../compiler/src/types.ts";
-import type { AnimationControlService, AnimationService, GamepadState, LocalizationVariables, Vec3 } from "../../sdk/src/index.ts";
+import type { AnimationControlService, AnimationService, AudioReverb, GamepadState, LocalizationVariables, Vec3 } from "../../sdk/src/index.ts";
 import type {
   RuntimePlugin,
   RuntimePluginContext,
@@ -26,6 +26,7 @@ export interface GameServicesInspection {
   ui: SceneIR["ui"];
   audio: {
     volume: number;
+    reverb: AudioReverb;
     busVolumes?: { id: string; volume: number; fade?: { from: number; target: number; duration: number; startedAt: number } }[];
     voices: {
       id: string;
@@ -71,6 +72,7 @@ function uiTextBinding(value: unknown, code: string): asserts value is UITextBin
     check(/^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/.test(key) && (typeof entry === "boolean" || (typeof entry === "string" && entry.length <= 4096) || (typeof entry === "number" && Number.isFinite(entry))), code, `Invalid localization variable ${key}.`);
 }
 const SNAPSHOT_ERROR = "TC_SERVICES_SNAPSHOT";
+const defaultReverb = (): AudioReverb => ({ wet: 0, decay: 1, preDelay: 0 });
 const fail = (code: string, message: string): never => {
   throw new Error(`${code}: ${message}`);
 };
@@ -149,6 +151,12 @@ function finite(
     code,
     `${label} must be finite in [${min}, ${max}].`,
   );
+}
+function reverbValue(value: unknown, code: string): asserts value is AudioReverb {
+  const settings = object(value, ["wet", "decay", "preDelay"], code);
+  finite(settings.wet, code, "Reverb wet", 0, 1);
+  finite(settings.decay, code, "Reverb decay", 0.1, 4);
+  finite(settings.preDelay, code, "Reverb preDelay", 0, 0.2);
 }
 function integer(
   value: unknown,
@@ -395,6 +403,7 @@ export function createGameServices(
     uiTextBindings: [] as UITextBinding[],
     audio: {
       volume: 1,
+      reverb: defaultReverb(),
       ...(hasBuses ? { busVolumes: cloneSerializable(buses) as NonNullable<GameServicesInspection["audio"]["busVolumes"]> } : {}),
       voices: [] as GameServicesInspection["audio"]["voices"],
       nextVoice: 1,
@@ -847,6 +856,12 @@ export function createGameServices(
           delete bus.fade;
         } else bus.fade = { from: bus.volume, target, duration, startedAt: state.tick };
       },
+      setReverb(settings) {
+        alive();
+        const value = cloneSerializable(settings);
+        reverbValue(value, "TC_AUDIO_REVERB");
+        state.audio.reverb = value;
+      },
     },
     storage: {
       save(slot) {
@@ -878,7 +893,7 @@ export function createGameServices(
       camera: state.camera,
       cameraPose: state.cameraPose,
       ui: state.ui.map(displayUI),
-      audio: { volume: state.audio.volume, ...(state.audio.busVolumes !== undefined ? { busVolumes: state.audio.busVolumes } : {}), voices: state.audio.voices },
+      audio: { volume: state.audio.volume, reverb: state.audio.reverb, ...(state.audio.busVolumes !== undefined ? { busVolumes: state.audio.busVolumes } : {}), voices: state.audio.voices },
       storage: state.storage,
       scene: state.scene,
     });
@@ -1050,8 +1065,10 @@ export function createGameServices(
       check(item && (item.kind === "text" || item.kind === "button") && !boundIds.has(binding.id), SNAPSHOT_ERROR, "Invalid or duplicate localized UI target.");
       boundIds.add(binding.id);
     }
-    object(data.audio, ["volume", "voices", "nextVoice", ...(Object.hasOwn(data.audio, "busVolumes") ? ["busVolumes"] : [])], SNAPSHOT_ERROR);
+    object(data.audio, ["volume", "voices", "nextVoice", ...(Object.hasOwn(data.audio, "reverb") ? ["reverb"] : []), ...(Object.hasOwn(data.audio, "busVolumes") ? ["busVolumes"] : [])], SNAPSHOT_ERROR);
     finite(data.audio.volume, SNAPSHOT_ERROR, "Master volume", 0, 1);
+    if (!Object.hasOwn(data.audio, "reverb")) data.audio.reverb = defaultReverb();
+    reverbValue(data.audio.reverb, SNAPSHOT_ERROR);
     if (data.audio.busVolumes !== undefined) {
       check(hasBuses && Array.isArray(data.audio.busVolumes) && data.audio.busVolumes.length === buses.length, SNAPSHOT_ERROR, "Invalid audio buses.");
       for (let i = 0; i < buses.length; i++) {

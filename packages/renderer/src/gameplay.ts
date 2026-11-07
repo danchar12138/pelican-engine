@@ -89,6 +89,9 @@ export async function prepareGameplay(
   }
   const buffers = new Map<string, AudioBuffer>();
   let masterGain: GainNode | undefined;
+  let dryGain: GainNode | undefined;
+  let reverbNodes: { delay: DelayNode; convolver: ConvolverNode; wet: GainNode; decay: number | null } | undefined;
+  let reverbKey = "";
   const busGains = new Map<string, GainNode>();
   const busFadeKeys = new Map<string, string>();
   const voices = new Map<
@@ -130,6 +133,11 @@ export async function prepareGameplay(
       busGains.clear();
       busFadeKeys.clear();
       clean(() => masterGain?.disconnect());
+      clean(() => dryGain?.disconnect());
+      clean(() => reverbNodes?.delay.disconnect());
+      clean(() => reverbNodes?.convolver.disconnect());
+      clean(() => reverbNodes?.wet.disconnect());
+      clean(() => { if (reverbNodes) reverbNodes.convolver.buffer = null; });
       clean(() => environmentTarget?.dispose());
       clean(() => environmentTexture?.dispose());
       clean(() => background?.dispose());
@@ -552,9 +560,11 @@ export async function prepareGameplay(
         if (audio) {
           if (!masterGain) {
             const master = audio.createGain();
+            const dry = audio.createGain();
             const created = new Map<string, GainNode>();
             try {
-              master.connect(audio.destination);
+              master.connect(dry);
+              dry.connect(audio.destination);
               for (const bus of ir.audioBuses ?? []) {
                 const gain = audio.createGain();
                 created.set(bus.id, gain);
@@ -563,12 +573,60 @@ export async function prepareGameplay(
             } catch (error) {
               for (const gain of created.values()) gain.disconnect();
               master.disconnect();
+              dry.disconnect();
               throw error;
             }
             masterGain = master;
+            dryGain = dry;
             for (const [id, gain] of created) busGains.set(id, gain);
           }
           masterGain.gain.value = state.audio.volume;
+          const reverb = state.audio.reverb;
+          const nextReverbKey = `${reverb.wet}:${reverb.decay}:${reverb.preDelay}`;
+          if (reverbKey !== nextReverbKey) {
+            reverbKey = nextReverbKey;
+            try {
+              if (reverb.wet > 0 && !reverbNodes) {
+                const delay = audio.createDelay(0.2), convolver = audio.createConvolver(), wet = audio.createGain();
+                try {
+                  wet.gain.value = 0;
+                  masterGain.connect(delay); delay.connect(convolver); convolver.connect(wet); wet.connect(audio.destination);
+                  reverbNodes = { delay, convolver, wet, decay: null };
+                } catch (error) {
+                  try { masterGain.disconnect(delay); } catch { /* Preserve the original node creation error. */ }
+                  delay.disconnect(); convolver.disconnect(); wet.disconnect();
+                  throw error;
+                }
+              }
+              if (reverb.wet > 0 && reverbNodes && reverbNodes.decay !== reverb.decay) {
+                const frames = Math.max(1, Math.ceil(audio.sampleRate * reverb.decay));
+                const response = audio.createBuffer(2, frames, audio.sampleRate);
+                for (let channel = 0; channel < 2; channel++) {
+                  const data = response.getChannelData(channel);
+                  let seed = 0x1234567 + channel;
+                  for (let i = 0; i < frames; i++) {
+                    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+                    data[i] = (seed / 0x80000000 - 1) * Math.exp(-6.9 * i / frames);
+                  }
+                }
+                reverbNodes.convolver.buffer = response;
+                reverbNodes.decay = reverb.decay;
+              }
+              dryGain!.gain.setTargetAtTime(1 - reverb.wet, audio.currentTime, 0.03);
+              if (reverbNodes) {
+                reverbNodes.delay.delayTime.setTargetAtTime(reverb.preDelay, audio.currentTime, 0.03);
+                reverbNodes.wet.gain.setTargetAtTime(reverb.wet, audio.currentTime, 0.03);
+              }
+            } catch (error) {
+              dryGain!.gain.cancelScheduledValues(audio.currentTime);
+              dryGain!.gain.setValueAtTime(1, audio.currentTime);
+              if (reverbNodes) {
+                reverbNodes.wet.gain.cancelScheduledValues(audio.currentTime);
+                reverbNodes.wet.gain.setValueAtTime(0, audio.currentTime);
+              }
+              diagnostics.push(`TC_AUDIO_REVERB: ${String(error)}; reverb bypassed. Change settings or restart the scene to retry.`);
+            }
+          }
           for (const bus of state.audio.busVolumes ?? []) {
             const gain = busGains.get(bus.id)!.gain;
             const fade = bus.fade;

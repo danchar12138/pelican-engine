@@ -189,6 +189,15 @@ simulation ticks, including while browser audio is locked. Paused time does not
 advance the voice. Snapshots restore playback intent and logical position, not
 the browser's internal audio processing state.
 
+Use `ctx.audio.setReverb({ wet: 0.25, decay: 1.5, preDelay: 0.02 })` to add
+global convolution reverb after the master mix. `wet` is between 0 and 1,
+`decay` is 0.1 to 4 seconds, and `preDelay` is 0 to 0.2 seconds. Set wet to 0
+to bypass it. This uses a generated impulse response, affects all buses and is
+not a room/occlusion model. Changes may interrupt the reverb tail. Settings are
+saved in snapshots, but Web Audio processing state is not. Node or buffer
+creation failures emit `TC_AUDIO_REVERB` and fall back to dry audio; change the
+settings or restart the scene to retry. Audio behavior is runtime-unverified.
+
 For a spatial voice, `ctx.audio.play("sound", { entity: "source", occlusion: true })`
 enables basic direct-path occlusion using the 3D physics world. It requires a
 live entity and the 3D physics service. Each simulation tick the renderer casts
