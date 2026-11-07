@@ -193,7 +193,7 @@ export function createSurfaceCapture() {
             ...position.toArray(), 5,
             ...color.toArray(), Math.cos(object.angle),
             ...direction.toArray(), Math.cos(object.angle * (1 - object.penumbra)),
-            object.distance, object.decay, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0,
+            object.distance, object.decay, object.castShadow ? 1 : 0, 6, 0, 0, 0, 0, 0, 0, 0, 0,
           );
         } else if (object instanceof THREE.PointLight) {
           if (!Number.isFinite(object.distance) || object.distance < 0 || !Number.isFinite(Math.fround(object.distance)) ||
@@ -204,7 +204,7 @@ export function createSurfaceCapture() {
             0,
             ...color.toArray(),
             object.distance,
-            0,
+            object.castShadow ? 1 : 0,
             0,
             0,
             object.decay,
@@ -219,7 +219,7 @@ export function createSurfaceCapture() {
             1,
             ...color.toArray(),
             0,
-            0,
+            object.castShadow ? 1 : 0,
             0,
             0,
             0,

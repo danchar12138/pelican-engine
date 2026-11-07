@@ -73,10 +73,10 @@ fn traceDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,
  let count=u32(traceParams.origin.w);if(count==0u){return vec3f(0);}let selected=min(u32(traceRandom(seed)*f32(count)),count-1u);var current=0u;
  for(var index=0u;index<u32(traceParams.counts.z);index++){
   let light=traceLights[index];if(light.position.w>=2.0&&light.position.w!=5.0){continue;}if(current!=selected){current++;continue;}
-  var delta=light.position.xyz;var distance=1e20;var attenuation=1.0;
-  if(light.position.w==0.0||light.position.w==5.0){delta-=position;distance=length(delta);if(distance<=0.0001){return vec3f(0);}var limit=light.color.w;var decay=light.extra.w;var edge=1.0;if(light.position.w==5.0){let params=traceLights[index+1u];limit=params.position.x;decay=params.position.y;let cone=dot(light.extra.xyz,-delta/distance);if(cone<light.color.w){return vec3f(0);}if(light.extra.w>light.color.w){edge=smoothstep(light.color.w,light.extra.w,cone);}}attenuation=edge/max(pow(distance,decay),0.01);if(limit>0.0){let cutoff=clamp(1.0-pow(distance/limit,4.0),0.0,1.0);attenuation*=cutoff*cutoff;}}
+  var delta=light.position.xyz;var distance=1e20;var attenuation=1.0;var castsShadow=light.extra.x>0.5;
+  if(light.position.w==0.0||light.position.w==5.0){delta-=position;distance=length(delta);if(distance<=0.0001){return vec3f(0);}var limit=light.color.w;var decay=light.extra.w;var edge=1.0;if(light.position.w==5.0){let params=traceLights[index+1u];limit=params.position.x;decay=params.position.y;castsShadow=params.position.z>0.5;let cone=dot(light.extra.xyz,-delta/distance);if(cone<light.color.w){return vec3f(0);}if(light.extra.w>light.color.w){edge=smoothstep(light.color.w,light.extra.w,cone);}}attenuation=edge/max(pow(distance,decay),0.01);if(limit>0.0){let cutoff=clamp(1.0-pow(distance/limit,4.0),0.0,1.0);attenuation*=cutoff*cutoff;}}
   let direction=normalize(delta);let cosine=traceCosine(surface,direction);if(cosine==0.0||!traceValidDirection(geometric,surface,direction)){return vec3f(0);}
-  if(occludedSurface(traceOffset(point,geometric,direction),direction,distance-.002,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed))){return vec3f(0);}
+  if(castsShadow&&occludedSurface(traceOffset(point,geometric,direction),direction,distance-.002,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed))){return vec3f(0);}
   return traceShadowBeer(shadowMedia,geometric,direction,distance)*traceEvaluate(surface,view,direction)*light.color.rgb*(cosine*attenuation*f32(count));
  }
  if(traceParams.up.w>0.5){if(selected==current){return traceEmitterDirect(point,geometric,surface,view,shadowMedia,continuation,seed);}current++;}
