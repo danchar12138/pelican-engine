@@ -407,10 +407,10 @@ export function embeddedImagePixels(
   const source = texture.source,
     entry = embedded.get(source);
   if (!entry) return undefined;
-  if (entry.error) throw new Error(entry.error);
+  if (entry.error) throw new Error(`${entry.error} (texture ${texture.uuid}; inspect or replace the embedded PNG)`);
   if (source.data !== entry.image || imageUrl(source.data) !== entry.imageUrl)
     throw new Error(
-      "TC_TEXTURE_PNG_SOURCE_CHANGED: embedded PNG source changed after decoding; reload the model",
+      `TC_TEXTURE_PNG_SOURCE_CHANGED: texture ${texture.uuid} changed after decoding; reload the model`,
     );
   if (
     typeof ImageBitmap !== "undefined" &&
@@ -418,7 +418,7 @@ export function embeddedImagePixels(
     !source.data.width
   )
     throw new Error(
-      "TC_TEXTURE_PNG_IMAGE_CLOSED: retain the image until extraction completes",
+      `TC_TEXTURE_PNG_IMAGE_CLOSED: texture ${texture.uuid} was closed; retain the image until extraction completes`,
     );
   return entry.pixels;
 }

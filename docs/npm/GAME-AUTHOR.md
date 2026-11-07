@@ -84,8 +84,10 @@ textures or non-default specular remains unsupported. The tracer rejects PNG
 color maps with ICC profiles. Low-bit-depth grayscale and indexed Adam7 PNGs
 are decoded with explicit pass/filter validation. For 16-bit PNG,
 supported color chunks are gAMA 45455 or 100000, standard sRGB cHRM, sRGB
-intent 0, and cICP [1,13,0,1]; other values are diagnosed. Use supported PNG
-or JPEG and retain diagnostics rather than silently changing material semantics.
+intent 0, and cICP [1,13,0,1]; other values are diagnosed. The tracer currently
+reduces 16-bit PNG samples to 8-bit RGBA, so it does not retain their full
+precision. Use supported PNG or JPEG and retain diagnostics rather than silently
+changing material semantics.
 
 Use `ctx.animation.play(entity, clip, { startAt: seconds, speed, loop, fade })`
 to begin a model clip at a local time within its duration. Negative playback
