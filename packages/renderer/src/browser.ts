@@ -5,6 +5,7 @@ import { createClothVisualOwner } from "./cloth-visuals.ts";
 import { createFluidVisualOwner } from "./fluid-visuals.ts";
 import { createSoftBodyVisualOwner } from "./softbody-visuals.ts";
 import { createSpriteVisualOwner } from "./sprite-visuals.ts";
+import { createTilemapVisualOwner } from "./tilemap-visuals.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import { GPUTracer } from "./pathtrace.ts";
 import { SurfaceTracer } from "./surface-tracer.ts";
@@ -228,11 +229,12 @@ const clothVisuals = createClothVisualOwner();
 const fluidVisuals = createFluidVisualOwner();
 const softBodyVisuals = createSoftBodyVisualOwner();
 const spriteVisuals = createSpriteVisualOwner();
-scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisuals.root, spriteVisuals.root);
+const tilemapVisuals = createTilemapVisualOwner();
+scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisuals.root, spriteVisuals.root, tilemapVisuals.root);
 let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
 const clearDynamicVisuals = () => {
-  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear();
-  if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged || spritesChanged) dynamicVisualRevision++;
+  const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear(), tilemapsChanged = tilemapVisuals.clear();
+  if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged || spritesChanged || tilemapsChanged) dynamicVisualRevision++;
 };
 let authoredCamera = { position: [0, 3.4, 7], target: [0, 0.9, 0] };
 let authoredLights: {
@@ -580,6 +582,8 @@ function syncRuntime(): boolean {
     if (fluidVisuals.sync(runtime.facade.fluid.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (softBodyVisuals.sync(runtime.facade.softBodies.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (spriteVisuals.sync(runtime.facade.sprites.visuals(), gameMaterials, gameObjects)) dynamicVisualRevision++;
+    if (tilemapVisuals.sync(runtime.facade.tilemaps.visuals(), gameMaterials, gameObjects,
+      (id, x, y) => runtime!.facade.tilemaps.readChunk(id, x, y))) dynamicVisualRevision++;
   } else clearDynamicVisuals();
   return dynamicVisualRevision !== renderedDynamicVisualRevision;
 }
@@ -1558,6 +1562,7 @@ async function disposeBrowser() {
   clean(() => fluidVisuals.dispose());
   clean(() => softBodyVisuals.dispose());
   clean(() => spriteVisuals.dispose());
+  clean(() => tilemapVisuals.dispose());
   clean(() => releaseObject(scene, true, gameMaterials.values()));
   clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());

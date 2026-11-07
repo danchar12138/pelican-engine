@@ -184,6 +184,39 @@ an optional integer `priority` from 0 to 255; when the voice limit is full, a
 new voice only replaces the earliest voice with a strictly lower priority.
 Invalid priority or a non-winning full voice returns a stable diagnostic.
 
+### Tile maps
+
+`ctx.tilemaps` creates entity-bound tile grids using a declared textured
+material. Cell values are zero-based atlas frame indices or `null` for empty;
+indices and cells are row-major, left to right and top to bottom. The map lies
+in the bound entity's local XY plane: `offset` is its top-left corner and rows
+extend toward negative Y.
+
+```ts
+ctx.tilemaps.create({ id: "ground", entity: "map-root", material: "tiles",
+  width: 10, height: 6, tileSize: [1, 1], offset: [-5, 3], columns: 2, rows: 2 });
+ctx.tilemaps.setTiles("ground", [{ x: 0, y: 0, frame: 1 }, { x: 1, y: 0, frame: 2 }]);
+```
+
+The material must be declared with a texture; the entity must already be live.
+`getTile` reads one cell, `setTile` changes one, and `setTiles` validates a
+batch before applying it. `inspect` returns detached full map data. Presentation
+uses 32×32 chunks and rebuilds changed chunks; `visuals`/`readChunk` expose
+detached chunk information, whose tokens and revisions are presentation hints
+rather than persistent identities. Destroying the entity invalidates its map;
+a replacement with the same ID is not silently rebound. Host snapshots preserve
+the map and cells.
+
+Maps are bounded to 512 per dimension, 65536 cells per map, 64 maps and 262144
+cells overall; each update batch has at most 4096 distinct cells. Atlas
+filtering may sample neighboring frames, so provide suitable padding. Tile
+collision, navigation, animated tiles, automatic streaming and a full editor
+are not included; updating physics/navigation separately is not transactional
+with tile edits. Rendering, snapshots, memory use and perspective tracing are
+unverified; orthographic hybrid/path remain unavailable. A source checkout
+includes `examples/tilemap` and its MIT demonstration texture; npm games
+provide their own assets.
+
 ### Sprite atlases
 
 Use a declared texture and material for an entity-bound sprite plane. Set
@@ -209,7 +242,8 @@ is removed when its entity handle becomes invalid; a replacement entity with
 the same ID is not silently rebound. State is included in host snapshots.
 
 Sprites use declared, lit materials; independent per-sprite tint, automatic
-billboarding, tile maps, 2D physics and asset generation are not included.
+billboarding, 2D physics and asset generation are not included. Tile maps use
+the separate `ctx.tilemaps` service.
 Atlas filtering can sample neighboring frames, so authors should provide
 suitable padding; transparent sprite ordering follows the renderer's material
 sorting. Animation advances on fixed ticks, so frame rates above the tick rate
@@ -235,8 +269,8 @@ The current orthographic path supports **raster only**: hybrid/path requests
 return `TC_RENDER_MODE_UNAVAILABLE` rather than silently changing modes.
 `ctx.render.capabilities()` reports the restriction. The example
 `examples/orthographic-2d` and the installed recipe use simple 3D primitives
-positioned on a plane. This is not sprite animation, tile maps, 2D physics or a
-complete 2D engine. Rendering, WebGL2 fallback, world UI projection and input
+positioned on a plane; it does not itself demonstrate sprite animation or tile
+maps. The camera is not 2D physics or a complete 2D engine. Rendering, WebGL2 fallback, world UI projection and input
 have not been runtime-validated.
 
 ### Self-contained game recipes

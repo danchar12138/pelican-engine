@@ -289,6 +289,9 @@ export class RuntimeHost {
       get sprites() {
         return host.service("sprites");
       },
+      get tilemaps() {
+        return host.service("tilemaps");
+      },
       get ropes() {
         return host.service("ropes");
       },

@@ -122,6 +122,7 @@ export interface SystemContext extends EngineFacade {
   readonly dialogue: DialogueService;
   readonly i18n: LocalizationService;
   readonly sprites: SpriteService;
+  readonly tilemaps: TilemapService;
   readonly ropes: RopeService;
   readonly cloth: ClothService;
   readonly fluid: FluidService;
@@ -167,6 +168,43 @@ export interface SpriteService {
   setFrame(id: string, frame: number): void;
   inspect(id: string): SpriteState;
   visuals(): readonly SpriteState[];
+  destroy(id: string): void;
+}
+export interface TilemapDefinition {
+  id: string; entity: string; material: string;
+  width: number; height: number; tileSize: Vec2;
+  /** Local XY top-left corner; rows extend toward negative Y. */
+  offset?: Vec2;
+  columns: number; rows: number;
+  /** Row-major atlas frame indices; null means an empty cell. */
+  cells?: readonly (number | null)[];
+  castShadow?: boolean; receiveShadow?: boolean;
+}
+export interface TilemapUpdate { x: number; y: number; frame: number | null }
+export interface TilemapState {
+  id: string; entity: string; material: string; width: number; height: number;
+  tileSize: Vec2; offset: Vec2; columns: number; rows: number;
+  castShadow: boolean; receiveShadow: boolean; cells: readonly (number | null)[];
+}
+/** Chunk revision and token are presentation hints, not persistent identities. */
+export interface TilemapVisualState extends Omit<TilemapState, "cells"> {
+  token: number;
+  chunks: readonly { x: number; y: number; revision: number }[];
+}
+export interface TilemapChunkState {
+  x: number; y: number; width: number; height: number; revision: number;
+  cells: readonly (number | null)[];
+}
+export interface TilemapService {
+  create(definition: TilemapDefinition): void;
+  getTile(id: string, x: number, y: number): number | null;
+  setTile(id: string, x: number, y: number, frame: number | null): void;
+  /** Validates the entire batch before changing any cell; duplicate cells are rejected. */
+  setTiles(id: string, updates: readonly TilemapUpdate[]): void;
+  inspect(id: string): TilemapState;
+  visuals(): readonly TilemapVisualState[];
+  /** Read one 32×32 presentation chunk, including its current revision. */
+  readChunk(id: string, x: number, y: number): TilemapChunkState;
   destroy(id: string): void;
 }
 /** CPU particles with sampled sphere/plane collisions. Explicit body bindings apply delayed

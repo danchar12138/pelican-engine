@@ -16,6 +16,7 @@ import type {
   DialogueService,
   LocalizationService,
   SpriteService,
+  TilemapService,
   RopeService,
   ClothService,
   FluidService,
@@ -47,6 +48,7 @@ export interface RuntimeServices {
   dialogue: DialogueService;
   i18n: LocalizationService;
   sprites: SpriteService;
+  tilemaps: TilemapService;
   ropes: RopeService;
   cloth: ClothService;
   fluid: FluidService;
