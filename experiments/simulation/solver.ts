@@ -28,7 +28,7 @@ const SMOOTHING_LENGTH = 0.34;
 const PRESSURE_STIFFNESS = 12;
 const VISCOSITY = 0.025;
 
-/** Pure synchronous CPU reference solver; intentionally small O(n²) fluid neighbor search. */
+/** Pure synchronous CPU reference solver with bounded spatial buckets for fluid neighbors. */
 export function createSimulation(
   kind: SimulationKind,
   options: SimulationOptions = {},
@@ -47,12 +47,38 @@ export function createSimulation(
       );
   };
 
-  function fluidData(): { density: number[]; pressure: number[] } {
+  function fluidNeighbors(): number[][] {
+    const buckets = new Map<string, number[]>();
+    const cells = state.particles.map((particle) => {
+      const coord = particle.position.map(value => Math.floor(value / SMOOTHING_LENGTH)) as Vec3;
+      if (!coord.every(value => Number.isSafeInteger(value) && Math.abs(value) < Number.MAX_SAFE_INTEGER))
+        return fail("SIM_NONFINITE", `Fluid particle '${particle.id}' has an unrepresentable spatial cell; restore a known-good snapshot.`);
+      return coord;
+    });
+    const key = (x: number, y: number, z: number) => `${x}:${y}:${z}`;
+    for (let index = 0; index < cells.length; index++) {
+      const [x, y, z] = cells[index], id = key(x, y, z);
+      const bucket = buckets.get(id);
+      if (bucket) bucket.push(index); else buckets.set(id, [index]);
+    }
+    return cells.map(([x, y, z]) => {
+      const indices: number[] = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const bucket = buckets.get(key(x + dx, y + dy, z + dz));
+        if (bucket) indices.push(...bucket);
+      }
+      // Preserve the all-pairs accumulation order for candidates in neighboring cells.
+      return indices.sort((a, b) => a - b);
+    });
+  }
+
+  function fluidData(neighbors = fluidNeighbors()): { density: number[]; pressure: number[] } {
     const h2 = SMOOTHING_LENGTH ** 2;
     const poly6 = 315 / (64 * Math.PI * SMOOTHING_LENGTH ** 9);
-    const density = state.particles.map((p) => {
+    const density = state.particles.map((p, index) => {
       let rho = 0;
-      for (const q of state.particles) {
+      for (const candidate of neighbors[index]) {
+        const q = state.particles[candidate];
         const delta = sub(p.position, q.position),
           r2 = dot(delta, delta);
         if (r2 < h2) rho += (1 / q.inverseMass) * poly6 * (h2 - r2) ** 3;
@@ -68,11 +94,13 @@ export function createSimulation(
 
   function sphAccelerations(): Vec3[] {
     const points = state.particles;
-    const { density, pressure } = fluidData();
+    const neighbors = fluidNeighbors();
+    const { density, pressure } = fluidData(neighbors);
     const forces: Vec3[] = points.map(() => [0, 0, 0]);
     const kernel = 45 / (Math.PI * SMOOTHING_LENGTH ** 6);
     for (let i = 0; i < points.length; i++)
-      for (let j = i + 1; j < points.length; j++) {
+      for (const j of neighbors[i]) {
+        if (j <= i) continue;
         const delta = sub(points[i].position, points[j].position),
           r = length(delta);
         if (r >= SMOOTHING_LENGTH || r < 1e-10) continue;

@@ -249,8 +249,9 @@ The optional `visual.radius` overrides the rendered particle radius without chan
 An optional `particleGrid: [width, height, depth]` chooses the initial fluid
 lattice dimensions. Each dimension is an integer from 1 to 8, for at most 512
 particles; the default is `[4, 4, 4]`. Particle spacing and solver parameters
-remain those of the reference model. Its CPU neighbor search is quadratic, so
-larger grids can be substantially more expensive. Runtime, stability and
+remain those of the reference model. Its CPU neighbor search uses spatial buckets;
+dense clusters can still approach quadratic work, so larger grids can be
+substantially more expensive. Runtime, stability and
 performance for configurable grids have not been validated.
 
 Fluid and soft-body definitions accept `origin: [x, y, z]` to translate the
