@@ -174,7 +174,18 @@ export function createSurfaceCapture() {
         if (!(object instanceof THREE.Light)) return;
         const color = object.color.clone().multiplyScalar(object.intensity),
           position = object.getWorldPosition(new THREE.Vector3());
-        if (object instanceof THREE.PointLight) {
+        if (object instanceof THREE.SpotLight) {
+          object.target.updateWorldMatrix(true, false);
+          const direction = object.target.getWorldPosition(new THREE.Vector3()).sub(position);
+          if (direction.lengthSq() === 0)
+            throw new Error(`TC_TRACE_LIGHT_DIRECTION: Spot light ${object.uuid} requires a target different from its position.`);
+          direction.normalize();
+          lights.push(
+            ...position.toArray(), 5,
+            ...color.toArray(), Math.cos(object.angle),
+            ...direction.toArray(), Math.cos(object.angle * (1 - object.penumbra)),
+          );
+        } else if (object instanceof THREE.PointLight) {
           lights.push(
             ...position.toArray(),
             0,

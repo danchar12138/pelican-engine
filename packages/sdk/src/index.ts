@@ -843,11 +843,15 @@ export interface MeshDefinition {
   receiveShadow?: boolean;
 }
 export interface LightDefinition {
-  kind: "directional" | "point";
+  kind: "directional" | "point" | "spot";
   color?: string;
   intensity?: number;
   castShadow?: boolean;
   target?: Vec3;
+  /** Spot cone half-angle in radians, greater than zero and at most PI / 2. */
+  angle?: number;
+  /** Spot cone edge softness from 0 to 1. */
+  penumbra?: number;
   shadow?: {
     mapSize?: number;
     extent?: number;

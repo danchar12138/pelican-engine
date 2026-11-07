@@ -22,7 +22,7 @@ export function inspectTraceCapabilities(data: {
     denoiser: modern ? "motion-reprojected temporal history + spatial a-trous; complete quality matrix unaccepted" : false,
     hybrid: !compute ? false : legacy ? "legacy raster + traced image compositing prototype" : "raster primary visibility + actual shadow and secondary rays",
     pathBounces: data.maxBounces,
-    tracedLights: !compute ? false : legacy ? "legacy first authored light only" : "all captured point/directional/ambient/hemisphere lights",
+    tracedLights: !compute ? false : legacy ? "legacy first authored light only" : "all captured point/spot/directional/ambient/hemisphere lights",
     textures: data.gameplay ? (modern ? "supported GLB PBR textures in raster and surface tracing; see documented limits" : "GLB PBR and base-color textures in raster") : "no authored texture assets",
     experimentalProbes: "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules",
   };

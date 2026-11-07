@@ -407,12 +407,20 @@ function createEntityView(
             entity.light.color ?? "#ffffff",
             entity.light.intensity ?? 1,
           )
-        : new THREE.DirectionalLight(
+        : entity.light.kind === "spot"
+          ? new THREE.SpotLight(
+              entity.light.color ?? "#ffffff",
+              entity.light.intensity ?? 1,
+              0,
+              entity.light.angle ?? Math.PI / 3,
+              entity.light.penumbra ?? 0,
+            )
+          : new THREE.DirectionalLight(
             entity.light.color ?? "#ffffff",
             entity.light.intensity ?? 1,
           );
     light.castShadow = entity.light.castShadow ?? false;
-    if (light instanceof THREE.DirectionalLight) {
+    if (light instanceof THREE.DirectionalLight || light instanceof THREE.SpotLight) {
       light.target.position.fromArray(entity.light.target ?? [0, 0, 0]);
       // Targets use world coordinates and must remain outside the transformed light group.
       node.userData.lightTarget = light.target;

@@ -744,22 +744,28 @@ export async function normalize(
     }
     if (def.light !== undefined) {
       const l = obj(def.light, def, "light");
-      if (!["directional", "point"].includes(String(l.kind)))
+      if (!["directional", "point", "spot"].includes(String(l.kind)))
         error(
           "TC_LIGHT_KIND",
-          "M0 light must be directional or point.",
+          "Light must be directional, point, or spot.",
           l,
           "kind",
         );
       result.light = {
-        kind: l.kind as "directional" | "point",
+        kind: l.kind as "directional" | "point" | "spot",
         color: text(l.color, l, "color", "#ffffff"),
         intensity: num(l.intensity, l, "intensity", 1, 0),
         castShadow: l.castShadow !== false,
         ...(l.target !== undefined
           ? { target: vector(l.target, l, "target", [0, 0, 0]) }
           : {}),
+        ...(l.kind === "spot" ? {
+          angle: num(l.angle, l, "angle", Math.PI / 3, Number.EPSILON, Math.PI / 2),
+          penumbra: num(l.penumbra, l, "penumbra", 0, 0, 1),
+        } : {}),
       };
+      if (l.kind !== "spot" && (l.angle !== undefined || l.penumbra !== undefined))
+        error("TC_LIGHT_KIND", "angle and penumbra require a spot light.", l, "kind");
       if (l.shadow !== undefined) {
         const shadow = obj(l.shadow, l, "shadow");
         const mapSize = num(shadow.mapSize, shadow, "mapSize", 2048, 128, 8192);

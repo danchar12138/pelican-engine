@@ -1090,7 +1090,7 @@ export class SurfaceTracer {
     this.emissiveCount = lighting.emitters;
     let explicit = 0;
     for (let index = 3; index < captured.lights.length; index += 12)
-      if (captured.lights[index] < 2) explicit++;
+      if (captured.lights[index] < 2 || captured.lights[index] === 5) explicit++;
     this.lightTechniques =
       explicit +
       (this.emissiveCount ? 1 : 0) +

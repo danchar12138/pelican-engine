@@ -1674,11 +1674,15 @@ export interface MeshDefinition {
 
 ```ts
 export interface LightDefinition {
-  kind: "directional" | "point";
+  kind: "directional" | "point" | "spot";
   color?: string;
   intensity?: number;
   castShadow?: boolean;
   target?: Vec3;
+  /** Spot cone half-angle in radians, greater than zero and at most PI / 2. */
+  angle?: number;
+  /** Spot cone edge softness from 0 to 1. */
+  penumbra?: number;
   shadow?: {
     mapSize?: number;
     extent?: number;
@@ -1692,7 +1696,7 @@ export interface LightDefinition {
 
 ## EntityInput
 
-来源：`packages/sdk/src/index.ts:860`
+来源：`packages/sdk/src/index.ts:864`
 
 ```ts
 export interface EntityInput {
@@ -1711,7 +1715,7 @@ export interface EntityInput {
 
 ## PrefabInput
 
-来源：`packages/sdk/src/index.ts:872`
+来源：`packages/sdk/src/index.ts:876`
 
 ```ts
 export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
@@ -1721,7 +1725,7 @@ export interface PrefabInput extends Omit<EntityInput, "prefab" | "parent"> {
 
 ## PrefabDefinition
 
-来源：`packages/sdk/src/index.ts:875`
+来源：`packages/sdk/src/index.ts:879`
 
 ```ts
 export interface PrefabDefinition extends PrefabInput {
@@ -1731,7 +1735,7 @@ export interface PrefabDefinition extends PrefabInput {
 
 ## SceneInput
 
-来源：`packages/sdk/src/index.ts:878`
+来源：`packages/sdk/src/index.ts:882`
 
 ```ts
 export interface SceneInput {
@@ -1763,7 +1767,7 @@ export interface SceneInput {
 
 ## SceneDefinition
 
-来源：`packages/sdk/src/index.ts:903`
+来源：`packages/sdk/src/index.ts:907`
 
 ```ts
 export interface SceneDefinition extends SceneInput {
@@ -1773,7 +1777,7 @@ export interface SceneDefinition extends SceneInput {
 
 ## SystemInput
 
-来源：`packages/sdk/src/index.ts:906`
+来源：`packages/sdk/src/index.ts:910`
 
 ```ts
 export interface SystemInput {
@@ -1790,7 +1794,7 @@ export interface SystemInput {
 
 ## SystemDefinition
 
-来源：`packages/sdk/src/index.ts:916`
+来源：`packages/sdk/src/index.ts:920`
 
 ```ts
 export interface SystemDefinition extends SystemInput {
@@ -1800,7 +1804,7 @@ export interface SystemDefinition extends SystemInput {
 
 ## GameInput
 
-来源：`packages/sdk/src/index.ts:919`
+来源：`packages/sdk/src/index.ts:923`
 
 ```ts
 export interface GameInput {
@@ -1826,7 +1830,7 @@ export interface GameInput {
 
 ## GameDefinition
 
-来源：`packages/sdk/src/index.ts:938`
+来源：`packages/sdk/src/index.ts:942`
 
 ```ts
 export interface GameDefinition extends GameInput {
@@ -1836,7 +1840,7 @@ export interface GameDefinition extends GameInput {
 
 ## GameInstance
 
-来源：`packages/sdk/src/index.ts:941`
+来源：`packages/sdk/src/index.ts:945`
 
 ```ts
 export interface GameInstance {
@@ -1847,7 +1851,7 @@ export interface GameInstance {
 
 ## defineComponent
 
-来源：`packages/sdk/src/index.ts:945`
+来源：`packages/sdk/src/index.ts:949`
 
 ```ts
 export function defineComponent<const S extends ComponentSchema>(input: {
@@ -1858,7 +1862,7 @@ export function defineComponent<const S extends ComponentSchema>(input: {
 
 ## defineMaterial
 
-来源：`packages/sdk/src/index.ts:951`
+来源：`packages/sdk/src/index.ts:955`
 
 ```ts
 export function defineMaterial(input: MaterialInput): MaterialDefinition;
@@ -1866,7 +1870,7 @@ export function defineMaterial(input: MaterialInput): MaterialDefinition;
 
 ## definePostProcess
 
-来源：`packages/sdk/src/index.ts:954`
+来源：`packages/sdk/src/index.ts:958`
 
 ```ts
 export function definePostProcess(input: PostProcessInput): PostProcessDefinition;
@@ -1874,7 +1878,7 @@ export function definePostProcess(input: PostProcessInput): PostProcessDefinitio
 
 ## defineCompute
 
-来源：`packages/sdk/src/index.ts:957`
+来源：`packages/sdk/src/index.ts:961`
 
 ```ts
 export function defineCompute(input: ComputeInput): ComputeDefinition;
@@ -1882,7 +1886,7 @@ export function defineCompute(input: ComputeInput): ComputeDefinition;
 
 ## defineAsset
 
-来源：`packages/sdk/src/index.ts:960`
+来源：`packages/sdk/src/index.ts:964`
 
 ```ts
 export function defineAsset(input: AssetInput): AssetDefinition;
@@ -1890,7 +1894,7 @@ export function defineAsset(input: AssetInput): AssetDefinition;
 
 ## definePrefab
 
-来源：`packages/sdk/src/index.ts:963`
+来源：`packages/sdk/src/index.ts:967`
 
 ```ts
 export function definePrefab(input: PrefabInput): PrefabDefinition;
@@ -1898,7 +1902,7 @@ export function definePrefab(input: PrefabInput): PrefabDefinition;
 
 ## defineScene
 
-来源：`packages/sdk/src/index.ts:966`
+来源：`packages/sdk/src/index.ts:970`
 
 ```ts
 export function defineScene(input: SceneInput): SceneDefinition;
@@ -1906,7 +1910,7 @@ export function defineScene(input: SceneInput): SceneDefinition;
 
 ## defineSystem
 
-来源：`packages/sdk/src/index.ts:969`
+来源：`packages/sdk/src/index.ts:973`
 
 ```ts
 export function defineSystem(input: SystemInput): SystemDefinition;
@@ -1914,7 +1918,7 @@ export function defineSystem(input: SystemInput): SystemDefinition;
 
 ## defineGame
 
-来源：`packages/sdk/src/index.ts:972`
+来源：`packages/sdk/src/index.ts:976`
 
 ```ts
 export function defineGame(input: GameInput): GameDefinition;
@@ -1922,7 +1926,7 @@ export function defineGame(input: GameInput): GameDefinition;
 
 ## instantiateGame
 
-来源：`packages/sdk/src/index.ts:976`
+来源：`packages/sdk/src/index.ts:980`
 
 ```ts
 export function instantiateGame(

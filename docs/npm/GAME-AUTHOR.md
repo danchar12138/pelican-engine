@@ -40,6 +40,11 @@ lighting; they do not emit light into the scene. Import, optimization and
 raster/path/hybrid behavior for this addition have not been runtime-validated.
 Ambient occlusion maps on other unlit materials are not supported by the tracer.
 
+Scene lights support `kind: "spot"` with a world-space `target`, cone half-angle
+in radians (`angle`) and edge softness (`penumbra`, 0 to 1). Spot lights have
+unlimited range and inverse-square falloff. Keep the target distinct from the
+light position. Raster, path and hybrid behavior has not been runtime-validated.
+
 ## Standalone Rendering Recipe
 
 The following complete asset-free `game.ts` works with either distribution and
