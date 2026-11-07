@@ -35,6 +35,7 @@ export interface GameServicesInspection {
       pausedAt?: number | null;
       pausedTicks?: number;
       priority?: number;
+      occlusion?: boolean;
     }[];
   };
   storage: StorageState;
@@ -656,7 +657,7 @@ export function createGameServices(
             typeof values === "object" &&
             !Array.isArray(values) &&
             Object.keys(values).every((key) =>
-              ["volume", "loop", "entity", "bus", "priority"].includes(key),
+              ["volume", "loop", "entity", "bus", "priority", "occlusion"].includes(key),
             ),
           "TC_AUDIO_VALUE",
           "Unknown audio options.",
@@ -681,6 +682,12 @@ export function createGameServices(
         );
         if (Object.hasOwn(values, "entity"))
           target(values.entity!, "TC_AUDIO_TARGET");
+        if (Object.hasOwn(values, "occlusion"))
+          check(typeof values.occlusion === "boolean", "TC_AUDIO_OCCLUSION", "Audio occlusion must be boolean.");
+        if (values.occlusion) {
+          check(typeof values.entity === "string", "TC_AUDIO_OCCLUSION", "Audio occlusion requires a live spatial entity.");
+          check(context?.getPhysicsService?.(), "TC_AUDIO_OCCLUSION", "Audio occlusion requires the 3D physics service.");
+        }
         check(
           state.audio.nextVoice < Number.MAX_SAFE_INTEGER,
           "TC_AUDIO_VOICE_LIMIT",
@@ -699,6 +706,7 @@ export function createGameServices(
           sound: id,
           ...(bus !== undefined ? { bus } : {}),
           ...(priority !== 0 ? { priority } : {}),
+          ...(values.occlusion ? { occlusion: true } : {}),
           volume,
           loop,
           entity: values.entity ?? null,
@@ -963,7 +971,7 @@ export function createGameServices(
     for (const voice of data.audio.voices) {
       object(
         voice,
-        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : [])],
+        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "occlusion") ? ["occlusion"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : [])],
         SNAPSHOT_ERROR,
       );
       check(
@@ -1002,6 +1010,8 @@ export function createGameServices(
       );
       if (voice.entity !== null)
         name(voice.entity, SNAPSHOT_ERROR, "Voice entity");
+      if (Object.hasOwn(voice, "occlusion"))
+        check(voice.occlusion === true && voice.entity !== null && context?.getPhysicsService?.(), SNAPSHOT_ERROR, "Occluded voice requires an entity and 3D physics service.");
       integer(voice.startedAt, SNAPSHOT_ERROR, "Voice startedAt");
       check(
         voice.startedAt <= data.tick,

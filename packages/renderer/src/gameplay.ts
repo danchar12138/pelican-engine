@@ -92,7 +92,7 @@ export async function prepareGameplay(
   const busFadeKeys = new Map<string, string>();
   const voices = new Map<
     string,
-    { source: AudioBufferSourceNode; gain: GainNode; panner?: PannerNode; version: number }
+    { source: AudioBufferSourceNode; gain: GainNode; panner?: PannerNode; filter?: BiquadFilterNode; occlusionGain?: GainNode; occlusionTick?: number; occlusionError?: string; version: number }
   >();
   let ui: ReturnType<typeof createUIRenderer> | undefined;
   let uiInput: ((key: string, pressed: boolean) => void) | undefined;
@@ -112,6 +112,8 @@ export async function prepareGameplay(
     clean(() => voice.source.disconnect());
     clean(() => voice.gain.disconnect());
     clean(() => voice.panner?.disconnect());
+    clean(() => voice.filter?.disconnect());
+    clean(() => voice.occlusionGain?.disconnect());
     if (failures.length) throw new AggregateError(failures, `TC_AUDIO_VOICE_DISPOSE: Failed to disconnect voice '${id}'; inspect the causes and restart the scene.`);
   };
   const dispose = (): Promise<void> => {
@@ -577,14 +579,19 @@ export async function prepareGameplay(
               gain.value = bus.volume;
             }
           }
-          audio.listener.positionX.value = camera.position.x;
-          audio.listener.positionY.value = camera.position.y;
-          audio.listener.positionZ.value = camera.position.z;
+          const listenerPosition = camera.getWorldPosition(new THREE.Vector3());
+          audio.listener.positionX.value = listenerPosition.x;
+          audio.listener.positionY.value = listenerPosition.y;
+          audio.listener.positionZ.value = listenerPosition.z;
           const forward = new THREE.Vector3();
           camera.getWorldDirection(forward);
           audio.listener.forwardX.value = forward.x;
           audio.listener.forwardY.value = forward.y;
           audio.listener.forwardZ.value = forward.z;
+          const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+          audio.listener.upX.value = up.x;
+          audio.listener.upY.value = up.y;
+          audio.listener.upZ.value = up.z;
           for (const voice of state.audio.voices) {
             if (voice.pausedAt != null) continue;
             let active = voices.get(voice.id);
@@ -604,20 +611,32 @@ export async function prepareGameplay(
               source.buffer = buffer;
               source.loop = voice.loop;
               let panner: PannerNode | undefined;
+              let filter: BiquadFilterNode | undefined;
+              let occlusionGain: GainNode | undefined;
               if (voice.entity) {
                 panner = audio.createPanner();
                 panner.panningModel = "HRTF";
                 panner.distanceModel = "inverse";
                 source.connect(panner);
-                panner.connect(gain);
+                if (voice.occlusion) {
+                  filter = audio.createBiquadFilter();
+                  filter.type = "lowpass";
+                  occlusionGain = audio.createGain();
+                  occlusionGain.gain.value = 0;
+                  panner.connect(filter);
+                  filter.connect(occlusionGain);
+                  occlusionGain.connect(gain);
+                } else panner.connect(gain);
               } else source.connect(gain);
               gain.connect(voice.bus === undefined ? masterGain : busGains.get(voice.bus)!);
-              active = { source, gain, panner, version: clock.versions[voice.id] };
+              active = { source, gain, panner, filter, occlusionGain, version: clock.versions[voice.id] };
               voices.set(voice.id, active);
               source.onended = () => {
                 source.disconnect();
                 gain.disconnect();
                 panner?.disconnect();
+                filter?.disconnect();
+                occlusionGain?.disconnect();
               };
               source.start(0, age % buffer.duration);
             }
@@ -632,6 +651,25 @@ export async function prepareGameplay(
                 active.panner.positionX.value = position.x;
                 active.panner.positionY.value = position.y;
                 active.panner.positionZ.value = position.z;
+              }
+              if (voice.occlusion && active.occlusionGain && active.filter && active.occlusionTick !== clock.tick) {
+                active.occlusionTick = clock.tick;
+                try {
+                  if (!position || !physics) throw new Error("Spatial entity or 3D physics service is unavailable.");
+                  const direction = position.clone().sub(listenerPosition);
+                  const distance = direction.length();
+                  const exclude = [voice.entity!, ...(state.camera && state.camera.entity !== voice.entity ? [state.camera.entity] : [])];
+                  const hit = distance > 0.0001 ? physics.raycast(listenerPosition.toArray(), direction.toArray(), distance, { exclude, includeTriggers: false }) : null;
+                  active.occlusionGain.gain.setTargetAtTime(hit ? 0.35 : 1, audio.currentTime, 0.05);
+                  active.filter.frequency.setTargetAtTime(hit ? 1200 : 20000, audio.currentTime, 0.05);
+                  active.occlusionError = undefined;
+                } catch (error) {
+                  active.occlusionGain.gain.cancelScheduledValues(audio.currentTime);
+                  active.occlusionGain.gain.setValueAtTime(0, audio.currentTime);
+                  const message = `TC_AUDIO_OCCLUSION: Voice ${voice.id}: ${String(error)}`;
+                  if (active.occlusionError !== message) diagnostics.push(message);
+                  active.occlusionError = message;
+                }
               }
             }
           }

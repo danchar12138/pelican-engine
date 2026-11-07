@@ -10,6 +10,8 @@
 
 ## Current Scope
 
+- The local next batch adds opt-in direct-path spatial audio occlusion using 3D physics rays, gain and low-pass filtering. It is not diffraction or reverb; audio output, diagnostics and snapshot restoration have not been runtime-validated.
+
 - The public SDK, compiler, runtime, renderer, asset pipeline, and CLI are available through pelican-engine.
 - The 0.8.0 development batch generates asset-free game-author recipe documentation from source examples for both the repository and npm package, and aligns the default `create` template and project directory. It does not ship example projects or assets; the legacy asset-bearing `m2` template remains source-only. Cross-channel use is not runtime-validated.
 - WebGPU, path tracing, controlled compute, and WebGL2 fallback have development implementations, but complete quality, performance, compatibility, and resource-lifecycle behavior remain unverified.

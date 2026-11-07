@@ -171,6 +171,16 @@ simulation ticks, including while browser audio is locked. Paused time does not
 advance the voice. Snapshots restore playback intent and logical position, not
 the browser's internal audio processing state.
 
+For a spatial voice, `ctx.audio.play("sound", { entity: "source", occlusion: true })`
+enables basic direct-path occlusion using the 3D physics world. It requires a
+live entity and the 3D physics service. Each simulation tick the renderer casts
+between the listener and source, excluding the source, the followed camera
+entity and triggers. A blocking collider reduces gain and applies a low-pass
+filter; a missing source or failed query mutes the voice and reports a
+diagnostic. This is not diffraction, reverb or full acoustic simulation.
+Configuration is saved in snapshots; audio output and restoration have not
+been runtime-validated.
+
 Declare `audioBuses: [{ id: "music", volume: 0.5 }]` in `defineGame`, route a
 sound with `sounds: [{ id: "theme", asset: musicAsset, bus: "music" }]`, and
 change its bus using `ctx.audio.busVolume("music", 0.25)`. A `play` call can

@@ -83,6 +83,8 @@ export interface RuntimePluginContext {
   getPhysics2DBridge?(): Physics2DBridge | undefined;
   /** Internal lazy service bridge for explicit tile collision synchronization. */
   getPhysics2DService?(): Physics2DService | undefined;
+  /** Internal lazy service bridge for spatial audio. */
+  getPhysicsService?(): PhysicsService | undefined;
   /** Host interval; supplied by RuntimeHost to engine plugins. */
   readonly fixedDt?: number;
   world: RuntimeWorld;
