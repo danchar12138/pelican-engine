@@ -109,7 +109,7 @@ export function createModelIK(root: THREE.Object3D, input: AnimationIKDefinition
     }]);
     return {
       definition: prepared.definition,
-      links: prepared.definition.orientation ? [...prepared.links, prepared.effector] : prepared.links,
+      links: [...prepared.links, prepared.effector],
       solve(owner) {
         const position = new THREE.Vector3(...prepared.definition.target).applyMatrix4(owner.matrixWorld);
         target.matrixWorld.makeTranslation(position.x, position.y, position.z);

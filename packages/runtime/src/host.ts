@@ -165,10 +165,13 @@ export class RuntimeHost {
         fixedDt: this.fixedDt,
         seed: this.seed,
         afterPhysics: () => this.afterPhysics(),
+        beforeFlush: phase => this.flushPlugins("beforeFlush", phase),
+        afterFlush: phase => this.flushPlugins("afterFlush", phase),
       });
       this.scheduler = createdScheduler;
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
+          getWorldResidencyBridge: () => this.worldResidencyBridge(),
           advanceCoupledPhysics: (dt, advance, fault) => this.advanceCoupledPhysics(dt, advance, fault),
           getCinematicAnimationBridge: () => this.plugins.find(plugin => plugin.id === "$engine.models")?.cinematicAnimationBridge,
           getCameraService: () => this.services.camera,
@@ -448,6 +451,54 @@ export class RuntimeHost {
     }
   }
 
+  private flushPlugins(method: "beforeFlush" | "afterFlush", phase: string): void {
+    for (const plugin of this.plugins) {
+      const result: unknown = plugin[method]?.(phase);
+      if (result && typeof result === "object" && "then" in result) {
+        void Promise.resolve(result).catch(() => {});
+        throw new Error(`TC_PLUGIN_ASYNC: ${plugin.id}.${method} must be synchronous.`);
+      }
+    }
+  }
+
+  private worldResidencyBridge(): import("./plugins.ts").WorldResidencyBridge {
+    const owners = () => [...this.plugins].filter(plugin => plugin.residency)
+      .sort((a, b) => (a.id === "$engine.physics" ? -1 : b.id === "$engine.physics" ? 1 : 0));
+    return {
+      capture: ids => {
+        const bundle: Record<string, unknown> = {}, excluded = new Set(ids);
+        const world = this.world.snapshot();
+        const remaining = { ...world, entities: world.entities.filter(entity => !excluded.has(entity.id)) };
+        for (const plugin of this.plugins) {
+          if (plugin.id === "$engine.world-streaming") continue;
+          if (plugin.residency) {
+            const data = cloneSerializable(plugin.residency.capture(ids));
+            if (data !== null) bundle[plugin.id] = data;
+          } else plugin.validateWorld?.(plugin.snapshot(), remaining);
+        }
+        return bundle;
+      },
+      validate: (value, entities) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("TC_STREAMING_RESIDENCY: Invalid owner bundle; restore an intact checkpoint.");
+        const ids = entities.map(entity => entity.id);
+        for (const [id, payload] of Object.entries(value)) {
+          const owner = this.plugins.find(plugin => plugin.id === id)?.residency;
+          if (!owner) throw new Error(`TC_STREAMING_RESIDENCY: Missing owner '${id}'; use the same engine plugins as the checkpoint.`);
+          owner.validate(payload, ids, entities);
+        }
+        for (const entity of entities) {
+          const definition = resolveEntityDefinition(this.scene, entity);
+          if ((definition?.rigidBody || definition?.character) && !Object.hasOwn(value, "$engine.physics"))
+            throw new Error(`TC_STREAMING_RESIDENCY: Missing parked physics for '${entity.id}'; restore an intact checkpoint.`);
+          if (definition?.model && !Object.hasOwn(value, "$engine.models"))
+            throw new Error(`TC_STREAMING_RESIDENCY: Missing parked animation for '${entity.id}'; restore an intact checkpoint.`);
+        }
+      },
+      suspend: value => { for (const plugin of owners().reverse()) if (Object.hasOwn(value, plugin.id)) plugin.residency!.suspend(cloneSerializable(value[plugin.id])); },
+      resume: value => { for (const plugin of owners()) if (Object.hasOwn(value, plugin.id)) plugin.residency!.resume(cloneSerializable(value[plugin.id])); },
+    };
+  }
+
   private registerPlugin(plugin: RuntimePlugin): void {
     if (!plugin || typeof plugin !== "object")
       throw new Error("TC_PLUGIN_ID: Plugin must have a stable non-empty id.");
@@ -673,6 +724,8 @@ export class RuntimeHost {
       fixedDt: this.fixedDt,
       seed: this.seed,
       afterPhysics: () => this.afterPhysics(),
+      beforeFlush: phase => this.flushPlugins("beforeFlush", phase),
+      afterFlush: phase => this.flushPlugins("afterFlush", phase),
       systems: [
         ...engineSystems.map((system) => ({
           ...system,

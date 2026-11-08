@@ -81,14 +81,20 @@ frames before creating a candidate. Legacy whole-tick actions remain supported.
 The history budget is 100,000 top-level transactions/commands and 3,200,000 decoded
 operations; a transaction contains at most 64 native step/reaction operations.
 
-## Remaining 1.0 Work
+## World Integration and Status
 
 Terrain surfaces participate as immovable zero-radius triangle domains. The
 native rigid world consumes the same f32 vertices through its terrain bridge.
 
 The implementation is a CPU, operator-split, interleaved integration with finite
-constraint iterations, not an exact monolithic implicit solve. Cross-material/world
-residency and full-body animation integration are still being finished under D60.
+constraint iterations, not an exact monolithic implicit solve. D60 also connects
+world residency and full-body animation. A material solver whose live native
+bindings belong wholly to an unloaded chunk is parked with its definition,
+queued forces and particle state, then released. Cross-chunk solver dependencies
+block unloading. Reactivation rebuilds native bodies first, then solver handles
+and samples; no hidden replacement-ID rebinding is performed. No physical time
+is advanced by lifecycle history actions. Grounding and root-motion feedback are
+described in [Skeletal Animation](ANIMATION.md).
 Topology tearing and GPU solvers remain separate historical
 roadmap work, not additions to the frozen final integration scope.
 

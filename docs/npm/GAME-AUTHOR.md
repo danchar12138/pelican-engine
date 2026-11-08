@@ -335,8 +335,9 @@ ID order after base and additive animation. `weight` blends the solved pose;
 `iterations` controls CCD iterations and optional `maxAngle` limits each joint
 update in radians. IK continues to apply while clip playback is paused; use
 `removeIK` to remove its influence. Snapshots retain the definitions and targets.
-This does not provide automatic ground contact, physical joint constraints,
-retargeting, root motion or a full-body solver. IK, animation interaction,
+Grounding, retargeting and root motion are described in
+[Skeletal Animation](../ANIMATION.md); skeletal constraints are not physical joints.
+IK, animation interaction,
 snapshot restoration and rendered poses have not been runtime-validated.
 
 Audio voices returned by `ctx.audio.play(soundId, options)` can be paused and
@@ -881,9 +882,9 @@ shapes. See `examples/dynamic-ui` for a small reusable-slot menu. This is a
 basic runtime UI increment, not a full layout or accessibility
 system; rendering, input and snapshot behavior have not been runtime-validated.
 
-### Static world chunk residency
+### Dynamic world chunk residency
 
-`ctx.streaming` can materialize predefined static prefab entities around a
+`ctx.streaming` can materialize predefined root prefab entities around a
 world-space focus. Define each chunk once, then choose a fixed position or
 follow a root entity; transitions occur at the update phase's structural commit boundary:
 
@@ -898,8 +899,8 @@ ctx.streaming.followFocus("player");
 
 Chunk coordinates use floor(position / chunkSize) on X/Z; entity transforms are
 absolute world coordinates, not offsets from the chunk. `defineChunk` requires
-unique entity IDs and declared prefabs. Only root entities without characters
-or moving rigid bodies are accepted. A fixed body is allowed. Each chunk may
+unique entity IDs and declared prefabs. Fixed, dynamic, kinematic and character
+roots are accepted. Each chunk may
 hold at most 512 entities; the service permits up to 4096 chunks and 65536
 entities in total. `inspect()` reports residency, and `setFocus(null)` freezes
 residency changes. Load/unload uses Chebyshev distance and hysteresis; a bounded
@@ -923,16 +924,29 @@ Edits still proceed when focus is null; automatic residency changes do not.
 Pending edits are included in host snapshots. The source example
 `examples/streaming-world` uses B and X for building and removing a marker.
 
-On unload, surviving roots retain their world transform and components; roots
-already destroyed by the game stay destroyed. Reusing a live chunk-owned ID is
-rejected, and attached child entities must be removed before unloading. Host
-snapshots include chunk data and residency. Asset downloads/residency, dynamic
-body velocities, animation playback, cross-system transactions, navigation
-updates, terrain and precision rebasing are **not** streamed by this service.
-Models and physics are recreated through existing systems; expect one or more
-phase/tick boundaries before all systems reflect a change. If another system's
-structural commands cause a failed tick, restore a known-good host checkpoint.
-This implementation and its save/restore behavior have not been runtime-validated.
+Unload captures the latest transform/components after update systems, physical
+velocities, gravity scale, sleep/character state, internal joints, model animation
+and material solvers whose live native bindings belong entirely to this chunk.
+Native bodies, model skeletons and suspended solver instances are released;
+serializable parked state is included in host snapshots. Reload reconstructs
+native bodies before director/animation evaluation, then restores animation and
+solver bindings to the new entity generations. No physical time is advanced by
+the lifecycle action itself. Roots already destroyed by the game stay destroyed.
+
+Cross-chunk joints, material bindings and planted grounding supports block unload.
+Detach active navigation/cinematic bindings, attached children, camera follow,
+visible world UI and spatial voices first. These errors identify dependencies;
+they do not silently discard state. A failed structural/native commit faults the
+tick and requires a known-good host checkpoint or restart. Reusing a chunk-owned
+live ID, parked joint ID or simulation ID is rejected rather than reassigned.
+Reactivate a chunk before removing an individual entity with parked resources;
+removing the entire inactive chunk discards its parked state.
+
+Terrain and navigation grids remain global services, with existing terrain edits
+sharing geometry across physics/navigation/rendering/tracing. Prepared assets
+remain a shared cache: asynchronous downloads, asset eviction, origin rebasing
+and volumetric destruction are not provided by chunk residency. Lifecycle,
+coupling, presentation and save/restore behavior have not been runtime-validated.
 
 For orthogonal grid routing, game systems may call `ctx.navigation.createGrid`
 with `{ id, owner, width, height }`, then `setBlocked(id, { x, y }, true)` and

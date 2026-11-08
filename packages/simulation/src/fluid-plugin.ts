@@ -8,6 +8,7 @@ import { differingSimulationOption } from "./snapshot-options.ts";
 import { nearestParticle } from "./nearest-particle.ts";
 import { stageParticleDomain } from "./coupling-adapters.ts";
 import { createCoupledSchedule } from "./coupled-schedule.ts";
+import { createMaterialResidency } from "./residency.ts";
 import { fluidField, FLUID_REST_DENSITY } from "./sph.ts";
 import { applyParticleForces } from "./particle-forces.ts";
 import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
@@ -112,6 +113,12 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
     (entry, count, sample) => entry.simulation.coupledTick(count, sample));
   return {
     id: "$engine.fluid", version: "1", services: { fluid: service }, simulation: schedule,
+    residency: createMaterialResidency({ entries: () => entries, beforeCapture: ensureRefs, capacity: 128,
+      references: entry => (entry.definition.bodyColliders ?? []).map(binding => binding.entity),
+      capture: entry => { for (const binding of entry.definition.bodyColliders ?? []) if (!context.world.isAlive(entry.bodyRefs.get(binding.id)!)) fail("BODY_COLLIDER", `Stale binding '${binding.entity}'; advance or detach before unloading.`); return { definition: entry.definition, state: entry.simulation.snapshot() }; },
+      decode: value => { if (!Array.isArray(value)) fail("SNAPSHOT", "Parked simulations must be an array."); return parseSnapshot({ version: 1, fluids: value }, fixedDt, materials); },
+      validateWorld: (staged, entities) => validateSampledBodyWorld(context, { ...context.world.snapshot(), entities: [...entities] }, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_FLUID_RESIDENCY"),
+      bind: entry => { bindParticleBodies(context, entry, "TC_FLUID_RESIDENCY"); syncBinding(entry); }, dispose: disposeEntries }),
     requiresRecovery: () => schedule.faulted,
     afterRestore() { ensureRefs(); for (const entry of entries.values()) syncBinding(entry); },
     prepareSimulationSubstep() {

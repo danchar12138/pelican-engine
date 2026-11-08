@@ -4,6 +4,7 @@ import { validateJointDefinition } from "./joints-internal.ts";
 import type { PhysicsJointDefinition, Transform } from "../sdk/src/index.ts";
 import type { TerrainGeometry } from "../sdk/src/index.ts";
 import { terrainGeometry } from "../runtime/src/terrain-data.ts";
+import { validateParkedBody, type ParkedBodyState } from "./residency-data.ts";
 
 /** Check lifecycle identities without invoking native WASM or trusting snapshot bytes. */
 export function preflightPhysicsHistory(
@@ -19,7 +20,8 @@ export function preflightPhysicsHistory(
   const activeDefinitions = new Map(definitions.map(entity => [entity.id, entity]));
   const joints = new Map<string, PhysicsJointDefinition>();
   const terrains = new Map<string, TerrainGeometry>();
-  const kinds = new Set(["step", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport", "reactions"]);
+  const kinds = new Set(["step", "lifecycle", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport", "reactions"]);
+  kinds.add("resumeBodies");
   const vector = (value: unknown) => Array.isArray(value) && value.length === 3 &&
     [0, 1, 2].every(axis => typeof value[axis] === "number" && Number.isFinite(value[axis]) && Math.abs(value[axis]) <= 1e12);
   let steps = 0;
@@ -46,6 +48,16 @@ export function preflightPhysicsHistory(
     const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown; terrain?: unknown; transform?: unknown; resetVelocity?: unknown; substep?: { index: number; count: number }; values?: { id: string; impulse: unknown; torque: unknown }[] };
     if (typeof action.kind !== "string" || !kinds.has(action.kind)) fail("Unknown history action.");
     if (openSubstep && !["step", "impulse", "torqueImpulse", "impulseAtPoint", "reactions"].includes(action.kind as string)) fail("Only coupled reactions may occur between native substeps.");
+    if (action.kind === "resumeBodies") {
+      const data = raw as { bodies?: { id: string; state: ParkedBodyState }[] };
+      if (Object.keys(data).length !== 2 || !Array.isArray(data.bodies) || data.bodies.length > 512) fail("Invalid parked body resume batch.");
+      const seen = new Set<string>();
+      for (const item of data.bodies ?? []) {
+        if (!item || Object.keys(item).length !== 2 || seen.has(item.id) || !active.has(item.id)) fail("Invalid parked body identity.");
+        validateParkedBody(item.state, active.get(item.id) === "character"); seen.add(item.id);
+      }
+      continue;
+    }
     if (action.kind === "reactions") {
       if (Object.keys(action).length !== 2 || !Array.isArray(action.values) || action.values.length > 10000) fail("Invalid reaction batch.");
       const seen = new Set<string>();
@@ -89,7 +101,7 @@ export function preflightPhysicsHistory(
       jointOperations = true;
       continue;
     }
-    if (action.kind !== "step") {
+    if (action.kind !== "step" && action.kind !== "lifecycle") {
       if (action.kind !== "gravity" && (typeof action.id !== "string" || !active.has(action.id)))
         fail("History action references a missing body.");
       const fields = action.kind === "gravity" ? ["kind", "value"]
@@ -107,8 +119,9 @@ export function preflightPhysicsHistory(
       }
       continue;
     }
-    if (Object.keys(action).length !== (action.substep === undefined ? 5 : 6) || ["kind", "dt", "frame", "created", "removed"].some(key => !Object.hasOwn(action, key))) fail("Invalid step fields.");
-    if (typeof action.dt !== "number" || !Number.isFinite(action.dt) || action.dt < 1e-6 || action.dt > 1) fail("Invalid physics timestep.");
+    const lifecycle = action.kind === "lifecycle";
+    if (Object.keys(action).length !== (lifecycle ? 4 : action.substep === undefined ? 5 : 6) || ["kind", "frame", "created", "removed"].some(key => !Object.hasOwn(action, key))) fail("Invalid step fields.");
+    if (!lifecycle && (typeof action.dt !== "number" || !Number.isFinite(action.dt) || action.dt < 1e-6 || action.dt > 1)) fail("Invalid physics timestep.");
     if (!Array.isArray(action.removed) || !Array.isArray(action.created) || !Array.isArray(action.frame))
       fail("Lifecycle history is missing a body list.");
     const part = action.substep;
@@ -118,7 +131,7 @@ export function preflightPhysicsHistory(
       if (part.index > 0 && ((action.created as unknown[]).length || (action.removed as unknown[]).length)) fail("Substep repeats lifecycle changes.");
       if (part.index === part.count - 1) { steps++; openSubstep = undefined; }
       else openSubstep = { next: part.index + 1, count: part.count, dt: action.dt as number };
-    } else { if (openSubstep) fail("Whole-tick step interrupts substeps."); steps++; }
+    } else { if (openSubstep) fail("Lifecycle/whole-tick step interrupts substeps."); if (!lifecycle) steps++; }
     const removed = new Set<string>();
     for (const id of action.removed as unknown[]) {
       if (typeof id !== "string" || removed.has(id) || !active.has(id)) fail("Invalid or duplicate removed body.");

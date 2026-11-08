@@ -2,7 +2,7 @@
 import { createUIRenderer } from "./ui.ts";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import type { PhysicsService } from "../../sdk/src/index.ts";
+import type { EntityHandle, PhysicsService } from "../../sdk/src/index.ts";
 import type { GraphIR, SceneIR } from "../../compiler/src/types.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { createGameServices } from "../../runtime/src/game-services.ts";
@@ -267,10 +267,46 @@ export async function prepareGameplay(
       createClothPlugin,
       createFluidPlugin,
       createSoftBodyPlugin,
-      (context) => ({
+      (context) => {
+        const handles = new Map<string, EntityHandle>();
+        const supportHandles = new Map<string, EntityHandle>();
+        const motions = new Map<string, { start: readonly [number, number, number]; requested: readonly [number, number, number] }>();
+        const reconcileModels = () => {
+          const records = context.world.records();
+          for (const [id, ref] of handles) if (!context.world.isAlive(ref)) { models.remove(id); handles.delete(id); }
+          models.reconcileBindings(modelDefinitions(records));
+          const active = new Set(modelBindings(records).map(record => record.id));
+          for (const id of handles.keys()) if (!active.has(id)) handles.delete(id);
+          for (const id of active) if (!handles.has(id)) handles.set(id, context.world.resolve(id));
+          return records;
+        };
+        return {
         id: "$engine.models",
         version: "2",
         cinematicAnimationBridge: models.cinematics,
+        residency: {
+          capture(ids) {
+            reconcileModels();
+            const owned = new Set(ids), animation = models.snapshot();
+            for (const item of animation.animations) for (const foot of item.grounding?.feet ?? []) if (foot.support && owned.has(item.entity) !== owned.has(foot.support))
+              throw new Error(`TC_MODEL_RESIDENCY_DEPENDENCY: '${item.entity}' is planted on '${foot.support}' across chunks; disable grounding before unloading.`);
+            animation.animations = animation.animations.filter(item => owned.has(item.entity));
+            return animation.animations.length ? animation : null;
+          },
+          validate(value, ids, entities) {
+            const animation = models.validateSnapshot(value, modelDefinitions([...entities]));
+            if (JSON.stringify(animation.animations.map(item => item.entity).sort()) !== JSON.stringify(modelBindings([...entities]).map(item => item.id).sort()))
+              throw new Error("TC_MODEL_RESIDENCY: Parked animation identities must match chunk models; restore an intact checkpoint.");
+            for (const item of animation.animations) for (const foot of item.grounding?.feet ?? []) if (foot.support && !ids.includes(foot.support)) throw new Error("TC_MODEL_RESIDENCY_DEPENDENCY: Parked grounding support must belong to the same chunk.");
+          },
+          suspend(value) {
+            for (const item of (value as { animations: { entity: string }[] }).animations) { models.remove(item.entity); handles.delete(item.entity); }
+          },
+          resume(value) {
+            models.restore(value, modelDefinitions(context.world.records()), "merge");
+            for (const item of (value as { animations: { entity: string }[] }).animations) handles.set(item.entity, context.world.resolve(item.entity));
+          },
+        },
         snapshot: () => {
           const bindings = modelBindings(context.world.records()).map(
             ({ id, prefab }) => ({
@@ -278,13 +314,17 @@ export async function prepareGameplay(
               ...(prefab === undefined ? {} : { prefab }),
             }),
           );
-          models.reconcileBindings(modelDefinitions(bindings));
+          reconcileModels();
           return { version: 1, bindings, animation: models.snapshot() };
         },
         validateSnapshot: (value) => {
           validateModels(value);
         },
         validateWorld: (value, world) => {
+          const { animation } = validateModels(value);
+          const live = new Set(world.entities.map(entity => entity.id));
+          for (const item of animation.animations) for (const foot of item.grounding?.feet ?? []) if (foot.support && !live.has(foot.support))
+            throw new Error(`TC_MODEL_GROUNDING_WORLD: Missing saved support '${foot.support}'; restore an intact checkpoint.`);
           const bindings = (
             value as { bindings: Pick<EntityRecord, "id" | "prefab">[] }
           ).bindings;
@@ -317,19 +357,52 @@ export async function prepareGameplay(
           const { animation, definitions } = validateModels(value);
           models.restore(animation, definitions);
         },
+        afterRestore() {
+          handles.clear(); supportHandles.clear(); motions.clear();
+          for (const record of modelBindings(context.world.records())) handles.set(record.id, context.world.resolve(record.id));
+          for (const record of modelBindings(context.world.records())) models.finalizePose(record.id, context.world.getTransform(record.id), 0);
+        },
+        afterPhysics() {
+          for (const [id, motion] of motions) {
+            const ref = handles.get(id);
+            if (!ref || !context.world.isAlive(ref)) continue;
+            const position = context.world.getTransform(ref).position;
+            models.feedbackMotion(id, motion.requested, [position[0] - motion.start[0], position[1] - motion.start[1], position[2] - motion.start[2]]);
+          }
+          motions.clear();
+          for (const record of modelBindings(context.world.records())) {
+            if (!models.animation.grounding(record.id)) continue;
+            const live = context.world.getTransform(record.id);
+            if (context.world.identity(record.id).parent !== undefined) throw new Error(`TC_MODEL_GROUNDING_ROOT: '${record.id}' must be a root entity for world grounding.`);
+            const physics = context.getPhysicsService?.();
+            if (!physics) throw new Error("TC_MODEL_GROUNDING_PHYSICS: Grounding requires the production physics plugin.");
+            models.finalizePose(record.id, live, context.fixedDt ?? 1 / 60, {
+              raycast: (origin, distance) => physics.raycast(origin, [0, -1, 0], distance, { exclude: [record.id], includeTriggers: false }),
+              support(id) {
+                if (!context.world.isAlive(id)) { supportHandles.delete(id); return null; }
+                const ref = supportHandles.get(id);
+                if (ref && !context.world.isAlive(ref)) { supportHandles.delete(id); return null; }
+                if (!ref) supportHandles.set(id, context.world.resolve(id));
+                return context.world.getTransform(id);
+              },
+            });
+          }
+          for (const [id, ref] of supportHandles) if (!context.world.isAlive(ref)) supportHandles.delete(id);
+        },
         dispose() {
           /* Content owns async GPU/asset disposal. */
         },
         inspect: () => models.inspect(),
         systems: [
+          { id: "$engine.models.bind", phase: "physics", before: ["$engine.cinematics", "$engine.models"], run() { reconcileModels(); } },
           {
             id: "$engine.models",
             phase: "physics",
             before: ["$engine.physics"],
             writes: ["Transform"],
             run: (dt) => {
-              const records = context.world.records();
-              models.reconcileBindings(modelDefinitions(records));
+              motions.clear();
+              const records = reconcileModels();
               const apply = records.filter(record => resolveEntityDefinition(ir, record)?.model && models.animation.rootMotion(record.id)?.mode === "apply");
               for (const record of apply) {
                 const definition = resolveEntityDefinition(ir, record)!;
@@ -346,6 +419,7 @@ export async function prepareGameplay(
                 const displacement = new THREE.Vector3(), change = new THREE.Quaternion(); local.decompose(displacement, change, new THREE.Vector3());
                 const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(...transform.rotation));
                 displacement.multiplyScalar(transform.scale[0]).applyQuaternion(rotation);
+                motions.set(record.id, { start: transform.position, requested: displacement.toArray() });
                 const angles = new THREE.Euler().setFromQuaternion(rotation.multiply(change), "XYZ"), nextRotation = [angles.x, angles.y, angles.z] as const;
                 if (definition.character) {
                   (context.getPhysicsService?.() ?? (() => { throw new Error("TC_MODEL_ROOT_MOTION_PHYSICS: Character root motion requires production physics."); })()).moveCharacter(record.id, displacement.toArray());
@@ -355,7 +429,7 @@ export async function prepareGameplay(
             },
           },
         ],
-      }),
+      }; },
     ];
     if (ir.scene.physics2d) {
       const { createPhysics2DFactory } = await import("../../physics/physics2d.ts");

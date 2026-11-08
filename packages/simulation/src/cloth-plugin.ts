@@ -7,6 +7,7 @@ import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot,
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 import { stageClothDomain } from "./coupling-adapters.ts";
 import { createCoupledSchedule } from "./coupled-schedule.ts";
+import { createMaterialResidency } from "./residency.ts";
 import { validateSampledBodyPeers } from "./sampled-body-binding.ts";
 import { createRopeBodyCoupling, virtualCollider, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
@@ -157,6 +158,12 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     (entry, count, sample) => entry.solver.coupledTick(count, sample));
   return {
     id: "$engine.cloth", version: "1", services: { cloth: service }, simulation: schedule,
+    residency: createMaterialResidency({ entries: () => entries, beforeCapture: ensureRefs, capacity: 256,
+      references: entry => (entry.definition.bodyColliders ?? []).map(binding => binding.entity),
+      capture: entry => { for (const binding of entry.definition.bodyColliders ?? []) if (!context.world.isAlive(entry.bodyRefs.get(binding.id)!)) fail("BODY_COLLIDER", `Stale binding '${binding.entity}'; advance or detach before unloading.`); return { definition: entry.definition, state: entry.solver.snapshot() }; },
+      decode: value => { if (!Array.isArray(value)) fail("SNAPSHOT", "Parked simulations must be an array."); return parseSnapshot({ version: 1, cloths: value }, hostDt, materials); },
+      validateWorld: (staged, entities) => validateBodyBindings(staged.values(), context, { ...context.world.snapshot(), entities: [...entities] }),
+      bind: entry => validateBodyBindings([entry], context), dispose: disposeEntries }),
     requiresRecovery: () => schedule.faulted,
     afterRestore() { ensureRefs(); },
     afterPhysics() {

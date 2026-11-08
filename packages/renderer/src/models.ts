@@ -11,6 +11,10 @@ import type {
   AdditiveAnimationState,
   AnimationIKDefinition,
   AnimationIKState,
+  AnimationGroundingState,
+  AnimationMotionFeedback,
+  Transform,
+  Vec3,
   AnimationRetargetDefinition,
   AnimationRootMotionState,
   AnimationService,
@@ -22,6 +26,7 @@ import { additiveConfiguration, createAdditiveClip, listAdditiveBones, type Addi
 import { createModelIK, ikTarget, prepareModelIK, type ModelIKRig } from "./model-ik.ts";
 import { createRetargetedClip, retargetDefinition } from "./model-retarget.ts";
 import { createRootMotion, type ModelRootMotion } from "./model-root-motion.ts";
+import { ModelGrounding, validateGrounding, transformMatrix, type GroundingQueries } from "./model-grounding.ts";
 import type { CinematicAnimationBridge } from "../../runtime/src/plugins.ts";
 
 export type ModelSource = string | { id: string; url?: string; path?: string };
@@ -54,6 +59,8 @@ export interface ModelAnimationSnapshot {
   iks?: AnimationIKState[];
   retargets?: AnimationRetargetDefinition[];
   rootMotion?: AnimationRootMotionState;
+  grounding?: AnimationGroundingState;
+  motionFeedback?: AnimationMotionFeedback;
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
@@ -119,10 +126,12 @@ export interface ModelLibrary {
   ): ModelInstance;
   remove(entityId: string): void;
   tick(dt: number): void;
+  finalizePose(entity: string, transform: Transform, dt: number, queries?: GroundingQueries): void;
+  feedbackMotion(entity: string, requested: Vec3, actual: Vec3): void;
   readonly animation: AnimationControlService;
   snapshot(): ModelLibrarySnapshot;
   validateSnapshot(value: unknown, bindings?: readonly ModelBinding[]): ModelLibrarySnapshot;
-  restore(value: unknown, bindings?: readonly ModelBinding[]): void;
+  restore(value: unknown, bindings?: readonly ModelBinding[], mode?: "replace" | "merge"): void;
   inspect(): ModelInspection;
   dispose(): Promise<void>;
 }
@@ -167,6 +176,9 @@ interface InstanceState {
   ikBase: Map<THREE.Bone, THREE.Quaternion>;
   retargets: Map<string, AnimationRetargetDefinition>;
   rootMotion: ModelRootMotion | null;
+  grounding: ModelGrounding | null;
+  motionFeedback: AnimationMotionFeedback | null;
+  motionTimes: Map<THREE.AnimationAction, { time: number; delta: number }>;
 }
 interface AdditiveLayer {
   id: string;
@@ -348,6 +360,13 @@ class ModelLibraryImpl implements ModelLibrary {
   };
 
   readonly animation: AnimationControlService = {
+    setGrounding: (entity, definition) => {
+      const state = this.instance(entity);
+      const next = definition === null ? null : new ModelGrounding(state.root, definition, this.ikStates(state));
+      this.resetIKPose(state); state.grounding = next; this.solveIKPose(state);
+    },
+    grounding: entity => structuredClone(this.instance(entity).grounding?.state ?? null),
+    motionFeedback: entity => structuredClone(this.instance(entity).motionFeedback),
     setRootMotion: (entity, definition) => {
       const state = this.instance(entity), next = definition === null ? null : createRootMotion(state.root, definition), previous = state.rootMotion;
       state.rootMotion = next;
@@ -426,11 +445,12 @@ class ModelLibraryImpl implements ModelLibrary {
     setIKTarget: (entity, id, target) => {
       const state = this.instance(entity), rig = state.iks.get(id);
       if (!rig) throw new Error(`TC_MODEL_IK_MISSING: ${entity}/${id}; create the chain first.`);
-      const next = ikTarget(target), previous = rig.definition.target;
+      const next = ikTarget(target), previous = state.grounding?.original(rig).target ?? rig.definition.target;
       this.reconfigureIK(state, () => { rig.definition.target = next; }, () => { rig.definition.target = previous; });
     },
     removeIK: (entity, id) => {
       const state = this.instance(entity), rig = state.iks.get(id);
+      if (state.grounding?.state.definition.chains.includes(id)) throw new Error(`TC_MODEL_GROUNDING_CHAIN: '${id}' is used by grounding; disable grounding before removing it.`);
       if (!rig) throw new Error(`TC_MODEL_IK_MISSING: ${entity}/${id}; create the chain first.`);
       this.reconfigureIK(state, () => { state.iks.delete(id); }, () => { state.iks.set(id, rig); });
       rig.dispose();
@@ -474,7 +494,7 @@ class ModelLibraryImpl implements ModelLibrary {
     private readonly options: ModelLibraryOptions,
   ) {
     this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
-    const mutating = new Set(["play", "blend", "setBlendWeight", "synchronizeBlend", "playAdditive", "setAdditiveWeight", "stopAdditive", "setIK", "setIKTarget", "removeIK", "retarget", "removeRetargetedClip", "setRootMotion", "consumeRootMotion", "pause", "resume", "seek", "setSpeed"]);
+    const mutating = new Set(["setGrounding", "play", "blend", "setBlendWeight", "synchronizeBlend", "playAdditive", "setAdditiveWeight", "stopAdditive", "setIK", "setIKTarget", "removeIK", "retarget", "removeRetargetedClip", "setRootMotion", "consumeRootMotion", "pause", "resume", "seek", "setSpeed"]);
     this.animation = new Proxy(this.animation, { get: (target, key: keyof AnimationControlService) => {
       const member = target[key];
       if (typeof member !== "function" || !mutating.has(key)) return member;
@@ -867,6 +887,9 @@ class ModelLibraryImpl implements ModelLibrary {
       ikBase: new Map(),
       retargets: new Map(),
       rootMotion: null,
+      grounding: null,
+      motionFeedback: null,
+      motionTimes: new Map(),
     };
     state.handle = Object.freeze({
       entity: entityId,
@@ -940,7 +963,10 @@ class ModelLibraryImpl implements ModelLibrary {
     if (!Number.isFinite(dt) || dt < 0) throw new Error("TC_MODEL_INVALID_DT");
     for (const state of this.instances.values()) {
       this.resetIKPose(state);
+      state.motionTimes.clear();
       if (!state.suspended) {
+        if (state.rootMotion?.definition.mode === "apply") for (const action of [...state.actions.values(), ...[...state.additives.values()].map(layer => layer.action)])
+          if (action.isRunning()) state.motionTimes.set(action, { time: action.time, delta: dt * state.mixer.timeScale * action.getEffectiveTimeScale() });
         for (const [name, fade] of state.fades) {
           fade.elapsed = Math.min(fade.duration, fade.elapsed + dt);
           state.actions.get(name)!.setEffectiveWeight(this.fadeWeight(fade));
@@ -964,6 +990,34 @@ class ModelLibraryImpl implements ModelLibrary {
     }
   }
 
+  feedbackMotion(entity: string, requested: Vec3, actual: Vec3): void {
+    const state = this.instance(entity);
+    if (this.cinematicOwners.has(entity) || state.suspended) { state.motionTimes.clear(); return; }
+    const length = requested[0] ** 2 + requested[2] ** 2;
+    const strideScale = length > 1e-12 ? THREE.MathUtils.clamp((actual[0] * requested[0] + actual[2] * requested[2]) / length, 0, 1) : 1;
+    state.motionFeedback = { requested: [...requested], actual: [...actual], strideScale };
+    if (strideScale < 1) {
+      this.resetIKPose(state);
+      for (const [action, saved] of state.motionTimes) {
+        const duration = action.getClip().duration, time = saved.time + saved.delta * strideScale;
+        action.time = action.loop === THREE.LoopRepeat && duration > 0 ? ((time % duration) + duration) % duration : THREE.MathUtils.clamp(time, 0, duration);
+      }
+      state.mixer.update(0); state.rootMotion?.strip(); this.solveIKPose(state);
+    }
+    state.motionTimes.clear();
+  }
+
+  finalizePose(entity: string, transform: Transform, dt: number, queries?: GroundingQueries): void {
+    const state = this.instance(entity);
+    if (!state.grounding) return;
+    this.resetIKPose(state);
+    state.node.updateMatrix(); state.root.updateMatrix();
+    const matrix = transformMatrix(transform).multiply(state.node.matrix).multiply(state.root.matrix);
+    if (queries) state.grounding.apply(state.root, state.iks, matrix, dt, queries);
+    else state.grounding.restorePose(state.root, state.iks, matrix);
+    this.solveIKPose(state);
+  }
+
   snapshot(): ModelLibrarySnapshot {
     this.assertOpen();
     return {
@@ -982,6 +1036,8 @@ class ModelLibraryImpl implements ModelLibrary {
             ...(state.iks.size ? { iks: this.ikStates(state) } : {}),
             ...(state.retargets.size ? { retargets: [...state.retargets.values()].map(value => structuredClone(value)) } : {}),
             ...(state.rootMotion ? { rootMotion: state.rootMotion.snapshot() } : {}),
+            ...(state.grounding ? { grounding: structuredClone(state.grounding.state) } : {}),
+            ...(state.motionFeedback ? { motionFeedback: structuredClone(state.motionFeedback) } : {}),
             actions: [...state.actions.entries()].map(([clip, action]) => ({
               clip,
               time: action.time,
@@ -1126,6 +1182,11 @@ class ModelLibraryImpl implements ModelLibrary {
           prepareModelIK(template.scene, ik);
         }
       }
+      if (item.grounding !== undefined) validateGrounding(template.scene, item.grounding, item.iks ?? []);
+      if (item.motionFeedback !== undefined) {
+        const feedback = item.motionFeedback, valid = (value: Vec3) => Array.isArray(value) && value.length === 3 && [0, 1, 2].every(i => Number.isFinite(value[i]) && Math.abs(value[i]) <= 1e12);
+        if (!feedback || !valid(feedback.requested) || !valid(feedback.actual) || !Number.isFinite(feedback.strideScale) || feedback.strideScale < 0 || feedback.strideScale > 1) throw invalid();
+      }
       if (item.rootMotion !== undefined) {
         if (!item.rootMotion || typeof item.rootMotion !== "object" || !Object.hasOwn(item.rootMotion, "pending")) throw invalid();
         const { pending, ...options } = item.rootMotion;
@@ -1135,9 +1196,10 @@ class ModelLibraryImpl implements ModelLibrary {
     return structuredClone(data);
   }
 
-  restore(value: unknown, bindings?: readonly ModelBinding[]): void {
+  restore(value: unknown, bindings?: readonly ModelBinding[], mode: "replace" | "merge" = "replace"): void {
     const snapshot = this.validateSnapshot(value, bindings);
     const ids = new Set(snapshot.animations.map((item) => item.entity));
+    if (mode === "merge") for (const id of this.instances.keys()) ids.add(id);
     const definitions = bindings ? this.candidateDefinitions(bindings) : this.definitions;
     const staged = this.stageInstances(ids, definitions, false);
     let previous = new Map<string, ModelAnimationSnapshot>();
@@ -1186,7 +1248,8 @@ class ModelLibraryImpl implements ModelLibrary {
       commitStarted = true;
       this.commitInstances(ids, staged, undefined, true);
       committed = true;
-      this.cinematicOwners.clear();
+      if (mode === "replace") this.cinematicOwners.clear();
+      else for (const item of snapshot.animations) this.cinematicOwners.delete(item.entity);
     } catch (error) {
       const failures: unknown[] = [];
       for (const state of touched) {
@@ -1261,6 +1324,9 @@ class ModelLibraryImpl implements ModelLibrary {
     }
     for (const saved of item.iks ?? []) state.iks.set(saved.id, createModelIK(state.root, saved));
     state.rootMotion = item.rootMotion ? createRootMotion(state.root, { bone: item.rootMotion.bone, axes: item.rootMotion.axes, rotation: item.rootMotion.rotation, mode: item.rootMotion.mode }, item.rootMotion.pending) : null;
+    state.grounding = item.grounding ? new ModelGrounding(state.root, item.grounding.definition, item.iks ?? [], item.grounding) : null;
+    state.motionFeedback = item.motionFeedback ? structuredClone(item.motionFeedback) : null;
+    state.motionTimes.clear();
     this.refreshPose(state);
   }
 
@@ -1330,11 +1396,12 @@ class ModelLibraryImpl implements ModelLibrary {
   }
 
   private ikStates(state: InstanceState): AnimationIKState[] {
-    return [...state.iks.values()].map(rig => structuredClone(rig.definition))
+    return [...state.iks.values()].map(rig => structuredClone(state.grounding?.original(rig) ?? rig.definition))
       .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   }
 
   private resetIKPose(state: InstanceState): void {
+    state.grounding?.reset();
     for (const [bone, pose] of state.ikBase) bone.quaternion.copy(pose);
     state.ikBase.clear();
   }
@@ -1377,6 +1444,10 @@ class ModelLibraryImpl implements ModelLibrary {
   }
 
   private setIK(state: InstanceState, definition: AnimationIKDefinition): void {
+    if (state.grounding?.state.definition.chains.includes(definition.id)) {
+      const definitions = this.ikStates(state).map(rig => rig.id === definition.id ? { ...definition, iterations: definition.iterations ?? 8, weight: definition.weight ?? 1 } : rig);
+      validateGrounding(state.root, state.grounding.state, definitions);
+    }
     const rig = createModelIK(state.root, definition), previous = state.iks.get(rig.definition.id);
     if (!previous && state.iks.size >= 16) {
       rig.dispose();

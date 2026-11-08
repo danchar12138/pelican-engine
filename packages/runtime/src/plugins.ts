@@ -120,6 +120,7 @@ export interface CinematicAnimationBridge {
   abandon(entity: string, owner: string): void;
 }
 export interface RuntimePluginContext {
+  getWorldResidencyBridge?(): WorldResidencyBridge;
   /** Execute material participants inside the native physics system's ordering boundary. */
   advanceCoupledPhysics?(dt: number, advance: (index: number, count: number) => void, fault: () => void): void;
   getCinematicAnimationBridge?(): CinematicAnimationBridge | undefined;
@@ -150,6 +151,9 @@ export interface RuntimePluginContext {
   emit(type: string, payload: unknown): RuntimeEvent;
 }
 export interface RuntimePlugin {
+  residency?: WorldResidencyOwner;
+  beforeFlush?(phase: string): void;
+  afterFlush?(phase: string): void;
   id: string;
   version?: string;
   legacySnapshot?(): unknown;
@@ -183,3 +187,18 @@ export interface RuntimePlugin {
 export type RuntimePluginFactory = (
   context: RuntimePluginContext,
 ) => RuntimePlugin;
+
+export type WorldResidencyBundle = Record<string, unknown>;
+/** Engine-owned serializable parking, never a native-memory snapshot. */
+export interface WorldResidencyOwner {
+  capture(ids: readonly string[]): unknown;
+  validate(value: unknown, ids: readonly string[], entities: readonly import("./contracts.ts").EntityRecord[]): void;
+  suspend(value: unknown): void;
+  resume(value: unknown): void;
+}
+export interface WorldResidencyBridge {
+  capture(ids: readonly string[]): WorldResidencyBundle;
+  validate(value: WorldResidencyBundle, entities: readonly import("./contracts.ts").EntityRecord[]): void;
+  suspend(value: WorldResidencyBundle): void;
+  resume(value: WorldResidencyBundle): void;
+}

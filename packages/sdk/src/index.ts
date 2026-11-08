@@ -1,5 +1,5 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "0.17.0";
+export const SDK_VERSION = "1.0.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -1180,6 +1180,26 @@ export interface AnimationRootMotionDefinition {
   /** apply moves a non-physical root or character through the engine; extract leaves movement to game code. */
   mode?: "extract" | "apply";
 }
+/** Post-physics body adjustment and planted multi-chain IK in world-space Y-up gravity. */
+export interface AnimationGroundingDefinition {
+  body: string;
+  /** Existing IK chain IDs, normally feet. */
+  chains: readonly string[];
+  probeUp?: number;
+  probeDown?: number;
+  soleOffset?: number;
+  maxBodyOffset?: number;
+  response?: number;
+  /** Maximum horizontal separation at which a stance anchor remains planted. */
+  plantDistance?: number;
+  minGroundNormalY?: number;
+}
+export interface AnimationGroundingState {
+  definition: Required<AnimationGroundingDefinition>;
+  bodyOffset: number;
+  feet: readonly { chain: string; target: Vec3; normal: Vec3; support: string | null; localPoint?: Vec3; localNormal?: Vec3 }[];
+}
+export interface AnimationMotionFeedback { requested: Vec3; actual: Vec3; strideScale: number }
 export interface AnimationRootMotionDelta { translation: Vec3; rotation: Vec4 }
 export interface AnimationRootMotionState {
   bone: string;
@@ -1202,6 +1222,9 @@ export interface AnimationRetargetDefinition {
 }
 /** Full model animation controls exposed by system contexts. */
 export interface AnimationControlService extends AnimationService {
+  setGrounding(entity: string, definition: AnimationGroundingDefinition | null): void;
+  grounding(entity: string): AnimationGroundingState | null;
+  motionFeedback(entity: string): AnimationMotionFeedback | null;
   setRootMotion(entity: string, definition: AnimationRootMotionDefinition | null): void;
   rootMotion(entity: string): AnimationRootMotionState | null;
   consumeRootMotion(entity: string): AnimationRootMotionDelta;

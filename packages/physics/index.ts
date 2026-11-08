@@ -1,5 +1,6 @@
 import RAPIER, { createRapierInstance } from "./rapier.ts";
 import { preflightPhysicsHistory } from "./history-preflight.ts";
+import { validateParkedBody, type ParkedBodyState } from "./residency-data.ts";
 import { createInternalJoints, validateJointDefinition } from "./joints-internal.ts";
 import type {
   CharacterDefinition,
@@ -66,6 +67,8 @@ interface BodyEntry {
 type Frame = { id: string; transform: Transform }[];
 type Creation = { id: string; prefab?: string; transform: Transform };
 type Action =
+  | Lifecycle
+  | { kind: "resumeBodies"; bodies: { id: string; state: ParkedBodyState }[] }
   | {
       kind: "step";
       dt: number;
@@ -85,6 +88,7 @@ type Action =
   | { kind: "teleport"; id: string; transform: Transform; resetVelocity: boolean }
   | { kind: "reactions"; values: { id: string; impulse: Vec3; torque: Vec3 }[] }
   | { kind: "coupled"; actions: Action[] };
+type Lifecycle = { kind: "lifecycle"; frame: Frame; created: Creation[]; removed: string[] };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
   version: 3;
@@ -588,6 +592,20 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     action: Action,
     emit: (type: string, payload: unknown) => void,
   ) {
+    if (action?.kind === "resumeBodies") {
+      if (Object.keys(action).length !== 2 || !Array.isArray(action.bodies) || action.bodies.length > 512 || new Set(action.bodies.map(item => item.id)).size !== action.bodies.length)
+        fail("TC_PHYSICS_RESIDENCY", "Invalid resume batch.");
+      for (const item of action.bodies) validateParkedBody(item.state, !!get(item.id).character);
+      for (const item of action.bodies) {
+        const b = get(item.id), saved = item.state;
+        b.body.setLinvel(vec(saved.velocity, "resume.velocity"), false);
+        b.body.setAngvel(vec(saved.angularVelocity, "resume.angularVelocity"), false);
+        b.body.setGravityScale(saved.gravityScale, false);
+        if (b.character && saved.character) Object.assign(b.character, structuredClone(saved.character));
+        if (saved.sleeping) b.body.sleep(); else b.body.wakeUp();
+      }
+      return;
+    }
     if (action?.kind === "coupled") {
       if (openSubstep || Object.keys(action).length !== 2 || !Array.isArray(action.actions) || !action.actions.length || action.actions.length > 64 || action.actions.some(child => !child || !["step", "reactions"].includes(child.kind))) fail("TC_PHYSICS_SUBSTEP", "Invalid coupled fixed-tick transaction.");
       for (const child of action.actions) apply(child, emit);
@@ -685,7 +703,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       body.body.setGravityScale(action.scale, true);
       return;
     }
-    if (action.kind !== "step") {
+    if (action.kind !== "step" && action.kind !== "lifecycle") {
       if (["angularVelocity", "torqueImpulse", "impulseAtPoint"].includes(action.kind)) {
         const keys = action.kind === "impulseAtPoint" ? ["kind", "id", "value", "point"] : ["kind", "id", "value"];
         if (Object.keys(action).length !== keys.length || Object.keys(action).some((key) => !keys.includes(key)))
@@ -732,11 +750,11 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       }
       return;
     }
-    finite(action.dt, "dt", 1e-6, 1);
-    const part = action.substep;
+    if (action.kind === "step") finite(action.dt, "dt", 1e-6, 1);
+    const part = action.kind === "step" ? action.substep : undefined;
     if (part) {
       if (!Number.isSafeInteger(part.index) || !Number.isSafeInteger(part.count) || part.count < 2 || part.count > 32 || part.index < 0 || part.index >= part.count ||
-          (part.index === 0 ? openSubstep !== undefined : !openSubstep || openSubstep.next !== part.index || openSubstep.count !== part.count || openSubstep.dt !== action.dt)) fail("TC_PHYSICS_SUBSTEP", "Substep history must form an ordered complete fixed tick.");
+          (part.index === 0 ? openSubstep !== undefined : !openSubstep || openSubstep.next !== part.index || openSubstep.count !== part.count || openSubstep.dt !== (action as Extract<Action, { kind: "step" }>).dt)) fail("TC_PHYSICS_SUBSTEP", "Substep history must form an ordered complete fixed tick.");
       if (part.index > 0 && (action.created.length || action.removed.length)) fail("TC_PHYSICS_SUBSTEP", "Lifecycle changes belong to the first substep.");
     } else if (openSubstep) fail("TC_PHYSICS_SUBSTEP", "A whole-tick step cannot interrupt an open substep frame.");
     // Creation history contains content identity and transforms only. Never accept
@@ -804,6 +822,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     for (const id of removed) remove(id, emit);
     for (const e of created.values()) add(e);
     sync(action.frame, emit);
+    if (action.kind === "lifecycle") return;
     world.timestep = action.dt;
     for (const b of bodies.values())
       if (b.character && b.controller) {
@@ -1021,6 +1040,34 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         });
     }
     return { kind: "step", dt, frame, created, removed };
+  }
+  function bindLifecycle(): void {
+    const { frame, created, removed } = lifecycle(context.fixedDt ?? 1 / 60);
+    if (created.length || removed.length) record({ kind: "lifecycle", frame, created, removed });
+    bindRefs();
+  }
+  type Parked = { bodies: { id: string; state: ParkedBodyState }[]; joints: PhysicsJointDefinition[] };
+  function parked(value: unknown, ids: readonly string[], entities: readonly import("../runtime/src/contracts.ts").EntityRecord[]): Parked {
+    const data = cloneSerializable(value) as Parked, allowed = new Set(ids), seen = new Set<string>();
+    if (!data || !Array.isArray(data.bodies) || !Array.isArray(data.joints) || data.bodies.length > 512 || data.joints.length > 4096 || Object.keys(data).length !== 2)
+      fail("TC_PHYSICS_RESIDENCY", "Invalid parked native owner payload; restore an intact checkpoint.");
+    for (const item of data.bodies) {
+      const record = entities.find(entity => entity.id === item.id), definition = record && resolveEntityDefinition(catalog, record);
+      if (!item || Object.keys(item).length !== 2 || !allowed.has(item.id) || seen.has(item.id) || (!definition?.rigidBody && !definition?.character))
+        fail("TC_PHYSICS_RESIDENCY", "Parked body must resolve to a distinct chunk physics prefab.");
+      validateParkedBody(item.state, !!definition!.character); seen.add(item.id);
+    }
+    for (const entity of entities) {
+      const definition = resolveEntityDefinition(catalog, entity);
+      if ((definition?.rigidBody || definition?.character) && !seen.has(entity.id)) fail("TC_PHYSICS_RESIDENCY", `Missing parked state for '${entity.id}'.`);
+    }
+    const jointIds = new Set<string>();
+    for (const joint of data.joints) {
+      validateJointDefinition(joint);
+      if (!seen.has(joint.body1) || !seen.has(joint.body2) || jointIds.has(joint.id)) fail("TC_PHYSICS_RESIDENCY", "Parked joints must connect distinct owned bodies within one chunk.");
+      jointIds.add(joint.id);
+    }
+    return data;
   }
   function record(action: Action) {
     alive();
@@ -1451,6 +1498,31 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       finally { empty.dispose(); }
     } } : {}),
     requiresRecovery: () => nativeFault,
+    residency: {
+      capture(ids) {
+        alive(); ensureRefs();
+        const owned = new Set(ids), joints = state.joints.snapshot().joints.filter(joint => owned.has(joint.body1) || owned.has(joint.body2));
+        for (const joint of joints) if (!owned.has(joint.body1) || !owned.has(joint.body2)) fail("TC_PHYSICS_RESIDENCY_DEPENDENCY", `Joint '${joint.id}' crosses the chunk boundary; remove it before unloading.`);
+        const bodies = ids.flatMap(id => {
+          if (!state.bodies.has(id)) return [];
+          const b = get(id), c = b.character;
+          return [{ id, state: { velocity: tuple(b.body.linvel()), angularVelocity: tuple(b.body.angvel()), gravityScale: b.body.gravityScale(), sleeping: b.body.isSleeping(),
+            ...(c ? { character: { verticalVelocity: c.verticalVelocity, velocity: c.velocity, grounded: c.grounded, requested: c.requested, ...(c.target ? { target: c.target } : {}) } } : {}) } }];
+        });
+        return bodies.length ? cloneSerializable({ bodies, joints }) : null;
+      },
+      validate(value, ids, entities) { parked(value, ids, entities); },
+      suspend() { alive(); bindLifecycle(); },
+      resume(value) {
+        alive();
+        const data = value as Parked;
+        for (const joint of data.joints) if (state.joints.snapshot().joints.some(item => item.id === joint.id)) fail("TC_PHYSICS_RESIDENCY_CONFLICT", `Joint '${joint.id}' was reused while its chunk was inactive; remove the conflicting joint before loading.`);
+        bindLifecycle();
+        // Other chunks can share this flush: their bodies may already be bound.
+        record({ kind: "resumeBodies", bodies: data.bodies });
+        for (const definition of data.joints) record({ kind: "jointCreate", definition });
+      },
+    },
     services: { physics },
     terrainPhysicsBridge: {
       setTerrain(terrain) { record({ kind: "terrainSet", terrain: terrainGeometry(terrain) }); },
@@ -1467,6 +1539,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       applyParticleReactions(reactions) { applyReactions(reactions, "PARTICLE"); },
     },
     systems: [
+      { id: "$engine.physics.bind", phase: "physics", before: ["$engine.cinematics", "$engine.models", pluginId], run() { alive(); bindLifecycle(); } },
       {
         id: pluginId,
         phase: "physics",

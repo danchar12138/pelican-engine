@@ -2,7 +2,7 @@
 
 ## Version and Release
 
-- Current source version: 0.17.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run; this cinematic/audio development batch is not a complete 1.0 release.
+- Current source version: 1.0.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. This is the D60 three-area integration milestone; registry and GitHub publication depend on the actual release run. Runtime acceptance and historical CAP completion are not implied.
 - Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. Existing npm versions cannot be overwritten; the publication command reports failure rather than silently skipping. Workflow outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
 - The 0.9.0 GitHub Release exists, but its npm workflow and one retry failed on November 7, 2026 with transparency-log HTTP 500 errors. This is not evidence that the npm version was published.
@@ -13,7 +13,17 @@
 
 - Decision D60 freezes the remaining 1.0 implementation to shared-clock simulation coupling, dynamic-world lifecycle and full-body animation integration. Other historical roadmap work is not added to this release. The implementation checklist is [1.0 Final Scope](tasks/V1-FINAL.md); runtime validation remains deferred.
 
-- Local simulation now advances native rigid bodies and four material families on a common substep clock inside the physics system's ordering boundary. Material generators retain one fixed-tick identity and consume queued forces once; cross-fluid pressure/viscosity uses one WCSPH neighborhood per substep. Native reaction batches are recorded in bounded fixed-tick transactions; incomplete substep histories are rejected before native reconstruction. Moving sphere and interpolated moving/rotating-box sweeps use sampled previous poses, including one-way bindings. Automatic fluid/soft-body entries support 64 explicit native bindings with no hidden reference sphere; legacy snapshot layout is retained. Derived samples/generation handles refresh after all host owners restore. Behavior, historical compatibility and stability are unverified. The remaining D60 world/animation integration is still being completed before 1.0.
+- Simulation advances native rigid bodies and four material families on a common substep clock inside the physics ordering boundary. Tick identity/queued forces advance once; automatic fluids share WCSPH pressure/viscosity. Reactions and complete substep histories are recorded. Moving-obstacle sweeps, generation-safe explicit native bindings and restore-time derived samples are integrated. See [Simulation Coupling](SIMULATION-COUPLING.md). Behavior, history compatibility and stability are unverified.
+
+- Dynamic chunks retain physical/character state, internal joints, model animation and wholly owned material solvers. Update-boundary parking releases native objects and active solver/skeleton instances; reload reconstructs native bodies before director/animation evaluation. Incompatible cross-chunk dependencies block unloading. Terrain/navigation grids and prepared assets remain global, not asynchronous asset streaming. See [Game Author](npm/GAME-AUTHOR.md#dynamic-world-chunk-residency). Lifecycle, rendering and recovery are unverified.
+
+- Full-body integration coordinates ground probes, 1..8 IK chains, bounded body adjustment, contact-normal orientation and moving-support anchors. Actual character displacement feeds ordinary root-motion stride timing; cinematic time retains ownership. Generation-safe model reconciliation and saved grounding poses are integrated. This is kinematic grounding, not ragdoll balance or arbitrary-gravity control. See [Skeletal Animation](ANIMATION.md). All behavior remains unverified.
+
+## Historical Development Notes
+
+The following entries retain the capability boundaries at their original development
+batches. Statements about then-missing coupling, grounding or residency are superseded
+by the D60 implementation described above, not by new runtime evidence.
 
 - Local cinematic development adds a fixed-time public director for camera/entity keys, skeletal intervals, owned audio cues, localized subtitles, screen fades, markers and game-code branching. It includes pause/resume/seek/speed, character-controller trajectories and explicit native/World teleports, animation ownership/baseline restoration, stale-binding cleanup and cross-owner snapshot preflight. Sound positioning/rates and a browser caption/fade overlay are connected to production paths. Runtime, audio/video alignment, layout, branching, blocking and recovery are unverified; asynchronous scene-spanning transitions and full first-release integration remain incomplete. See [Cinematic Sequences](CINEMATICS.md).
 

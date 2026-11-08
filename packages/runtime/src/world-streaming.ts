@@ -10,13 +10,13 @@ import type {
   WorldStreamingService,
 } from "../../sdk/src/index.ts";
 import type { EntityRecord, WorldSnapshot } from "./contracts.ts";
-import type { RuntimePluginFactory } from "./plugins.ts";
+import type { RuntimePluginFactory, WorldResidencyBundle } from "./plugins.ts";
 import { cloneSerializable } from "./random.ts";
 import { values } from "./storage.ts";
 
 type Options = Required<WorldStreamingOptions>;
 type Edit = { kind: "add"; entity: EntityRecord } | { kind: "remove"; id: string };
-type Chunk = { x: number; z: number; active: boolean; entities: EntityRecord[]; edits?: Edit[] };
+type Chunk = { x: number; z: number; active: boolean; entities: EntityRecord[]; edits?: Edit[]; parked?: WorldResidencyBundle };
 type StreamingSnapshot = { version: 1; options: Options; focus: Vec3 | null; chunks: Chunk[];
   focusEntity?: string | null; focusStatus?: "manual" | "following" | "missing" | "invalid" };
 const initial: Options = { chunkSize: 32, loadRadius: 1, unloadRadius: 2, maxChangesPerTick: 4 };
@@ -51,7 +51,7 @@ function focus(value: Vec3 | null): Vec3 | null {
   return [value[0], value[1], value[2]];
 }
 
-/** Static prefab residency. Structural changes are committed by the existing World phase boundary. */
+/** Root prefab residency. Owners park state at the structural phase boundary. */
 export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
   let config = { ...initial }, observer: Vec3 | null = null, disposed = false;
   let focusEntity: string | null = null, focusStatus: "manual" | "following" | "missing" | "invalid" = "manual";
@@ -59,6 +59,8 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
   let chunks = new Map<string, Chunk>();
   const handles = new Map<string, EntityHandle>();
   const waiting = new Set<string>();
+  const suspending: WorldResidencyBundle[] = [], resuming: Chunk[] = [];
+  const residency = () => context.getWorldResidencyBridge?.() ?? fail("OWNER", "Dynamic residency requires a RuntimeHost owner bridge.");
   const schemas = new Map(context.scene.components.map(component => [component.id, component.schema]));
   const alive = () => { if (disposed) fail("DISPOSED", "Create a new host before using world streaming."); };
   function entity(input: SpawnInput, fromSnapshot = false): EntityRecord {
@@ -69,8 +71,6 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
     if (input.parent !== undefined) return fail("ENTITY", `Chunk entity '${input.id}' must be a root entity.`);
     const prefab = context.scene.prefabs.find(item => item.id === input.prefab);
     if (!prefab) return fail("PREFAB", `Unknown prefab '${input.prefab}' for '${input.id}'.`);
-    if (prefab.character || (prefab.rigidBody && prefab.rigidBody.type !== "fixed"))
-      return fail("PHYSICS", `Chunk entity '${input.id}' must not use a dynamic, kinematic or character body; its native state cannot yet be streamed.`);
     if (fromSnapshot && (input.transform === undefined || input.components === undefined))
       return fail("SNAPSHOT", `Saved entity '${input.id}' needs its transform and components.`);
     const transform = values(transformSchema, (fromSnapshot ? input.transform : { ...prefab.transform, ...(input.transform ?? {}) }) as unknown as ComponentData, true, fromSnapshot) as unknown as Transform;
@@ -136,7 +136,11 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       if (pendingCount > MAX_PENDING_EDITS) return fail("CAPACITY", "At most 4096 edits may be queued.");
       total += entities.length + additions.size;
       if (total > 65536) return fail("CAPACITY", "At most 65536 chunk entities may be registered.");
-      return { x: item.x, z: item.z, active: item.active, entities, ...(edits.length ? { edits } : {}) };
+      if (item.parked !== undefined) {
+        if (item.active) return fail("SNAPSHOT", "Active chunks cannot retain parked resources.");
+        residency().validate(item.parked, entities);
+      }
+      return { x: item.x, z: item.z, active: item.active, entities, ...(edits.length ? { edits } : {}), ...(item.parked === undefined ? {} : { parked: item.parked }) };
     });
     return { version: 1, options: parsedOptions, focus: parsedFocus, focusEntity: savedEntity, focusStatus: savedStatus, chunks: parsedChunks };
   }
@@ -248,7 +252,10 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       }
       const index = chunk.entities.findIndex(item => item.id === entityId);
       if (index < 0) return fail("MISSING", `Entity '${entityId}' is not owned by chunk '${key(x, z)}'.`);
-      if (!chunk.active) { chunk.entities.splice(index, 1); return; }
+      if (!chunk.active) {
+        if (chunk.parked && Object.keys(chunk.parked).length) return fail("PARKED", "Reactivate the chunk before removing an individual entity with parked resources, or remove the entire inactive chunk.");
+        chunk.entities.splice(index, 1); return;
+      }
       if (chunk.edits?.some(edit => edit.kind === "remove" && edit.id === entityId))
         return fail("PENDING", `Removal of '${entityId}' is already queued.`);
       enqueue(chunk, { kind: "remove", id: entityId });
@@ -285,10 +292,9 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
   };
   return {
     id: "$engine.world-streaming", version: "1", services: { streaming: service },
-    systems: [
-      {
-        id: "$engine.world-streaming.update", phase: "update", structural: true,
-        run() {
+    beforeFlush(phase) {
+      if (phase !== "update") return;
+      context.world.runSystem("$engine.world-streaming.commit", { structural: true }, () => {
           const records = currentRecords();
           sync(records);
           if (focusEntity && focusStatus !== "missing") {
@@ -343,6 +349,17 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
               if (records.has(item.id)) return fail("OWNERSHIP", `Entity '${item.id}' already exists; choose a distinct chunk entity ID.`);
             }
           }
+          // Capture after all update systems, before any of the queued destroys commit.
+          const parked = new Map<Chunk, WorldResidencyBundle>();
+          for (const chunk of selected) {
+            if (chunk.active) {
+              const bundle = residency().capture(chunk.entities.map(item => item.id));
+              residency().validate(bundle, chunk.entities);
+              parked.set(chunk, bundle);
+            }
+            else if (chunk.parked) residency().validate(chunk.parked, chunk.entities);
+          }
+          for (const { edit } of editPlan) if (edit.kind === "remove") suspending.push(residency().capture([edit.id]));
           const consumed = new Map<Chunk, number>();
           for (const { chunk, edit } of editPlan) {
             if (edit.kind === "add") {
@@ -363,6 +380,8 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
           }
           for (const chunk of selected) {
             if (chunk.active) {
+              chunk.parked = parked.get(chunk)!;
+              suspending.push(chunk.parked);
               for (const item of chunk.entities) {
                 context.world.queue({ type: "destroy", entity: handles.get(item.id)! });
                 handles.delete(item.id);
@@ -374,10 +393,23 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
                 waiting.add(item.id);
               }
               chunk.active = true;
+              resuming.push(chunk);
             }
           }
-        },
-      },
+      });
+    },
+    afterFlush(phase) {
+      if (phase !== "update") return;
+      for (const bundle of suspending) residency().suspend(bundle);
+      suspending.length = 0;
+      sync(currentRecords());
+      for (const chunk of resuming) {
+        if (chunk.parked) residency().resume(chunk.parked);
+        delete chunk.parked;
+      }
+      resuming.length = 0;
+    },
+    systems: [
       { id: "$engine.world-streaming.bind", phase: "presentation", run() { sync(currentRecords()); } },
     ],
     snapshot,
@@ -392,7 +424,7 @@ export const createWorldStreamingPlugin: RuntimePluginFactory = context => {
       focusEntity = data.focusEntity ?? null; focusStatus = data.focusStatus ?? "manual";
       focusHandle = focusEntity && focusStatus !== "missing" ? context.world.resolve(focusEntity) : undefined;
       chunks = new Map(data.chunks.map(chunk => [key(chunk.x, chunk.z), chunk]));
-      handles.clear(); waiting.clear();
+      handles.clear(); waiting.clear(); suspending.length = 0; resuming.length = 0;
       for (const chunk of chunks.values()) if (chunk.active)
         for (const item of chunk.entities) handles.set(item.id, context.world.resolve(item.id));
     },

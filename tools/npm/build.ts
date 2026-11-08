@@ -281,6 +281,7 @@ export async function buildDistribution() {
     "docs/ANIMATION.md",
     "docs/CINEMATICS.md",
     "docs/tasks/V1-FINAL.md",
+    "docs/releases/1.0.0.md",
     "docs/PHYSICS-LIFECYCLE-ISSUE.md",
     "docs/RENDER-BACKENDS.md",
     "docs/PELICAN-MIGRATION.md",

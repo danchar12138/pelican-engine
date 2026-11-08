@@ -1,8 +1,8 @@
 {
   "name": "pelican-engine",
-  "version": "0.17.0",
-  "milestone": "M3",
-  "stage": "advanced-rendering-development",
+  "version": "1.0.0",
+  "milestone": "M8",
+  "stage": "v1-scope-integration",
   "license": "MIT",
   "protocolVersion": "0.1.0",
   "agentEntry": "AGENTS.md",
@@ -11,5 +11,5 @@
   "publicApi": "packages/sdk/src/index.ts",
   "workflow": "docs/AI-WORKFLOW.md",
   "releasePolicy": "docs/RELEASING.md",
-  "releaseScope": "dynamic-raytracing"
+  "releaseScope": "d60-three-area-integration"
 }

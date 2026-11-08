@@ -40,10 +40,51 @@ over the mixed base/additive pose; IK is not accumulated into the next tick's
 base pose. Multiple chains run in stable ID order and snapshots retain their
 definitions.
 
-These are skeletal kinematic constraints, not physical joints or a full-body
-balance/grounding controller. Overlapping chains can affect each other's targets.
-Games supply targets and poles; automatic foot placement, contact-aware full-body
-balance and ragdoll/animation arbitration are not implemented here.
+These are skeletal kinematic constraints, not physical joints. Overlapping chains
+can affect each other's targets. Games supply targets and poles; the grounding
+controller below can coordinate the feet and body after native physics.
+
+## Grounding and Body Adjustment
+
+Create both leg IK chains first, then enable grounding using their IDs:
+
+```ts
+ctx.animation.setGrounding("actor", {
+  body: "Hips",
+  chains: ["left-leg", "right-leg"],
+  probeUp: 0.5,
+  probeDown: 1,
+  soleOffset: 0.03,
+  maxBodyOffset: 0.35,
+  response: 16,
+  plantDistance: 0.2,
+  minGroundNormalY: 0.5,
+});
+const stance = ctx.animation.grounding("actor");
+const movement = ctx.animation.motionFeedback("actor");
+```
+
+The body must be a uniquely named ancestor of the selected effectors. Up to eight
+existing chains share a bounded vertical body correction. Downward production
+physics queries include editable terrain, ignore the actor and triggers, and
+orient effectors to contact normals. Stance anchors on live entities use support
+local coordinates; generation changes detach the reference instead of inheriting
+the replacement's identity. World Y is up; probe distances, offsets and planting
+distance are world units. Response is an exponential per-second adjustment rate.
+
+The final body and IK pose is evaluated after physics, without advancing the
+animation mixer a second time. Ordinary character root-motion playback uses the
+actual horizontal displacement along its requested direction to scale this
+tick's action-time interval. `motionFeedback` exposes requested/actual world
+displacement and a stride scale in [0,1]. Cinematic ownership preserves timeline
+time instead of applying ordinary locomotion retiming.
+
+Snapshots retain grounding definitions, body offset, targets, normals, support
+anchors and movement feedback. Restore reapplies the saved pose without stepping
+physics or sampling new ground. Disable with `setGrounding(entity, null)` before
+removing a participating IK chain or separating a planted cross-chunk dependency.
+This is a coordinated kinematic controller, not dynamic center-of-mass balance,
+ragdoll control or an arbitrary-gravity controller. Grounded entities must be roots.
 
 ## Retargeting
 
@@ -136,6 +177,7 @@ evaluation's accumulated movement.
 
 These implementations have only been compiled and built. No skeletal, numerical,
 rendering, locomotion, retargeting, snapshot, lifecycle or performance behavior
-has been validated. The 0.16 animation batch does not complete remaining full-body
-or world integration. Later director development is described in
+has been validated. The D60 1.0 integration connects grounding, collision feedback,
+generation identity, chunk residency and cinematic handoff; this is implementation
+completion, not runtime acceptance. Director development is described in
 [Cinematic Sequences](CINEMATICS.md), including its separate unverified boundaries.

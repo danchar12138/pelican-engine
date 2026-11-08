@@ -8,6 +8,7 @@ import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type Virtual
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 import { stageRopeDomain } from "./coupling-adapters.ts";
 import { createCoupledSchedule } from "./coupled-schedule.ts";
+import { createMaterialResidency } from "./residency.ts";
 
 type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string>; attachmentRefs: Map<number, EntityHandle> };
 type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
@@ -262,6 +263,15 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     (entry, count, sample) => entry.solver.coupledTick(count, sample));
   return {
     id: "$engine.ropes", version: "1", services: { ropes: service }, simulation: schedule,
+    residency: createMaterialResidency({ entries: () => entries, beforeCapture: ensureRefs, capacity: 256,
+      references: entry => [...(entry.definition.bodyColliders ?? []).filter(binding => !entry.staleBodies.has(binding.id)), ...(entry.definition.bodyAttachments ?? [])].map(binding => binding.entity),
+      capture: entry => {
+        for (const ref of [...entry.bodyRefs.values(), ...entry.attachmentRefs.values()]) if (!context.world.isAlive(ref)) fail("BODY_COLLIDER", "Stale rope binding; advance or detach before unloading.");
+        return { definition: entry.definition, state: entry.solver.snapshot(), ...(entry.staleBodies.size ? { staleBodyColliders: [...entry.staleBodies] } : {}) };
+      },
+      decode: value => { if (!Array.isArray(value)) fail("SNAPSHOT", "Parked simulations must be an array."); return parseSnapshot({ version: 1, ropes: value }, hostDt, materials); },
+      validateWorld: (staged, entities) => validateWorldBindings(staged, context, { ...context.world.snapshot(), entities: [...entities] }),
+      bind: entry => { entry.bodyRefs = resolveRefs(entry, context, true); entry.attachmentRefs = resolveAttachmentRefs(entry, context, true); }, dispose: disposeEntries }),
     requiresRecovery: () => schedule.faulted,
     afterRestore() { ensureRefs(); },
     afterPhysics() {

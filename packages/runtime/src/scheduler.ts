@@ -34,6 +34,8 @@ export interface SchedulerOptions {
   seed?: number;
   /** Host-owned synchronous callback after the physics phase; not a game system. */
   afterPhysics?: () => void;
+  beforeFlush?: (phase: string) => void;
+  afterFlush?: (phase: string) => void;
 }
 export interface SystemDescriptor {
   id: string;
@@ -281,6 +283,8 @@ export function createScheduler({
   maxSubsteps = 8,
   seed = 0,
   afterPhysics,
+  beforeFlush,
+  afterFlush,
 }: SchedulerOptions) {
   if (!Number.isFinite(fixedDt) || fixedDt <= 0)
     throw new Error("TC_SCHEDULER_DT: fixedDt must be positive and finite.");
@@ -454,7 +458,9 @@ export function createScheduler({
           );
         }
         stage = `flush:${phase}`;
+        beforeFlush?.(phase);
         world.flush();
+        afterFlush?.(phase);
         if (phase === "physics" && afterPhysics) {
           stage = "engine:afterPhysics";
           const result: unknown = afterPhysics();

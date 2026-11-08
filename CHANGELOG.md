@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 - 2026-11-08
+
+- D60 milestone release under the compile/build-only policy. Runtime, GPU, numerical stability, performance, lifecycle and historical recovery acceptance are deferred until after 1.0. This release does not claim completion of every historical CAP item.
 
 - Freeze the final 1.0 implementation scope under D60 to simulation coupling, dynamic-world lifecycle and full-body animation integration; other historical roadmap items are not added to this delivery.
 - Interleave native physics and rope/cloth/soft-body/fluid integration on a shared substep clock, with once-per-tick forces, shared WCSPH pressure, per-substep reactions, moving-obstacle sweeps and structured fixed-tick history transactions. Runtime behavior, numerical stability, rollback and historical compatibility remain unverified.
 - Support 64 explicit native sphere/box bindings per automatic fluid/soft-body entry, detach stale generations and refresh derived samples after host restoration. New automatic entries no longer create a hidden reference sphere; manual/legacy snapshot layout is retained. Behavior and compatibility are unverified.
+- Park dynamic/kinematic/character roots with velocities, sleep/gravity/character state, internal joints, model animation and wholly owned material solvers. Reconstruct native bodies before animation/director evaluation and reject incompatible cross-chunk dependencies. Keep prepared assets cached; asynchronous asset streaming is not included. Lifecycle and recovery are unverified.
+- Coordinate multi-chain grounding, bounded body adjustment, contact normals, moving-support anchors, post-collision root-motion stride feedback and generation-safe model residency. Preserve cinematic time ownership and saved pose state. Kinematic grounding is not ragdoll balance; all behavior remains unverified.
 
 ## 0.17.0 - 2026-11-08
 

@@ -554,6 +554,12 @@ export function createGameServices(
       },
     },
     animation: {
+      setGrounding(entity, definition) {
+        alive(); if (!animation.setGrounding) throw new Error("TC_ANIMATION_ADAPTER: Grounding is unavailable.");
+        animation.setGrounding(entity, cloneSerializable(definition));
+      },
+      grounding(entity) { alive(); if (!animation.grounding) throw new Error("TC_ANIMATION_ADAPTER: Grounding is unavailable."); return animation.grounding(entity); },
+      motionFeedback(entity) { alive(); if (!animation.motionFeedback) throw new Error("TC_ANIMATION_ADAPTER: Motion feedback is unavailable."); return animation.motionFeedback(entity); },
       setRootMotion(entity, definition) {
         alive(); if (!animation.setRootMotion) throw new Error("TC_ANIMATION_ADAPTER: Root motion is unavailable.");
         animation.setRootMotion(entity, cloneSerializable(definition));
@@ -1545,6 +1551,11 @@ export function createGameServices(
     },
     validateSnapshot(value) {
       validate(value);
+    },
+    validateWorld(value, world) {
+      const saved = validate(value), ids = new Set(world.entities.map(entity => entity.id));
+      const references = [saved.camera?.entity, ...saved.ui.filter(item => item.visible).map(item => item.world?.entity), ...saved.audio.voices.map(voice => voice.entity)];
+      for (const id of references) if (id && !ids.has(id)) throw new Error(`TC_SERVICE_RESIDENCY_DEPENDENCY: '${id}' is owned by camera, visible world UI or spatial audio; detach that reference before unloading.`);
     },
     restore(value) {
       const restored = validate(value);
