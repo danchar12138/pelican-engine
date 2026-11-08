@@ -177,6 +177,7 @@ export async function prepareGameplay(
         ? await new HDRLoader().setDataType(THREE.FloatType).loadAsync(assetURL(asset.id))
         : await new THREE.TextureLoader().loadAsync(assetURL(asset.id));
       texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
+      texture.anisotropy = renderer.getMaxAnisotropy();
       textures.set(asset.id, texture);
     }
     if (ir.scene.environment.lightingTexture) {

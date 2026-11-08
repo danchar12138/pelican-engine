@@ -2,7 +2,7 @@
 
 当前功能状态与精确符号通过 `npx --no-install pelican capabilities` 查询；该结果由 `packages/sdk/src/capabilities.ts` 维护。公开签名通过 `pelican api --search <query>` 或 `--symbol <name>` 查询，来自同一 SDK 源码。实现元数据不代表每种设备、规模与组合均已通过运行验证。
 
-首次 npm 使用从 `pelican guide` 开始，简短任务用 `guide --goal <关键词>`。全目录有兼容的完整形式和可选 `--summary` 摘要；摘要／完整形式均支持 `--limit/--offset`，依据 `total/truncated/nextOffset` 翻页。普通 TypeScript 与浏览器兼容 npm 组件是正式创作方式，不存在算法依赖白名单或强制内置玩法 DSL。
+首次 npm 使用从 `pelican guide` 开始，完整任务用 `guide --goal "让角色跳跃并保存游戏"`。任务目录来自 `packages/sdk/src/tasks.ts`，链接到能力、生成的方法、可安装配方与验证步骤；未知任务返回明确标记的导航候选。API/能力失败也使用相同候选入口，不以查询失败推断不支持。能力目录保留兼容的完整形式和 `--summary`，依据 `total/truncated/nextOffset` 翻页。普通 TypeScript/npm 是正式创作方式，不存在依赖白名单或强制玩法 DSL。
 
 | 能力 | 使用入口 | 主要边界 |
 | --- | --- | --- |

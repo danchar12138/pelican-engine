@@ -31,7 +31,7 @@ const system = defineSystem({id:"audio",run(ctx) {
   if (ctx.time.tick === 3) ctx.audio.pause("voice:1");
   if (ctx.time.tick === 4) ctx.audio.resume("voice:1");
 }});
-export default defineGame({id:"bus-game",assets:[audio],audioBuses:[{id:"music",volume:0.5}],sounds:[{id:"tone",asset:audio,bus:"music",loop:true}],systems:[system],scene:defineScene({id:"scene",entities:[]})});
+export default defineGame({id:"bus-game",assets:[audio],audioBuses:[{id:"music",volume:0.5}],sounds:[{id:"tone",asset:audio,bus:"music",loop:true}],systems:[system],scene:defineScene({id:"scene",environment:{lighting:"none"},entities:[]})});
 `);
   const compiled = await compileProject({ projectRoot: root, outDir: "out", engineRoot });
   assert.equal(compiled.success, true, JSON.stringify(compiled.diagnostics));

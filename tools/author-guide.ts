@@ -1,4 +1,4 @@
-import { SDK_VERSION, engineCapabilities } from "../packages/sdk/src/index.ts";
+import { SDK_VERSION, engineCapabilities, engineTasks } from "../packages/sdk/src/index.ts";
 import { recipeIds, recipeDependencies } from "./npm/recipes.ts";
 
 function options(
@@ -90,8 +90,21 @@ export function queryCapabilities(args: readonly string[]) {
 export function authorGuide(args: readonly string[]) {
   const parsed = options(args, ["--goal"], [], "TC_GUIDE_QUERY");
   const goal = String(parsed.get("--goal") ?? "");
-  const features = goal ? engineCapabilities(goal) : [];
-  const recipes = [...new Set(features.flatMap((feature) => feature.recipes))];
+  const tasks = goal ? engineTasks(goal) : [];
+  let features: ReturnType<typeof engineCapabilities> = [];
+  let failure: { code: string; message: string } | undefined;
+  if (goal) {
+    try { features = engineCapabilities(goal); }
+    catch (error) {
+      if (String(error).includes("TC_CAPABILITY_UNSUPPORTED")) throw error;
+      if (!String(error).includes("TC_CAPABILITY_UNKNOWN")) throw error;
+      if (!tasks.length) failure = { code: "TC_TASK_UNKNOWN", message: `No task matched '${goal}'. Candidates below are navigation choices, not claims of support.` };
+    }
+    const ids = new Set(features.map(feature => feature.id));
+    for (const id of tasks.flatMap(task => task.features))
+      if (!ids.has(id)) { features.push(...engineCapabilities(id)); ids.add(id); }
+  }
+  const recipes = [...new Set([...tasks.flatMap(task => task.recipes), ...features.flatMap((feature) => feature.recipes)])];
   return {
     format: "pelican.author-guide",
     version: 1,
@@ -115,15 +128,19 @@ export function authorGuide(args: readonly string[]) {
       dependencies:
         "Install dependencies in the game package.json. No algorithm dependency approval list in content: typescript. Legacy static mode is optional compatibility.",
       lifecycle:
-        "Declare system IDs in game.systems. Load browser-only modules in runtime.create; own(resource, release) adapts ordinary objects, listen scopes EventTarget subscriptions, defer handles cleanup and signal cancels initialization.",
+        "defineGameRuntime declares systems once with isolated validated JSON state and automatic save hooks. Or use runtime.create directly. Browser-only imports belong in setup/create; scope.own/listen/cleanup/defer and signal manage lifetime.",
       state:
         "Use components or versioned snapshot/validateSnapshot/restore hooks for saved state. Third-party objects and closures are not saved automatically.",
       extensions:
-        "Compose your own gameplay/npm modules with engine services. createRuntimeAdapter bridges Worker/WebSocket clients through bounded queues with explicit owned/borrowed endpoints. Managed geometry/PBR/buffers/textures and defineRenderExtension retain resource checks. Built-in gameplay services are optional.",
+        "Compose gameplay/npm freely. createWorkerAdapter/createWebSocketAdapter or createRuntimeAdapter bridge owned/borrowed endpoints. loadRuntimeJSON prepares validated bounded dynamic data. Managed rendering and defineRenderExtension retain resource checks; gameplay services are optional.",
       boundary:
         "Private Three.js/GPU/WASM objects are not a stable ownership contract. Node-only dependencies belong in asset/build tooling. Synchronous system callbacks must not block or return promises.",
     },
     discovery: {
+      status: failure ? "unrecognized" : goal ? "matched" : "catalog",
+      ...(failure ? { failure } : {}),
+      tasks: tasks.map(({ aliases: _aliases, ...task }) => task),
+      ...(!goal || failure ? { candidates: engineTasks().map(({ id, title }) => ({ id, title, query: `pelican guide --goal ${id}` })) } : {}),
       features: features.map(({ id, implementation, symbols, limits }) => ({
         id,
         implementation,
@@ -137,7 +154,7 @@ export function authorGuide(args: readonly string[]) {
         query: `pelican recipe --id ${id}`,
       })),
       next: features.length
-        ? [...new Set(features.flatMap((feature) => feature.symbols))]
+        ? [...new Set([...tasks.flatMap(task => task.methods), ...features.flatMap((feature) => feature.symbols)])]
             .slice(0, 6)
             .map((symbol) => `pelican api --symbol ${symbol}`)
         : [
@@ -146,7 +163,7 @@ export function authorGuide(args: readonly string[]) {
             "pelican capabilities --summary --limit 8",
           ],
       recovery:
-        "An unknown query does not prove a missing capability. Try aliases, a shorter goal, the owning service and exact Type.member. Report the concrete gap; do not silently remove a requested feature.",
+        "An unknown query does not prove a missing capability. Use task candidates, the owning service and exact Type.member. Report the concrete gap; do not silently remove a requested feature.",
     },
     verification:
       "check/build do not prove behavior. Run the game, inspect diagnostics and use step/input/capture. automation=1 pauses intentionally; use step/resume, not desktop Enter. Test instance cleanup and save/load when using external state.",

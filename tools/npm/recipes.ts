@@ -3,6 +3,8 @@ import path from "node:path";
 
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
+  { id: "third-person", anchor: "third-person", title: "Jump, follow camera and save/load", summary: "A complete physical character game with grounded jumps, follow camera, instance state and local saves." },
+  { id: "dynamic-resources", anchor: "dynamic-resources", title: "Dynamic validated JSON to managed rendering", summary: "Fetch bounded cancellable data, validate it, publish on fixed ticks and preserve it in saves." },
   { id: "external-adapters", anchor: "external-adapters", title: "Workers, transports and managed resources", summary: "Bridge standard module Workers and optional WebSocket messages into fixed-tick systems and versioned rendering resources." },
   { id: "runtime-lifecycle", anchor: "runtime-lifecycle", title: "Per-instance runtime and browser dependencies", summary: "Initialize a browser-only npm module, own resources and save/restore instance-local state." },
   { id: "managed-rendering", anchor: "managed-rendering", title: "Managed geometry and rendering extension", summary: "Build an indexed mesh from arrays and compose a versioned postprocess extension." },

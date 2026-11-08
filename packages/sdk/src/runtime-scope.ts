@@ -95,6 +95,11 @@ export function createRuntimeScope(engine: EngineFacade, id: string) {
   const scope: GameRuntimeScope = {
     engine,
     signal: controller.signal,
+    cleanup(release) {
+      if (typeof release !== "function")
+        throw new Error(`TC_GAME_RUNTIME_DISPOSE: ${id}; cleanup expects a release function.`);
+      return register(release);
+    },
     defer(release) {
       if (typeof release !== "function")
         throw new Error(

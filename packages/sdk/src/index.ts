@@ -3,6 +3,10 @@ import { describeFeatures } from "./capabilities.ts";
 import { expandRenderExtensions } from "./render-extension.ts";
 import { createGameInstance } from "./runtime-lifecycle.ts";
 import { createMessageBridge } from "./runtime-adapter.ts";
+import { composeGameRuntime } from "./runtime-composition.ts";
+import { discoverTasks } from "./tasks.ts";
+import { bridgeWorker, bridgeWebSocket, fetchRuntimeJSON } from "./runtime-integrations.ts";
+import { qualitySettings } from "./render-quality.ts";
 export interface EngineFeature {
   id: string;
   /** Discovery text and vocabulary; implementation/backend limits still apply. */
@@ -16,7 +20,19 @@ export interface EngineFeature {
 }
 /** Implementation metadata, not runtime hardware acceptance; use ctx.render.capabilities for the active device. */
 export function engineCapabilities(query = ""): EngineFeature[] { return describeFeatures(query); }
-export const SDK_VERSION = "1.5.0";
+export interface EngineTask {
+  id: string;
+  title: string;
+  aliases: readonly string[];
+  features: readonly string[];
+  methods: readonly string[];
+  recipes: readonly string[];
+  verify: readonly string[];
+  limits: readonly string[];
+}
+/** Ranked task intents; an empty result means unrecognized, not unsupported. */
+export function engineTasks(goal = ""): EngineTask[] { return discoverTasks(goal); }
+export const SDK_VERSION = "1.6.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -853,6 +869,8 @@ export interface RenderSettings {
   indirectLighting: boolean;
   debug: "beauty" | "albedo" | "normal" | "depth" | "samples";
 }
+/** Real-time raster by default; preview/capture explicitly require WebGPU. Author overrides remain authoritative. */
+export function renderQuality(preset: "realtime" | "preview" | "capture" = "realtime"): RenderSettings { return qualitySettings(preset); }
 /** Runtime values for non-graph material channels; colors are linear RGB. */
 export interface MaterialSurfacePatch {
   color?: Vec3; emissive?: Vec3; roughness?: number; metalness?: number; emissiveIntensity?: number;
@@ -1976,6 +1994,8 @@ export interface GameRuntimeScope {
   readonly signal: AbortSignal;
   /** Synchronous cleanup, invoked once in reverse registration order, including failed initialization. */
   defer(release: () => void): void;
+  /** Register synchronous cleanup and return an idempotent early-release function. */
+  cleanup(release: () => void): () => void;
   /** Transfer ownership of a disposable resource to this instance and return it unchanged. */
   own<T extends { dispose(): void }>(resource: T): T;
   /** Adapt an ordinary npm/browser object without changing its shape. Borrowed objects should not be owned. */
@@ -2011,6 +2031,45 @@ export interface RuntimeMessageAdapter<I, O> {
 export function createRuntimeAdapter<I, O>(scope: GameRuntimeScope, input: RuntimeAdapterInput<I, O>): RuntimeMessageAdapter<I, O> {
   return createMessageBridge(scope, input);
 }
+export interface WorkerAdapterInput<I, O> {
+  id: string;
+  version: string;
+  endpoint: Worker;
+  ownership: "owned" | "borrowed";
+  capacity?: number;
+  decode(value: unknown): I;
+  /** Optional transfer list; ownership of transferred buffers leaves the sender. */
+  transfer?(value: O): Transferable[];
+}
+/** Standard module Worker adapter; instantiate the Worker inside runtime.create. */
+export function createWorkerAdapter<I, O>(scope: GameRuntimeScope, input: WorkerAdapterInput<I, O>): RuntimeMessageAdapter<I, O> {
+  return bridgeWorker(scope, input);
+}
+export interface WebSocketAdapterInput<I, O> {
+  id: string;
+  version: string;
+  endpoint: WebSocket;
+  ownership: "owned" | "borrowed";
+  capacity?: number;
+  decode(value: unknown): I;
+  encode(value: O): string | ArrayBuffer | Blob | ArrayBufferView<ArrayBuffer>;
+}
+/** No hidden reconnect or multiplayer protocol. Sending before OPEN reports a diagnostic. */
+export function createWebSocketAdapter<I, O>(scope: GameRuntimeScope, input: WebSocketAdapterInput<I, O>): RuntimeMessageAdapter<I, O> {
+  return bridgeWebSocket(scope, input);
+}
+export interface RuntimeJSONInput<T> {
+  url: string | URL;
+  decode(value: unknown): T;
+  /** Response body budget, default 1 MiB; bounded to 1..64 MiB. */
+  maxBytes?: number;
+  /** Deadline in ms, default 10000; bounded to 1..120000. */
+  timeoutMs?: number;
+}
+/** Fetch dynamic JSON with cancellation, a byte budget and author validation; not automatic persistence/replay. */
+export function loadRuntimeJSON<T>(scope: GameRuntimeScope, input: RuntimeJSONInput<T>): Promise<T> {
+  return fetchRuntimeJSON(scope, input);
+}
 export interface GameRuntimeState {
   systems?: Readonly<Record<string, SystemInput["run"]>>;
   /** Finite JSON; same bounded data contract as component JSON fields. Supply all three state hooks together. */
@@ -2025,6 +2084,25 @@ export interface GameRuntimeDefinition {
   version: string;
   /** Called once per instance, never by content construction. Put browser-only imports/initialization here. */
   create(scope: GameRuntimeScope): GameRuntimeState | void | Promise<GameRuntimeState | void>;
+}
+/** Keep this cell, not a cached reference to value: restore replaces value with a detached validated copy. */
+export interface RuntimeState<T extends JsonValue> { value: T }
+export interface RuntimeSystemInput<T extends JsonValue> extends Omit<SystemInput, "run"> {
+  run(ctx: SystemContext, dt: number, state: RuntimeState<T>, scope: GameRuntimeScope): void;
+}
+export interface GameRuntimeInput<T extends JsonValue> {
+  version: string;
+  /** Fresh JSON per instance, never executed during declaration extraction. */
+  state(): T;
+  /** Validate detached data without mutation; an assertion function is optional. */
+  validateState(value: JsonValue): void;
+  systems: readonly RuntimeSystemInput<T>[];
+  /** Browser-only dependencies and scoped resources; cannot replace the declared systems. */
+  setup?(scope: GameRuntimeScope, state: RuntimeState<T>): void | Promise<void>;
+}
+/** Spread into defineGame: declares systems once and supplies isolated state plus all save hooks. */
+export function defineGameRuntime<T extends JsonValue>(input: GameRuntimeInput<T>): { systems: readonly SystemMetadata[]; runtime: GameRuntimeDefinition } {
+  return composeGameRuntime(input);
 }
 export interface GameRuntimeSnapshot {
   format: "pelican.game-runtime";

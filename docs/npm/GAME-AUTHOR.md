@@ -4,7 +4,7 @@
 
 ## 创建和查询
 
-第一次使用先运行 `npx --no-install pelican guide`。这个紧凑 JSON 入口说明当前安装版本的完整起步流程、普通 npm 组合方式、实例状态与清理约定。`pelican guide --goal npm` 或 `--goal 存档` 将简短目标定位到真实能力、公开类型和完整配方，不要求通读源码或全量 API。
+第一次使用先运行 `npx --no-install pelican guide`，再用 `guide --goal "让角色跳跃并保存游戏"` 查询完整任务。返回排序后的任务、精确方法、完整配方、验证步骤与限制；多个意图可以组合。不要先通读源码或整份 API。
 
 需要 Node.js 24.x 和 npm。工具支持 Windows、macOS、Linux；玩家按浏览器实际图形能力检测，不按系统品牌白名单限制。
 
@@ -32,7 +32,7 @@ npx --no-install pelican build
 
 新项目生成的 `AGENTS.md` 就是包内入口，不依赖专用 AI 平台。`capabilities --summary` 省略详细别名和限制，只用于挑选能力；选定后使用 `--feature <id>` 读完整边界。分页返回 `total/truncated/nextOffset`，使用 `--limit <1..100> --offset <n>` 继续，不把第一页当成全部能力。
 
-完整能力结果仍保留原 1.x 形式。精确方法用 `api --symbol Type.member`；搜索用 `api --search <词> --member --limit 5`，避免一次加载整份类型。未知词先尝试同义词、短关键词和所属 service。只在明确缺口时反馈，不因查询失败私自替换渲染器或砍掉游戏要求。
+完整能力结果仍保留原 1.x 形式。精确方法用 `api --symbol Type.member`；搜索用 `api --search <词> --member --limit 5`。`guide` 无匹配时返回 `discovery.status: "unrecognized"`、`TC_TASK_UNKNOWN` 与可直接查询的候选，候选不是“已支持”的断言。不要因一次查询失败就替换渲染器或砍掉游戏要求。
 
 能力查询支持 ID、中英文与同义词，例如 `capabilities --feature 音效`、`--feature heightmap`、`--feature 计算着色器`、`--feature 后处理`、`--feature physics2d`、`--feature 存档` 和 `--feature geometry`。每项返回 `description`、`aliases`、真实 SDK `symbols`、实现状态、后端与限制；未带 `--feature` 时列出完整目录。这些是实现元数据，当前设备是否支持仍查询 `ctx.render.capabilities()`。目录未收录返回失败码 `TC_CAPABILITY_UNKNOWN`，不表示已经证明不支持；明确排除的硬件光追等返回 `TC_CAPABILITY_UNSUPPORTED`，不会以空数组成功响应。
 
@@ -57,11 +57,23 @@ Worker、WebSocket 或 npm 组件可查询 `pelican guide --goal worker`，完�
 
 构建时模块在独立 Node 进程执行，默认截止 10000ms；可设置 `contentTimeoutMs: 100..120000`。这是可信游戏构建，不是恶意代码安全沙箱。声明导出有限普通数据；实例、Map、Set 可用于构造过程，不能直接作为声明数据输出。系统 `run` 必须同步。
 
-模块初始化同时用于构建和浏览器加载，使用稳定资源 ID 和确定性数据；不要在声明构造中放随机数、网络或外部副作用。DOM/浏览器 API 在运行系统里使用。普通依赖对象不会自动纳入引擎存档、时间回放或资源释放，作者负责其生命周期；需要保存与检查的状态放组件或公开服务。
+模块初始化同时用于构建和浏览器加载，使用稳定资源 ID 和确定性数据；不要在声明构造中放随机数、网络或外部副作用。DOM/浏览器 API 在 setup/runtime.create 或同步系统中使用，不放在声明构造顶层。普通依赖对象不会自动纳入存档、回放或资源释放；需要保存的状态放组件、公开服务或版本化 runtime 协议。
 
 旧项目省略 `content` 时保留 `static` 模式，使用受限的非执行式表达式构建。该模式的 runtime-only 包需要 `libraries`；它不支持在内容构造中调用依赖。切换普通 TypeScript 后无需重写玩法，也不必沿用静态语法。
 
 ## 实现玩法
+
+按任务选择完整配方；`recipe` 返回源码、辅助文件和明确的 npm 依赖，不是只能照用的玩法框架：
+
+| 任务 | `pelican create --template` / `recipe --id` |
+| --- | --- |
+| 移动、跳跃、跟随相机、存读档 | `third-person` |
+| browser-only npm、每实例资源与状态 | `runtime-lifecycle` |
+| 标准 Worker、WebSocket、受管缓冲更新 | `external-adapters` |
+| 有大小与截止预算的动态 JSON → 受管渲染 | `dynamic-resources` |
+| 索引网格与渲染扩展包 | `managed-rendering` |
+
+`defineGameRuntime` 可展开到 `defineGame`：系统只声明一次，`state()` 每实例创建 JSON，`validateState` 校验，辅助器提供完整保存恢复协议。系统使用 `state.value`，恢复会替换它，不要把旧 value 缓存在闭包中。Map、类和第三方实例照常使用，但需自己的 JSON 编解码或原有 runtime hooks。`scope.cleanup` 返回可提前调用的幂等清理函数；`own/listen/defer` 保持兼容。
 
 从组件、实体、系统、事件、输入和资源组合玩法，或使用 npm 中的算法模块。背包、任务、对话等服务是便利选项，不要求游戏遵循这些规则。组件 `{type:"json", default:[]}` 存有限普通 JSON，每字段最多深度16、8192节点、65536 UTF-8字节。
 
@@ -72,6 +84,10 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 ## 图形、调试与运行
 
 优先 WebGPU，WebGL2 只回退光栅。compute、混合和路径追踪不在 WebGL2 上伪装支持。路径追踪使用软件 BVH，不是硬件 RT。材质图、计算图、纹理与缓冲绑定是公开扩展入口；任意 Three.js/TSL 插件没有现成的引擎接入协议。
+
+默认走高质量实时光栅：原生 DPR、抗锯齿、ACES、studio IBL、4096 阴影图和硬件支持的各向异性过滤；未开启投影的灯不会因此自动投影。指定 `lighting: "none"` 可关闭 IBL；自带 lightingTexture 时使用作者环境。`renderQuality()`、`renderQuality("preview")` 和 `renderQuality("capture")` 返回可覆盖设置，后两档需要 WebGPU。采样数和反弹数只影响追踪，不会提高光栅采样。高模、贴图、曝光和帧率仍应按实际场景验证。
+
+开发服务器对声明兼容的逻辑修改事务式替换实例并恢复完整检查点，不再整页丢失状态。声明、资产、保存版本或服务契约改变时保留旧游戏，`inspect.iteration` 报告 `TC_DEV_RESTART_REQUIRED`；`pelican reload --restart` 或显式刷新应用新内容。`pelican reload` 手动重试兼容更新。候选初始化或恢复失败保留旧实例，不自动抹掉进度。这不是任意 schema 迁移或全量资产热更新。
 
 正常游戏跟随窗口与 DPR。自动截图可同时指定 URL 的 width/height 固定像素。开发与生产默认隐藏诊断 HUD，需要时用 `?diagnostics=1`。固定时间的质量捕获先暂停，再用 `pelican render --mode path --samples 256 --denoise false` 和 `capture --live`，积累采样不会推进玩法。
 

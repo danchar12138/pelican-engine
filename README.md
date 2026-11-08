@@ -17,7 +17,7 @@ Pelican Engine 是面向 AI 编码工具的开源游戏引擎。**一个 npm 包
 ## 为什么选择 Pelican
 
 - **玩法自由组合。** 普通 TypeScript、自定义模块与 npm 组件一起用，不必套专用语法或固定玩法。
-- **画面可编程。** 光栅、混合与路径追踪，搭配 PBR 材质、程序化网格和受管渲染扩展。
+- **写实画面，可编程。** 高质量光照默认值、PBR、混合与路径追踪，搭配程序化网格和受管渲染扩展。
 - **开发不止渲染。** 实体、物理、动画、UI、音频与存档，组成完整游戏基础。
 - **AI 有据可查。** 起步指南、精确 API、完整配方和结构化诊断，连接查询、运行与修复。
 - **交付保持简单。** Windows、macOS、Linux 开发，构建后部署到普通静态服务器。
@@ -39,11 +39,11 @@ npx pelican dev
 
 ```sh
 npx pelican guide
-npx pelican guide --goal 存档
+npx pelican guide --goal "让角色跳跃并保存游戏"
 npx pelican api --symbol StorageService.save
 ```
 
-先查能力，再写实现。配方包含完整文件与依赖，新项目自带 `AGENTS.md` 入口；不必猜接口，也不必通读引擎源码。
+按任务找到能力、精确方法与完整配方，查询失败也有下一步候选。新项目自带 `AGENTS.md`；不必猜接口或通读引擎源码。
 
 ## 用自己的方式扩展
 

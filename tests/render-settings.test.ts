@@ -43,7 +43,7 @@ test("render snapshot binds initial settings and validates current values before
   const bad = structuredClone(saved) as any;
   bad.settings.samplesPerFrame = 0;
   assert.throws(() => plugin.restore(bad), /TC_RENDER_SETTINGS/);
-  assert.equal(driver.service.state().samplesPerFrame, 1);
+  assert.equal(driver.service.state().samplesPerFrame, 2);
   const other = createRenderSettingsDriver({ mode: "raster" }).factory(
     {} as never,
   );

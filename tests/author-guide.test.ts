@@ -36,11 +36,11 @@ test("cold-start guide is compact, source-derived and permits ordinary npm compo
   assert.ok(
     saved.discovery.next.some((command) => command.includes("StorageService")),
   );
-  for (const goal of ["unknownNotACapability", "硬件光追"])
-    assert.throws(
-      () => authorGuide(["--goal", goal]),
-      /TC_CAPABILITY_(UNKNOWN|UNSUPPORTED)/,
-    );
+  const unknown = authorGuide(["--goal", "unknownNotACapability"]);
+  assert.equal(unknown.discovery.status, "unrecognized");
+  assert.equal(unknown.discovery.failure?.code, "TC_TASK_UNKNOWN");
+  assert.ok(unknown.discovery.candidates!.length > 3);
+  assert.throws(() => authorGuide(["--goal", "硬件光追"]), /TC_CAPABILITY_UNSUPPORTED/);
   for (const args of [
     ["--goal"],
     ["--goal", " "],

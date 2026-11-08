@@ -6,7 +6,7 @@ const green = defineMaterial({ id: "green", color: "#32905b", roughness: 0.8 });
 const metal = defineMaterial({ id: "metal", color: "#e7d6ad", roughness: 0.08, metalness: 1 });
 const emitter = defineMaterial({ id: "emitter", color: "#ffffff", emissive: "#ffffff", emissiveIntensity: 10, roughness: 1 });
 export default defineGame({ id: "quality-room", materials: [white, red, green, metal, emitter], render: { mode: "raster", exposure: 1, maxBounces: 6 },
-  scene: defineScene({ id: "room", camera: { position: [0, 2.2, 7], target: [0, 1.8, 0], fov: 48 }, environment: { background: "#000000", ambientIntensity: 0 }, entities: [
+  scene: defineScene({ id: "room", camera: { position: [0, 2.2, 7], target: [0, 1.8, 0], fov: 48 }, environment: { background: "#000000", ambientIntensity: 0, lighting: "none" }, entities: [
     { id: "floor", transform: { position: [0, -0.1, 0] }, mesh: { geometry: { kind: "box", size: [6, 0.2, 6] }, material: white } },
     { id: "ceiling", transform: { position: [0, 4.1, 0] }, mesh: { geometry: { kind: "box", size: [6, 0.2, 6] }, material: white } },
     { id: "back", transform: { position: [0, 2, -3.1] }, mesh: { geometry: { kind: "box", size: [6, 4, 0.2] }, material: white } },

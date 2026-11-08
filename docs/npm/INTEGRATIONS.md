@@ -24,39 +24,30 @@
 
 ## 每个游戏实例有自己的初始化和状态
 
-`runtime.create(scope)` 在浏览器按实例执行，构建不会执行它。返回的系统按构建时声明的 ID 绑定，`run` 保持同步。异步请求、动态 import 和资源准备放在 create 中；普通系统不要返回 Promise。
+优先使用 `defineGameRuntime` 合并系统声明、实例状态与保存协议；需要 Map、自定义 codec 或更复杂恢复时仍可直接使用 `runtime.create(scope)`。两者的初始化都不会在内容构建时执行。`run` 保持同步，异步准备在 setup/create 内完成。
 
 ```ts
-import { defineGame, defineScene, defineSystem } from "pelican-engine";
+import { defineGame, defineScene, defineGameRuntime } from "pelican-engine";
 
 export default defineGame({
   id: "counter",
   scene: defineScene({ id: "main", entities: [{ id: "state" }] }),
-  systems: [defineSystem({ id: "counter" })],
-  runtime: {
+  ...defineGameRuntime<{ count: number }>({
     version: "counter-v1",
-    async create(scope) {
-      const { createView } = await import("./browser-view.ts");
-      scope.signal.throwIfAborted();
-      const view = scope.own(createView());
-      let count = 0;
-      const validate = (value: unknown): void => {
-        if (!value || typeof value !== "object" || !("count" in value) ||
-            !Number.isSafeInteger(value.count) || Number(value.count) < 0)
-          throw new Error("COUNTER_STATE: Expected a nonnegative integer count.");
-      };
-      return {
-        systems: { counter(ctx) { count++; view.show(count); } },
-        snapshot: () => ({ count }),
-        validateSnapshot: validate,
-        restore(value) { validate(value); count = (value as { count: number }).count; view.show(count); },
-      };
+    state: () => ({ count: 0 }),
+    validateState(value) {
+      if (!value || typeof value !== "object" || !("count" in value) ||
+          !Number.isSafeInteger(value.count) || Number(value.count) < 0)
+        throw new Error("COUNTER_STATE: Expected a nonnegative integer count.");
     },
-  },
+    systems: [{ id: "counter", run(_ctx, _dt, state) { state.value.count++; } }],
+  }),
 });
 ```
 
-浏览器模块可以在顶层访问 DOM，返回可释放对象：
+`state.value` 在恢复时被替换为校验过的副本，不要长期缓存旧引用。辅助器不限制非存档数据结构；任意外部对象仍不自动存档。使用低级 hooks 的完整例子在 `runtime-lifecycle`。
+
+浏览器模块可以在顶层访问 DOM，返回可释放对象；仅在 setup/create 内导入并 `scope.own(createView())`：
 
 ```ts
 const doc = document;
@@ -108,9 +99,13 @@ export function createView() {
 
 动态数据可以经现有 `ctx.compute.createBuffer/writeBuffer/releaseBuffer`、纹理对应方法和 `ctx.render.buffers/textures` 绑定进入渲染模块；引用、尺寸、有限数值、后端与释放检查仍生效。任意动态网格拓扑替换、原始 GPU 对象互通和完整异步世界流送不是此适配器自动提供的能力。
 
+具体适配可直接用 `createWorkerAdapter`、`createWebSocketAdapter`，传标准端点、owned/borrowed 与 decode；Worker 可显式传 transfer 列表，WebSocket 还需 encode。未 OPEN 发送、解码失败、连接关闭和队列溢出有诊断，没有隐式重连。泛型适配器继续服务于 npm 客户端的自定义订阅协议。
+
+`loadRuntimeJSON(scope, { url, decode, maxBytes, timeoutMs })` 为动态数据提供流式大小检查、HTTP/JSON/UTF-8 校验、截止时间与实例取消。默认 1 MiB、10 秒，可显式调整到最多 64 MiB、120 秒。decode 同步且由作者定义，CORS/CSP 照常适用；不要在同步系统中 await。完整 `dynamic-resources` 配方把准备结果在固定 tick 写入受管缓冲并显式保存恢复，不把任意 fetch 伪装成资产流送。
+
 ## 让编码 AI 找到已有能力
 
-先查询目标，再查询精确方法与可运行配方。`capabilities` 支持中文和别名；`TC_CAPABILITY_UNKNOWN` 表示未匹配查询，`TC_CAPABILITY_UNSUPPORTED` 才表示有明确限制。检查 total/truncated，不要只读搜索第一项。
+先 `guide --goal "完整任务"`，再查返回的精确方法与可运行配方。无匹配返回标记为候选的导航，不伪称支持；`capabilities` 的 `TC_CAPABILITY_UNKNOWN` 也只是未匹配，`TC_CAPABILITY_UNSUPPORTED` 才是明确限制。检查 total/truncated，不要只读第一项。
 
 需要的 API 未找到时，依次尝试同义词、所属 service 的完整类型和方法检索。记录所需输入、输出、资源生命周期与后端，再反馈缺口。不要因一次空搜索就改成另一套引擎、关闭要求的效果或用固定展示代替交互。
 

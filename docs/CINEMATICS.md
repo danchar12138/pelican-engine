@@ -182,7 +182,7 @@ subtitles and at most 256 sequence wraps per fixed tick. Sequence duration and
 source offsets/intervals are bounded to one day. Combined audio rates stay in
 `[0.01,16]`. Normal root-motion loop and numeric limits also apply.
 
-This development implementation has only been compiled and built. Rendering,
-caption layout/accessibility, sound output, audio/video alignment, branching,
-character blocking, snapshots, cleanup and failure recovery have not been run
-or validated. Full engine 1.0 integration and acceptance are still unfinished.
+Validate caption layout/accessibility, actual sound output, audio/video alignment,
+branching, character blocking and save/load with the game's assets and target
+browser. Source tests cover specific contracts; they are not blanket acceptance
+of every sequence or hardware combination.

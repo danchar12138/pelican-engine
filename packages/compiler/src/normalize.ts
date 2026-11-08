@@ -846,7 +846,7 @@ export async function normalize(
         error("TC_SCHEMA_RANGE", "distance must be representable as a positive float32 value.", l, "distance");
       if (l.shadow !== undefined) {
         const shadow = obj(l.shadow, l, "shadow");
-        const mapSize = num(shadow.mapSize, shadow, "mapSize", 2048, 128, 8192);
+        const mapSize = num(shadow.mapSize, shadow, "mapSize", 4096, 128, 8192);
         if (!Number.isInteger(mapSize) || !Number.isInteger(Math.log2(mapSize)))
           error(
             "TC_LIGHT_SHADOW",
@@ -1278,8 +1278,8 @@ export async function normalize(
           lightingRotation: num(environment.lightingRotation, environment, "lightingRotation", 0, -1e6, 1e6),
           lightingIntensity: num(environment.lightingIntensity, environment, "lightingIntensity", 1, 0, 1e6),
         } : {}),
-        ...(environment.lighting !== undefined
-          ? { lighting: environment.lighting as "none" | "studio" }
+        ...(lightingTexture === undefined
+          ? { lighting: (environment.lighting ?? "studio") as "none" | "studio" }
           : {}),
         background: text(
           environment.background,

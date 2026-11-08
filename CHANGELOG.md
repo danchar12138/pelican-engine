@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0
+
+- 新增任务级发现：完整中英文目标定位能力、精确方法、配方与验证步骤；未知任务、API 和能力查询提供同源导航候选，不把未匹配伪称为不支持或已支持。
+- 新增 `defineGameRuntime`，系统声明一次、每实例 JSON 状态与完整保存 hooks 自动组合；新增 `scope.cleanup` 可提前幂等释放，原有 runtime/own/listen/defer 保持兼容。
+- 新增标准 `createWorkerAdapter` / `createWebSocketAdapter`，复用有界队列、协议校验与 owned/borrowed；新增 `loadRuntimeJSON` 的流式字节预算、超时、取消与作者校验。
+- 新增完整 `third-person`（移动、跳跃、跟随、存读档）和 `dynamic-resources` 配方，现有 Worker/WebSocket 配方改用具体适配器，npm 算法与低级扩展协议仍可自由组合。
+- dev 对声明兼容的逻辑改动事务式替换实例并恢复完整状态；失败保留旧实例，不兼容改动明确要求重启。新增 `pelican reload [--restart]`，不伪称任意资产/schema 可无损热更新。
+- 默认 studio IBL（可关闭或由作者环境替代）、4096 投影阴影图、设备支持的各向异性过滤；`renderQuality` 提供 realtime/preview/capture。默认追踪预算提高为 2 samples/frame、8 bounces；预览/捕获需 WebGPU，光栅不使用追踪预算。显式作者设置保留。
+- 同步 npm AI 入口、能力、配方和方法索引，清除图形/动画/过场指南中的过期编译期限制。历史版本记录不是当前开发约束。
+
 ## 1.5.0
 
 - 新增 `createRuntimeAdapter`：普通 Worker、WebSocket 或 npm 客户端通过自己的 send/subscribe/decode 接入，不强制通信协议或内置玩法模型。

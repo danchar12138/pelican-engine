@@ -74,7 +74,8 @@ function harness(names: string[], context: Record<string, unknown>) {
   const text = names
     .map(body)
     .join("\n")
-    .replaceAll("import.meta.env.BASE_URL", '"/"');
+    .replaceAll("import.meta.env.BASE_URL", '"/"')
+    .replaceAll("import.meta.env.DEV", "true");
   const script = ts.transpileModule(text, {
     compilerOptions: {
       target: ts.ScriptTarget.ES2023,
@@ -98,6 +99,8 @@ function harness(names: string[], context: Record<string, unknown>) {
     recoveringGpu: false,
     recoveryCount: 0,
     recoveryEvents: [],
+    contentIteration: { status: "idle", applied: 0 },
+    contentReleasedKeys: new Set<string>(),
     createRenderSettingsDriver,
     createComputeDriver,
     createComputeTextureAssets,

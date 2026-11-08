@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import { contentIterationCompatibility } from "./content-iteration.ts";
 import { createManagedGeometry } from "./managed-geometry.ts";
 import { setupPBRMaterial } from "./pbr-material.ts";
 import { resolveViewport } from "./viewport.ts";
@@ -226,6 +227,9 @@ let recoveringGpu = false;
 let recoveryTask: Promise<void> | undefined;
 let recoveryCount = 0;
 let drawTail: Promise<unknown> = Promise.resolve();
+let frameTail: Promise<void> = Promise.resolve();
+let iterationTail: Promise<unknown> = Promise.resolve();
+let contentIteration: { status: "idle" | "applying" | "applied" | "rejected"; applied: number; error?: string } = { status: "idle", applied: 0 };
 let tickTail: Promise<void> = Promise.resolve();
 let nativeInputTail: Promise<void> = Promise.resolve();
 let gamepadHost: RuntimeHost | undefined, gamepadFingerprint: string | undefined;
@@ -299,6 +303,7 @@ let gameplay: GameplayContent | undefined;
 let contentScope: ResourceScope | undefined;
 let contentGeneration = 0;
 let loadingContent = false;
+const contentReleasedKeys = new Set<string>();
 let disposed = false;
 let terminalFault = false;
 let restoring = false;
@@ -476,8 +481,8 @@ function createEntityView(
     if ("shadow" in light) {
       const shadow = entity.light.shadow;
       light.shadow.mapSize.set(
-        shadow?.mapSize ?? 2048,
-        shadow?.mapSize ?? 2048,
+        shadow?.mapSize ?? 4096,
+        shadow?.mapSize ?? 4096,
       );
       light.shadow.bias = shadow?.bias ?? -0.0001;
       light.shadow.normalBias = shadow?.normalBias ?? 0.04;
@@ -740,7 +745,7 @@ interface GameSave {
   assets: Record<string, string>;
   runtime: HostSnapshot;
 }
-async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
+async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, iteration = false) {
   if (disposed) throw new Error("TC_BROWSER_DISPOSED");
   if (loadingContent || restoring)
     throw new Error(
@@ -796,6 +801,10 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
         ...(ir.scenes ?? []).filter((entry) => entry.id !== sceneId),
       ];
       ir.scene = selected;
+    }
+    if (iteration && compiledIR) {
+      const policy = contentIterationCompatibility(compiledIR, ir);
+      if (!policy.compatible) throw new Error(`TC_DEV_RESTART_REQUIRED: ${policy.reason}`);
     }
     if (
       saved &&
@@ -1083,6 +1092,9 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     throw error;
   } finally {
     loadingContent = false;
+    const released = [...contentReleasedKeys];
+    contentReleasedKeys.clear();
+    if (!disposed) for (const key of released) runtime?.input(key, false);
   }
 }
 /** Only completed fixed ticks may request browser persistence or scene transactions. */
@@ -1524,6 +1536,7 @@ async function pollGameplayGamepad(): Promise<void> {
   await nativeInputTail;
 }
 function onKeyUp(event: KeyboardEvent) {
+  if (loadingContent) { contentReleasedKeys.add(event.key); return; }
   if (gameplay?.consumesKeyboard(event)) return;
   if (
     disposed ||
@@ -1539,6 +1552,7 @@ function onKeyUp(event: KeyboardEvent) {
 function onWindowBlur() {
   const host = runtime, current = gameplay;
   gamepadFingerprint = undefined;
+  if (loadingContent) for (const key of Object.values(compiledIR?.input ?? {}).flat()) contentReleasedKeys.add(key);
   if (host && current && !disposed && !terminalFault && !loadingContent && !restoring) {
     const keys = [...new Set(Object.values(compiledIR?.input ?? {}).flat())];
     queueNativeInput(() => { if (runtime === host) for (const key of keys) host.input(key, false); });
@@ -1607,6 +1621,7 @@ function inspect(options?: InspectPage) {
     : undefined;
   return {
     ready: !disposed && !terminalFault && !recoveringGpu,
+    ...(import.meta.env.DEV ? { iteration: { ...contentIteration } } : {}),
     playback: {
       playing,
       automation: startup.automation,
@@ -1680,7 +1695,7 @@ function inspect(options?: InspectPage) {
     metrics: [...metrics],
     capabilities: {
       ...renderCapabilities(backendKind),
-      ...inspectTraceCapabilities({ backend: backendKind, legacyProbe: probeEnabled, surfaceInitialized: !!surfaceTracer, gameplay: !!gameplay, maxBounces: renderControl?.service.state().maxBounces ?? 5 }),
+      ...inspectTraceCapabilities({ backend: backendKind, legacyProbe: probeEnabled, surfaceInitialized: !!surfaceTracer, gameplay: !!gameplay, maxBounces: renderControl?.service.state().maxBounces ?? 8 }),
     },
   };
 }
@@ -1924,6 +1939,37 @@ async function boot() {
   await draw();
   const api = {
     inspect,
+    reloadContent: async (restart = false) => {
+      if (!import.meta.env.DEV) throw new Error("TC_DEV_ONLY: Content iteration is a development operation.");
+      if (contentIteration.status === "applying" || loadingContent || restoring)
+        throw new Error("TC_CONTENT_BUSY: Wait for the active content transaction before reloading.");
+      const wasPlaying = playing;
+      playing = false;
+      contentIteration = { status: "applying", applied: contentIteration.applied };
+      try {
+        await frameTail;
+        await nativeInputTail;
+        await tickTail;
+        await drawTail;
+        await computeControl?.flush();
+        const saved: GameSave | undefined = restart ? undefined : {
+          format: "pelican.save", version: 1, engineVersion: SDK_VERSION,
+          gameId: compiledIR!.gameId, sceneId: compiledIR!.scene.id,
+          assets: Object.fromEntries(compiledIR!.assets.map(asset => [asset.id, asset.hash])),
+          runtime: requireRuntime().snapshot(),
+        };
+        await loadGame(saved?.sceneId, saved, undefined, !restart);
+        contentIteration = { status: "applied", applied: contentIteration.applied + 1 };
+        await draw(false, true);
+        return inspect();
+      } catch (error) {
+        contentIteration = { status: "rejected", applied: contentIteration.applied, error: String(error) };
+        throw error;
+      } finally {
+        playing = wasPlaying;
+        lastFrameTime = undefined;
+      }
+    },
     configureRendering: async (settings: Partial<RenderSettings>) => {
       requireRuntime().facade.render.configure(settings);
       await draw(false, true);
@@ -2292,6 +2338,9 @@ async function boot() {
             api.play();
             data = inspect();
             break;
+          case "reload":
+            data = await api.reloadContent(command.restart);
+            break;
           case "snapshot":
             data = api.snapshot();
             break;
@@ -2405,6 +2454,11 @@ async function boot() {
   };
   if (import.meta.env.DEV)
     (window as unknown as { __pelican: typeof api }).__pelican = api;
+  import.meta.hot?.on("pelican:content", () => {
+    iterationTail = iterationTail.then(() => api.reloadContent()).catch(error => {
+      console.warn(String(error));
+    });
+  });
   async function loop(now: number) {
     if (disposed) return;
     try {
@@ -2435,9 +2489,9 @@ async function boot() {
     } catch (error) {
       if (!terminalFault) reportFailure(error);
     }
-    if (!disposed) frameRequest = requestAnimationFrame(loop);
+    if (!disposed) frameRequest = requestAnimationFrame(now => { frameTail = loop(now); });
   }
-  frameRequest = requestAnimationFrame(loop);
+  frameRequest = requestAnimationFrame(now => { frameTail = loop(now); });
   playing = startup.playing;
   document.documentElement.dataset.pelicanReady = "true";
   status.textContent = runtimeStatus({

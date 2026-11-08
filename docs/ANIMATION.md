@@ -173,11 +173,10 @@ is available to that same native tick. Games consuming extracted movement can
 read it in `postPhysics`; consuming it in an earlier phase reads the preceding
 evaluation's accumulated movement.
 
-## Current Status
+## Verification
 
-These implementations have only been compiled and built. No skeletal, numerical,
-rendering, locomotion, retargeting, snapshot, lifecycle or performance behavior
-has been validated. The D60 1.0 integration connects grounding, collision feedback,
-generation identity, chunk residency and cinematic handoff; this is implementation
-completion, not runtime acceptance. Director development is described in
-[Cinematic Sequences](CINEMATICS.md), including its separate unverified boundaries.
+Use the installed SDK signatures and capability catalog for the current contract.
+Validate clip/skeleton compatibility, blocking movement, snapshot restoration and
+cleanup with the game's actual assets. Repository tests cover specific cases,
+not every skeleton, animation or device. Director integration is described in
+[Cinematic Sequences](CINEMATICS.md).

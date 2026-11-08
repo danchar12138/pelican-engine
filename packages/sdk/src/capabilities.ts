@@ -1,6 +1,10 @@
 import type { EngineFeature } from "./index.ts";
 // Discovery metadata; public signatures stay in index.ts.
 const aliases: Readonly<Record<string, readonly string[]>> = {
+  "render.quality": ["renderQuality", "quality preset", "realtime", "capture", "高画质", "写实", "画质预设"],
+  "runtime.composition": ["defineGameRuntime", "instance state", "system binding", "cleanup", "实例状态", "系统绑定", "简化生命周期"],
+  "runtime.dynamic-data": ["loadRuntimeJSON", "fetch", "dynamic data", "dynamic resources", "动态资源", "动态数据", "远程数据"],
+  "runtime.transports": ["createWorkerAdapter", "createWebSocketAdapter", "concrete adapters", "worker adapter", "websocket adapter", "具体适配器"],
   "content.typescript": ["typescript", "ts", "npm", "脚本"],
   "content.libraries": ["npm", "dependencies", "packages", "algorithm", "algorithms", "browser-only", "lazy load", "per-instance", "plugin", "依赖", "第三方库", "npm组件", "自定义开发", "算法", "浏览器依赖", "懒加载", "每实例"],
   "content.pure": ["static", "legacy", "静态内容", "纯函数"],
@@ -40,6 +44,10 @@ const aliases: Readonly<Record<string, readonly string[]>> = {
   "localization.messages": ["localization", "i18n", "locale", "translation", "本地化", "多语言", "翻译"],
 };
 const descriptions: Readonly<Record<string, string>> = {
+  "render.quality": "高质量实时默认值与显式 WebGPU 预览、捕获预设；保留作者覆盖与设备诊断。",
+  "runtime.composition": "系统只声明一次；每实例 JSON 状态与保存协议自动组合，保留原有 runtime hooks。",
+  "runtime.dynamic-data": "有截止时间、流式字节预算、实例取消与作者校验的动态 JSON 加载。",
+  "runtime.transports": "标准 Worker 与 WebSocket 的有界消息、明确所有权与自动监听清理。",
   "content.typescript": "普通 TypeScript 游戏声明与同步系统；构建模块会在 Node 和浏览器执行。",
   "content.libraries": "算法类 npm 可直接复用。browser-only 依赖在已实现的 runtime.create 中按实例懒加载，使用 GameRuntimeScope.own/defer 管理释放。引擎私有对象不是稳定 plugin 协议。",
   "content.pure": "兼容既有静态内容的纯函数与有限声明求值。",
@@ -79,6 +87,10 @@ const descriptions: Readonly<Record<string, string>> = {
   "localization.messages": "作者提供的翻译、语言回退、复数和数字格式化。",
 };
 const features: readonly EngineFeature[] = [
+  { id: "render.quality", implementation: "implemented", symbols: ["renderQuality", "RenderSettings", "SceneInput", "LightDefinition"], backends: ["webgpu", "webgl2"], limits: ["Realtime raster defaults: native DPR, antialiasing, ACES, studio IBL unless opted out, 4096 shadow maps for shadow-casting lights and device-supported anisotropy", "Preview/capture require WebGPU; samples and bounces affect tracing only, not raster quality", "Author lighting/quality overrides remain authoritative; quality/performance depends on assets, lighting, scene and hardware"], recipes: ["third-person", "managed-rendering"] },
+  { id: "runtime.composition", implementation: "implemented", symbols: ["defineGameRuntime", "GameRuntimeInput", "RuntimeSystemInput", "RuntimeState"], backends: ["cpu"], limits: ["State must be finite bounded JSON with a synchronous validator; custom codecs may use manual runtime hooks", "Use state.value after restore, not a cached old reference", "Systems remain synchronous; setup/create owns async initialization"], recipes: ["third-person"] },
+  { id: "runtime.dynamic-data", implementation: "implemented", symbols: ["loadRuntimeJSON", "RuntimeJSONInput"], backends: ["cpu"], limits: ["JSON only, not full model/texture asset streaming or topology replacement", "Default 1MiB and 10s, bounded to 64MiB and 120s; CORS/CSP and author trust apply", "Prepare asynchronously and publish on a fixed tick; external input is not automatically saved or replayed"], recipes: ["dynamic-resources"] },
+  { id: "runtime.transports", implementation: "implemented", symbols: ["createWorkerAdapter", "createWebSocketAdapter", "WorkerAdapterInput", "WebSocketAdapterInput"], backends: ["cpu"], limits: ["Same owned/borrowed and bounded queue contract as createRuntimeAdapter", "Worker transfer lists are explicit; socket send requires OPEN; close/errors fault the adapter", "No automatic reconnect, multiplayer synchronization or deterministic external replay"], recipes: ["external-adapters"] },
   { id: "runtime.adapters", implementation: "implemented", symbols: ["createRuntimeAdapter", "RuntimeAdapterInput", "RuntimeAdapterOptions", "RuntimeMessageAdapter", "GameRuntimeScope"], backends: ["cpu"], limits: ["Ordinary transports keep their own protocol; synchronous decode validates external messages before fixed-tick drain", "Explicit owned/borrowed endpoint identity; owned resources cannot be simultaneously claimed by multiple instances/adapters", "Queues are bounded by message count, not byte size or CPU time; authors must validate sizes and workload", "External objects/messages are not automatically saved or replayed; versioned runtime hooks and protocol resynchronization remain author responsibilities", "Standard new Worker(new URL('./worker.ts', import.meta.url), {type:'module'}) modules are bundled and fingerprinted; browser security and Worker support still apply", "Dynamic resource updates use managed compute buffers/textures and existing render bindings; no raw engine GPU/physics objects are exposed"], recipes: ["external-adapters"] },
   { id: "content.typescript", implementation: "implemented", symbols: ["defineGame", "defineScene", "defineSystem"], backends: ["cpu"], limits: ["New npm projects select content: typescript; existing manifests default to static", "Ordinary TypeScript, loops, classes, closures and browser-compatible npm packages", "Trusted construction executes in an owned Node process, not a security sandbox", "10s default process deadline, configurable 100..120000ms; 512MiB V8 heap", "Export finite plain declaration data with stable IDs; synchronous runtime systems", "200000 serialized values, 128 levels and 8MiB strings per extraction"], recipes: ["pointer-3d"] },
   { id: "content.libraries", implementation: "implemented", symbols: ["defineSystem", "GameRuntimeDefinition", "GameRuntimeScope"], backends: ["cpu"], limits: ["Algorithm npm packages can be reused directly when compatible with content construction in Node and browser execution", "Load browser-only dependencies inside per-instance runtime.create; content module top-level initialization still executes during Node construction", "Use scope.own/defer for instance-owned cleanup; external object state needs explicit JSON snapshot hooks", "Legacy static mode uses manifest libraries for runtime-only imports", "Private renderer/Three.js/WASM implementation objects are not a stable plugin contract"], recipes: ["runtime-lifecycle"] },

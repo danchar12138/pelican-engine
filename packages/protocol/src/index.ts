@@ -12,6 +12,8 @@ export interface ProtocolDiagnostic {
   severity: "error" | "warning" | "info";
   message: string;
   remediation: string;
+  /** Optional discovery recovery; navigation choices are not implementation claims. */
+  candidates?: readonly { kind: "task"; id: string; query: string; matchedIntent: boolean }[];
   source?: { file: string; line: number; column: number };
   causeCodes?: string[];
   tick?: number;
@@ -56,6 +58,7 @@ export type ControlCommand =
   | { type: "step"; count: number }
   | { type: "pause" }
   | { type: "resume" }
+  | { type: "reload"; restart?: boolean }
   | { type: "snapshot" }
   | { type: "capture" }
   | { type: "render"; samples: number; mode: "hybrid" | "path"; denoise?: boolean }
@@ -86,6 +89,11 @@ export function parseCommand(value: unknown): ControlCommand {
         throw new Error(`TC_PROTOCOL_FIELD: Unknown command field ${key}.`);
   };
   switch (v.type) {
+    case "reload":
+      requireKeys(["restart"]);
+      if (v.restart !== undefined && typeof v.restart !== "boolean")
+        throw new Error("TC_PROTOCOL_RELOAD: restart must be boolean.");
+      break;
     case "inspect":
       requireKeys(["entity", "offset", "limit"]);
       if (

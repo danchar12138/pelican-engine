@@ -22,6 +22,7 @@ import { setup } from "./setup.ts";
 import { attachControl } from "./control-server.ts";
 import { createControlClient } from "./control-client.ts";
 import { diagnosticCode } from "./diagnostic-code.ts";
+import { discoveryRecovery } from "./discovery-recovery.ts";
 import { listProjectManifestBackups, migrateProject, restoreProjectManifest } from "./migrate.ts";
 import {
   cliLayout,
@@ -107,6 +108,7 @@ async function main() {
           "pointer --x <css-x> --y <css-y> [--buttons <mask>] [--dx <px>] [--dy <px>] [--wheel-x <px>] [--wheel-y <px>]",
           "batch --file <commands.json> [--port <dev-port>] (preflighted; completed operations are not rolled back)",
           "inspect | step --count <n> | pause | resume [--port <dev-port>]",
+          "reload [--restart] [--port <dev-port>] (preserve compatible state; restart explicitly discards it)",
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
           "snapshot --output <file> | restore --file <file>",
           "record --action start|stop|cancel | replay --file <trace.json>",
@@ -182,6 +184,7 @@ async function main() {
       "step",
       "pause",
       "resume",
+      "reload",
       "input",
       "snapshot",
       "restore",
@@ -206,6 +209,7 @@ async function main() {
     else {
       let operation: ControlCommand;
       if (command === "capture") operation = { type: "capture" };
+      else if (command === "reload") operation = { type: "reload", restart: args.includes("--restart") };
       else if (command === "pointer") operation = { type: "pointer", x: Number(option("x")), y: Number(option("y")), buttons: Number(option("buttons", "0")),
         delta: [Number(option("dx", "0")), Number(option("dy", "0"))], wheel: [Number(option("wheel-x", "0")), Number(option("wheel-y", "0"))] };
       else if (command === "batch") {
@@ -518,7 +522,7 @@ async function main() {
               entry: "index.html",
               renderer: "webgpu-with-webgl2-fallback",
               limitations: [
-                "M3 rendering is in development; not the complete engine or an accepted M3 release",
+                "Render features are capability-dependent; inspect the active backend and diagnostics",
                 "Opaque textured surface transport is integrated; unsupported combinations report explicit diagnostics",
                 "Physics snapshots replay operation history and are bounded to 100000 operations",
                 "Compute BVH path tracer, no hardware ray tracing",
@@ -555,13 +559,18 @@ async function main() {
         ? false
         : path.join(engineRoot, "vite.config.ts"),
       envFile: false,
-      plugins: layout.installed
+      plugins: [
+        { name: "pelican-author-iteration", handleHotUpdate(context) {
+          const relative = path.relative(projectRoot, context.file);
+          if (!relative.startsWith("..") && !path.isAbsolute(relative)) return [];
+        } },
+        ...(layout.installed
         ? [
             {
               name: "pelican-installed-browser-entry",
               transformIndexHtml: {
-                order: "pre",
-                handler(html) {
+                order: "pre" as const,
+                handler(html: string) {
                   return html.replace(
                     "../lib/renderer/browser.js",
                     "/@fs/" +
@@ -573,12 +582,14 @@ async function main() {
               },
             },
           ]
-        : [],
+        : []),
+      ],
       publicDir: path.dirname(target),
       server: {
         port,
         host: "127.0.0.1",
         strictPort: true,
+        watch: { ignored: ["**/.pelican/**", "**/dist/**"] },
         fs: { allow: [engineRoot, projectRoot] },
       },
       logLevel: "silent",
@@ -657,7 +668,7 @@ async function main() {
             const next = await compile();
             if (next.success && !next.report.incremental.cacheHit) reloadPending = true;
             if (next.success && !dirty && reloadPending) {
-              server.ws.send({ type: "full-reload" });
+              server.ws.send({ type: "custom", event: "pelican:content", data: { policy: next.report.hotReload } });
               reloadPending = false;
             } else if (!next.success)
               emit(envelope("failed", next.report, next.diagnostics));
@@ -679,7 +690,7 @@ async function main() {
         project: path.basename(projectRoot),
         ...(scaffolded ? { scaffolded: true, template: "minimal" } : {}),
         hotUpdate:
-          "full-reload; compatibility policy is reported but live patch is not implemented",
+          "transactional logic reload with full state preservation; incompatible declarations keep the running game and require explicit restart",
       }),
     );
     for (const signal of ["SIGINT", "SIGTERM"] as const)
@@ -701,6 +712,7 @@ main().catch((error) => {
         message: String(error),
         remediation:
           "Inspect the referenced source or run doctor; preserve failure output before retrying.",
+        ...discoveryRecovery(error, process.argv.slice(2)),
       },
     ]),
   );

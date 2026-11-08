@@ -49,6 +49,12 @@ await record("machine-discovery", async () => {
   const api = await run(["api", "--search", "PointerState"]);
   assert.ok(api.data.symbols.some((symbol: { name: string }) => symbol.name === "PointerState"));
   const recipe = await run(["recipe", "--id", "pointer-3d"]); assert.match(recipe.data.source, /pointer\(\)/);
+  const tasks = await run(["guide", "--goal", "让角色跳跃并保存游戏"]);
+  assert.ok(tasks.data.discovery.tasks.some((task: { id: string }) => task.id === "character-jump"));
+  assert.ok(tasks.data.discovery.tasks.some((task: { id: string }) => task.id === "save-game"));
+  const unknown = await run(["guide", "--goal", "not-a-real-task-xyz"]);
+  assert.equal(unknown.data.discovery.status, "unrecognized");
+  assert.ok(unknown.data.discovery.candidates.length);
   return { features: features.data, symbols: api.data.symbols.map((symbol: { name: string }) => symbol.name), coldStart: { guideBytes: Buffer.byteLength(JSON.stringify(guide.data)), fullBytes, summaryBytes, npmRecipe: "runtime-lifecycle" } };
 });
 const browser = await chromium.launch({ headless: true, channel: "chromium", args: graphicsLaunchArguments() });
@@ -102,6 +108,58 @@ async function game(name: string, template: string, action: (page: Page, command
   }
 }
 try {
+  await record("third-person-jump-follow-and-save", () => game("third-person-flow", "third-person", async (page, command) => {
+    await command({ type: "step", count: 90 });
+    const base = await command({ type: "snapshot" });
+    const before = await command({ type: "inspect" });
+    const position = (state: any) => state.game.transforms.player.position as number[];
+    await command({ type: "input", key: " ", pressed: true });
+    await command({ type: "step", count: 12 });
+    const airborne = await command({ type: "inspect" });
+    assert.ok(position(airborne)[1] > position(before)[1] + 0.2, JSON.stringify({ before: position(before), after: position(airborne) }));
+    assert.match(await page.locator('[data-pelican-element="state"]').innerText(), /Jumps 1/);
+    await command({ type: "step", count: 90 });
+    assert.match(await page.locator('[data-pelican-element="state"]').innerText(), /Jumps 1/);
+    await command({ type: "input", key: " ", pressed: false });
+    await command({ type: "restore", snapshot: base });
+    await command({ type: "step", count: 1 });
+    assert.match(await page.locator('[data-pelican-element="state"]').innerText(), /Jumps 0/);
+    await page.locator('[data-pelican-element="save"]').click(); await command({ type: "step", count: 1 });
+    await command({ type: "input", key: "d", pressed: true }); await command({ type: "step", count: 20 }); await command({ type: "input", key: "d", pressed: false });
+    await page.locator('[data-pelican-element="load"]').click(); await command({ type: "step", count: 1 });
+    const loaded = await command({ type: "inspect" });
+    assert.ok(Math.abs(position(loaded)[0] - position(before)[0]) < 0.05);
+    assert.equal(await page.locator("[data-pelican-ui]").count(), 1);
+    return { groundedJump: true, heldJumpCount: 1, savedWorldAndInstance: true, before: position(before), airborne: position(airborne), camera: loaded.gameplay.camera };
+  }));
+  await record("logic-edit-preserves-state-and-rejects-incompatible-content", () => game("iteration", "third-person", async (page, command) => {
+    await command({ type: "step", count: 90 });
+    const project = path.join(workspace, "iteration"), file = path.join(project, "game.ts"), source = await readFile(file, "utf8");
+    await page.evaluate(() => { (window as any).__iterationDocument = "same-document"; });
+    const before = await command({ type: "snapshot" });
+    await writeFile(file, source.replace("4 * dt", "5 * dt"));
+    await page.waitForFunction(() => (window as any).__pelican?.inspect().iteration.status === "applied", undefined, { timeout: 30000, polling: 100 });
+    assert.equal(await page.evaluate(() => (window as any).__iterationDocument), "same-document");
+    const after = await command({ type: "snapshot" });
+    assert.deepEqual(after.runtime, before.runtime, "Logic-only edits preserve world, scheduler, physics, services and author state.");
+    await page.keyboard.down("d");
+    await command({ type: "inspect" });
+    await writeFile(file, source.replace("4 * dt", "5 * dt").replace("state: () =>", "setup: () => new Promise<void>(resolve => setTimeout(resolve, 800)), state: () =>"));
+    await page.waitForFunction(() => (window as any).__pelican?.inspect().iteration.status === "applying", undefined, { timeout: 30000, polling: 50 });
+    await page.keyboard.up("d");
+    await page.waitForFunction(() => (window as any).__pelican?.inspect().iteration.applied === 2, undefined, { timeout: 30000, polling: 100 });
+    const stopped = (await command({ type: "inspect" })).game.transforms.player.position[0];
+    await command({ type: "step", count: 1 });
+    assert.equal((await command({ type: "inspect" })).game.transforms.player.position[0], stopped, "A key released during candidate initialization must not remain held.");
+    const stable = await command({ type: "snapshot" });
+    await writeFile(file, source.replace('version: "player-v1"', 'version: "player-v2"'));
+    await page.waitForFunction(() => (window as any).__pelican?.inspect().iteration.status === "rejected", undefined, { timeout: 30000, polling: 100 });
+    const rejected = await command({ type: "inspect" }); assert.match(rejected.iteration.error, /TC_DEV_RESTART_REQUIRED/);
+    assert.deepEqual((await command({ type: "snapshot" })).runtime, stable.runtime);
+    await command({ type: "reload", restart: true });
+    const restarted = await command({ type: "inspect" }); assert.equal(restarted.tick, 0);
+    return { preservedTick: rejected.tick, rejection: rejected.iteration.error, explicitRestartTick: restarted.tick, releasedDuringLoad: true };
+  }));
   await record("no-focus-no-raf-runtime-initialization", () => game("unattended", "runtime-lifecycle", async (page, command) => {
     const initial = await command({ type: "inspect" }); assert.equal(initial.tick, 0);
     assert.equal(await page.locator("[data-pelican-counter]").count(), 1);

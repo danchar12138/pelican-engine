@@ -4,7 +4,7 @@ Pelican is a single npm package for TypeScript games authored by external coding
 
 ## Discover before choosing an implementation
 
-- Run `npx pelican guide` first, or `guide --goal <short English/中文 query>`, for compact current-version context, dependency composition and the next exact queries.
+- Run `npx pelican guide` first, or `guide --goal "让角色跳跃并保存游戏"`, for ranked tasks, exact methods, complete recipes and verification steps. Unrecognized tasks return labelled navigation candidates, not invented support.
 - Run `npx pelican capabilities --summary --limit 8` to browse; follow total/truncated/nextOffset. Use `--feature <goal>` for the full limits before implementation.
 - Run `npx pelican api --symbol <Type.member>` for an exact method contract.
 - Run `npx pelican api --search <goal> --member --limit 8` for compact ranked methods.
@@ -18,10 +18,14 @@ Pelican is a single npm package for TypeScript games authored by external coding
 - Exact generated SDK contract: docs/api/index.json and lib/sdk/index.d.ts in the npm package
 - Capability boundaries: docs/CAPABILITIES.md
 
-Ordinary browser-compatible npm algorithms can be used directly. Load browser-only libraries inside runtime.create. Give each instance its own state; register resource cleanup with scope.own/defer and save state through versioned snapshot/validateSnapshot/restore hooks. No game-runtime language model or mandatory AI platform is required.
+Ordinary browser-compatible npm algorithms can be used directly. defineGameRuntime declares systems once, allocates validated per-instance JSON state and supplies save hooks. Browser-only libraries initialize in setup/runtime.create; scope.own/listen/cleanup/defer manages cleanup. Low-level versioned snapshot/validateSnapshot/restore remains supported. No game-runtime language model or mandatory AI platform is required.
 
 Use scope.own(resource, release) for ordinary component objects and scope.listen for scoped EventTarget subscriptions. createRuntimeAdapter accepts an explicit owned/borrowed endpoint and send/subscribe/decode callbacks; drain its bounded queue in a fixed-tick system. The external-adapters recipe includes a real module Worker, optional WebSocket and managed rendering-buffer updates. External inputs are not automatically saved or replayed; keep engine resource checks and explicitly resynchronize external protocols on restore.
 
 Use your own functions, classes, modules, generators and rules alongside engine services. Built-in inventory, quest and dialogue services are optional. This is ordinary TypeScript, not an engine-only DSL. Node-only packages belong in build/asset tooling, not browser runtime.
+
+Complete tasks: third-person (movement, grounded jump, follow, save/load), runtime-lifecycle (real npm dependency), external-adapters (Worker/WebSocket), dynamic-resources (bounded cancellable JSON to managed buffers). Concrete adapters createWorkerAdapter/createWebSocketAdapter share the generic ownership contract. Dynamic data is not automatically persisted; loadRuntimeJSON does not implement full model streaming.
+
+Development preserves full state for compatible logic-only edits. Changed declarations/assets require explicit restart; a failed candidate keeps the old instance. Inspect iteration diagnostics. renderQuality exposes realtime/preview/capture presets; realtime stays raster, preview/capture require WebGPU. Defaults include studio IBL unless lighting is explicitly none or an environment texture is supplied.
 
 Use managed geometry, PBR textures, compute resources and defineRenderExtension for supported rendering integration. Arbitrary Three.js, TSL, raw GPU or physics objects are not a stable engine integration contract. Report an exact missing capability instead of silently replacing the renderer or reducing the requested game.

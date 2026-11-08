@@ -9,17 +9,8 @@ import type { RenderBufferProvider } from "./render-buffer-contract.ts";
 import { createRenderTextureOwner } from "./render-textures.ts";
 import type { RenderTextureProvider } from "./render-texture-contract.ts";
 import type { RuntimePluginFactory } from "./plugins.ts";
-export const DEFAULT_RENDER_SETTINGS: Readonly<RenderSettings> = Object.freeze({
-  mode: "raster",
-  samplesPerFrame: 1,
-  maxBounces: 6,
-  denoise: false,
-  denoiseIterations: 3,
-  exposure: 1,
-  directLighting: true,
-  indirectLighting: true,
-  debug: "beauty",
-});
+import { qualitySettings } from "../../sdk/src/render-quality.ts";
+export const DEFAULT_RENDER_SETTINGS: Readonly<RenderSettings> = Object.freeze(qualitySettings());
 const fail = (message: string): never => {
   throw new Error("TC_RENDER_SETTINGS: " + message);
 };

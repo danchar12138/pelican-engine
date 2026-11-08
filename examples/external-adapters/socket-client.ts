@@ -1,24 +1,16 @@
-import { createRuntimeAdapter, type GameRuntimeScope } from "pelican-engine";
+import { createWebSocketAdapter, type GameRuntimeScope } from "pelican-engine";
 
 /** Native WebSocket is one possible transport; npm clients can use the same send/subscribe contract. */
 export async function connectSocket(scope: GameRuntimeScope, url: string) {
   scope.signal.throwIfAborted();
   const socket = new WebSocket(url);
-  let released = false;
-  const release = () => {
-    if (!released) {
-      released = true;
-      socket.close(1000, "game instance released");
-    }
-  };
-  const adapter = createRuntimeAdapter<{ value: number }, { value: number }>(
+  const adapter = createWebSocketAdapter<{ value: number }, { value: number }>(
     scope,
     {
       id: "external-socket",
       version: "1",
       endpoint: socket,
       ownership: "owned",
-      release,
       decode(value) {
         if (typeof value !== "string" || value.length > 16384)
           throw new Error(
@@ -33,23 +25,7 @@ export async function connectSocket(scope: GameRuntimeScope, url: string) {
           throw new Error("SOCKET_PROTOCOL: Expected {value: finite number}.");
         return { value: record.value };
       },
-      send(value) {
-        if (socket.readyState !== WebSocket.OPEN)
-          throw new Error("Socket is not open");
-        socket.send(JSON.stringify(value));
-      },
-      subscribe(receive, fail) {
-        const message = scope.listen(socket, "message", (event) =>
-          receive((event as MessageEvent).data),
-        );
-        const error = scope.listen(socket, "error", () =>
-          fail("WebSocket transport error"),
-        );
-        return () => {
-          error();
-          message();
-        };
-      },
+      encode: JSON.stringify,
     },
   );
   try {

@@ -2,6 +2,12 @@
 
 本文说明当前源码中的图形与运行时接口，不宣称完整高级渲染已完成或验收。实际版本见项目清单，当前状态见 [能力边界](CAPABILITIES.md)。历史阶段名称、实验结果和旧标签仅适用于各自记录的源码，不代表当前版本通过。功能应通过相应的类型、数值与浏览器测试确认；未执行内容不能视为通过。
 
+## 高质量默认值
+
+实时默认保留 WebGPU/WebGL2 光栅兼容，原生 DPR、抗锯齿、ACES、默认 studio IBL、4096 投影阴影图及设备支持的各向异性过滤。IBL 可用 `lighting: "none"` 关闭；提供 lightingTexture 时使用作者纹理。现有光强、材质、曝光与显式 shadow 参数不被预设覆盖，未配置投影的灯不会自动投影。
+
+`renderQuality()` 返回实时设置；`renderQuality("preview")` 为 hybrid、2 samples/frame、8 bounces 与空间降噪；`renderQuality("capture")` 为 path、4 samples/frame、12 bounces、关闭降噪以保留采样细节。后两档必须检查 WebGPU。默认追踪参数为 2 samples/frame、8 bounces，但光栅模式并不使用这些追踪预算。离线积累样本仍通过 render 命令显式指定。高参数不等于真实画质证据，也不保证移动端帧率。
+
 ## 模型材质槽
 
 模型可用 `materialSlots: { Paint: replacement }` 按加载后的材质名称精确替换该名称的全部材质槽，其余槽保留原材质；与整体 `material` 覆盖互斥。同名槽会一起替换，不能区分同名或无名槽。未知名称返回 `TC_MODEL_MATERIAL_SLOT_MISSING`，诊断包含部分可用的已加载材质名；名称或数量过多时会截断。未知目标材质也会明确报错，替换材质的生命周期仍由引擎管理。仓库示例 `examples/material-slots` 展示此接口；它不代表所有 glTF 扩展均受支持。
@@ -32,7 +38,7 @@
 
 path/hybrid 将常驻 GPU 数据复制进原生材料表的附加 vec4 区域；CPU 表只写材质、参数和零占位。`rendering.surface.materialGraphs.bufferSlots` 记录原生槽的复制、字节、版本和零 CPU 结果上传；资源版本变化使积分/时域失效，未变化帧跳过复制。渲染复制不等于零复制，计算仍逐任务读回验证镜像。
 
-顶点反馈例子为 `examples/compute-render`。片元/后处理例子为 `examples/fragment-buffers`，两者都只使用公开 SDK；源码渠道可运行 `npm run dev -- --project examples/fragment-buffers`。npm 渠道使用同样的声明和 `render.effects.buffers` 接口，无需引擎源码。独占 GPU 的小型复测入口为 `npm run probe:fragment-buffers`。计算纹理及直接渲染槽见下文；完整高级矩阵仍待完成，不宣称全部 CAP-17 已验收。
+顶点反馈例子为贡献者测试 `examples/compute-render`，片元/后处理为 `examples/fragment-buffers`。游戏作者使用 npm 包内同样的公开声明与 `render.effects.buffers`，无需引擎源码。贡献者可运行 `npm run probe:fragment-buffers` 复测；结果仅覆盖实际执行的组合。
 
 ## 受控顶点图
 
@@ -96,7 +102,7 @@ dispatch.output 可为纹理句柄，此时 outputType 必须为 vec4，count �
 
 `computeTextures: [{ id, asset }]` 或 `ctx.compute.createTexture({ id, asset })` 可以从声明并加载的普通纹理资产建立独立计算纹理。支持可读的 RGBA8 或 float32 像素；按资产声明的 sRGB／linear 色空间转换为线性数据并保持上传行顺序。计算纹理之后独立更新，快照保存像素而非依赖重新读取资产。资产不可读、未声明或格式不支持时返回 `TC_COMPUTE_TEXTURE_ASSET`。
 
-Three 路径将常驻纹理以 GPU→GPU 复制到自身资源；path/hybrid 将同版本的 GPU packed mirror 复制到已有材料表。两条路径不会把 CPU 计算结果上传作为渲染更新，但也不是零复制。`rendering.textureBindings` 和 `rendering.surface.materialGraphs.textureSlots` 可查看复制计数；活跃槽在 WebGL2 返回 `TC_RENDER_TEXTURE_CAPABILITY`。示例 `examples/render-textures` 和 `npm run probe:render-textures` 覆盖资产导入与小型三模式链路；npm 使用相同 SDK 和文档，实际新版本安装验收留至里程碑冻结。
+Three 路径将常驻纹理以 GPU→GPU 复制到自身资源；path/hybrid 将同版本的 GPU packed mirror 复制到已有材料表。两条路径不会把 CPU 计算结果上传作为渲染更新，但也不是零复制。`rendering.textureBindings` 和 `rendering.surface.materialGraphs.textureSlots` 可查看复制计数；活跃槽在 WebGL2 返回 `TC_RENDER_TEXTURE_CAPABILITY`。贡献者示例 `examples/render-textures` 与 `npm run probe:render-textures` 用于复测；发布回归使用实际 npm 包。
 
 ## 场景与公开设置
 
