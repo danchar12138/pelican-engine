@@ -26,6 +26,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx --no-install playwright install chromium
+      - run: npm run build
+      - run: npm run distribution:pack
+      - run: npm run distribution:smoke -- --online-install
       - name: Typecheck and run regressions before publication
         shell: pwsh
         run: |
@@ -35,9 +38,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run distribution:test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run: npm run build
-      - run: npm run distribution:pack
-      - run: npm run distribution:smoke -- --online-install
       - name: Install npm with trusted publishing support
         run: npm install --global npm@11.21.2
       - name: Publish to latest using OIDC

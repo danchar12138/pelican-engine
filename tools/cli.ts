@@ -6,6 +6,7 @@ import {
   writeFile,
   cp,
   access,
+  realpath,
 } from "node:fs/promises";
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
@@ -36,8 +37,9 @@ import {
   withAutomationDeadline,
 } from "./browser-session.ts";
 
-const layout = cliLayout(import.meta.url);
-const engineRoot = layout.root;
+const requestedLayout = cliLayout(import.meta.url);
+const engineRoot = await realpath(requestedLayout.root);
+const layout = { ...requestedLayout, root: engineRoot, webRoot: requestedLayout.installed ? path.join(engineRoot, "web") : engineRoot };
 const args = process.argv.slice(2);
 const activeManifest = JSON.parse(
   await readFile(path.join(engineRoot, "engine.manifest.json"), "utf8"),
@@ -53,9 +55,10 @@ const option = (name: string, fallback?: string) => {
   const index = args.indexOf(`--${name}`);
   return index >= 0 ? args[index + 1] : fallback;
 };
-const projectRoot = path.resolve(
+const requestedProjectRoot = path.resolve(
   command === "api" ? defaultProject : option("project", command === "create" ? process.cwd() : defaultProject)!,
 );
+const projectRoot = await realpath(requestedProjectRoot).catch(() => requestedProjectRoot);
 const taskId = `${command}-${Date.now()}`;
 const envelope = (
   status: string,

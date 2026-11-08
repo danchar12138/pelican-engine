@@ -1,0 +1,19 @@
+publish	Run npm run distribution:smoke -- --online-install	﻿2026-11-08T10:10:11.1473997Z ##[group]Run npm run distribution:smoke -- --online-install
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.1474520Z ^[[36;1mnpm run distribution:smoke -- --online-install^[[0m
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.1550556Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.1550932Z env:
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.1551136Z   NPM_CONFIG_USERCONFIG: D:\a\_temp\.npmrc
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.1551425Z   NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.1551688Z ##[endgroup]
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.8456449Z npm warn Unknown user config "always-auth". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.8671790Z 
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.8672648Z > pelican-engine@1.1.0 distribution:smoke
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.8673385Z > tsx tools/npm/smoke.ts --online-install
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:10:11.8673756Z 
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.7267844Z {
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.7268422Z   "status": "failed",
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.7271872Z   "directory": "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\pelican npm 游戏-cKujt6",
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.7273172Z   "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n403 !== 200\n",
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.7275609Z   "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n403 !== 200\n\n    at <anonymous> (D:\\a\\pelican-engine\\pelican-engine\\tools\\npm\\smoke.ts:429:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.7277398Z }
+publish	Run npm run distribution:smoke -- --online-install	2026-11-08T10:11:21.8129757Z ##[error]Process completed with exit code 1.

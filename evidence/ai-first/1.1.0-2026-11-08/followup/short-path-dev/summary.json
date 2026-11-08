@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-08",
+  "version": "1.1.0",
+  "sourceFingerprint": "d3cdc519cf1ee2424d2920870b32563a0087abaa5974a17605dd641c420bba5f",
+  "ciRun42469793735": {
+    "fullRegression": "passed",
+    "smoke": "failed: runtime module HTTP 403 under a Windows 8.3 path",
+    "npmPublish": "skipped"
+  },
+  "before": {
+    "root": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican smoke long alias-YGFoCx",
+    "alias": "C:\\Users\\60459\\AppData\\Local\\Temp\\PE6EFB~1",
+    "resolved": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican smoke long alias-YGFoCx",
+    "distinctAlias": true,
+    "exit": 1
+  },
+  "after": {
+    "root": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican smoke long alias-jVaqB4",
+    "alias": "C:\\Users\\60459\\AppData\\Local\\Temp\\PE31A2~1",
+    "resolved": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican smoke long alias-jVaqB4",
+    "distinctAlias": true,
+    "exit": 0
+  },
+  "fix": "CLI project root, engine root, web root and Vite file allowlist now share canonical physical paths. The protected allowlist is retained.",
+  "affectedCliTests": {
+    "total": 58,
+    "passed": 58,
+    "failed": 0
+  },
+  "distributionTests": {
+    "passed": 16,
+    "failed": 0
+  },
+  "typecheck": "passed",
+  "workflow": "Build/pack/install smoke now precedes the full regression step for faster failure discovery; all gates remain mandatory before publish.",
+  "publication": "Not attempted by this failed run; the corrected workflow must pass before publishing."
+}
