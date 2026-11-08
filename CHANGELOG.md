@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preflight 3D physics snapshot lifecycle identities and tick counts before native history reconstruction; replay safety remains incomplete and unverified.
+
 - Preflight one known unsafe two-box initial-removal history before native 3D physics replay; other history risks remain open and behavior is unverified.
 
 ## 0.12.0 - 2026-11-08

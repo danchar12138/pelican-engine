@@ -50,7 +50,9 @@ replay with `TC_PHYSICS_SNAPSHOT_UNSAFE_HISTORY` inside the snapshot diagnostic.
 This can also reject a matching old checkpoint that would otherwise restore;
 use another known-good checkpoint or restart the scene. The guard covers only
 two initially separated dynamic boxes with a specific first-step deletion order.
-It does not make arbitrary snapshots safe or fix first-step body deletion.
+An additional structural preflight rejects inconsistent lifecycle identities,
+body types and tick counts before native replay. These checks do not authenticate
+snapshots, make arbitrary histories safe or fix first-step body deletion.
 Legacy compatibility and failure behavior have not been runtime-validated.
 
 `ctx.physics.overlapSphere(center, radius, options)` finds live physics entities
