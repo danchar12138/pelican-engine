@@ -2,7 +2,7 @@
 
 ## Version and Release
 
-- Current source version: 0.15.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run; this simulation/terrain development batch is not a complete 1.0 release.
+- Current source version: 0.16.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. Registry and GitHub publication depend on the actual release run; this animation development batch is not a complete 1.0 release.
 - Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. Existing npm versions cannot be overwritten; the publication command reports failure rather than silently skipping. Workflow outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
 - The 0.9.0 GitHub Release exists, but its npm workflow and one retry failed on November 7, 2026 with transparency-log HTTP 500 errors. This is not evidence that the npm version was published.

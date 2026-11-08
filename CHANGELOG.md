@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.16.0 - 2026-11-08
+
+- Compile-only animation development batch. IK constraints, retargeting, root motion, changed animation scheduling and snapshot behavior have not been runtime-validated. Cinematic sequencing, full coupled integration and broader world scope remain unfinished; this is not 1.0.
+
 - Add IK joint limits, normalized hinge axes, two-link pole targets and effector orientation blending; behavior and recovery are unverified.
 - Add isolated bind-pose-corrected skeletal clip retargeting, generated-clip lifecycle and descriptor-based snapshot reconstruction; runtime behavior and costs are unverified.
 - Add loop-aware root-motion extraction and optional character/non-physical root application before native physics, with snapshot-preserved pending movement. Root motion, animation order and blocking interactions are unverified.
