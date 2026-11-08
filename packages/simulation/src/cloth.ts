@@ -1,5 +1,6 @@
 import { createBoxFrame, orientedParticleBoxContact, particleBoxContact, segmentBoxContact, type BoxFrame } from "./box-contact.ts";
 import type { RopeDynamicCoupling } from "./rope.ts";
+import { staticContactCorrection, sweepParticle } from "./continuous-contact.ts";
 
 /** CPU position-based triangular cloth. SI units; optional host coupling is split-step. */
 export type Vec3 = [number, number, number];
@@ -109,7 +110,7 @@ function topology(points: Vec3[], input: unknown, bending: boolean): { triangles
   if (bending) for (const edge of edges.values()) if (edge.opposite.length === 2) add(edge.opposite[0], edge.opposite[1]);
   return { triangles, constraints };
 }
-function closestTriangle(point: Vec3, a: Vec3, b: Vec3, c: Vec3): { point: Vec3; barycentric: [number, number, number] } {
+export function closestTriangle(point: Vec3, a: Vec3, b: Vec3, c: Vec3): { point: Vec3; barycentric: [number, number, number] } {
   const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ac: Vec3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]], ap: Vec3 = [point[0] - a[0], point[1] - a[1], point[2] - a[2]];
   const d1 = ab[0] * ap[0] + ab[1] * ap[1] + ab[2] * ap[2], d2 = ac[0] * ap[0] + ac[1] * ap[1] + ac[2] * ap[2];
   if (d1 <= 0 && d2 <= 0) return { point: copy(a), barycentric: [1, 0, 0] };
@@ -302,13 +303,18 @@ export class ClothSolver {
             if (collider.kind === "plane") { normal = collider.normal; depth = collider.offset + radius - (p[0] * normal[0] + p[1] * normal[1] + p[2] * normal[2]); }
             else if (collider.kind === "box") {
               const contact = orientedParticleBoxContact(p, radius, collider.center, collider.halfExtents, frame);
-              if (!contact) continue;
-              normal = contact.normal; depth = contact.depth;
+              const hit = contact ?? sweepParticle(previous[i], p, radius, collider);
+              if (!hit) continue;
+              normal = hit.normal; depth = hit.depth;
             } else {
               const delta: Vec3 = [p[0] - collider.center[0], p[1] - collider.center[1], p[2] - collider.center[2]], length = Math.hypot(...delta);
               depth = collider.radius + radius - length; normal = length < 1e-12 ? [1, 0, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
             }
-            if (depth <= 0) continue;
+            if (depth <= 0) {
+              const hit = sweepParticle(previous[i], p, radius, collider);
+              if (!hit) continue;
+              normal = hit.normal; depth = hit.depth;
+            }
             const point: Vec3 = collider.kind === "sphere" ? [collider.center[0] + normal[0] * collider.radius, collider.center[1] + normal[1] * collider.radius, collider.center[2] + normal[2] * collider.radius] : [p[0] + normal[0] * (depth - radius), p[1] + normal[1] * (depth - radius), p[2] + normal[2] * (depth - radius)];
             let reactionImpulse: Vec3, reactionAngularImpulse: Vec3;
             if (dynamic && coupling) {
@@ -316,9 +322,9 @@ export class ClothSolver {
               for (let k = 0; k < 3; k++) p[k] += result.correction[k];
               reactionImpulse = result.reactionImpulse; reactionAngularImpulse = result.reactionAngularImpulse;
             } else {
-              for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
-              const magnitude = -mass * depth / h;
-              reactionImpulse = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+              const correction = staticContactCorrection(normal, depth, p, previous[i]);
+              for (let k = 0; k < 3; k++) p[k] += correction[k];
+              reactionImpulse = correction.map(value => -mass * value / h) as Vec3;
               reactionAngularImpulse = cross(point, reactionImpulse);
             }
             const key = `${i}:${collider.id}`, old = contacts.get(key);

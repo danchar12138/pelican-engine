@@ -13,6 +13,7 @@
 } from "./math.ts";
 import { allPoints, DEFAULT_SIMULATION_CONTAINER, makeScene, resolveOptions } from "./scenes.ts";
 import { createBoxFrame, orientedParticleBoxContact, type BoxFrame } from "../../packages/simulation/src/box-contact.ts";
+import { staticContactCorrection, sweepParticle } from "../../packages/simulation/src/continuous-contact.ts";
 import type {
   PointState,
   Simulation,
@@ -242,8 +243,9 @@ export function createSimulation(
           const hit = dynamicBox
             ? orientedParticleBoxContact(sub(p.position, center), p.radius, [0, 0, 0], halfExtents, localFrame)
             : orientedParticleBoxContact(p.position, p.radius, center, halfExtents, box.frame);
-          if (!hit) continue;
-          normal = hit.normal; penetration = hit.depth;
+          const contact = hit ?? sweepParticle(oldPositions[state.bodies.length + index], p.position, p.radius, { kind: "box", id: body.id, center, halfExtents, rotation: box.rotation });
+          if (!contact) continue;
+          normal = contact.normal; penetration = contact.depth;
           point = add(p.position, mul(normal, penetration - p.radius));
         } else {
           const dynamicSphere = coupling && sampled ? coupling.sphere(body.id) : undefined;
@@ -254,7 +256,15 @@ export function createSimulation(
           normal = r > 1e-12 ? mul(delta, 1 / r) : [1, 0, 0];
           point = add(center, mul(normal, colliderRadius));
         }
-        if (penetration <= 0) continue;
+        if (penetration <= 0) {
+          const dynamic = coupling && sampled ? coupling.sphere(body.id) : undefined;
+          const hit = sweepParticle(oldPositions[state.bodies.length + index], p.position, p.radius,
+            { kind: "sphere", id: body.id, center: dynamic?.center ?? body.position, radius: dynamic?.radius ?? sampledRadii.get(body.id) ?? body.radius });
+          if (!hit) continue;
+          normal = hit.normal; penetration = hit.depth;
+          const center = dynamic?.center ?? body.position, radius = dynamic?.radius ?? sampledRadii.get(body.id) ?? body.radius;
+          point = add(center, mul(normal, radius));
+        }
         let impulse: Vec3 | undefined, moment: Vec3 | undefined;
         if (sampled && coupling) {
           const result = coupling.resolve(body.id, normal, penetration, p.position, oldPositions[state.bodies.length + index], 1 / p.inverseMass, h, point);
@@ -265,10 +275,11 @@ export function createSimulation(
           // Without a bridge, sampled bodies remain fixed obstacles.
           const bodyWeight = state.options.twoWayCoupling && !sampled ? body.inverseMass : 0;
           const weight = p.inverseMass + bodyWeight;
-          accumulate(p.position, normal, (penetration * p.inverseMass) / weight);
-          accumulate(body.position, normal, (-penetration * bodyWeight) / weight);
+          const correction = staticContactCorrection(normal, penetration, p.position, oldPositions[state.bodies.length + index]);
+          accumulate(p.position, correction, p.inverseMass / weight);
+          accumulate(body.position, correction, -bodyWeight / weight);
           if (state.options.twoWayCoupling && (bodyWeight > 0 || sampled)) {
-            impulse = mul(normal, -penetration / (weight * h));
+            impulse = mul(correction, -1 / (weight * h));
             moment = cross(point, impulse);
           }
         }
@@ -284,7 +295,7 @@ export function createSimulation(
         }
       }
     }
-    for (const collider of colliders) for (const particle of state.particles) {
+    for (const collider of colliders) for (const [index, particle] of state.particles.entries()) {
       if (particle.inverseMass === 0) continue;
       let normal: Vec3, penetration: number;
       if (collider.kind === "sphere") {
@@ -296,8 +307,9 @@ export function createSimulation(
         penetration = particle.radius - (dot(particle.position, normal) - collider.offset);
       } else if (collider.rotation) {
         const hit = orientedParticleBoxContact(particle.position, particle.radius, collider.center, collider.halfExtents, colliderFrames.get(collider.id));
-        if (!hit) continue;
-        normal = hit.normal; penetration = hit.depth;
+        const contact = hit ?? sweepParticle(oldPositions[state.bodies.length + index], particle.position, particle.radius, collider);
+        if (!contact) continue;
+        normal = contact.normal; penetration = contact.depth;
       } else {
         const relative = sub(particle.position, collider.center);
         const closest = relative.map((value, axis) => Math.max(-collider.halfExtents[axis], Math.min(collider.halfExtents[axis], value))) as Vec3;
@@ -315,8 +327,12 @@ export function createSimulation(
           penetration = particle.radius + faceDistance;
         }
       }
-      if (penetration <= 0) continue;
-      accumulate(particle.position, normal, penetration);
+      if (penetration <= 0) {
+        const hit = sweepParticle(oldPositions[state.bodies.length + index], particle.position, particle.radius, collider);
+        if (!hit) continue;
+        normal = hit.normal; penetration = hit.depth;
+      }
+      accumulate(particle.position, staticContactCorrection(normal, penetration, particle.position, oldPositions[state.bodies.length + index]));
       state.counters.contactCount++;
       state.counters.maxContactCorrection = Math.max(state.counters.maxContactCorrection, penetration);
     }

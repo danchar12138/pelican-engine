@@ -33,12 +33,15 @@ class VirtualRopeBody {
   private angularVelocity: Vec3;
   private readonly inverseMass: Vec3;
   private readonly inverseInertia: Matrix;
+  private readonly friction: number;
   private orientation?: Quaternion;
   private localCenterOfMass?: Vec3;
   private impulse: Vec3 = [0, 0, 0];
   private moment: Vec3 = [0, 0, 0];
 
   constructor(sample: RopePhysicsBodyState) {
+    this.friction = sample.friction ?? 0.5;
+    if (!Number.isFinite(this.friction) || this.friction < 0) error("friction must be finite and nonnegative.");
     this.center = vector(sample.center, "collider center");
     this.centerOfMass = vector(sample.centerOfMass, "center of mass");
     this.linearVelocity = vector(sample.linearVelocity, "linear velocity");
@@ -115,13 +118,27 @@ class VirtualRopeBody {
     const velocityDenominator = invParticle + this.inverseEffectiveMass(secondPoint, normal);
     if (!Number.isFinite(relativeNormal) || !Number.isFinite(velocityDenominator) || velocityDenominator <= 0)
       return error("contact velocity or inverse mass is not finite.");
+    let normalImpulse = positionImpulse;
     if (relativeNormal < 0) {
       const velocityImpulse = -relativeNormal / velocityDenominator;
+      normalImpulse += velocityImpulse;
       const secondImpulse = scale(normal, -velocityImpulse);
       correction = add(correction, scale(normal, velocityImpulse * invParticle * dt));
       reactionImpulse = add(reactionImpulse, secondImpulse);
       reactionAngularImpulse = add(reactionAngularImpulse, cross(secondPoint, secondImpulse));
       this.apply(secondImpulse, secondPoint, dt);
+    }
+    const contactPoint = point();
+    const relative = sub(scale(sub(add(position, correction), previous), 1 / dt), this.pointVelocity(contactPoint));
+    const tangent = sub(relative, scale(normal, dot(relative, normal))), speed = Math.hypot(...tangent);
+    if (speed > 1e-12 && normalImpulse > 0) {
+      const direction = scale(tangent, 1 / speed), weight = invParticle + this.inverseEffectiveMass(contactPoint, direction);
+      const magnitude = Math.min(speed / weight, this.friction * normalImpulse);
+      const impulse = scale(direction, magnitude);
+      correction = add(correction, scale(impulse, -invParticle * dt));
+      reactionImpulse = add(reactionImpulse, impulse);
+      reactionAngularImpulse = add(reactionAngularImpulse, cross(contactPoint, impulse));
+      this.apply(impulse, contactPoint, dt);
     }
     return { correction: vector(correction, "particle correction"), reactionImpulse: vector(reactionImpulse, "reaction impulse"), reactionAngularImpulse: vector(reactionAngularImpulse, "reaction moment") };
   }

@@ -1,5 +1,6 @@
 import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
 import { createBoxFrame, orientedParticleBoxContact, orientedSegmentBoxContact } from "./box-contact.ts";
+import { staticContactCorrection, sweepParticle } from "./continuous-contact.ts";
 
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
@@ -353,8 +354,9 @@ export class RopeSolver {
               const center = dynamicBox?.center ?? c.center, extents = dynamicBox?.halfExtents ?? c.halfExtents;
               const frame = dynamicBox ? createBoxFrame(center, dynamicBox.rotation) : boxFrames.get(c.id);
               const contact = orientedParticleBoxContact(p, radius, center, extents, frame);
-              if (!contact) continue;
-              normal = contact.normal; depth = contact.depth;
+              const hit = contact ?? sweepParticle(previous[i], p, radius, { ...c, center, halfExtents: extents, rotation: dynamicBox?.rotation ?? c.rotation });
+              if (!hit) continue;
+              normal = hit.normal; depth = hit.depth;
             } else {
               const center = dynamicSphere?.center ?? c.center, colliderRadius = dynamicSphere?.radius ?? c.radius;
               const delta: Vec3 = [p[0] - center[0], p[1] - center[1], p[2] - center[2]];
@@ -362,7 +364,12 @@ export class RopeSolver {
               depth = colliderRadius + radius - distance;
               normal = distance < 1e-12 ? [1, 0, 0] : [delta[0] / distance, delta[1] / distance, delta[2] / distance];
             }
-            if (depth <= 0) continue;
+            if (depth <= 0) {
+              const active: RopeCollider = c.kind === "sphere" && dynamicSphere ? { ...c, ...dynamicSphere } : c;
+              const hit = sweepParticle(previous[i], p, radius, active);
+              if (!hit) continue;
+              normal = hit.normal; depth = hit.depth;
+            }
             let reaction: Vec3, moment: Vec3;
             if ((dynamicSphere || dynamicBox) && coupling) {
               const surface: Vec3 | undefined = dynamicBox ? [p[0] + normal[0] * (depth - radius), p[1] + normal[1] * (depth - radius), p[2] + normal[2] * (depth - radius)] : undefined;
@@ -372,10 +379,10 @@ export class RopeSolver {
               for (let k = 0; k < 3; k++) p[k] += result.correction[k];
               reaction = result.reactionImpulse; moment = result.reactionAngularImpulse;
             } else {
-              for (let k = 0; k < 3; k++) p[k] += normal[k] * depth;
+              const correction = staticContactCorrection(normal, depth, p, previous[i]);
+              for (let k = 0; k < 3; k++) p[k] += correction[k];
               // A manually sampled collider remains immovable; expose its projection reaction.
-              const magnitude = -mass * depth / h;
-              reaction = [normal[0] * magnitude, normal[1] * magnitude, normal[2] * magnitude];
+              reaction = correction.map(value => -mass * value / h) as Vec3;
               const point: Vec3 = c.kind === "sphere"
                 ? [c.center[0] + normal[0] * c.radius, c.center[1] + normal[1] * c.radius, c.center[2] + normal[2] * c.radius]
                 : [p[0] - normal[0] * radius, p[1] - normal[1] * radius, p[2] - normal[2] * radius];

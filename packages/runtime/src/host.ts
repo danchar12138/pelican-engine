@@ -20,6 +20,7 @@ import type { RuntimeWorld, WorldSnapshot } from "./contracts.ts";
 import type { RuntimeEvent } from "./events.ts";
 import { cloneSerializable } from "./random.ts";
 import { neutralGamepad } from "./gamepad.ts";
+import { SimulationCouplingFrame } from "../../simulation/src/coupling-frame.ts";
 import { resolveEntityDefinition } from "./prefabs.ts";
 import { diagnosticFrom, type RuntimeDiagnostic } from "./error.ts";
 import type {
@@ -100,6 +101,7 @@ export class RuntimeHost {
   private asyncActive = false;
   private drivingAsync = false;
   private disposing = false;
+  private readonly couplingFrame: SimulationCouplingFrame;
 
   constructor(ir: SceneIR, options: HostOptions = {}) {
     if (ir.format !== "pelican.scene" || ir.version !== 1)
@@ -111,6 +113,7 @@ export class RuntimeHost {
         "TC_RUNTIME_ENGINE_VERSION: Compiled content must match the active engine.",
       );
     this.fixedDt = options.fixedDt ?? 1 / 60;
+    this.couplingFrame = new SimulationCouplingFrame(this.fixedDt);
     this.seed = options.seed ?? 12345;
     this.scene = structuredClone(ir);
     const world = createWorld({
@@ -165,6 +168,7 @@ export class RuntimeHost {
       this.scheduler = createdScheduler;
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
+          couplingFrame: this.couplingFrame,
           fixedDt: this.fixedDt,
           getRopePhysicsBridge: () => this.plugins.find((plugin) => plugin.id === "$engine.physics")?.ropePhysicsBridge,
           getNavigationService: () => this.services.navigation,
@@ -378,6 +382,8 @@ export class RuntimeHost {
   }
 
   private afterPhysics(): void {
+    this.couplingFrame.begin();
+    try {
     for (const plugin of this.plugins) {
       const result: unknown = plugin.afterPhysics?.();
       if (result && (typeof result === "object" || typeof result === "function") && "then" in result) {
@@ -385,6 +391,8 @@ export class RuntimeHost {
         throw new Error(`TC_PLUGIN_ASYNC: afterPhysics for ${plugin.id} must complete synchronously.`);
       }
     }
+    this.couplingFrame.commit(this.plugins.find(plugin => plugin.id === "$engine.physics")?.ropePhysicsBridge);
+    } catch (error) { this.couplingFrame.rollback(error); }
   }
 
   private registerPlugin(plugin: RuntimePlugin): void {

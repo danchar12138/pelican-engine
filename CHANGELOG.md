@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add transactional cross-entry contacts for automatic rope, cloth, soft-body and fluid simulations, shared virtual rigid reactions, distance/volume reprojection and one reaction commit per host tick. This is split-step coupling, not complete rigid/material time integration; runtime and recovery are unverified.
+- Add linear particle sweeps against sampled spheres, planes and oriented boxes, cross-entry moving particle/segment/triangle CCD, and positional/effective-mass Coulomb friction. Rotating/moving rigid obstacle CCD and full coupled scope remain incomplete; no behavior validation was performed.
+
 ## 0.14.0 - 2026-11-08
 
 - Compile-only development batch. Native first-step deletion behavior, independent-memory recovery, v3 compatibility, joints, resource costs and browsers have not been tested. Unified simulation coupling, world/terrain and remaining animation work are not complete; this is not 1.0.

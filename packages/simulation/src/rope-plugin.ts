@@ -6,6 +6,7 @@ import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type RopeCollider, type Vec3 } from "./rope.ts";
 import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
+import { stageRopeDomain } from "./coupling-adapters.ts";
 
 type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string>; attachmentRefs: Map<number, EntityHandle> };
 type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
@@ -259,7 +260,8 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     afterPhysics() {
       alive(); ensureRefs();
       const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string>; attachmentRefs: Map<number, EntityHandle> }[] = [];
-      const bodies = new Map<string, VirtualRopeCollider>();
+      const frame = context.couplingFrame?.active ? context.couplingFrame : undefined;
+      const bodies = frame?.bodies ?? new Map<string, VirtualRopeCollider>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
@@ -314,12 +316,22 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
           }
           for (const attachment of liveAttachments)
             attached.set(attachment.index, { body: virtualBody(attachment.entity), localPoint: [...attachment.localPoint] as Vec3 });
-          entry.solver.step(1, coupled.size || attached.size ? createRopeBodyCoupling(coupled, attached) : undefined);
+          const coupling = coupled.size || attached.size ? createRopeBodyCoupling(coupled, attached) : undefined;
+          entry.solver.step(1, coupling);
+          stageRopeDomain(frame, entry.definition.id, entry.solver, snapshot, coupling);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
           .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
-        if (batch.length) bridgeFor(context).applyRopeReactions(batch);
+        if (batch.length && !frame) bridgeFor(context).applyRopeReactions(batch);
+        frame?.rollbackWith(() => {
+          const failures: unknown[] = [];
+          for (const item of [...committed].reverse()) {
+            item.entry.definition = item.definition; item.entry.bodyRefs = item.refs; item.entry.staleBodies = item.stale; item.entry.attachmentRefs = item.attachmentRefs;
+            try { item.entry.solver.restore(item.snapshot); } catch (error) { failures.push(error); }
+          }
+          if (failures.length) throw new AggregateError(failures, "TC_ROPE_COUPLING_ROLLBACK: Restore a known-good checkpoint.");
+        });
       } catch (error) {
         const failures: string[] = [];
         for (const item of committed.reverse()) {

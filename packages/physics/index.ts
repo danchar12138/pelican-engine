@@ -1249,6 +1249,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const rotation = b.body.rotation();
     return {
       center: tuple(b.collider.translation()), radius: b.collider.radius(),
+      friction: b.collider.friction(),
       bodyPosition: tuple(b.body.translation()), bodyOrientation: [rotation.x, rotation.y, rotation.z, rotation.w] as const,
       centerOfMass: tuple(b.body.worldCom()), linearVelocity: tuple(b.body.linvel()),
       angularVelocity: tuple(b.body.angvel()), inverseMass: tuple(b.body.effectiveInvMass()),
@@ -1269,6 +1270,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const inertia = body.body.effectiveWorldInvInertia();
     const orientation = body.body.rotation();
     return { kind: "box", center: tuple(body.collider.translation()), halfExtents: tuple(halfExtents),
+      friction: body.collider.friction(),
       bodyPosition: tuple(body.body.translation()), bodyOrientation: [orientation.x, orientation.y, orientation.z, orientation.w],
       rotation: euler(body.collider.rotation()), centerOfMass: tuple(body.body.worldCom()),
       linearVelocity: tuple(body.body.linvel()), angularVelocity: tuple(body.body.angvel()), inverseMass: tuple(body.body.effectiveInvMass()),

@@ -6,6 +6,7 @@ import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
 import { differingSimulationOption } from "./snapshot-options.ts";
 import { nearestParticle } from "./nearest-particle.ts";
+import { stageParticleDomain } from "./coupling-adapters.ts";
 import { applyParticleForces } from "./particle-forces.ts";
 import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
 import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
@@ -120,7 +121,8 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
       alive();
       ensureRefs();
       const committed: { entry: Entry; snapshot: SimulationSnapshot }[] = [];
-      const bodies = new Map<string, VirtualRopeCollider>();
+      const frame = context.couplingFrame?.active ? context.couplingFrame : undefined;
+      const bodies = frame?.bodies ?? new Map<string, VirtualRopeCollider>();
       try {
         for (const entry of [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id))) {
           const snapshot = entry.simulation.snapshot();
@@ -137,14 +139,20 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
             coupling = createRopeBodyCoupling(new Map([["body:0", body]]));
           }
           entry.simulation.step(1, coupling);
+          stageParticleDomain(frame, entry.definition.id, entry.simulation, snapshot, coupling);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
           .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
-        if (batch.length) {
+        if (batch.length && !frame) {
           const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
           bridge.applyParticleReactions(batch);
         }
+        frame?.rollbackWith(() => {
+          const failures: unknown[] = [];
+          for (const item of [...committed].reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (error) { failures.push(error); }
+          if (failures.length) throw new AggregateError(failures, "TC_SOFTBODY_COUPLING_ROLLBACK: Restore a known-good checkpoint.");
+        });
       } catch (error) {
         const failures: string[] = [];
         for (const item of committed.reverse()) try { item.entry.simulation.restore(item.snapshot); } catch (rollbackError) { failures.push(String(rollbackError)); }

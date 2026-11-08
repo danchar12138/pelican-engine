@@ -34,6 +34,7 @@ import type {
   WorldSnapshot,
 } from "./contracts.ts";
 import type { RuntimeEvent } from "./events.ts";
+import type { SimulationCouplingFrame } from "../../simulation/src/coupling-frame.ts";
 export interface RuntimeServices {
   input: GamepadInputService;
   physics: PhysicsService;
@@ -62,6 +63,7 @@ export interface RuntimeServices {
 }
 /** Private bridge; native physics objects never cross this interface. */
 export interface RopePhysicsBodyState {
+  friction?: number;
   center: Vec3;
   /** Rigid-body origin and quaternion, provided by the physics owner for local attachments. */
   bodyPosition?: Vec3;
@@ -94,6 +96,8 @@ export interface RopePhysicsBridge {
 /** Private identity-only bridge; native 2D objects are not exposed. */
 export interface Physics2DBridge { hasEntity(entity: string): boolean }
 export interface RuntimePluginContext {
+  /** One host-owned transaction for shared rigid reactions and cross-material contacts. */
+  couplingFrame?: SimulationCouplingFrame;
   /** Lazily resolved because physics may be registered after another plugin. */
   getRopePhysicsBridge?(): RopePhysicsBridge | undefined;
   /** Internal lazy bridge; tile maps may be registered before or after navigation. */

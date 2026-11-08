@@ -5,6 +5,7 @@ import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
+import { stageClothDomain } from "./coupling-adapters.ts";
 import { validateSampledBodyPeers } from "./sampled-body-binding.ts";
 import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
@@ -155,7 +156,8 @@ export const createClothPlugin: RuntimePluginFactory = context => {
       alive(); ensureRefs(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition; refs: Map<string, EntityHandle> }[] = [];
       // Stage all cloth reactions until every automatic solver has completed. A later
       // cloth error must not leave earlier native impulses committed during rollback.
-      const bodies = new Map<string, VirtualRopeCollider>();
+      const frame = context.couplingFrame?.active ? context.couplingFrame : undefined;
+      const bodies = frame?.bodies ?? new Map<string, VirtualRopeCollider>();
       try {
         const automatic = [...entries.values()].filter(entry => entry.definition.autoStep)
           .sort((a, b) => a.definition.id < b.definition.id ? -1 : a.definition.id > b.definition.id ? 1 : 0);
@@ -192,15 +194,25 @@ export const createClothPlugin: RuntimePluginFactory = context => {
             entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.solver.setColliders([...manual, ...sampled]);
           }
-          entry.solver.step(1, coupled.size ? createRopeBodyCoupling(coupled) : undefined);
+          const coupling = coupled.size ? createRopeBodyCoupling(coupled) : undefined;
+          entry.solver.step(1, coupling);
+          stageClothDomain(frame, entry.definition.id, entry.solver, snapshot, coupling);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
           .sort((a, b) => a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0);
-        if (batch.length) {
+        if (batch.length && !frame) {
           const bridge = context.getRopePhysicsBridge?.() ?? fail("BODY_REACTION", "bodyReactions require the physics plugin.");
           bridge.applyClothReactions(batch);
         }
+        frame?.rollbackWith(() => {
+          const failures: unknown[] = [];
+          for (const item of [...committed].reverse()) {
+            item.entry.definition = item.definition; item.entry.bodyRefs = item.refs;
+            try { item.solver.restore(item.snapshot); } catch (error) { failures.push(error); }
+          }
+          if (failures.length) throw new AggregateError(failures, "TC_CLOTH_COUPLING_ROLLBACK: Restore a known-good checkpoint.");
+        });
       } catch (error) {
         const failures: string[] = [];
         for (const item of committed.reverse()) {

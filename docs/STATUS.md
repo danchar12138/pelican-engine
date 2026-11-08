@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local simulation development adds a host-owned transactional contact stage shared by automatic rope, cloth, soft-body and fluid entries. It shares virtual rigid reactions across plugins, projects cross-entry particle/segment/triangle contacts with linear conservative-advancement CCD, interleaves distance/volume constraints and commits one sorted rigid reaction batch. Manual particle-obstacle sweeps and Coulomb friction are connected to the solvers. This is split-step CPU coupling, not fully time-interleaved rigid/material integration; moving/rotating rigid obstacle CCD, multi-body fluid bindings, shared fluid density and tearing remain incomplete. Numerical behavior, rollback, compatibility and cost are unverified. See [Simulation Coupling](SIMULATION-COUPLING.md).
+
 - Local 3D physics now owns one JS/WASM instance per world and replay candidate; only compiled module code is shared. Candidate validation never replays in the live world's memory. Faulted live owners reject access until recovery/restart. Isolation behavior, recovery, memory costs and old v3 byte compatibility have not been run or verified.
 
 - Local 3D joints are connected to production physics: fixed, ball, revolute, prismatic, rope and spring, with optional connected-body collision and revolute/prismatic limits. Create/destroy history, endpoint cleanup and snapshot registries are integrated. Motors, force-triggered breakage, vehicles and full constraint scope remain incomplete; all joint behavior is unverified.

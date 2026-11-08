@@ -8,7 +8,7 @@ const clamp = (value: number) => Math.max(0, Math.min(1, value));
 const fail = (message: string): never => { throw new Error(`ROPE_NUMERIC: ${message}`); };
 
 /** Closest points of finite line segments; handles collapsed and near-parallel links. */
-function closest(a: Vec3, b: Vec3, c: Vec3, d: Vec3): { first: number; second: number; firstPoint: Vec3; secondPoint: Vec3 } {
+export function closest(a: Vec3, b: Vec3, c: Vec3, d: Vec3): { first: number; second: number; firstPoint: Vec3; secondPoint: Vec3 } {
   const u = sub(b, a), v = sub(d, c), w = sub(a, c);
   const uu = dot(u, u), vv = dot(v, v), uv = dot(u, v), uw = dot(u, w), vw = dot(v, w);
   let first = 0, second = 0;
