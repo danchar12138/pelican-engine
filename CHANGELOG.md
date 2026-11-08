@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.14.0 - 2026-11-08
+
+- Compile-only development batch. Native first-step deletion behavior, independent-memory recovery, v3 compatibility, joints, resource costs and browsers have not been tested. Unified simulation coupling, world/terrain and remaining animation work are not complete; this is not 1.0.
+
 - Add production 3D joint creation, inspection and deletion for fixed, ball, revolute, prismatic, rope and spring constraints, with snapshot history and endpoint cleanup. Behavior is unverified.
 - Isolate every 3D physics world and replay candidate in separate WASM memory, sharing compiled code only; recovery and memory behavior are unverified.
 
