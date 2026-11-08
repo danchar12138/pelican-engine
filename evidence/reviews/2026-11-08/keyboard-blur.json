@@ -1,0 +1,198 @@
+[
+  {
+    "label": "held-before-blur",
+    "focus": true,
+    "input": {
+      "held": [
+        "right"
+      ],
+      "pressed": [
+        "right"
+      ],
+      "released": [],
+      "gamepadMode": "ui",
+      "gamepadDeadzone": 0.15,
+      "gamepad": {
+        "available": false,
+        "connected": false,
+        "index": null,
+        "axes": [],
+        "buttons": [],
+        "suppressed": true
+      }
+    },
+    "player": {
+      "position": [
+        -3.95,
+        0,
+        0.3
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  {
+    "label": "after-tab-switch",
+    "focus": true,
+    "input": {
+      "held": [
+        "right"
+      ],
+      "pressed": [
+        "right"
+      ],
+      "released": [],
+      "gamepadMode": "ui",
+      "gamepadDeadzone": 0.15,
+      "gamepad": {
+        "available": false,
+        "connected": false,
+        "index": null,
+        "axes": [],
+        "buttons": [],
+        "suppressed": true
+      }
+    },
+    "player": {
+      "position": [
+        -3.95,
+        0,
+        0.3
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  {
+    "label": "after-synthetic-blur",
+    "focus": true,
+    "input": {
+      "held": [
+        "right"
+      ],
+      "pressed": [
+        "right"
+      ],
+      "released": [],
+      "gamepadMode": "ui",
+      "gamepadDeadzone": 0.15,
+      "gamepad": {
+        "available": false,
+        "connected": false,
+        "index": null,
+        "axes": [],
+        "buttons": [],
+        "suppressed": true
+      }
+    },
+    "player": {
+      "position": [
+        -3.95,
+        0,
+        0.3
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  {
+    "label": "10-ticks-after-blur",
+    "focus": true,
+    "input": {
+      "held": [
+        "right"
+      ],
+      "pressed": [],
+      "released": [],
+      "gamepadMode": "ui",
+      "gamepadDeadzone": 0.15,
+      "gamepad": {
+        "available": false,
+        "connected": false,
+        "index": null,
+        "axes": [],
+        "buttons": [],
+        "suppressed": true
+      }
+    },
+    "player": {
+      "position": [
+        -3.450000000000002,
+        0,
+        0.3
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  {
+    "label": "released",
+    "focus": true,
+    "input": {
+      "held": [],
+      "pressed": [],
+      "released": [
+        "right"
+      ],
+      "gamepadMode": "ui",
+      "gamepadDeadzone": 0.15,
+      "gamepad": {
+        "available": false,
+        "connected": false,
+        "index": null,
+        "axes": [],
+        "buttons": [],
+        "suppressed": true
+      }
+    },
+    "player": {
+      "position": [
+        -3.450000000000002,
+        0,
+        0.3
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+]

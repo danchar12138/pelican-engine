@@ -1,0 +1,30 @@
+{
+  "status": 200,
+  "version": "1.0.0",
+  "registryIntegrity": "sha512-mNx8PfFLWgeOqK16Cn/CzllZjoYBrXfAD/G7CIfVdikS8w6aKtVag8eH1jUkKjFv+j3ylgZcFFn9rluHQfcE2g==",
+  "localIntegrity": "sha512-7yZdoLU5r43bTaZvW8sw09ZC2sVFGQVTlK/TTBXqMaJHTc/ugZno+ngnFhL8qzdOZOYOS2OF5FQvuVV+dPnCjA==",
+  "identical": false,
+  "dist": {
+    "shasum": "89f67432722f7a6e0ae1e83ca0e4edde43bb0284",
+    "tarball": "https://registry.npmjs.org/pelican-engine/-/pelican-engine-1.0.0.tgz",
+    "fileCount": 269,
+    "integrity": "sha512-mNx8PfFLWgeOqK16Cn/CzllZjoYBrXfAD/G7CIfVdikS8w6aKtVag8eH1jUkKjFv+j3ylgZcFFn9rluHQfcE2g==",
+    "signatures": [
+      {
+        "sig": "MEUCIGAupr4y8EHDUZ88wnm2LfLujVLmnVymzZJ7iogAjjkPAiEA5MBj75SN7eY6PE/6sJ38fbO+drqxsC5IFk6Cv6xk9Ww=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEUCIQDEd6gxrvA51xCmCx//RJb9L/QLyNP4LZKtVmZxkzN2pwIgeZLagRE7weIuvyfMZYmBAb2TnzFQZbvjVfJVoGf74oQ=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/pelican-engine@1.0.0",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 9633651
+  }
+}

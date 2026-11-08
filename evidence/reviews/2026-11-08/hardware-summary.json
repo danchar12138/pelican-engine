@@ -1,0 +1,394 @@
+{
+  "backend": "WebGPUBackend",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "blackwell",
+    "isFallbackAdapter": false,
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "texture-formats-tier1",
+      "bgra8unorm-storage",
+      "texture-compression-bc",
+      "dual-source-blending",
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "float32-blendable",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "timestamp-query",
+      "texture-formats-tier2",
+      "shader-f16",
+      "clip-distances",
+      "subgroups"
+    ]
+  },
+  "initialCapabilities": {
+    "backend": "webgpu",
+    "compute": true,
+    "availableModes": [
+      "raster",
+      "hybrid",
+      "path"
+    ],
+    "tracer": "WebGPU surface triangle-BVH (lazy initialization)",
+    "tracerInitialized": false,
+    "hardwareRT": false,
+    "denoiser": "motion-reprojected temporal history + spatial a-trous; complete quality matrix unaccepted",
+    "hybrid": "raster primary visibility + actual shadow and secondary rays",
+    "pathBounces": 6,
+    "tracedLights": "all captured point/spot/directional/ambient/hemisphere lights",
+    "textures": "supported GLB PBR textures in raster and surface tracing; see documented limits",
+    "experimentalProbes": "Four small CPU simulations and finite world probe are M0 debug sidecars, not M1 production modules"
+  },
+  "operations": [
+    {
+      "name": "initial",
+      "status": "succeeded",
+      "ms": 1494,
+      "diagnostics": [],
+      "tick": 0,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "snapshot",
+      "status": "succeeded",
+      "ms": 17,
+      "diagnostics": [],
+      "tick": 0
+    },
+    {
+      "name": "record-start",
+      "status": "succeeded",
+      "ms": 12,
+      "diagnostics": [],
+      "tick": 0,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "step-60",
+      "status": "succeeded",
+      "ms": 85,
+      "diagnostics": [],
+      "tick": 60,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0000000000000013,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "record-stop",
+      "status": "succeeded",
+      "ms": 20,
+      "diagnostics": []
+    },
+    {
+      "name": "after-60",
+      "status": "succeeded",
+      "ms": 10,
+      "diagnostics": [],
+      "tick": 60,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0000000000000013,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "restore",
+      "status": "succeeded",
+      "ms": 34,
+      "diagnostics": [],
+      "tick": 0,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "replay",
+      "status": "succeeded",
+      "ms": 179,
+      "diagnostics": []
+    },
+    {
+      "name": "after-replay",
+      "status": "succeeded",
+      "ms": 11,
+      "diagnostics": [],
+      "tick": 60,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0000000000000013,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "mode-raster",
+      "status": "succeeded",
+      "ms": 15,
+      "diagnostics": [],
+      "tick": 60,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0000000000000013,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "step-raster",
+      "status": "succeeded",
+      "ms": 18,
+      "diagnostics": [],
+      "tick": 62,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0333333333333345,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "capture-raster",
+      "status": "succeeded",
+      "diagnostics": []
+    },
+    {
+      "name": "mode-hybrid",
+      "status": "succeeded",
+      "ms": 5932,
+      "diagnostics": [],
+      "tick": 62,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0333333333333345,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "step-hybrid",
+      "status": "succeeded",
+      "ms": 25,
+      "diagnostics": [],
+      "tick": 64,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0666666666666678,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "capture-hybrid",
+      "status": "succeeded",
+      "diagnostics": []
+    },
+    {
+      "name": "mode-path",
+      "status": "succeeded",
+      "ms": 19,
+      "diagnostics": [],
+      "tick": 64,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.0666666666666678,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "step-path",
+      "status": "succeeded",
+      "ms": 23,
+      "diagnostics": [],
+      "tick": 66,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.100000000000001,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "capture-path",
+      "status": "succeeded",
+      "diagnostics": []
+    },
+    {
+      "name": "final",
+      "status": "succeeded",
+      "ms": 13,
+      "diagnostics": [],
+      "tick": 66,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1.100000000000001,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "scope": "Minimal 12-triangle scene only; not full visual, performance or hardware acceptance."
+}

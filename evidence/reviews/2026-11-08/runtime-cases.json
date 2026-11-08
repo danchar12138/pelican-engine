@@ -1,0 +1,872 @@
+[
+  {
+    "name": "orthographic-2d",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "physics2d",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "texture-formats-tier2",
+        "timestamp-query",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "physics2d-character",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "gamepad",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "texture-formats-tier2",
+        "timestamp-query",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "dynamic-ui",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "texture-formats-tier2",
+        "timestamp-query",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "inventory",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "quests",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "dialogue",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "bgra8unorm-storage",
+        "texture-formats-tier1",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "clip-distances",
+        "texture-formats-tier2",
+        "timestamp-query",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "gameplay-loop",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "localization",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "texture-formats-tier2",
+        "timestamp-query",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "navigation-agents",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "streaming-world",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "rope-reaction",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "cloth-sheet",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "failed",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": {
+      "code": "TC_SCHEDULER_TICK",
+      "tick": 18,
+      "stage": "system:$engine.physics",
+      "message": "TC_ROPE_BODY_NUMERIC: world inverse inertia diagonal cannot be negative.",
+      "partialState": true,
+      "eventFaults": []
+    },
+    "diagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "TC_RUNTIME_SYSTEM: tick=18, stage=system:$engine.physics, partialState=true; TC_ROPE_BODY_NUMERIC: world inverse inertia diagonal cannot be negative.",
+        "remediation": "Inspect the referenced entity, system or resource; correct the source and rerun the failing operation.",
+        "system": "$engine.physics"
+      }
+    ],
+    "errors": [
+      "Error: TC_RUNTIME_SYSTEM: tick=18, stage=system:$engine.physics, partialState=true; TC_ROPE_BODY_NUMERIC: world inverse inertia diagonal cannot be negative."
+    ],
+    "stepDiagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "Runtime command reported a diagnostic. Inspect the referenced command and project source.",
+        "remediation": "Correct the command or project source and retry; a runtime failure envelope alone does not reset the session."
+      }
+    ],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "softbody-ball",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "failed",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": {
+      "code": "TC_SCHEDULER_TICK",
+      "tick": 2,
+      "stage": "system:$engine.physics",
+      "message": "TC_ROPE_BODY_NUMERIC: world inverse inertia diagonal cannot be negative.",
+      "partialState": true,
+      "eventFaults": []
+    },
+    "diagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "TC_RUNTIME_SYSTEM: tick=2, stage=system:$engine.physics, partialState=true; TC_ROPE_BODY_NUMERIC: world inverse inertia diagonal cannot be negative.",
+        "remediation": "Inspect the referenced entity, system or resource; correct the source and rerun the failing operation.",
+        "system": "$engine.physics"
+      }
+    ],
+    "errors": [
+      "Error: TC_RUNTIME_SYSTEM: tick=2, stage=system:$engine.physics, partialState=true; TC_ROPE_BODY_NUMERIC: world inverse inertia diagonal cannot be negative."
+    ],
+    "stepDiagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "Runtime command reported a diagnostic. Inspect the referenced command and project source.",
+        "remediation": "Correct the command or project source and retry; a runtime failure envelope alone does not reset the session."
+      }
+    ],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "fluid-basin",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "physical-destroy",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "failed",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "bgra8unorm-storage",
+        "texture-formats-tier1",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "shader-f16",
+        "clip-distances",
+        "texture-formats-tier2",
+        "timestamp-query",
+        "subgroups"
+      ]
+    },
+    "fault": {
+      "code": "TC_SCHEDULER_TICK",
+      "tick": 1,
+      "stage": "system:$engine.physics.bind",
+      "message": "TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.",
+      "partialState": true,
+      "eventFaults": []
+    },
+    "diagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "TC_RUNTIME_SYSTEM: tick=1, stage=system:$engine.physics.bind, partialState=true; TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.",
+        "remediation": "Inspect the referenced entity, system or resource; correct the source and rerun the failing operation.",
+        "system": "$engine.physics.bind"
+      }
+    ],
+    "errors": [
+      "Error: TC_RUNTIME_SYSTEM: tick=1, stage=system:$engine.physics.bind, partialState=true; TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene."
+    ],
+    "stepDiagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "Runtime command reported a diagnostic. Inspect the referenced command and project source.",
+        "remediation": "Correct the command or project source and retry; a runtime failure envelope alone does not reset the session."
+      }
+    ],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "physical-spawn",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "failed",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": {
+      "code": "TC_SCHEDULER_TICK",
+      "tick": 1,
+      "stage": "system:$engine.physics.bind",
+      "message": "TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.",
+      "partialState": true,
+      "eventFaults": []
+    },
+    "diagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "TC_RUNTIME_SYSTEM: tick=1, stage=system:$engine.physics.bind, partialState=true; TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.",
+        "remediation": "Inspect the referenced entity, system or resource; correct the source and rerun the failing operation.",
+        "system": "$engine.physics.bind"
+      }
+    ],
+    "errors": [
+      "Error: TC_RUNTIME_SYSTEM: tick=1, stage=system:$engine.physics.bind, partialState=true; TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene."
+    ],
+    "stepDiagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "Runtime command reported a diagnostic. Inspect the referenced command and project source.",
+        "remediation": "Correct the command or project source and retry; a runtime failure envelope alone does not reset the session."
+      }
+    ],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "dynamic-chunk",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "failed",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": {
+      "code": "TC_SCHEDULER_TICK",
+      "tick": 2,
+      "stage": "system:$engine.physics.bind",
+      "message": "TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.",
+      "partialState": true,
+      "eventFaults": []
+    },
+    "diagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "TC_RUNTIME_SYSTEM: tick=2, stage=system:$engine.physics.bind, partialState=true; TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.",
+        "remediation": "Inspect the referenced entity, system or resource; correct the source and rerun the failing operation.",
+        "system": "$engine.physics.bind"
+      }
+    ],
+    "errors": [
+      "Error: TC_RUNTIME_SYSTEM: tick=2, stage=system:$engine.physics.bind, partialState=true; TC_PHYSICS_OPERATION: 'lifecycle' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene."
+    ],
+    "stepDiagnostics": [
+      {
+        "code": "TC_RUNTIME_SYSTEM",
+        "severity": "error",
+        "message": "Runtime command reported a diagnostic. Inspect the referenced command and project source.",
+        "remediation": "Correct the command or project source and retry; a runtime failure envelope alone does not reset the session."
+      }
+    ],
+    "initialDiagnostics": []
+  },
+  {
+    "name": "m2",
+    "compile": "succeeded",
+    "initial": "succeeded",
+    "step": "succeeded",
+    "snapshot": "succeeded",
+    "restore": "succeeded",
+    "backend": "WebGPUBackend",
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "blackwell",
+      "isFallbackAdapter": false,
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "dual-source-blending",
+        "core-features-and-limits",
+        "float32-filterable",
+        "indirect-first-instance",
+        "float32-blendable",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "texture-formats-tier2",
+        "shader-f16",
+        "clip-distances",
+        "subgroups"
+      ]
+    },
+    "fault": null,
+    "diagnostics": [],
+    "errors": [],
+    "stepDiagnostics": [],
+    "initialDiagnostics": []
+  }
+]

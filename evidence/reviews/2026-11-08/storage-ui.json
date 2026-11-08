@@ -1,0 +1,97 @@
+[
+  {
+    "name": "gameplay-loop",
+    "steps": [
+      {
+        "id": "accept",
+        "status": "Quest: active | Crystals: 0 | Hand: empty",
+        "roots": 1,
+        "allStatus": [
+          "Quest: active | Crystals: 0 | Hand: empty"
+        ]
+      },
+      {
+        "id": "gather",
+        "status": "Quest: active | Crystals: 1 | Hand: empty",
+        "roots": 1,
+        "allStatus": [
+          "Quest: active | Crystals: 1 | Hand: empty"
+        ]
+      },
+      {
+        "id": "save",
+        "status": "Quest: active | Crystals: 1 | Hand: empty",
+        "roots": 1,
+        "allStatus": [
+          "Quest: active | Crystals: 1 | Hand: empty"
+        ]
+      },
+      {
+        "id": "gather",
+        "status": "Quest: active | Crystals: 2 | Hand: empty",
+        "roots": 1,
+        "allStatus": [
+          "Quest: active | Crystals: 2 | Hand: empty"
+        ]
+      },
+      {
+        "id": "gather",
+        "status": "Quest: completed | Crystals: 3 | Hand: empty",
+        "roots": 1,
+        "allStatus": [
+          "Quest: completed | Crystals: 3 | Hand: empty"
+        ]
+      },
+      {
+        "id": "load",
+        "status": "Quest: active | Crystals: 1 | Hand: empty",
+        "roots": 2,
+        "allStatus": [
+          "Quest: completed | Crystals: 3 | Hand: empty",
+          "Quest: active | Crystals: 1 | Hand: empty"
+        ]
+      },
+      {
+        "id": "gather",
+        "status": "Quest: active | Crystals: 2 | Hand: empty",
+        "roots": 2,
+        "allStatus": [
+          "Quest: completed | Crystals: 3 | Hand: empty",
+          "Quest: active | Crystals: 2 | Hand: empty"
+        ]
+      },
+      {
+        "id": "gather",
+        "status": "Quest: completed | Crystals: 3 | Hand: empty",
+        "roots": 2,
+        "allStatus": [
+          "Quest: completed | Crystals: 3 | Hand: empty",
+          "Quest: completed | Crystals: 3 | Hand: empty"
+        ]
+      },
+      {
+        "id": "report",
+        "status": "Quest: completed | Crystals: 3 | Hand: empty",
+        "roots": 2,
+        "allStatus": [
+          "Quest: completed | Crystals: 3 | Hand: empty",
+          "Quest: completed | Crystals: 3 | Hand: empty"
+        ]
+      },
+      {
+        "id": "equip",
+        "status": "Quest: completed | Crystals: 3 | Hand: sword",
+        "roots": 2,
+        "allStatus": [
+          "Quest: completed | Crystals: 3 | Hand: empty",
+          "Quest: completed | Crystals: 3 | Hand: sword"
+        ]
+      }
+    ],
+    "assertionsOnCurrentUI": true,
+    "runtimeErrors": [
+      "TC_CONTENT_CLEANUP: previous gameplay: AggregateError: TC_CONTENT_DISPOSE: Some content resources could not be released; inspect the causes and restart the scene."
+    ],
+    "finalTick": 8
+  }
+]

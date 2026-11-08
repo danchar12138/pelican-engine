@@ -1,0 +1,26 @@
+{
+  "protocolVersion": "0.1.0",
+  "taskId": "create-1794123652799",
+  "status": "succeeded",
+  "diagnostics": [],
+  "artifacts": [
+    {
+      "type": "file",
+      "path": "game.ts"
+    },
+    {
+      "type": "file",
+      "path": "pelican.project.json"
+    },
+    {
+      "type": "file",
+      "path": "AGENTS.md"
+    }
+  ],
+  "data": {
+    "project": "pelican-review-game-btV9W7",
+    "engineVersion": "1.0.0",
+    "template": "minimal"
+  }
+}
+

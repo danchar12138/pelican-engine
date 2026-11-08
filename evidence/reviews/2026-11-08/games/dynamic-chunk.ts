@@ -1,0 +1,4 @@
+import {defineGame,defineScene,defineSystem,definePrefab} from 'pelican-engine';
+const box=definePrefab({id:'box',rigidBody:{type:'dynamic',collider:{shape:'box',size:[1,1,1]}}});
+const action=defineSystem({id:'action',phase:'input',structural:true,run(ctx){if(ctx.time.tick===1){ctx.streaming.configure({chunkSize:8,loadRadius:0,unloadRadius:0});ctx.streaming.defineChunk({x:0,z:0,entities:[{id:'chunk-body',prefab:'box'}]});ctx.streaming.setFocus([0,0,0]);}if(ctx.time.tick===4)ctx.streaming.setFocus([100,0,0]);if(ctx.time.tick===7)ctx.streaming.setFocus([0,0,0]);}});
+export default defineGame({id:'case',prefabs:[box],systems:[action],scene:defineScene({id:'main',camera:{position:[4,3,6],target:[0,0,0]},entities:[{id:'victim',prefab:box},{id:'survivor',prefab:box,transform:{position:[5,0,0]}}]})});

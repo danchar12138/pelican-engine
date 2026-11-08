@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-08",
+  "sourceCommit": "5c253429281ecf8dc35a53253101344526d053e8",
+  "sourceVersion": "1.0.0",
+  "initialWorkingTree": "clean",
+  "node": "v24.15.0",
+  "authorization": "Current user explicitly requested comprehensive tests and review; project D50 was not edited.",
+  "build": {
+    "typecheck": "passed",
+    "sourceBuild": "passed",
+    "distributionPack": "passed",
+    "freshInstallBuild": "passed",
+    "npmSmoke": "passed"
+  },
+  "sourceExamples": {
+    "total": 51,
+    "passed": 51
+  },
+  "existingTests": {
+    "total": 1775,
+    "passed": 1672,
+    "failed": 94,
+    "skipped": 9,
+    "durationMs": 404667.9554,
+    "failingFiles": {
+      "tests\\assets.test.ts": 1,
+      "tests\\audio-pause-browser.test.ts": 1,
+      "tests\\backend-lifecycle.test.ts": 13,
+      "tests\\browser-contract.test.ts": 16,
+      "tests\\game-services.test.ts": 8,
+      "tests\\glb-sparse-accessor.test.ts": 1,
+      "tests\\gltf-specular-textures.test.ts": 1,
+      "tests\\models-restore-cpu-review.test.ts": 2,
+      "tests\\navigation.test.ts": 2,
+      "tests\\npm-author-recipe.test.ts": 1,
+      "tests\\physics-angular.test.ts": 1,
+      "tests\\physics-joints-internal.test.ts": 11,
+      "tests\\physics.test.ts": 20,
+      "tests\\release.test.ts": 1,
+      "tests\\surface-cache.test.ts": 1,
+      "tests\\surface-capture.test.ts": 1,
+      "tests\\surface.test.ts": 2,
+      "tests\\ui.test.ts": 9
+    },
+    "indexedFailureDetailBlocks": 92,
+    "indexedTestFiles": 18,
+    "note": "Runner reports 94 failed test nodes. The reporter printed 92 detailed failure blocks; these counts are retained separately rather than inventing missing details."
+  },
+  "distributionTests": {
+    "total": 16,
+    "passed": 13,
+    "failed": 3
+  },
+  "gpuOptIn": {
+    "total": 5,
+    "passed": 4,
+    "failed": 1,
+    "details": "BSDF, dielectric, spatial denoiser and environment passed on NVIDIA hardware; model browser harness failed to import its generated module."
+  },
+  "runtimeScenarios": {
+    "total": 20,
+    "passed": 15,
+    "failed": 5,
+    "definitions": "16 recipe/simulation games, 3 corrected lifecycle games executing at tick 1, 1 asset-bearing m2 game; each successful case advanced 60 ticks then restored a snapshot."
+  },
+  "scopeLimits": [
+    "One Windows machine and observed NVIDIA adapter; WebGL2 fallback also observed in headless browser.",
+    "No same-scene Three.js visual/performance A/B or broad hardware/mobile/touch acceptance.",
+    "Keyboard blur reproduction dispatches a synthetic blur; headless tab switching did not change document.hasFocus().",
+    "Individual failure assertions are not independent product bug counts.",
+    "No engine fixes, dependency upgrades, commits, pushes or publications were performed."
+  ],
+  "artifacts": "Logs are UTF-8 transcriptions of original PowerShell output, with no content omitted; larger raw snapshots and temporary game workspace are retained in .pelican/review-2026-11-08."
+}

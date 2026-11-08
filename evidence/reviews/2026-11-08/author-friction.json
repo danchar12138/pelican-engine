@@ -1,0 +1,38 @@
+[
+  {
+    "name": "map-content",
+    "status": "failed",
+    "diagnostics": [
+      {
+        "code": "TC_STATIC_SIDE_EFFECT",
+        "severity": "error",
+        "message": "Arbitrary function calls are not evaluated in definitions.",
+        "suggestion": "Use a supported define* call from pelican-engine; put executable behavior inside systems.",
+        "source": {
+          "file": "game.ts",
+          "line": 1,
+          "column": 70,
+          "length": 33
+        }
+      }
+    ]
+  },
+  {
+    "name": "helper-content",
+    "status": "failed",
+    "diagnostics": [
+      {
+        "code": "TC_STATIC_SIDE_EFFECT",
+        "severity": "error",
+        "message": "Arbitrary function calls are not evaluated in definitions.",
+        "suggestion": "Use a supported define* call from pelican-engine; put executable behavior inside systems.",
+        "source": {
+          "file": "game.ts",
+          "line": 1,
+          "column": 173,
+          "length": 13
+        }
+      }
+    ]
+  }
+]

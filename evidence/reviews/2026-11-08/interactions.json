@@ -1,0 +1,71 @@
+[
+  {
+    "name": "dynamic-ui",
+    "steps": [
+      {
+        "id": "add",
+        "status": "Items: 1/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 2/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 3/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 4/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 5/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 6/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 6/6"
+      },
+      {
+        "id": "item:0",
+        "status": "Items: 5/6"
+      },
+      {
+        "id": "add",
+        "status": "Items: 6/6"
+      }
+    ],
+    "passed": true
+  },
+  {
+    "name": "gameplay-loop",
+    "steps": [
+      {
+        "id": "accept",
+        "status": "Quest: active | Crystals: 0 | Hand: empty"
+      },
+      {
+        "id": "gather",
+        "status": "Quest: active | Crystals: 1 | Hand: empty"
+      },
+      {
+        "id": "save",
+        "status": "Quest: active | Crystals: 1 | Hand: empty"
+      },
+      {
+        "id": "gather",
+        "status": "Quest: active | Crystals: 2 | Hand: empty"
+      },
+      {
+        "id": "gather",
+        "status": "Quest: completed | Crystals: 3 | Hand: empty"
+      }
+    ],
+    "passed": false,
+    "error": "locator.innerText: Error: strict mode violation: locator('[data-pelican-element=\"status\"]') resolved to 2 elements:\n    1) <div tabindex=\"-1\" data-pelican-element=\"status\">Quest: completed | Crystals: 3 | Hand: empty</div> aka getByText('Quest: completed | Crystals:')\n    2) <div tabindex=\"-1\" data-pelican-element=\"status\">Quest: active | Crystals: 1 | Hand: empty</div> aka getByText('Quest: active | Crystals: 1')\n\nCall log:\n\u001b[2m  - waiting for locator('[data-pelican-element=\"status\"]')\u001b[22m\n"
+  }
+]
