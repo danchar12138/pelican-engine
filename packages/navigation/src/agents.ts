@@ -35,6 +35,7 @@ const inGrid = (point: NavigationCell, grid: NavigationGrid) => !!point && typeo
 const publicState = (agent: Agent): NavigationAgentState => cloneSerializable({
   id: agent.id, entity: agent.entity, grid: agent.grid, plane: agent.plane, rowDirection: agent.rowDirection, target: agent.target,
   ...(agent.followEntity === undefined ? {} : { followEntity: agent.followEntity }),
+  ...(agent.terrain === undefined ? {} : { terrain: agent.terrain }),
   ...(agent.avoidAgents ? { avoidAgents: true } : {}),
   status: agent.status, error: agent.error, path: agent.path, cursor: agent.cursor,
 });
@@ -55,11 +56,14 @@ export function createNavigationAgents(
     alive();
     const value = cloneSerializable(input);
     if (!value || typeof value !== "object" || Array.isArray(value) ||
-        Object.keys(value).some(key => !["id", "entity", "grid", "origin", "cellSize", "speed", "allowDiagonal", "avoidAgents", "plane", "rowDirection"].includes(key)) ||
+        Object.keys(value).some(key => !["id", "entity", "grid", "terrain", "origin", "cellSize", "speed", "allowDiagonal", "avoidAgents", "plane", "rowDirection"].includes(key)) ||
         !name(value.id) || !name(value.entity) || !name(value.grid))
       return fail("AGENT", "Agent needs nonempty id, entity and grid names.");
-    const origin = value.origin ?? [0, 0], cellSize = value.cellSize ?? 1, speed = value.speed ?? 1, allowDiagonal = value.allowDiagonal ?? false;
+    if (value.terrain !== undefined && !name(value.terrain)) return fail("AGENT_TERRAIN", "terrain must identify an existing terrain.");
+    const terrain = value.terrain === undefined ? undefined : (context.getTerrainService?.() ?? fail("AGENT_TERRAIN", "Terrain service is unavailable.")).inspect(value.terrain);
+    const origin = value.origin ?? (terrain ? [terrain.origin[0], terrain.origin[2]] : [0, 0]), cellSize = value.cellSize ?? terrain?.cellSize ?? 1, speed = value.speed ?? 1, allowDiagonal = value.allowDiagonal ?? false;
     const plane = value.plane ?? "xz", rowDirection = value.rowDirection ?? "positive";
+    if (terrain && (terrain.navigation?.grid !== value.grid || plane !== "xz" || rowDirection !== "positive" || cellSize !== terrain.cellSize || origin[0] !== terrain.origin[0] || origin[1] !== terrain.origin[2])) return fail("AGENT_TERRAIN", "Terrain agents must use the terrain's owned grid and X/Z mapping.");
     if (!Array.isArray(origin) || origin.length !== 2 || origin.some(v => typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) > 1e9) ||
         !Number.isFinite(cellSize) || cellSize < 0.001 || cellSize > 1e6 ||
         !Number.isFinite(speed) || speed <= 0 || speed > 1000 || typeof allowDiagonal !== "boolean" ||
@@ -76,6 +80,7 @@ export function createNavigationAgents(
     agents.set(value.id, { id: value.id, entity: value.entity, grid: value.grid,
       origin: [origin[0], origin[1]], cellSize, speed, allowDiagonal, plane, rowDirection,
       ...(value.avoidAgents ? { avoidAgents: true } : {}),
+      ...(value.terrain === undefined ? {} : { terrain: value.terrain }),
       target: null, path: [], cursor: 0, status: "idle", error: null, dirty: false });
     handles.set(value.id, handle);
   }
@@ -207,6 +212,17 @@ export function createNavigationAgents(
         continue;
       }
       if (agent.error === "TC_NAVIGATION_AGENT_BODY" && agent.target) planTarget(agent, agent.target);
+      if (agent.terrain !== undefined) {
+        const position = context.world.getTransform(handle).position;
+        const terrain = context.getTerrainService?.();
+        if (!terrain || !terrain.list().includes(agent.terrain)) {
+          agent.status = "blocked"; agent.error = "TC_NAVIGATION_AGENT_TERRAIN"; agent.dirty = false; agent.path = []; agent.cursor = 0; continue;
+        }
+        const height = terrain.sampleHeight(agent.terrain, position[0], position[2]);
+        if (height === null) { agent.status = "blocked"; agent.error = "TC_NAVIGATION_AGENT_TERRAIN"; agent.dirty = false; agent.path = []; agent.cursor = 0; continue; }
+        if (height !== position[1]) context.world.setTransform(handle, { position: [position[0], height, position[2]] });
+        if (agent.error === "TC_NAVIGATION_AGENT_TERRAIN" && agent.target) planTarget(agent, agent.target);
+      }
       if (!agent.target) continue;
       const position = context.world.getTransform(handle).position;
       const second = agent.plane === "xy" ? position[1] : position[2];
@@ -255,8 +271,11 @@ export function createNavigationAgents(
         if (step >= distance) { x = tx; z = tz; agent.cursor++; segments++; }
         else break;
       }
-      if (x !== position[0] || z !== second)
-        context.world.setTransform(handle, { position: agent.plane === "xy" ? [x, z, position[2]] : [x, position[1], z] });
+      if (x !== position[0] || z !== second) {
+        const height = agent.terrain === undefined ? position[1] : context.getTerrainService?.()?.sampleHeight(agent.terrain, x, z);
+        if (height === undefined || height === null) return fail("AGENT_TERRAIN", `Agent '${agent.id}' left terrain '${agent.terrain}'; restore a known-good checkpoint.`);
+        context.world.setTransform(handle, { position: agent.plane === "xy" ? [x, z, position[2]] : [x, height, z] });
+      }
       if (agent.status === "waiting") {
         agent.waitingTicks = Math.min(REROUTE_WAIT_TICKS, (agent.waitingTicks ?? 0) + 1);
         const here = { x: Math.floor((x - agent.origin[0]) / agent.cellSize), y: Math.floor((z - agent.origin[1]) / (agent.cellSize * direction)) };
@@ -310,6 +329,7 @@ export function createNavigationAgents(
           !Number.isFinite(agent.cellSize) || agent.cellSize < 0.001 || agent.cellSize > 1e6 ||
           !Number.isFinite(agent.speed) || agent.speed <= 0 || agent.speed > 1000 || typeof agent.allowDiagonal !== "boolean" || typeof agent.dirty !== "boolean" ||
           (agent.avoidAgents !== undefined && typeof agent.avoidAgents !== "boolean") ||
+          (agent.terrain !== undefined && (!name(agent.terrain) || agent.plane !== "xz" || agent.rowDirection !== "positive")) ||
           !Number.isSafeInteger(agent.waitingTicks) || agent.waitingTicks < 0 || agent.waitingTicks > REROUTE_WAIT_TICKS ||
           !["idle", "planning", "moving", "waiting", "arrived", "blocked", "missing"].includes(agent.status) ||
           !(agent.error === null || (typeof agent.error === "string" && /^TC_NAVIGATION_[A-Z_]+$/.test(agent.error))) ||

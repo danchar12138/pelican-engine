@@ -1,4 +1,5 @@
 import type { RopePhysicsBridge } from "../../runtime/src/plugins.ts";
+import type { TerrainService } from "../../sdk/src/index.ts";
 import type { Vec3 } from "./rope.ts";
 import { closestTriangle } from "./cloth.ts";
 import { closest as closestSegments } from "./rope-self-collision.ts";
@@ -7,13 +8,14 @@ import type { VirtualRopeCollider } from "./rope-body-coupling.ts";
 export interface CoupledParticle { position: Vec3; previous: Vec3; velocity: Vec3; inverseMass: number; radius: number }
 export interface CoupledDomain {
   id: string;
+  friction?: number;
   particles: CoupledParticle[];
   edges: readonly (readonly [number, number])[];
   triangles: readonly (readonly [number, number, number])[];
   project(): void;
   commit(): void;
 }
-type Primitive = { domain: CoupledDomain; indices: readonly number[]; radius: number; key: string };
+type Primitive = { domain: CoupledDomain; indices: readonly number[]; radius: number; key: string; dynamic: boolean };
 type Contact = { first: Primitive; second: Primitive; normal: Vec3; weights: number[]; normalLambda: number; tangentLambda: Vec3 };
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -77,14 +79,24 @@ export class SimulationCouplingFrame {
   rollbackWith(action: () => void): void { if (this.active) this.undo.push(action); }
   add(domain: CoupledDomain): void {
     if (!this.active || this.domains.some(item => item.id === domain.id)) fail(`Invalid or duplicate domain '${domain.id}'`);
-    if (domain.particles.some(p => !Number.isFinite(p.inverseMass) || p.inverseMass < 0 || !Number.isFinite(p.radius) || p.radius <= 0)) fail(`Invalid particles in '${domain.id}'`);
+    if (domain.particles.some(p => !Number.isFinite(p.inverseMass) || p.inverseMass < 0 || !Number.isFinite(p.radius) || p.radius < 0 || (p.radius === 0 && p.inverseMass > 0))) fail(`Invalid particles in '${domain.id}'`);
+    if (domain.friction !== undefined && (!Number.isFinite(domain.friction) || domain.friction < 0 || domain.friction > 100)) fail(`Invalid friction in '${domain.id}'`);
     this.domains.push(domain);
+  }
+  addTerrain(service?: TerrainService): void {
+    if (!this.domains.length || !service) return;
+    for (const terrain of service.visuals()) {
+      const edges = new Map<string, [number, number]>();
+      for (const [a, b, c] of terrain.triangles) for (const [i, j] of [[a, b], [b, c], [c, a]]) edges.set(`${Math.min(i, j)}:${Math.max(i, j)}`, [i, j]);
+      this.add({ id: `terrain/${terrain.id}`, friction: service.inspect(terrain.id).friction ?? 0.5, particles: terrain.positions.map(position => ({ position: [...position], previous: [...position], velocity: [0, 0, 0], inverseMass: 0, radius: 0 })),
+        triangles: terrain.triangles, edges: [...edges.values()], project() {}, commit() {} });
+    }
   }
   private primitives(): Primitive[] {
     return this.domains.flatMap(domain => [
-      ...domain.particles.map((p, i) => ({ domain, indices: [i], radius: p.radius, key: `${domain.id}/p${i}` })),
-      ...domain.edges.map((indices, i) => ({ domain, indices, radius: Math.max(...indices.map(j => domain.particles[j].radius)), key: `${domain.id}/e${i}` })),
-      ...domain.triangles.map((indices, i) => ({ domain, indices, radius: Math.max(...indices.map(j => domain.particles[j].radius)), key: `${domain.id}/t${i}` })),
+      ...domain.particles.map((p, i) => ({ domain, indices: [i], radius: p.radius, key: `${domain.id}/p${i}`, dynamic: p.inverseMass > 0 })),
+      ...domain.edges.map((indices, i) => ({ domain, indices, radius: Math.max(...indices.map(j => domain.particles[j].radius)), key: `${domain.id}/e${i}`, dynamic: indices.some(j => domain.particles[j].inverseMass > 0) })),
+      ...domain.triangles.map((indices, i) => ({ domain, indices, radius: Math.max(...indices.map(j => domain.particles[j].radius)), key: `${domain.id}/t${i}`, dynamic: indices.some(j => domain.particles[j].inverseMass > 0) })),
     ]);
   }
   private discover(): void {
@@ -98,7 +110,7 @@ export class SimulationCouplingFrame {
     let candidates = 0;
     for (let i = 0; i < bounds.length; i++) for (let j = i + 1; j < bounds.length && bounds[j].min[0] <= bounds[i].max[0]; j++) {
       let first = bounds[i].primitive, second = bounds[j].primitive;
-      if (first.domain === second.domain || bounds[i].min[1] > bounds[j].max[1] || bounds[j].min[1] > bounds[i].max[1] || bounds[i].min[2] > bounds[j].max[2] || bounds[j].min[2] > bounds[i].max[2]) continue;
+      if (first.domain === second.domain || (!first.dynamic && !second.dynamic) || bounds[i].min[1] > bounds[j].max[1] || bounds[j].min[1] > bounds[i].max[1] || bounds[i].min[2] > bounds[j].max[2] || bounds[j].min[2] > bounds[i].max[2]) continue;
       if (first.indices.length > second.indices.length || (first.indices.length === second.indices.length && first.key > second.key)) [first, second] = [second, first];
       if (first.indices.length === 3 || (first.indices.length === 2 && second.indices.length === 3)) continue;
       if (++candidates > 2000000) fail("More than 2000000 candidate contacts in one iteration");
@@ -115,7 +127,7 @@ export class SimulationCouplingFrame {
     item.normalLambda = next;
     const motion = sub(gap, weighted(particles, item.weights, true)), along = dot(motion, item.normal);
     let tangent = item.tangentLambda.map((v, axis) => v - (motion[axis] - item.normal[axis] * along) / denominator) as Vec3;
-    const length = Math.hypot(...tangent), limit = 0.5 * next;
+    const length = Math.hypot(...tangent), limit = Math.sqrt((item.first.domain.friction ?? 0.5) * (item.second.domain.friction ?? 0.5)) * next;
     if (length > limit && length > 0) tangent = tangent.map(v => v * limit / length) as Vec3;
     const correction = item.normal.map((v, axis) => v * normalDelta + tangent[axis] - item.tangentLambda[axis]) as Vec3;
     item.tangentLambda = tangent;

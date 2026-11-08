@@ -23,7 +23,10 @@ limitations. The longer `docs/AI-WORKFLOW.md` is shared design context, not an
 instruction to run source-only engine acceptance tasks.
 
 The installed package includes `docs/GRAPHICS-GUIDE.md` and
-`docs/RENDER-BACKENDS.md`. The source checkout's `docs/STATUS.md` summarizes
+`docs/RENDER-BACKENDS.md`. `docs/TERRAIN.md` covers height editing, native
+collision, terrain navigation and snapshot ownership;
+`docs/SIMULATION-COUPLING.md` describes cross-material contact behavior and
+remaining limits. The source checkout's `docs/STATUS.md` summarizes
 current engine capabilities and gaps. Its `examples/`, engine `packages/`, and
 `npm run probe:*` references are maintainer references available only in a source checkout; the npm package
 intentionally contains no example projects, game assets, or engine source. Use

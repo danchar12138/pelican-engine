@@ -11,6 +11,10 @@
 
 ## Current Scope
 
+- Local terrain development adds a public height-grid service with batched edits and world-space sculpting, one f32 mesh source for rendering/tracing/native trimesh collision, immediate physics-query refresh, slope/step-based owned navigation grids, terrain-following X/Z agents, shared particle-surface contacts and cross-owner snapshots. This is bounded CPU height-surface terrain, not arbitrary volumetric destruction, dynamic residency or guaranteed rigid-body ejection when edits engulf bodies. Runtime, GPU, navigation, contact and restore behavior are unverified. See [Terrain](TERRAIN.md).
+
+- Exceptions after entering native action application now fault the owner regardless of diagnostic prefix; a TC-prefixed error is no longer treated as proof of unchanged native state. Common invalid body/vector commands are rejected before applying an action. Recovery remains unverified.
+
 - Local simulation development adds a host-owned transactional contact stage shared by automatic rope, cloth, soft-body and fluid entries. It shares virtual rigid reactions across plugins, projects cross-entry particle/segment/triangle contacts with linear conservative-advancement CCD, interleaves distance/volume constraints and commits one sorted rigid reaction batch. Manual particle-obstacle sweeps and Coulomb friction are connected to the solvers. This is split-step CPU coupling, not fully time-interleaved rigid/material integration; moving/rotating rigid obstacle CCD, multi-body fluid bindings, shared fluid density and tearing remain incomplete. Numerical behavior, rollback, compatibility and cost are unverified. See [Simulation Coupling](SIMULATION-COUPLING.md).
 
 - Local 3D physics now owns one JS/WASM instance per world and replay candidate; only compiled module code is shared. Candidate validation never replays in the live world's memory. Faulted live owners reject access until recovery/restart. Isolation behavior, recovery, memory costs and old v3 byte compatibility have not been run or verified.

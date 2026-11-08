@@ -9,10 +9,12 @@ import type {
   PhysicsSweepShape,
   RigidBodyDefinition,
   Transform,
+  TerrainGeometry,
   Vec3,
 } from "../sdk/src/index.ts";
 import type { WorldSnapshot } from "../runtime/src/contracts.ts";
 import { cloneSerializable } from "../runtime/src/random.ts";
+import { terrainGeometry, terrainMesh } from "../runtime/src/terrain-data.ts";
 import type { EntityIR, SceneIR } from "../compiler/src/types.ts";
 import { resolveEntityDefinition } from "../runtime/src/prefabs.ts";
 import type {
@@ -75,7 +77,9 @@ type Action =
   | { kind: "gravityScale"; id: string; scale: number }
   | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 }
   | { kind: "jointCreate"; definition: PhysicsJointDefinition }
-  | { kind: "jointDestroy"; id: string };
+  | { kind: "jointDestroy"; id: string }
+  | { kind: "terrainSet"; terrain: TerrainGeometry }
+  | { kind: "terrainRemove"; id: string };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
   version: 3;
@@ -95,6 +99,7 @@ interface PhysicsSnapshot {
   pairs: [number, number][];
   /** Absent in old v3 snapshots with no joint operations. */
   joints?: PhysicsJointDefinition[];
+  terrains?: TerrainGeometry[];
 }
 function fail(code: string, message: string): never {
   throw new Error(code + ": " + message);
@@ -269,6 +274,9 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     byCollider = new Map<number, string>(),
     pairs = new Map<string, { a: number; b: number; trigger: boolean }>();
   const joints = createInternalJoints(world, nativeBodies, RAPIER);
+  const terrains = new Map<string, { definition: TerrainGeometry; body: RAPIER.RigidBody; collider: RAPIER.Collider }>();
+  let terrainHistory = false;
+  let terrainSamples = 0;
   let jointHistory = false;
   let tick = 0,
     topologyDirty = false;
@@ -573,9 +581,41 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   ) {
     if (
       !action ||
-      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy"].includes(action.kind)
+      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
+    if (action.kind === "terrainSet" || action.kind === "terrainRemove") {
+      if (Object.keys(action).length !== 2 || !Object.hasOwn(action, action.kind === "terrainSet" ? "terrain" : "id")) fail("TC_PHYSICS_TERRAIN", "Invalid terrain history fields.");
+      if (action.kind === "terrainSet") {
+        const definition = terrainGeometry(action.terrain), previous = terrains.get(definition.id), queryId = `$terrain/${definition.id}`;
+        if ((!previous && terrains.size >= 128) || bodies.has(queryId)) fail("TC_PHYSICS_TERRAIN", "Terrain capacity exceeded or a reserved query ID conflicts with an entity.");
+        if (terrainSamples + definition.heights.length > 8000000) fail("TC_PHYSICS_TERRAIN_HISTORY", "Terrain history exceeds 8000000 height samples; start a new scene.");
+        terrainSamples += definition.heights.length;
+        const mesh = terrainMesh(definition), shape = new RAPIER.TriMesh(new Float32Array(mesh.positions.flat()), new Uint32Array(mesh.triangles.flat()));
+        if (previous) {
+          previous.collider.setShape(shape);
+          previous.collider.setFriction(definition.friction ?? 0.5);
+          previous.collider.setRestitution(definition.restitution ?? 0);
+          previous.definition = definition;
+        } else {
+          const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+          try {
+            const collider = world.createCollider(new RAPIER.ColliderDesc(shape).setFriction(definition.friction ?? 0.5).setRestitution(definition.restitution ?? 0)
+              .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS).setActiveCollisionTypes(RAPIER.ActiveCollisionTypes.ALL), body);
+            terrains.set(definition.id, { definition, body, collider }); byCollider.set(collider.handle, queryId);
+          } catch (error) { world.removeRigidBody(body); throw error; }
+        }
+        for (const body of bodies.values()) if (body.type === "dynamic") body.body.wakeUp();
+      } else {
+        const entry = terrains.get(action.id);
+        if (!entry) fail("TC_PHYSICS_TERRAIN", `Terrain '${action.id}' does not exist.`);
+        for (const [key, pair] of pairs) if (pair.a === entry.collider.handle || pair.b === entry.collider.handle) { emitPair(pair, false, emit); pairs.delete(key); }
+        byCollider.delete(entry.collider.handle); world.removeRigidBody(entry.body); terrains.delete(action.id);
+      }
+      terrainHistory = true; topologyDirty = true;
+      sync([...bodies.values()].map(body => ({ id: body.id, transform: body.transform })), emit);
+      return;
+    }
     if (action.kind === "jointCreate" || action.kind === "jointDestroy") {
       const field = action.kind === "jointCreate" ? "definition" : "id";
       if (Object.keys(action).length !== 2 || !Object.hasOwn(action, field))
@@ -787,6 +827,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
         p.a < p.b ? [p.a, p.b] : [p.b, p.a],
       ) as [number, number][],
       ...(jointHistory ? { joints: joints.snapshot().joints } : {}),
+      ...(terrainHistory ? { terrains: [...terrains.values()].map(item => structuredClone(item.definition)).sort((a, b) => a.id.localeCompare(b.id, "en")) } : {}),
     };
   }
   return {
@@ -800,6 +841,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     world,
     native: RAPIER,
     joints,
+    terrains,
     bodies,
     byCollider,
     get,
@@ -877,7 +919,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const excluded = new Set(options?.exclude ?? []), found = new Set<string>();
     state.world.intersectionsWithShape(position, orientation, shape, collider => {
       const id = state.byCollider.get(collider.handle), ref = id ? refs.get(id) : undefined;
-      if (id && ref && context.world.isAlive(ref) && !excluded.has(id) && (options?.includeTriggers === true || !collider.isSensor())) found.add(id);
+      if (id && queryAlive(id) && !excluded.has(id) && (options?.includeTriggers === true || !collider.isSensor())) found.add(id);
       return true;
     });
     return [...found].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
@@ -926,8 +968,10 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const captured = cloneSerializable(action);
     try { state.apply(captured, emit); }
     catch (error) {
-      if (error instanceof AggregateError || !(error instanceof Error) || !error.message.startsWith("TC_")) nativeFault = true;
-      throw error;
+      // A stable diagnostic may also be raised after native mutation or event
+      // delivery. Its prefix cannot establish that the native owner is intact.
+      nativeFault = true;
+      throw new AggregateError([error], `TC_PHYSICS_OPERATION: '${captured.kind}' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.`);
     }
     history.push(captured);
   }
@@ -938,6 +982,11 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     if (!ref || !context.world.isAlive(ref))
       fail("TC_PHYSICS_ENTITY", id + " has no live physics body.");
     return state.get(id);
+  }
+  function queryAlive(id: string): boolean {
+    if (id.startsWith("$terrain/") && state.terrains.has(id.slice("$terrain/".length))) return true;
+    const ref = refs.get(id);
+    return !!ref && context.world.isAlive(ref);
   }
   function snapshot(): PhysicsSnapshot {
     alive();
@@ -977,7 +1026,8 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         !Array.isArray(s.entities) ||
         !Array.isArray(s.characters) ||
         !Array.isArray(s.pairs) ||
-        (s.joints !== undefined && !Array.isArray(s.joints))
+        (s.joints !== undefined && !Array.isArray(s.joints)) ||
+        (s.terrains !== undefined && !Array.isArray(s.terrains))
       )
         fail(
           "TC_PHYSICS_SNAPSHOT",
@@ -1001,6 +1051,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           characters: s.characters,
           pairs: s.pairs,
           ...(s.joints === undefined ? {} : { joints: s.joints }),
+          ...(s.terrains === undefined ? {} : { terrains: s.terrains }),
         })
       )
         fail(
@@ -1055,7 +1106,8 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       return tuple(state.world.gravity);
     },
     setGravityScale(id, scale) {
-      get(id);
+      if (get(id).type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `Gravity scale requires a dynamic rigid body (${id}).`);
+      if (!Number.isFinite(scale) || Math.abs(scale) > 1000 || (scale !== 0 && Math.fround(scale) === 0)) fail("TC_PHYSICS_GRAVITY_SCALE", "Gravity scale must be float32-representable in [-1000,1000].");
       record({ kind: "gravityScale", id, scale });
     },
     gravityScale(id) {
@@ -1064,8 +1116,8 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       return body.body.gravityScale();
     },
     moveCharacter(id, value) {
-      get(id);
-      record({ kind: "move", id, value });
+      if (!get(id).character) fail("TC_PHYSICS_CHARACTER", `${id} is not a character.`);
+      record({ kind: "move", id, value: tuple(vec(value, "displacement")) });
     },
     grounded(id) {
       const c = get(id).character;
@@ -1086,26 +1138,27 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       return tuple(get(id).body.worldCom());
     },
     setVelocity(id, value) {
-      get(id);
-      record({ kind: "velocity", id, value });
+      const body = get(id);
+      if (!body.character && body.type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `setVelocity requires a dynamic body or character (${id}).`);
+      record({ kind: "velocity", id, value: tuple(vec(value, "velocity")) });
     },
     impulse(id, value) {
-      get(id);
-      record({ kind: "impulse", id, value });
+      if (get(id).type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `impulse requires a dynamic body (${id}).`);
+      record({ kind: "impulse", id, value: tuple(vec(value, "impulse")) });
     },
     angularVelocity(id) {
       return tuple(get(id).body.angvel());
     },
     setAngularVelocity(id, value) {
-      get(id);
+      if (get(id).type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `setAngularVelocity requires a dynamic body (${id}).`);
       record({ kind: "angularVelocity", id, value: tuple(vec(value, "angular velocity")) });
     },
     torqueImpulse(id, value) {
-      get(id);
+      if (get(id).type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `torqueImpulse requires a dynamic body (${id}).`);
       record({ kind: "torqueImpulse", id, value: tuple(vec(value, "torque impulse")) });
     },
     impulseAtPoint(id, value, point) {
-      get(id);
+      if (get(id).type !== "dynamic") fail("TC_PHYSICS_BODY_TYPE", `impulseAtPoint requires a dynamic body (${id}).`);
       record({ kind: "impulseAtPoint", id, value: tuple(vec(value, "impulse")), point: tuple(vec(point, "point")) });
     },
     raycast(
@@ -1158,8 +1211,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
             ref = id ? refs.get(id) : undefined;
           return (
             !!id &&
-            !!ref &&
-            context.world.isAlive(ref) &&
+            queryAlive(id) &&
             !excluded.has(id) &&
             (options?.includeTriggers === true || !collider.isSensor())
           );
@@ -1206,7 +1258,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       const hit = state.world.castShape(position, rotation(angles), travel, shape, 0, 1, true,
         undefined, undefined, undefined, undefined, collider => {
           const id = state.byCollider.get(collider.handle), ref = id ? refs.get(id) : undefined;
-          return !!id && !!ref && context.world.isAlive(ref) && !excluded.has(id) &&
+          return !!id && queryAlive(id) && !excluded.has(id) &&
             (options?.includeTriggers === true || !collider.isSensor());
         });
       return hit ? { entity: state.byCollider.get(hit.collider.handle)!, fraction: hit.time_of_impact,
@@ -1308,6 +1360,10 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     version: "3",
     requiresRecovery: () => nativeFault,
     services: { physics },
+    terrainPhysicsBridge: {
+      setTerrain(terrain) { record({ kind: "terrainSet", terrain: terrainGeometry(terrain) }); },
+      removeTerrain(id) { record({ kind: "terrainRemove", id }); },
+    },
     ropePhysicsBridge: {
       sampleSphere: sampleRopeSphere,
       sampleClothBody,

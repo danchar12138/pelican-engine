@@ -31,7 +31,9 @@ sweeps use distance-based conservative advancement rather than an inflated box
 intersection. Cross-entry contacts use swept bounds, closest simplex points,
 inverse-mass gradients and a shared normal/tangent constraint budget.
 
-The default contact friction is 0.5. Native-bound contact reactions use the
+The default contact friction is 0.5. Cross-domain friction uses the geometric
+mean of each domain's coefficient; terrain supplies its authored coefficient.
+Native-bound contact reactions use the
 bound collider's friction coefficient. Manual obstacle projections do not move
 an obstacle. Rigid reactions include angular moments about the world origin.
 
@@ -47,6 +49,9 @@ The shared stage caps active primitives at 100,000 and broadphase candidates at
 cannot converge. These bounds fail explicitly; they do not silently skip contacts.
 
 ## Remaining 1.0 Work
+
+Terrain surfaces participate as immovable zero-radius triangle domains. The
+native rigid world consumes the same f32 vertices through its terrain bridge.
 
 This is a split-step contact stage, not complete simultaneous rigid/material
 integration. Native moving/rotating obstacle sweeps, multiple live rigid bindings

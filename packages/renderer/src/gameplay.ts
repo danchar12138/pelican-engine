@@ -9,6 +9,7 @@ import { createGameServices } from "../../runtime/src/game-services.ts";
 import { createPhysicsFactory } from "../../physics/index.ts";
 import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createWorldStreamingPlugin } from "../../runtime/src/world-streaming.ts";
+import { createTerrainPlugin } from "../../runtime/src/terrain.ts";
 import { createInventoryPlugin } from "../../gameplay/src/inventory.ts";
 import { createQuestPlugin } from "../../gameplay/src/quests.ts";
 import { createDialoguePlugin } from "../../gameplay/src/dialogue.ts";
@@ -252,6 +253,7 @@ export async function prepareGameplay(
       services.factory,
       createNavigationPlugin,
       createWorldStreamingPlugin,
+      createTerrainPlugin,
       createInventoryPlugin,
       createQuestPlugin,
       createDialoguePlugin,
@@ -333,11 +335,7 @@ export async function prepareGameplay(
       const { createPhysics2DFactory } = await import("../../physics/physics2d.ts");
       plugins.push(await createPhysics2DFactory());
     }
-    if (
-      [...ir.scene.entities, ...ir.prefabs].some(
-        (entity) => entity.rigidBody || entity.character,
-      )
-    ) {
+    {
       const factory = await createPhysicsFactory();
       plugins.push((context) => {
         const plugin = factory(context);

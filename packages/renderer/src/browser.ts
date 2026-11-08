@@ -228,11 +228,13 @@ const gameRoot = new THREE.Group();
 scene.add(gameRoot);
 const ropeVisuals = createRopeVisualOwner();
 const clothVisuals = createClothVisualOwner();
+const terrainVisuals = createClothVisualOwner();
+terrainVisuals.root.name = "pelican-terrain-visuals";
 const fluidVisuals = createFluidVisualOwner();
 const softBodyVisuals = createSoftBodyVisualOwner();
 const spriteVisuals = createSpriteVisualOwner();
 const tilemapVisuals = createTilemapVisualOwner();
-scene.add(ropeVisuals.root, clothVisuals.root, fluidVisuals.root, softBodyVisuals.root, spriteVisuals.root, tilemapVisuals.root);
+scene.add(ropeVisuals.root, clothVisuals.root, terrainVisuals.root, fluidVisuals.root, softBodyVisuals.root, spriteVisuals.root, tilemapVisuals.root);
 let dynamicVisualRevision = 0, renderedDynamicVisualRevision = 0;
 // Raster frames do not update the surface tracer, even when they consume a scene revision.
 let traceContentDirty = true;
@@ -240,7 +242,8 @@ let observedGraphOwner: typeof renderControl;
 let observedGraphRevision = -1, observedGraphTick = -1;
 const clearDynamicVisuals = () => {
   const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear(), tilemapsChanged = tilemapVisuals.clear();
-  if (ropesChanged || clothChanged || fluidChanged || softBodiesChanged || spritesChanged || tilemapsChanged) dynamicVisualRevision++;
+  const terrainChanged = terrainVisuals.clear();
+  if (ropesChanged || clothChanged || terrainChanged || fluidChanged || softBodiesChanged || spritesChanged || tilemapsChanged) dynamicVisualRevision++;
 };
 let authoredCamera = { position: [0, 3.4, 7], target: [0, 0.9, 0] };
 let authoredLights: {
@@ -620,6 +623,7 @@ function syncRuntime(): boolean {
   if (gameplay) {
     if (ropeVisuals.sync(runtime.facade.ropes.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (clothVisuals.sync(runtime.facade.cloth.visuals(), gameMaterials)) dynamicVisualRevision++;
+    if (terrainVisuals.sync(runtime.facade.terrain.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (fluidVisuals.sync(runtime.facade.fluid.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (softBodyVisuals.sync(runtime.facade.softBodies.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (spriteVisuals.sync(runtime.facade.sprites.visuals(), gameMaterials, gameObjects)) dynamicVisualRevision++;
@@ -1668,6 +1672,7 @@ async function disposeBrowser() {
   clean(() => resourceManager.dispose());
   clean(() => ropeVisuals.dispose());
   clean(() => clothVisuals.dispose());
+  clean(() => terrainVisuals.dispose());
   clean(() => fluidVisuals.dispose());
   clean(() => softBodyVisuals.dispose());
   clean(() => spriteVisuals.dispose());

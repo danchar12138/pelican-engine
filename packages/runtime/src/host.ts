@@ -169,6 +169,12 @@ export class RuntimeHost {
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
           couplingFrame: this.couplingFrame,
+          getTerrainPhysicsBridge: () => this.plugins.find(plugin => plugin.id === "$engine.physics")?.terrainPhysicsBridge,
+          getTerrainService: () => this.services.terrain,
+          getNavigationStateBridge: () => {
+            const owner = this.plugins.find(plugin => plugin.id === "$engine.navigation");
+            return owner ? { snapshot: () => owner.snapshot(), restore: value => owner.restore(value) } : undefined;
+          },
           fixedDt: this.fixedDt,
           getRopePhysicsBridge: () => this.plugins.find((plugin) => plugin.id === "$engine.physics")?.ropePhysicsBridge,
           getNavigationService: () => this.services.navigation,
@@ -287,6 +293,9 @@ export class RuntimeHost {
       get streaming() {
         return host.service("streaming");
       },
+      get terrain() {
+        return host.service("terrain");
+      },
       get inventory() {
         return host.service("inventory");
       },
@@ -391,6 +400,7 @@ export class RuntimeHost {
         throw new Error(`TC_PLUGIN_ASYNC: afterPhysics for ${plugin.id} must complete synchronously.`);
       }
     }
+    this.couplingFrame.addTerrain(this.services.terrain);
     this.couplingFrame.commit(this.plugins.find(plugin => plugin.id === "$engine.physics")?.ropePhysicsBridge);
     } catch (error) { this.couplingFrame.rollback(error); }
   }

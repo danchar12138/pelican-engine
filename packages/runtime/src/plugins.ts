@@ -13,6 +13,8 @@ import type {
   ComputeService,
   NavigationService,
   WorldStreamingService,
+  TerrainService,
+  TerrainGeometry,
   InventoryService,
   QuestService,
   DialogueService,
@@ -49,6 +51,7 @@ export interface RuntimeServices {
   compute: ComputeService;
   navigation: NavigationService;
   streaming: WorldStreamingService;
+  terrain: TerrainService;
   inventory: InventoryService;
   quests: QuestService;
   dialogue: DialogueService;
@@ -95,9 +98,17 @@ export interface RopePhysicsBridge {
 }
 /** Private identity-only bridge; native 2D objects are not exposed. */
 export interface Physics2DBridge { hasEntity(entity: string): boolean }
+export interface TerrainPhysicsBridge {
+  setTerrain(geometry: TerrainGeometry): void;
+  removeTerrain(id: string): void;
+}
 export interface RuntimePluginContext {
   /** One host-owned transaction for shared rigid reactions and cross-material contacts. */
   couplingFrame?: SimulationCouplingFrame;
+  getTerrainPhysicsBridge?(): TerrainPhysicsBridge | undefined;
+  getTerrainService?(): TerrainService | undefined;
+  /** Trusted synchronous checkpoints for terrain/nav transactions; never a game API. */
+  getNavigationStateBridge?(): { snapshot(): unknown; restore(value: unknown): void } | undefined;
   /** Lazily resolved because physics may be registered after another plugin. */
   getRopePhysicsBridge?(): RopePhysicsBridge | undefined;
   /** Internal lazy bridge; tile maps may be registered before or after navigation. */
@@ -136,6 +147,7 @@ export interface RuntimePlugin {
   /** Engine-private integration surface, not a game service. */
   ropePhysicsBridge?: RopePhysicsBridge;
   physics2DBridge?: Physics2DBridge;
+  terrainPhysicsBridge?: TerrainPhysicsBridge;
   /** Engine boundary after each fixed tick; never awaited inside a game system. */
   settle?(): Promise<void>;
   dispose(): void;

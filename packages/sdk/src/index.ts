@@ -119,6 +119,7 @@ export interface SystemContext extends EngineFacade {
   readonly compute: ComputeService;
   readonly navigation: NavigationService;
   readonly streaming: WorldStreamingService;
+  readonly terrain: TerrainService;
   readonly inventory: InventoryService;
   readonly quests: QuestService;
   readonly dialogue: DialogueService;
@@ -647,6 +648,38 @@ export interface SoftBodyService {
 /** Integer cells on a finite 2D grid; not continuous, flying or underwater navigation.
  * Searches allocate sparse state and depend on available memory. At most 2^32-1 cells may be defined.
  * Owners are explicit strings and are not automatically tied to entities. */
+export interface TerrainGeometry {
+  id: string;
+  /** Vertex counts, each in [2,64]. Heights use row-major z * columns + x. */
+  columns: number;
+  rows: number;
+  cellSize: number;
+  origin: Vec3;
+  heights: readonly number[];
+  friction?: number;
+  restitution?: number;
+}
+export interface TerrainDefinition extends TerrainGeometry {
+  material: string;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  /** Owned X/Z grid. Cells above either walkability threshold are blocked. */
+  navigation?: { grid: string; maxSlope?: number; maxStep?: number };
+}
+export interface TerrainState extends TerrainDefinition { revision: number }
+export interface TerrainHeightEdit { column: number; row: number; height: number }
+export interface TerrainService {
+  create(definition: TerrainDefinition): void;
+  inspect(id: string): TerrainState;
+  list(): readonly string[];
+  /** Commit a height batch to rendering, native physics and owned navigation together. */
+  setHeights(id: string, edits: readonly TerrainHeightEdit[]): void;
+  sculpt(id: string, brush: { center: Vec2; radius: number; delta: number; falloff?: "linear" | "smooth" | "constant" }): void;
+  /** World-space height on the actual mesh triangles, or null outside the terrain. */
+  sampleHeight(id: string, x: number, z: number): number | null;
+  visuals(): readonly ClothVisualState[];
+  destroy(id: string): void;
+}
 export interface NavigationCell { readonly x: number; readonly y: number }
 /** One obstacle change for an orthogonal navigation grid. */
 export interface NavigationObstacleUpdate { readonly cell: NavigationCell; readonly blocked: boolean }
@@ -673,6 +706,8 @@ export interface NavigationAgentDefinition {
   id: string;
   entity: string;
   grid: string;
+  /** Follow an owned X/Z terrain grid and sample its triangle height during movement. */
+  terrain?: string;
   /** World coordinates of cell (0,0)'s origin; defaults to [0,0]. */
   origin?: Vec2;
   /** X/Z by default; X/Y supports 2D-positioned entities. */
@@ -691,6 +726,7 @@ export interface NavigationAgentState {
   id: string;
   entity: string;
   grid: string;
+  terrain?: string;
   plane: "xz" | "xy";
   rowDirection: "positive" | "negative";
   target: NavigationCell | null;

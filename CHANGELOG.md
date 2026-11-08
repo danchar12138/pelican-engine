@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add editable height-surface terrain with native triangle collision, owned walkability/cost grids, triangle-height navigation agents, dynamic raster/tracing meshes, shared particle contacts and peer snapshot checks. This does not complete volumetric destruction or world streaming; runtime and restoration are unverified.
+- Fault native 3D physics after any exception during action application, including stable diagnostics that may occur after mutation. Common invalid body/vector commands are rejected before native application; recovery is unverified.
+
 - Add transactional cross-entry contacts for automatic rope, cloth, soft-body and fluid simulations, shared virtual rigid reactions, distance/volume reprojection and one reaction commit per host tick. This is split-step coupling, not complete rigid/material time integration; runtime and recovery are unverified.
 - Add linear particle sweeps against sampled spheres, planes and oriented boxes, cross-entry moving particle/segment/triangle CCD, and positional/effective-mass Coulomb friction. Rotating/moving rigid obstacle CCD and full coupled scope remain incomplete; no behavior validation was performed.
 

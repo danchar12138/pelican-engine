@@ -2,11 +2,13 @@ import type { EntityIR, SceneIR } from "../compiler/src/types.ts";
 import { resolveEntityDefinition } from "../runtime/src/prefabs.ts";
 import { validateJointDefinition } from "./joints-internal.ts";
 import type { PhysicsJointDefinition, Transform } from "../sdk/src/index.ts";
+import type { TerrainGeometry } from "../sdk/src/index.ts";
+import { terrainGeometry } from "../runtime/src/terrain-data.ts";
 
 /** Check lifecycle identities without invoking native WASM or trusting snapshot bytes. */
 export function preflightPhysicsHistory(
   definitions: readonly EntityIR[], catalog: SceneIR, history: readonly unknown[],
-  header: { tick: number; bindings: readonly string[]; entities: readonly { id: string; type: string }[]; joints?: readonly PhysicsJointDefinition[] },
+  header: { tick: number; bindings: readonly string[]; entities: readonly { id: string; type: string }[]; joints?: readonly PhysicsJointDefinition[]; terrains?: readonly TerrainGeometry[] },
   checks: { definition(entity: EntityIR): void; transform(value: Transform, entity: EntityIR): void },
 ): void {
   const fail = (message: string): never => {
@@ -16,15 +18,32 @@ export function preflightPhysicsHistory(
   const active = new Map(definitions.map(entity => [entity.id, typeOf(entity)]));
   const activeDefinitions = new Map(definitions.map(entity => [entity.id, entity]));
   const joints = new Map<string, PhysicsJointDefinition>();
-  const kinds = new Set(["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy"]);
+  const terrains = new Map<string, TerrainGeometry>();
+  const kinds = new Set(["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove"]);
   const vector = (value: unknown) => Array.isArray(value) && value.length === 3 &&
     [0, 1, 2].every(axis => typeof value[axis] === "number" && Number.isFinite(value[axis]) && Math.abs(value[axis]) <= 1e12);
   let steps = 0;
   let jointOperations = false;
+  let terrainOperations = false;
+  let terrainSamples = 0;
   for (const raw of history) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail("Invalid history action.");
-    const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown };
+    const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown; terrain?: unknown };
     if (typeof action.kind !== "string" || !kinds.has(action.kind)) fail("Unknown history action.");
+    if (action.kind === "terrainSet" || action.kind === "terrainRemove") {
+      if (Object.keys(action).length !== 2 || !Object.hasOwn(action, action.kind === "terrainSet" ? "terrain" : "id")) fail("Invalid terrain fields.");
+      if (action.kind === "terrainSet") {
+        const geometry = terrainGeometry(action.terrain as TerrainGeometry);
+        terrainSamples += geometry.heights.length;
+        if (terrainSamples > 8000000 || (!terrains.has(geometry.id) && terrains.size >= 128) || active.has(`$terrain/${geometry.id}`)) fail("Terrain history exceeds bounds or conflicts with an entity.");
+        terrains.set(geometry.id, geometry);
+      } else {
+        if (typeof action.id !== "string" || !terrains.has(action.id)) fail("Invalid terrain removal.");
+        terrains.delete(action.id as string);
+      }
+      terrainOperations = true;
+      continue;
+    }
     if (action.kind === "jointCreate") {
       if (Object.keys(action).length !== 2 || !Object.hasOwn(action, "definition")) fail("Invalid joint create fields.");
       const joint = validateJointDefinition(action.definition), a = active.get(joint.body1), b = active.get(joint.body2);
@@ -103,6 +122,7 @@ export function preflightPhysicsHistory(
     seen.add(entry.id);
   }
   if (header.bindings.some(id => !active.has(id))) fail("Snapshot binding has no active physics body.");
+  if (terrainOperations !== (header.terrains !== undefined) || (terrainOperations && JSON.stringify([...terrains.values()].sort((a, b) => a.id.localeCompare(b.id, "en"))) !== JSON.stringify(header.terrains))) fail("Snapshot terrains differ from history.");
   if (jointOperations !== (header.joints !== undefined) ||
       (jointOperations && JSON.stringify([...joints.values()]) !== JSON.stringify(header.joints)))
     fail("Snapshot joints differ from lifecycle history.");
