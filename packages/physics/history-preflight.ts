@@ -19,7 +19,7 @@ export function preflightPhysicsHistory(
   const activeDefinitions = new Map(definitions.map(entity => [entity.id, entity]));
   const joints = new Map<string, PhysicsJointDefinition>();
   const terrains = new Map<string, TerrainGeometry>();
-  const kinds = new Set(["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove"]);
+  const kinds = new Set(["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"]);
   const vector = (value: unknown) => Array.isArray(value) && value.length === 3 &&
     [0, 1, 2].every(axis => typeof value[axis] === "number" && Number.isFinite(value[axis]) && Math.abs(value[axis]) <= 1e12);
   let steps = 0;
@@ -28,8 +28,13 @@ export function preflightPhysicsHistory(
   let terrainSamples = 0;
   for (const raw of history) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail("Invalid history action.");
-    const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown; terrain?: unknown };
+    const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown; terrain?: unknown; transform?: unknown; resetVelocity?: unknown };
     if (typeof action.kind !== "string" || !kinds.has(action.kind)) fail("Unknown history action.");
+    if (action.kind === "teleport") {
+      if (Object.keys(action).length !== 4 || typeof action.id !== "string" || !activeDefinitions.has(action.id) || typeof action.resetVelocity !== "boolean" || !Object.hasOwn(action, "transform")) fail("Invalid teleport history fields.");
+      checks.transform(action.transform as Transform, activeDefinitions.get(action.id as string)!);
+      continue;
+    }
     if (action.kind === "terrainSet" || action.kind === "terrainRemove") {
       if (Object.keys(action).length !== 2 || !Object.hasOwn(action, action.kind === "terrainSet" ? "terrain" : "id")) fail("Invalid terrain fields.");
       if (action.kind === "terrainSet") {

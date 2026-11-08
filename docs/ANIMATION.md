@@ -136,5 +136,6 @@ evaluation's accumulated movement.
 
 These implementations have only been compiled and built. No skeletal, numerical,
 rendering, locomotion, retargeting, snapshot, lifecycle or performance behavior
-has been validated. Complete cinematic sequencing and remaining full-body/world
-integration are not completed by this animation batch.
+has been validated. The 0.16 animation batch does not complete remaining full-body
+or world integration. Later director development is described in
+[Cinematic Sequences](CINEMATICS.md), including its separate unverified boundaries.

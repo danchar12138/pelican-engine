@@ -10,6 +10,8 @@ import { createPhysicsFactory } from "../../physics/index.ts";
 import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createWorldStreamingPlugin } from "../../runtime/src/world-streaming.ts";
 import { createTerrainPlugin } from "../../runtime/src/terrain.ts";
+import { audioVoicePosition } from "../../runtime/src/audio-clock.ts";
+import { createCinematicPlugin } from "../../runtime/src/cinematics.ts";
 import { createInventoryPlugin } from "../../gameplay/src/inventory.ts";
 import { createQuestPlugin } from "../../gameplay/src/quests.ts";
 import { createDialoguePlugin } from "../../gameplay/src/dialogue.ts";
@@ -268,6 +270,7 @@ export async function prepareGameplay(
       (context) => ({
         id: "$engine.models",
         version: "2",
+        cinematicAnimationBridge: models.cinematics,
         snapshot: () => {
           const bindings = modelBindings(context.world.records()).map(
             ({ id, prefab }) => ({
@@ -336,7 +339,7 @@ export async function prepareGameplay(
               }
               models.tick(dt);
               for (const record of apply) {
-                const definition = resolveEntityDefinition(ir, record)!, model = definition.model!, motion = models.animation.consumeRootMotion(record.id), transform = context.world.getTransform(record.id);
+                const definition = resolveEntityDefinition(ir, record)!, model = definition.model!, motion = models.cinematics.consumeRootMotion(record.id), transform = context.world.getTransform(record.id);
                 const modelMatrix = new THREE.Matrix4().compose(new THREE.Vector3(...(model.offset ?? [0, 0, 0])),
                   new THREE.Quaternion().setFromEuler(new THREE.Euler(...(model.rotation ?? [0, 0, 0]))), new THREE.Vector3().setScalar(model.scale ?? 1));
                 const local = modelMatrix.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(...motion.translation), new THREE.Quaternion(...motion.rotation), new THREE.Vector3(1, 1, 1))).multiply(modelMatrix.clone().invert());
@@ -366,6 +369,7 @@ export async function prepareGameplay(
         return plugin;
       });
     }
+    plugins.push(createCinematicPlugin);
     ui = createUIRenderer(ir.ui ?? [], {
       input: (key, pressed) => {
         uiInput?.(key, pressed);
@@ -690,12 +694,13 @@ export async function prepareGameplay(
                 (sound) => sound.id === voice.sound,
               )!;
               const buffer = buffers.get(definition.asset)!;
-              const age = Math.max(0, (clock.tick - voice.startedAt - (voice.pausedTicks ?? 0)) * (clock.fixedDt ?? 0));
+              const age = Math.max(0, audioVoicePosition(voice, clock.tick, clock.fixedDt));
               if (buffer.duration <= 0 || (!voice.loop && age >= buffer.duration)) continue;
               const source = audio.createBufferSource(),
                 gain = audio.createGain();
               source.buffer = buffer;
               source.loop = voice.loop;
+              source.playbackRate.value = voice.playbackRate ?? 1;
               let panner: PannerNode | undefined;
               let filter: BiquadFilterNode | undefined;
               let occlusionGain: GainNode | undefined;

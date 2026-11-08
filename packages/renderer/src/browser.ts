@@ -2,6 +2,7 @@ import * as THREE from "three/webgpu";
 import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
 import { createRopeVisualOwner } from "./rope-visuals.ts";
 import { createClothVisualOwner } from "./cloth-visuals.ts";
+import { createCinematicOverlay } from "./cinematic-overlay.ts";
 import { createFluidVisualOwner } from "./fluid-visuals.ts";
 import { createSoftBodyVisualOwner } from "./softbody-visuals.ts";
 import { createSpriteVisualOwner } from "./sprite-visuals.ts";
@@ -228,6 +229,7 @@ const gameRoot = new THREE.Group();
 scene.add(gameRoot);
 const ropeVisuals = createRopeVisualOwner();
 const clothVisuals = createClothVisualOwner();
+const cinematicOverlay = createCinematicOverlay();
 const terrainVisuals = createClothVisualOwner();
 terrainVisuals.root.name = "pelican-terrain-visuals";
 const fluidVisuals = createFluidVisualOwner();
@@ -241,6 +243,7 @@ let traceContentDirty = true;
 let observedGraphOwner: typeof renderControl;
 let observedGraphRevision = -1, observedGraphTick = -1;
 const clearDynamicVisuals = () => {
+  cinematicOverlay.clear();
   const ropesChanged = ropeVisuals.clear(), clothChanged = clothVisuals.clear(), fluidChanged = fluidVisuals.clear(), softBodiesChanged = softBodyVisuals.clear(), spritesChanged = spriteVisuals.clear(), tilemapsChanged = tilemapVisuals.clear();
   const terrainChanged = terrainVisuals.clear();
   if (ropesChanged || clothChanged || terrainChanged || fluidChanged || softBodiesChanged || spritesChanged || tilemapsChanged) dynamicVisualRevision++;
@@ -621,6 +624,7 @@ function syncRuntime(): boolean {
         authoredLights.push({ definition: entity.light, object: light });
     }
   if (gameplay) {
+    cinematicOverlay.sync(runtime.facade.cinematics.presentation());
     if (ropeVisuals.sync(runtime.facade.ropes.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (clothVisuals.sync(runtime.facade.cloth.visuals(), gameMaterials)) dynamicVisualRevision++;
     if (terrainVisuals.sync(runtime.facade.terrain.visuals(), gameMaterials)) dynamicVisualRevision++;
@@ -1672,6 +1676,7 @@ async function disposeBrowser() {
   clean(() => resourceManager.dispose());
   clean(() => ropeVisuals.dispose());
   clean(() => clothVisuals.dispose());
+  clean(() => cinematicOverlay.dispose());
   clean(() => terrainVisuals.dispose());
   clean(() => fluidVisuals.dispose());
   clean(() => softBodyVisuals.dispose());

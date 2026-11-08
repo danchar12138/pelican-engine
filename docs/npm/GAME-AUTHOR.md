@@ -26,6 +26,7 @@ The installed package includes `docs/GRAPHICS-GUIDE.md` and
 `docs/RENDER-BACKENDS.md`. `docs/TERRAIN.md` covers height editing, native
 collision, terrain navigation and snapshot ownership;
 `docs/ANIMATION.md` covers IK constraints, skeletal retargeting and root motion;
+`docs/CINEMATICS.md` covers the fixed-time director, captions, fades and sound cues;
 `docs/SIMULATION-COUPLING.md` describes cross-material contact behavior and
 remaining limits. The source checkout's `docs/STATUS.md` summarizes
 current engine capabilities and gaps. Its `examples/`, engine `packages/`, and

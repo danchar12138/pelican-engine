@@ -15,6 +15,7 @@ import type {
   WorldStreamingService,
   TerrainService,
   TerrainGeometry,
+  CinematicService,
   InventoryService,
   QuestService,
   DialogueService,
@@ -28,6 +29,8 @@ import type {
   SoftBodyService,
   Vec3,
   Vec4,
+  ModelDefinition,
+  AnimationRootMotionDelta,
 } from "../../sdk/src/index.ts";
 import type { SceneIR } from "../../compiler/src/types.ts";
 import type {
@@ -52,6 +55,7 @@ export interface RuntimeServices {
   navigation: NavigationService;
   streaming: WorldStreamingService;
   terrain: TerrainService;
+  cinematics: CinematicService;
   inventory: InventoryService;
   quests: QuestService;
   dialogue: DialogueService;
@@ -102,7 +106,21 @@ export interface TerrainPhysicsBridge {
   setTerrain(geometry: TerrainGeometry): void;
   removeTerrain(id: string): void;
 }
+export interface CinematicAnimationBridge {
+  consumeRootMotion(entity: string): AnimationRootMotionDelta;
+  claim(entity: string, owner: string, definition: ModelDefinition): unknown;
+  reclaim(entity: string, owner: string, definition: ModelDefinition): void;
+  validate(entity: string, payload: unknown, definition: ModelDefinition, clips?: readonly string[]): void;
+  duration(entity: string, clip: string, definition?: ModelDefinition): number;
+  rootMotionMode(entity: string): "extract" | "apply" | null;
+  sample(entity: string, owner: string, clip: string, from: number, to: number, loop: boolean, rootMotion: boolean): void;
+  release(entity: string, owner: string, payload: unknown, restore: boolean): void;
+  abandon(entity: string, owner: string): void;
+}
 export interface RuntimePluginContext {
+  getCinematicAnimationBridge?(): CinematicAnimationBridge | undefined;
+  getCameraService?(): CameraService | undefined;
+  getAudioService?(): AudioService | undefined;
   /** One host-owned transaction for shared rigid reactions and cross-material contacts. */
   couplingFrame?: SimulationCouplingFrame;
   getTerrainPhysicsBridge?(): TerrainPhysicsBridge | undefined;
@@ -148,6 +166,7 @@ export interface RuntimePlugin {
   ropePhysicsBridge?: RopePhysicsBridge;
   physics2DBridge?: Physics2DBridge;
   terrainPhysicsBridge?: TerrainPhysicsBridge;
+  cinematicAnimationBridge?: CinematicAnimationBridge;
   /** Engine boundary after each fixed tick; never awaited inside a game system. */
   settle?(): Promise<void>;
   dispose(): void;

@@ -168,6 +168,9 @@ export class RuntimeHost {
       this.scheduler = createdScheduler;
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
+          getCinematicAnimationBridge: () => this.plugins.find(plugin => plugin.id === "$engine.models")?.cinematicAnimationBridge,
+          getCameraService: () => this.services.camera,
+          getAudioService: () => this.services.audio,
           couplingFrame: this.couplingFrame,
           getTerrainPhysicsBridge: () => this.plugins.find(plugin => plugin.id === "$engine.physics")?.terrainPhysicsBridge,
           getTerrainService: () => this.services.terrain,
@@ -295,6 +298,9 @@ export class RuntimeHost {
       },
       get terrain() {
         return host.service("terrain");
+      },
+      get cinematics() {
+        return host.service("cinematics");
       },
       get inventory() {
         return host.service("inventory");

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a fixed-time cinematic director with camera/entity keys, skeletal intervals, owned audio cues, localized subtitles, screen fades, event markers and game-code branching. Add pause/resume/seek/speed, ownership restoration, stale-binding cleanup and peer snapshots. Runtime behavior, audio/video alignment and recovery are unverified.
+- Add source-time audio seek/playback rate with snapshot accounting and Web Audio buffer-source revisions; sound output and compatibility are unverified.
+- Add explicit 3D native/World teleport with reconstruction history, query refresh and ECS access checks before native mutation; behavior and recovery are unverified.
+
 ## 0.16.0 - 2026-11-08
 
 - Compile-only animation development batch. IK constraints, retargeting, root motion, changed animation scheduling and snapshot behavior have not been runtime-validated. Cinematic sequencing, full coupled integration and broader world scope remain unfinished; this is not 1.0.

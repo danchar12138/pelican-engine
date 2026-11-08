@@ -79,7 +79,8 @@ type Action =
   | { kind: "jointCreate"; definition: PhysicsJointDefinition }
   | { kind: "jointDestroy"; id: string }
   | { kind: "terrainSet"; terrain: TerrainGeometry }
-  | { kind: "terrainRemove"; id: string };
+  | { kind: "terrainRemove"; id: string }
+  | { kind: "teleport"; id: string; transform: Transform; resetVelocity: boolean };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
   version: 3;
@@ -581,9 +582,23 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   ) {
     if (
       !action ||
-      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove"].includes(action.kind)
+      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
+    if (action.kind === "teleport") {
+      if (Object.keys(action).length !== 4 || typeof action.resetVelocity !== "boolean") fail("TC_PHYSICS_TELEPORT", "Invalid teleport history fields.");
+      const entry = get(action.id); checkTransform(action.transform, entry.definition);
+      if (entry.type === "kinematic" || entry.type === "character") {
+        entry.body.setNextKinematicTranslation(vec(action.transform.position, "teleport position")); entry.body.setNextKinematicRotation(rotation(action.transform.rotation));
+      }
+      if (action.resetVelocity) {
+        if (entry.type === "dynamic") { entry.body.setLinvel({ x: 0, y: 0, z: 0 }, true); entry.body.setAngvel({ x: 0, y: 0, z: 0 }, true); }
+        if (entry.character) { entry.character.velocity = [0, 0, 0]; entry.character.requested = [0, 0, 0]; entry.character.verticalVelocity = 0; entry.character.grounded = false; }
+      }
+      topologyDirty = true;
+      sync([...bodies.values()].map(body => ({ id: body.id, transform: body.id === action.id ? action.transform : body.transform })), emit);
+      return;
+    }
     if (action.kind === "terrainSet" || action.kind === "terrainRemove") {
       if (Object.keys(action).length !== 2 || !Object.hasOwn(action, action.kind === "terrainSet" ? "terrain" : "id")) fail("TC_PHYSICS_TERRAIN", "Invalid terrain history fields.");
       if (action.kind === "terrainSet") {
@@ -1073,6 +1088,22 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     }
   }
   const physics: PhysicsServiceWithQueries = {
+    teleport(id, patch, options = {}) {
+      const body = get(id), input = cloneSerializable(patch), config = cloneSerializable(options);
+      if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["position", "rotation", "scale"].includes(key)) ||
+          !config || typeof config !== "object" || Array.isArray(config) || Object.keys(config).some(key => key !== "resetVelocity") || (config.resetVelocity !== undefined && typeof config.resetVelocity !== "boolean")) fail("TC_PHYSICS_TELEPORT", "Use a transform patch and boolean resetVelocity option.");
+      const transform = cloneSerializable({ ...body.transform, ...input }); checkTransform(transform, body.definition);
+      const ref = refs.get(id)!, previous = context.world.getTransform(ref);
+      // ECS access checks must run before native mutation. Native failure still
+      // faults its owner; only the ordinary World transform is rolled back here.
+      context.world.setTransform(ref, transform);
+      try { record({ kind: "teleport", id, transform, resetVelocity: config.resetVelocity ?? true }); }
+      catch (error) {
+        try { context.world.setTransform(ref, previous); }
+        catch (rollback) { nativeFault = true; throw new AggregateError([error, rollback], "TC_PHYSICS_TELEPORT_ROLLBACK: partialState=true; restore a known-good checkpoint."); }
+        throw error;
+      }
+    },
     createJoint(input) {
       const definition = validateJointDefinition(cloneSerializable(input));
       get(definition.body1); get(definition.body2);

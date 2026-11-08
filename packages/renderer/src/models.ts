@@ -22,6 +22,7 @@ import { additiveConfiguration, createAdditiveClip, listAdditiveBones, type Addi
 import { createModelIK, ikTarget, prepareModelIK, type ModelIKRig } from "./model-ik.ts";
 import { createRetargetedClip, retargetDefinition } from "./model-retarget.ts";
 import { createRootMotion, type ModelRootMotion } from "./model-root-motion.ts";
+import type { CinematicAnimationBridge } from "../../runtime/src/plugins.ts";
 
 export type ModelSource = string | { id: string; url?: string; path?: string };
 export interface ModelFadeSnapshot {
@@ -94,6 +95,7 @@ export interface ModelBinding {
   definition: ModelDefinition;
 }
 export interface ModelLibrary {
+  readonly cinematics: CinematicAnimationBridge;
   prepare(
     assets?: readonly ModelSource[],
     options?: { signal?: AbortSignal },
@@ -281,6 +283,70 @@ class ModelLibraryImpl implements ModelLibrary {
   private closed = false;
   private disposing?: Promise<void>;
 
+  private readonly cinematicOwners = new Map<string, string>();
+  readonly cinematics: CinematicAnimationBridge = {
+    rootMotionMode: entity => this.instances.get(entity)?.rootMotion?.definition.mode ?? null,
+    abandon: (entity, owner) => { if (this.cinematicOwners.get(entity) === owner) this.cinematicOwners.delete(entity); },
+    consumeRootMotion: entity => this.instance(entity).rootMotion?.consume() ?? { translation: [0, 0, 0], rotation: [0, 0, 0, 1] },
+    claim: (entity, owner, definition) => {
+      if (!this.instances.has(entity)) this.instantiate(entity, definition);
+      const current = this.cinematicOwners.get(entity);
+      if (current !== undefined && current !== owner) throw new Error(`TC_MODEL_CINEMATIC_OWNER: '${entity}' is controlled by another sequence.`);
+      const saved = this.snapshot().animations.find(item => item.entity === entity)!;
+      this.cinematicOwners.set(entity, owner); this.instance(entity).suspended = true; this.instance(entity).rootMotion?.consume(); return structuredClone(saved);
+    },
+    reclaim: (entity, owner, definition) => {
+      if (!this.instances.has(entity)) this.instantiate(entity, definition);
+      const current = this.cinematicOwners.get(entity);
+      if (current !== undefined && current !== owner) throw new Error(`TC_MODEL_CINEMATIC_OWNER: '${entity}' is controlled by another sequence.`);
+      this.cinematicOwners.set(entity, owner);
+      this.instance(entity).suspended = true;
+    },
+    validate: (entity, payload, definition, clips = []) => {
+      const data = payload as ModelAnimationSnapshot;
+      if (!data || data.entity !== entity) throw new Error("TC_MODEL_CINEMATIC_SNAPSHOT: Animation identity differs from the timeline binding.");
+      this.validateSnapshot({ format: "pelican.models", version: 2, animations: [data] }, [{ entity, definition }]);
+      const names = new Set([...(this.templates.get(data.asset)?.clips.map(clip => clip.name) ?? []), ...(data.retargets?.map(clip => clip.name) ?? [])]);
+      if (clips.some(clip => !names.has(clip))) throw new Error(`TC_MODEL_CINEMATIC_CLIP: '${entity}' baseline does not contain every sequence clip.`);
+    },
+    duration: (entity, clip, definition) => {
+      const asset = definition && (typeof definition.asset === "string" ? definition.asset : definition.asset.id), instance = this.instances.get(entity);
+      const value = instance && (!asset || instance.asset === asset) ? instance.clips.get(clip) : asset ? this.templates.get(asset)?.clips.find(value => value.name === clip) : undefined;
+      if (!value) throw new Error(`TC_MODEL_CLIP_MISSING: '${entity}/${clip}'; choose an available model clip.`);
+      return value.duration;
+    },
+    sample: (entity, owner, name, from, to, loop, rootMotion) => {
+      if (this.cinematicOwners.get(entity) !== owner) throw new Error(`TC_MODEL_CINEMATIC_OWNER: '${entity}' is not controlled by this timeline.`);
+      const state = this.instance(entity), clip = state.clips.get(name);
+      if (!clip || !Number.isFinite(from) || !Number.isFinite(to) || Math.max(Math.abs(from), Math.abs(to)) > 86400) throw new Error(`TC_MODEL_CINEMATIC_TIME: Invalid clip/time for '${entity}/${name}'.`);
+      const local = (time: number) => loop ? ((time % clip.duration) + clip.duration) % clip.duration : Math.max(0, Math.min(clip.duration, time));
+      if (state.clip !== name || state.actions.size !== 1) this.playState(state, name, { speed: 0, loop, startAt: local(from) });
+      state.suspended = true;
+      state.fades.clear(); state.blend = null;
+      const action = state.action!;
+      action.setEffectiveWeight(1);
+      action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1); action.clampWhenFinished = !loop;
+      if (rootMotion && from !== to) {
+        action.play(); action.enabled = true; action.paused = false; action.time = local(from); action.setEffectiveTimeScale(to - from);
+        state.rootMotion?.advance([{ clip, action }], 1);
+      }
+      action.time = local(to); action.enabled = true; action.paused = false; action.setEffectiveTimeScale(0);
+      this.refreshPose(state);
+    },
+    release: (entity, owner, payload, restore) => {
+      if (this.cinematicOwners.get(entity) !== owner) return;
+      if (restore && this.instances.has(entity)) {
+        const saved = payload as ModelAnimationSnapshot, snapshot = this.snapshot(), owners = new Map(this.cinematicOwners);
+        snapshot.animations = snapshot.animations.map(item => item.entity === entity ? structuredClone(saved) : item);
+        try { this.restore(snapshot); }
+        finally { for (const [id, value] of owners) if (this.instances.has(id)) this.cinematicOwners.set(id, value); }
+      } else if (this.instances.has(entity)) {
+        const state = this.instance(entity); state.suspended = false; state.action?.setEffectiveTimeScale(1);
+      }
+      this.cinematicOwners.delete(entity);
+    },
+  };
+
   readonly animation: AnimationControlService = {
     setRootMotion: (entity, definition) => {
       const state = this.instance(entity), next = definition === null ? null : createRootMotion(state.root, definition), previous = state.rootMotion;
@@ -408,6 +474,15 @@ class ModelLibraryImpl implements ModelLibrary {
     private readonly options: ModelLibraryOptions,
   ) {
     this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
+    const mutating = new Set(["play", "blend", "setBlendWeight", "synchronizeBlend", "playAdditive", "setAdditiveWeight", "stopAdditive", "setIK", "setIKTarget", "removeIK", "retarget", "removeRetargetedClip", "setRootMotion", "consumeRootMotion", "pause", "resume", "seek", "setSpeed"]);
+    this.animation = new Proxy(this.animation, { get: (target, key: keyof AnimationControlService) => {
+      const member = target[key];
+      if (typeof member !== "function" || !mutating.has(key)) return member;
+      return (...args: unknown[]) => {
+        if (this.cinematicOwners.has(args[0] as string)) throw new Error(`TC_MODEL_CINEMATIC_OWNER: '${args[0]}' is controlled by a timeline; stop it before changing animation.`);
+        return Reflect.apply(member, target, args);
+      };
+    } });
     if (Array.isArray(sources)) {
       for (const source of sources) {
         const item = assetIdentity(source);
@@ -551,7 +626,7 @@ class ModelLibraryImpl implements ModelLibrary {
     const state = this.instances.get(entityId);
     if (!state) return;
     try { this.releaseInstance(state); }
-    finally { this.instances.delete(entityId); }
+    finally { this.instances.delete(entityId); this.cinematicOwners.delete(entityId); }
   }
 
   private knownDefinition(entity: string): KnownDefinition {
@@ -1111,6 +1186,7 @@ class ModelLibraryImpl implements ModelLibrary {
       commitStarted = true;
       this.commitInstances(ids, staged, undefined, true);
       committed = true;
+      this.cinematicOwners.clear();
     } catch (error) {
       const failures: unknown[] = [];
       for (const state of touched) {

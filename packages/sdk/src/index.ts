@@ -120,6 +120,7 @@ export interface SystemContext extends EngineFacade {
   readonly navigation: NavigationService;
   readonly streaming: WorldStreamingService;
   readonly terrain: TerrainService;
+  readonly cinematics: CinematicService;
   readonly inventory: InventoryService;
   readonly quests: QuestService;
   readonly dialogue: DialogueService;
@@ -1025,6 +1026,8 @@ export type PhysicsJointDefinition = PhysicsJointBase & (
   | { kind: "spring"; restLength: number; stiffness: number; damping: number }
 );
 export interface PhysicsService {
+  /** Explicit discontinuous relocation; updates native queries and World together. */
+  teleport(entity: string, transform: TransformPatch, options?: { resetVelocity?: boolean }): void;
   /** Create a 3D joint between fixed/dynamic bodies, with at least one dynamic endpoint. */
   createJoint(definition: PhysicsJointDefinition): void;
   /** Remove a joint; removing an endpoint body also removes its connected joints. */
@@ -1231,7 +1234,60 @@ export interface AnimationControlService extends AnimationService {
   /** Change current clip playback speed; negative values reverse it, zero freezes clip time. */
   setSpeed(entity: string, speed: number): void;
 }
+export interface CinematicVectorKey { time: number; value: Vec3 }
+export interface CinematicRotationKey { time: number; value: Vec4 }
+export interface CinematicScalarKey { time: number; value: number }
+export type CinematicTrack =
+  | { kind: "transform"; entity: string; position?: readonly CinematicVectorKey[]; rotation?: readonly CinematicRotationKey[]; interpolation?: "linear" | "smooth" | "step" }
+  | { kind: "camera"; position: readonly CinematicVectorKey[]; target: readonly CinematicVectorKey[]; interpolation?: "linear" | "smooth" | "step" }
+  | { kind: "animation"; entity: string; clip: string; start: number; end: number; sourceStart?: number; speed?: number; loop?: boolean; /** Explicitly opt into an actor's configured apply-mode root motion. */ rootMotion?: boolean }
+  | { kind: "audio"; sound: string; start: number; end: number; sourceStart?: number; rate?: number; volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean }
+  | { kind: "subtitle"; start: number; end: number; text?: string; key?: string; variables?: LocalizationVariables; speaker?: string }
+  | { kind: "transition"; opacity: readonly CinematicScalarKey[]; color?: string; interpolation?: "linear" | "smooth" | "step" };
+export interface CinematicMarker { id: string; time: number; payload?: Readonly<Record<string, unknown>> }
+export interface CinematicDefinition {
+  id: string;
+  duration: number;
+  loop?: boolean;
+  /** Hold keeps the final pose until stop(); restore releases control on the following fixed tick. */
+  onFinish?: "hold" | "restore";
+  tracks: readonly CinematicTrack[];
+  markers?: readonly CinematicMarker[];
+}
+export interface CinematicState {
+  id: string | null;
+  time: number;
+  cycle: number;
+  speed: number;
+  status: "idle" | "playing" | "paused" | "completed" | "failed";
+  error: string | null;
+}
+export interface CinematicPresentation {
+  subtitles: readonly { text: string; speaker: string | null }[];
+  transition: { color: string; opacity: number };
+}
+/** One fixed-time director; starting a sequence releases the previous sequence's bindings. */
+export interface CinematicService {
+  define(definition: CinematicDefinition): void;
+  undefine(id: string): void;
+  list(): readonly string[];
+  play(id: string, options?: { startAt?: number; speed?: number }): void;
+  pause(): void;
+  resume(): void;
+  setSpeed(speed: number): void;
+  /** Jumps sample poses/audio without locomotion or marker replay. Physical bindings are explicitly teleported. */
+  seek(time: number): void;
+  stop(options?: { restoreAnimation?: boolean; restoreCamera?: boolean; restoreTransforms?: boolean }): void;
+  state(): CinematicState;
+  presentation(): CinematicPresentation;
+}
+export interface CameraState {
+  follow: Required<NonNullable<SceneInput["follow"]>> | null;
+  pose: null | { position: Vec3; target: Vec3; transition?: { position: Vec3; target: Vec3; remaining: number } };
+}
 export interface CameraService {
+  /** Detached control state; transition time is relative so a suspended camera can resume later. */
+  state(): CameraState;
   /** Set a world-space manual pose, replacing follow mode and any transition. */
   setPose(position: Vec3, target: Vec3): void;
   /** Linearly transition from the current manual pose using fixed simulation time. */
@@ -1449,17 +1505,24 @@ export interface AudioVoiceState {
   id: string; sound: string; volume: number; loop: boolean; entity: string | null;
   bus?: string; priority: number; paused: boolean; occlusion: boolean;
   maxDuration?: number;
+  /** Source seconds, before loop wrapping. */
+  position: number;
+  playbackRate: number;
 }
 export interface AudioService {
   /** Optional occlusion uses a 3D physics ray between the listener and a live entity. */
   play(
     id: string,
-    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean; maxDuration?: number },
+    options?: { volume?: number; loop?: boolean; entity?: string; bus?: string; priority?: number; occlusion?: boolean; maxDuration?: number; offset?: number; playbackRate?: number },
   ): string;
   stop(voice: string): void;
   /** Pause/resume are idempotent; an unknown valid voice id is a no-op. Playback time follows fixed simulation ticks, even while audio is locked. */
   pause(voice: string): void;
   resume(voice: string): void;
+  /** Change source time without resetting elapsed maxDuration accounting; unknown voices are a no-op. */
+  seek(voice: string, position: number): void;
+  /** Positive source-time multiplier in [0.01,16], preserving the current source position. */
+  setPlaybackRate(voice: string, rate: number): void;
   /** Set one active voice's gain; an unknown valid voice ID is a no-op. */
   setVoiceVolume(voice: string, volume: number): void;
   /** Return detached logical state, or null when the voice is no longer present. */

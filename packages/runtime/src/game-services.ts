@@ -10,6 +10,7 @@ import { cloneSerializable } from "./random.ts";
 import { isUiColor } from "../../schema/src/ui-color.ts";
 import { UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
 import { neutralGamepad, parseGamepad } from "./gamepad.ts";
+import { audioPlayedTicks, audioVoicePosition } from "./audio-clock.ts";
 
 type Camera = NonNullable<SceneIR["scene"]["follow"]>;
 type CameraPose = { position: Vec3; target: Vec3; transition?: { fromPosition: Vec3; fromTarget: Vec3; toPosition: Vec3; toTarget: Vec3; startedAt: number; duration: number } };
@@ -41,6 +42,9 @@ export interface GameServicesInspection {
       priority?: number;
       occlusion?: boolean;
       maxDuration?: number;
+      offset?: number;
+      offsetAt?: number;
+      playbackRate?: number;
     }[];
   };
   storage: StorageState;
@@ -669,6 +673,12 @@ export function createGameServices(
       },
     },
     camera: {
+      state() {
+        alive(); const pose = state.cameraPose, transition = pose?.transition;
+        const remaining = transition ? Math.max(0, transition.duration - (state.tick - transition.startedAt) * (state.fixedDt ?? 0)) : 0;
+        return { follow: cloneSerializable(state.camera), pose: pose ? { position: [...pose.position], target: [...pose.target],
+          ...(transition && remaining > 0 ? { transition: { position: [...transition.toPosition], target: [...transition.toTarget], remaining } } : {}) } : null };
+      },
       setPose(position, target) {
         alive();
         const p = cloneSerializable(position), t = cloneSerializable(target);
@@ -849,7 +859,7 @@ export function createGameServices(
             typeof values === "object" &&
             !Array.isArray(values) &&
             Object.keys(values).every((key) =>
-              ["volume", "loop", "entity", "bus", "priority", "occlusion", "maxDuration"].includes(key),
+              ["volume", "loop", "entity", "bus", "priority", "occlusion", "maxDuration", "offset", "playbackRate"].includes(key),
             ),
           "TC_AUDIO_VALUE",
           "Unknown audio options.",
@@ -869,11 +879,15 @@ export function createGameServices(
         check(priority <= 255, "TC_AUDIO_PRIORITY", "Voice priority must be 0..255.");
         if (Object.hasOwn(values, "maxDuration"))
           finite(values.maxDuration, "TC_AUDIO_DURATION", "Voice maxDuration", Number.MIN_VALUE, 86400);
+        const offset = values.offset ?? 0, rate = values.playbackRate ?? 1;
+        finite(offset, "TC_AUDIO_POSITION", "Source offset", 0, 86400);
+        finite(rate, "TC_AUDIO_RATE", "Playback rate", 0.01, 16);
         check(
           typeof loop === "boolean",
           "TC_AUDIO_VALUE",
           `Sound ${id} loop must be boolean.`,
         );
+        check(loop || durations[id] === null || offset < durations[id]!, "TC_AUDIO_POSITION", `Source offset for '${id}' must precede its end.`);
         if (Object.hasOwn(values, "entity"))
           target(values.entity!, "TC_AUDIO_TARGET");
         if (Object.hasOwn(values, "occlusion"))
@@ -902,6 +916,8 @@ export function createGameServices(
           ...(priority !== 0 ? { priority } : {}),
           ...(values.occlusion ? { occlusion: true } : {}),
           ...(values.maxDuration !== undefined ? { maxDuration: values.maxDuration } : {}),
+          ...(offset === 0 ? {} : { offset, offsetAt: 0 }),
+          ...(rate === 1 ? {} : { playbackRate: rate }),
           volume,
           loop,
           entity: values.entity ?? null,
@@ -944,6 +960,23 @@ export function createGameServices(
         const voice = state.audio.voices.find(item => item.id === id);
         if (voice) voice.volume = value;
       },
+      seek(id, position) {
+        alive(); name(id, "TC_AUDIO_VOICE", "Voice id"); finite(position, "TC_AUDIO_POSITION", "Source position", 0, 86400);
+        const voice = state.audio.voices.find(item => item.id === id);
+        if (!voice) return;
+        check(voice.loop || durations[voice.sound] === null || position < durations[voice.sound]!, "TC_AUDIO_POSITION", "Source position must precede the sound's end.");
+        voice.offset = position; voice.offsetAt = audioPlayedTicks(voice, state.tick);
+        voiceVersions.set(voice, (voiceVersions.get(voice) ?? 0) + 1);
+      },
+      setPlaybackRate(id, rate) {
+        alive(); name(id, "TC_AUDIO_VOICE", "Voice id"); finite(rate, "TC_AUDIO_RATE", "Playback rate", 0.01, 16);
+        const voice = state.audio.voices.find(item => item.id === id);
+        if (!voice || (voice.playbackRate ?? 1) === rate) return;
+        const position = audioVoicePosition(voice, state.tick, state.fixedDt);
+        finite(position, "TC_AUDIO_POSITION", "Source position at rate change", 0, Number.MAX_SAFE_INTEGER);
+        voice.offset = position; voice.offsetAt = audioPlayedTicks(voice, state.tick); voice.playbackRate = rate;
+        voiceVersions.set(voice, (voiceVersions.get(voice) ?? 0) + 1);
+      },
       voice(id) {
         alive();
         name(id, "TC_AUDIO_VOICE", "Voice id");
@@ -952,6 +985,7 @@ export function createGameServices(
         return { id: voice.id, sound: voice.sound, volume: voice.volume, loop: voice.loop, entity: voice.entity,
           ...(voice.bus === undefined ? {} : { bus: voice.bus }), priority: voice.priority ?? 0,
           paused: voice.pausedAt != null, occlusion: voice.occlusion === true,
+          position: audioVoicePosition(voice, state.tick, state.fixedDt), playbackRate: voice.playbackRate ?? 1,
           ...(voice.maxDuration === undefined ? {} : { maxDuration: voice.maxDuration }) };
       },
       volume(value) {
@@ -1224,7 +1258,7 @@ export function createGameServices(
     for (const voice of data.audio.voices) {
       object(
         voice,
-        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "occlusion") ? ["occlusion"] : []), ...(Object.hasOwn(voice, "maxDuration") ? ["maxDuration"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : [])],
+        ["id", "sound", "volume", "loop", "entity", "startedAt", ...(Object.hasOwn(voice, "bus") ? ["bus"] : []), ...(Object.hasOwn(voice, "priority") ? ["priority"] : []), ...(Object.hasOwn(voice, "occlusion") ? ["occlusion"] : []), ...(Object.hasOwn(voice, "maxDuration") ? ["maxDuration"] : []), ...(Object.hasOwn(voice, "pausedAt") || Object.hasOwn(voice, "pausedTicks") ? ["pausedAt", "pausedTicks"] : []), ...(Object.hasOwn(voice, "offset") || Object.hasOwn(voice, "offsetAt") ? ["offset", "offsetAt"] : []), ...(Object.hasOwn(voice, "playbackRate") ? ["playbackRate"] : [])],
         SNAPSHOT_ERROR,
       );
       check(
@@ -1286,13 +1320,19 @@ export function createGameServices(
       }
       const duration = durations[voice.sound];
       const playedTicks = (voice.pausedAt ?? data.tick) - voice.startedAt - (voice.pausedTicks ?? 0);
+      if (Object.hasOwn(voice, "offset")) {
+        finite(voice.offset, SNAPSHOT_ERROR, "Voice offset", 0, Number.MAX_SAFE_INTEGER);
+        integer(voice.offsetAt, SNAPSHOT_ERROR, "Voice offset tick", 0);
+        check(voice.offsetAt! <= playedTicks, SNAPSHOT_ERROR, "Voice offset starts after its playback clock.");
+      }
+      if (Object.hasOwn(voice, "playbackRate")) finite(voice.playbackRate, SNAPSHOT_ERROR, "Voice playback rate", 0.01, 16);
       check(voice.maxDuration === undefined || data.fixedDt === null || playedTicks === 0 || playedTicks * data.fixedDt < voice.maxDuration,
         SNAPSHOT_ERROR, "Voice exceeding maxDuration must have been reclaimed.");
       check(
         voice.loop ||
           duration === null ||
           data.fixedDt === null ||
-          ((voice.pausedAt ?? data.tick) - voice.startedAt - (voice.pausedTicks ?? 0)) * data.fixedDt < duration ||
+          audioVoicePosition(voice, data.tick, data.fixedDt) < duration ||
           (voice.pausedAt ?? data.tick) - voice.startedAt - (voice.pausedTicks ?? 0) === 0,
         SNAPSHOT_ERROR,
         "Expired voice must have been reclaimed.",
@@ -1485,7 +1525,7 @@ export function createGameServices(
               if (voice.pausedAt != null) return true;
               const age = (state.tick - voice.startedAt - (voice.pausedTicks ?? 0)) * dt;
               return (voice.maxDuration === undefined || age < voice.maxDuration) &&
-                (voice.loop || durations[voice.sound] === null || age < durations[voice.sound]!);
+                (voice.loop || durations[voice.sound] === null || audioVoicePosition(voice, state.tick, dt) < durations[voice.sound]!);
             },
           );
           for (const bus of state.audio.busVolumes ?? []) {

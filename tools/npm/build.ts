@@ -279,6 +279,7 @@ export async function buildDistribution() {
     "docs/SIMULATION-COUPLING.md",
     "docs/TERRAIN.md",
     "docs/ANIMATION.md",
+    "docs/CINEMATICS.md",
     "docs/PHYSICS-LIFECYCLE-ISSUE.md",
     "docs/RENDER-BACKENDS.md",
     "docs/PELICAN-MIGRATION.md",
