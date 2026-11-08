@@ -15,7 +15,7 @@ export interface EngineFeature {
 }
 /** Implementation metadata, not runtime hardware acceptance; use ctx.render.capabilities for the active device. */
 export function engineCapabilities(query = ""): EngineFeature[] { return describeFeatures(query); }
-export const SDK_VERSION = "1.4.0";
+export const SDK_VERSION = "1.4.1";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];

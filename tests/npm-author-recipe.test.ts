@@ -24,25 +24,13 @@ test("one README source produces the npm front page without contributor install 
   const source = await readFile("README.md", "utf8");
   const npm = npmReadme(source);
   assert.match(npm, /pelican-mark\.svg/);
-  assert.match(npm, /rendering-preview\.webp/);
+  assert.doesNotMatch(npm, /rendering-preview|\.webp|readme-game:start/);
+  assert.ok(source.split("\n").length < 85, "Keep the front page concise; detailed examples belong in guides.");
   assert.match(npm, /raw\.githubusercontent\.com/);
   assert.doesNotMatch(npm, /npm ci|CONTRIBUTING\.md|contributor-only/);
   assert.match(npm, /npm install <package>/);
   assert.match(npm, /pelican guide/);
   assert.throws(() => npmReadme("missing markers"), /TC_README_TEMPLATE/);
-});
-
-test("front-page TypeScript composition example builds through the real compiler", async t => {
-  const source = await readFile("README.md", "utf8");
-  const block = /<!-- readme-game:start -->\s*```ts\s*([\s\S]*?)\s*```\s*<!-- readme-game:end -->/.exec(source);
-  assert.ok(block);
-  const directory = await mkdtemp(path.join(tmpdir(), "pelican-readme-game-"));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  await writeFile(path.join(directory, "game.ts"), block[1]);
-  await writeFile(path.join(directory, "pelican.project.json"), JSON.stringify({ engineVersion: SDK_VERSION, content: "typescript" }));
-  const result = await compileProject({ engineRoot: process.cwd(), projectRoot: directory, outDir: "out" });
-  assert.equal(result.success, true, JSON.stringify(result.diagnostics));
-  assert.equal(result.ir?.scene.entities.filter(entity => entity.id.startsWith("shape-")).length, 4);
 });
 
 test("shared game-author documentation contains a self-contained compilable rendering recipe", async t => {

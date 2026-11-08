@@ -12,8 +12,6 @@ The M2 Fox and WaterBottle assets are fixed to KhronosGroup/glTF-Sample-Assets c
 
 ## Source and development dependencies
 
-`docs/assets/rendering-preview.webp` is a compressed capture of the real Pelican gallery scene (not generated concept art). It contains the Fox and WaterBottle assets attributed above: Fox model by PixelMannen (CC0-1.0), rigging/animation by tomkranis and glTF conversion by AsoboStudio/scurest (CC-BY-4.0), WaterBottle by Microsoft (CC0-1.0). The image was resized/encoded as WebP for documentation; the engine scene and original asset metadata remain under examples/m3 and examples/m2/assets. The pelican mark is the project's existing identity asset.
-
 The contributor repository does not bundle node_modules or browser binaries. npm downloads the exact locked packages, including their original license files. Optional platform packages below are installed only on matching systems. See each package's upstream source and distributed LICENSE/NOTICE for attribution details. Playwright-managed Chromium is downloaded separately and is not included in the pelican Release.
 
 | Package | Locked version | Declared license | Usage |
