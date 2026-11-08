@@ -21,6 +21,10 @@ also passed, as did 24 installed-game workflows, 53 example builds, 16 distribut
 contracts and offline smoke. Exact source identity and limitations are recorded in
 [the evidence summary](../evidence/ai-first/1.1.0-2026-11-08/summary.json).
 Publication and complete historical CAP acceptance are separate states.
+The first Windows CI run stopped before publishing on two short-path identity
+failures. [The follow-up](../evidence/ai-first/1.1.0-2026-11-08/followup/summary.json)
+canonicalizes roots, repairs the artifact assertion and adds immutable character
+checkpoint checks; 55 affected regressions passed before the new full run.
 An emissive-only same-scene comparison demonstrates integrated indirect transport
 versus stock Three.js raster; arbitrary Three.js extensions and independent AI
 task completion are not covered by that comparison.

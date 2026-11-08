@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -37,7 +37,7 @@ test("records real output locations without copying and never authorizes release
   assert.equal(report.steps[1].skipped?.complete, false);
   assert.equal(report.steps[2].artifactDiscovery, "recorded");
   const artifact = report.steps[2].artifacts[0];
-  assert.equal(artifact.path, path.join(root, ".pelican/m3-probes/new"));
+  assert.equal(await realpath(artifact.path), await realpath(path.join(root, ".pelican/m3-probes/new")));
   assert.match(artifact.sha256!, /^[0-9a-f]{64}$/);
   assert.equal(await readFile(artifact.sha256File!, "utf8"), "raw evidence");
   await assert.rejects(readFile(path.join(output, "artifacts/m3-probe/new/development-report.json")));

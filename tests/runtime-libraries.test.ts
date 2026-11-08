@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { compileProject } from "../packages/compiler/src/index.ts";
 import { RuntimeHost } from "../packages/runtime/src/host.ts";
 import { SDK_VERSION } from "../packages/sdk/src/index.ts";
+import { execFileSync } from "node:child_process";
 
 test("author-approved runtime libraries bundle normally, invalidate cache and cannot execute as content", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "pelican-library-")), library = path.join(root, "node_modules/@fixture/math");
@@ -23,6 +24,13 @@ test("author-approved runtime libraries bundle normally, invalidate cache and ca
     await writeFile(path.join(root, "game.ts"), source);
     const compile = () => compileProject({ projectRoot: root, engineRoot: process.cwd(), outDir: path.join(root, "out") });
     const first = await compile(); assert.equal(first.success, true, JSON.stringify(first.diagnostics));
+    if (process.platform === "win32") {
+      const alias = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "(New-Object -ComObject Scripting.FileSystemObject).GetFolder($env:PELICAN_TEST_LIBRARY_PATH).ShortPath"],
+        { encoding: "utf8", timeout: 10000, env: { ...process.env, PELICAN_TEST_LIBRARY_PATH: root } }).trim();
+      const viaAlias = await compileProject({ projectRoot: alias, engineRoot: process.cwd(), outDir: path.join(root, "alias-out") });
+      assert.equal(viaAlias.success, true, JSON.stringify(viaAlias.diagnostics)); assert.deepEqual(viaAlias.ir, first.ir);
+      assert.ok(viaAlias.report.inputs.some(input => input.path === "node_modules/@fixture/math/index.js"));
+    }
     assert.ok(first.report.inputs.some(input => input.path === "node_modules/@fixture/math/index.js"));
     const host = new RuntimeHost(first.ir!);
     try { const game = await import(pathToFileURL(path.join(root, "out/game.js")).href); host.attach(game.createGame(host.facade)); host.step(); assert.equal(host.world.getComponent("state", "Counter").value, 5); }

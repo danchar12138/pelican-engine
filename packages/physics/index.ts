@@ -1236,10 +1236,15 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           validateDefinition(entity); checkTransform(saved.transform, entity); seen.add(entity.id);
           const character = base.header.characters.find(c => c.entity === entity.id);
           if (!!entity.character !== !!character) fail("TC_PHYSICS_CHECKPOINT", "Checkpoint character metadata differs.");
+          if (character && (character.radius !== entity.character!.radius || character.height !== entity.character!.height ||
+              character.gravity !== (entity.character!.gravity ?? 9.81) || character.bodyHandle !== saved.bodyHandle || character.colliderHandle !== saved.colliderHandle ||
+              Object.keys(character).some(key => !["entity", "bodyHandle", "colliderHandle", "radius", "height", "gravity", "verticalVelocity", "velocity", "grounded", "requested", "target"].includes(key))))
+            fail("TC_PHYSICS_CHECKPOINT", "Checkpoint character configuration differs from compiled content.");
           if (character) validateParkedBody({ velocity: character.velocity, angularVelocity: [0, 0, 0], gravityScale: 1, sleeping: false,
             character: { verticalVelocity: character.verticalVelocity, velocity: character.velocity, grounded: character.grounded, requested: character.requested, ...(character.target ? { target: character.target } : {}) } }, true);
         }
-        if (new Set(base.jointHandles.map(item => item.id)).size !== base.jointHandles.length || base.jointHandles.length !== (base.header.joints?.length ?? 0) ||
+        if (base.header.characters.length !== base.definitions.filter(entity => entity.character).length ||
+            new Set(base.jointHandles.map(item => item.id)).size !== base.jointHandles.length || base.jointHandles.length !== (base.header.joints?.length ?? 0) ||
             new Set(base.terrainHandles.map(item => item.id)).size !== base.terrainHandles.length || base.terrainHandles.length !== (base.header.terrains?.length ?? 0))
           fail("TC_PHYSICS_CHECKPOINT", "Checkpoint owner registries differ.");
       } else if (s.checkpoint !== undefined) fail("TC_PHYSICS_CHECKPOINT", "Legacy snapshots cannot contain native checkpoints.");

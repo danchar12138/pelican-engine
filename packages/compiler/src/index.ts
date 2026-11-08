@@ -206,9 +206,13 @@ export async function compileProject(
   options: CompileOptions,
 ): Promise<CompileResult> {
   const start = performance.now();
-  const projectRoot = path.resolve(options.projectRoot);
+  // Windows TEMP and installed directories may use 8.3 aliases. Compare and
+  // fingerprint one physical root, never an alias against a canonical child.
+  const requestedRoot = path.resolve(options.projectRoot);
+  const projectRoot = await fs.realpath(requestedRoot).catch(() => requestedRoot);
   const outDir = path.resolve(projectRoot, options.outDir);
-  const layout = compilerLayout(import.meta.url, options.engineRoot);
+  const requestedEngine = compilerLayout(import.meta.url, options.engineRoot).root;
+  const layout = compilerLayout(import.meta.url, await fs.realpath(requestedEngine).catch(() => requestedEngine));
   const engineRoot = layout.root;
   const sdkPath = layout.sdk;
   const diagnostics: Diagnostic[] = [];

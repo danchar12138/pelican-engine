@@ -1,0 +1,29 @@
+✖ v4 checkpoint preserves native contacts, joints, characters and deterministic continuation across owners (841.8727ms)
+✔ terrain native owner mappings survive checkpoint compaction and reconstruction (458.855ms)
+✔ empty games exceed the old session cutoff with bounded saved replay (2007.0884ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3847.6619
+
+✖ failing tests:
+
+test at tests\physics-checkpoints.test.ts:1:1872
+✖ v4 checkpoint preserves native contacts, joints, characters and deterministic continuation across owners (841.8727ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (C:\Users\60459\Desktop\AI Project\threecat\tests\physics-checkpoints.test.ts:55:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /TC_PHYSICS_SNAPSHOT.*character configuration/,
+    operator: 'throws',
+    diff: 'simple'
+  }

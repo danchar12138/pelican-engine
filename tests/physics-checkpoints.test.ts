@@ -48,6 +48,12 @@ test("v4 checkpoint preserves native contacts, joints, characters and determinis
     } finally { world.free(); }
     assert.throws(() => b.restore(forged), /TC_PHYSICS_SNAPSHOT.*collider definition/);
     assert.deepEqual(b.snapshot(), previous);
+    const alteredCharacter = structuredClone(saved), altered = alteredCharacter.plugins!["$engine.physics"].payload as any;
+    Object.assign(altered, structuredClone(altered.checkpoint.header), { history: [] });
+    altered.checkpoint.header.characters[0].radius = 9;
+    altered.characters[0].radius = 9;
+    assert.throws(() => b.restore(alteredCharacter), /TC_PHYSICS_SNAPSHOT.*character configuration/);
+    assert.deepEqual(b.snapshot(), previous);
   } finally { a.dispose(); b.dispose(); }
 });
 test("terrain native owner mappings survive checkpoint compaction and reconstruction", () => {
