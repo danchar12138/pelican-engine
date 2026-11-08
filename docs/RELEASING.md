@@ -21,4 +21,12 @@ npm run distribution:smoke -- --online-install
 
 发布后检查注册表元数据与完整 tarball 字节。npm 元数据及 tarball 传播允许最多 16 次请求，指数退避上限 30 秒；传播失败不自动再次 publish，先核对是否已经发布。正式版本是否可安装以实际 registry 为准，GitHub 标签不替代 npm 状态。
 
-当前 1.1.0 的发布 CI 曾因注册表传播延迟失败，之后公开安装已确认；该历史失败不会因后续修改被改写成成功。新版本检查必须针对新源码与新 tarball。
+## GitHub Release 同步
+
+同一发布任务在 registry 字节核验成功后执行 `npm run release:github`，使用 Actions 的短期 `github.token`（publish job 的 contents: write）创建或更新相同版本的 GitHub Release。版本来自仓库实际 package.json，变更说明从 CHANGELOG 对应章节生成，标签固定到 `GITHUB_SHA`；已有标签若指向其他提交则停止，不移动标签、不强推。
+
+README 是项目与 npm 首页的单一文案来源；npm 构建只去掉贡献者维护段落并调整图片地址。版本徽章读取公开 npm；Latest Release 由发布流程同步，不维护另一份手写“最新版本”页面。构建产物仍只通过 npm 交付，不将 GitHub 自动源码 ZIP 推荐为游戏开发安装方式。
+
+补齐历史发行时显式提供 `--version <version> --commit <full-sha> --tarball <exact-tested.tgz> --historical`，工具仍先对公开 registry 做完整字节核验，且不会把历史版本设成 Latest。没有已核对的源提交或 tarball 时，不猜测历史版本归属。
+
+若 npm 已发布但 Release 同步失败，只重试 GitHub 同步步骤，不重新 publish、不自动增加版本。registry 的精确版本端点、版本列表与 latest 标签可能短暂不同步；独立安装失败保留日志，使用刷新元数据重试，不能拿 tarball 可下载代替游戏真实安装通过。历史失败不被后续成功改写。

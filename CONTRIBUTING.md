@@ -18,6 +18,8 @@ npm run distribution:test
 
 `npm run distribution:smoke -- --online-install` 在临时独立游戏目录安装实际 tarball，执行 CLI、类型检查、构建和静态部署。`npm run verify:ai -- --output .pelican/verification/ai` 执行 npm 游戏开发与浏览器功能组合。后者需要本机可用的图形环境。
 
+README 同时是 npm 首页的来源，不单独维护第二份产品介绍；npm 构建去掉 `contributor-only` 段落并转换图片地址。产品预览属于精选展示资产，不把测试截图或运行报告批量提交进 docs。首次 AI 入口由 `tools/author-guide.ts` 组合 SDK 能力和配方元数据，不能另造接口签名。
+
 可选图形回归通过 `PELICAN_BSDF_GPU`、`PELICAN_DIELECTRIC_GPU`、`PELICAN_DENOISER_GPU`、`PELICAN_ENVIRONMENT_GPU`、`PELICAN_MODEL_BROWSER` 环境变量开启（值 `1`），应串行执行并记录实际后端。普通测试中的 opt-in 跳过不能记为通过。
 
 ## 文件与接口

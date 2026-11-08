@@ -10,9 +10,10 @@ import {
 } from "node:fs/promises";
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
-import { SDK_VERSION, engineCapabilities } from "../packages/sdk/src/index.ts";
+import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import { readRecipe, readRecipeFiles, recipeDependencies, recipeIds } from "./npm/recipes.ts";
 import { generateApiIndex, queryApi } from "./api-index.ts";
+import { authorGuide, queryCapabilities } from "./author-guide.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
 import { compressDist } from "./compress-dist.ts";
 import { createBuildOutput } from "./build-output.ts";
@@ -87,7 +88,8 @@ async function main() {
       envelope("succeeded", {
         commands: [
           "doctor",
-          "capabilities [--feature <id-or-English/中文-query>] (distinct unknown/unsupported errors)",
+          "guide [--goal <English/中文-query>] (compact npm game-author starting context)",
+          "capabilities [--feature <id-or-English/中文-query>] [--summary] [--limit 20 --offset 0]",
           "recipe --id <recipe-id>",
           "api [--symbol <Type-or-Type.member> | --search <query> [--member] [--limit 20]]",
           "setup [--install-browser] [--offline]",
@@ -157,18 +159,12 @@ async function main() {
     );
     return;
   }
+  if (command === "guide") {
+    emit(envelope("succeeded", authorGuide(args.slice(1))));
+    return;
+  }
   if (command === "capabilities") {
-    const positions = args.flatMap((arg, i) => arg === "--feature" ? [i] : []);
-    if (positions.length > 1) throw new Error("TC_CAPABILITY_QUERY: Supply --feature exactly once.");
-    const query = option("feature", "")!;
-    if (positions.length && (!query?.trim() || query.startsWith("--"))) throw new Error("TC_CAPABILITY_QUERY: Supply a nonempty feature ID or query after --feature.");
-    for (let i = 1; i < args.length; i++) {
-      if (args[i] === "--feature") { i++; continue; }
-      throw new Error(`TC_CAPABILITY_QUERY: Unexpected argument '${args[i]}'. Use capabilities [--feature <id-or-query>]. Source: packages/sdk/src/capabilities.ts.`);
-    }
-    const features = engineCapabilities(query);
-    emit(envelope("succeeded", { engineVersion: SDK_VERSION, format: "pelican.capabilities", features, total: features.length, truncated: false,
-      runtimeProbe: "inspect", recipes: recipeIds, acceptance: "Implementation metadata only; runtime/backend/hardware evidence is separate." }));
+    emit(envelope("succeeded", queryCapabilities(args.slice(1))));
     return;
   }
   if (command === "recipe") {

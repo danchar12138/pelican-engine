@@ -141,6 +141,16 @@ try {
   for (const args of [["--help"], ["-h"], ["api", "--help"]])
     assert.ok((await cli(...args)).data.commands.some((command: string) => command.startsWith("api ")));
   assert.equal((await cli("--version")).data.version, SDK_VERSION);
+  const guide = await cli("guide");
+  assert.equal(guide.data.engineVersion, SDK_VERSION);
+  assert.match(guide.data.authoring.language, /Not a mandatory engine DSL/);
+  assert.ok(Buffer.byteLength(JSON.stringify(guide.data)) < 4500);
+  const npmGuide = await cli("guide", "--goal", "npm");
+  assert.ok(npmGuide.data.discovery.recipes.some((recipe: { id: string }) => recipe.id === "runtime-lifecycle"));
+  const compactCatalog = await cli("capabilities", "--summary", "--limit", "3");
+  assert.equal(compactCatalog.data.features.length, 3);
+  assert.equal(compactCatalog.data.nextOffset, 3);
+  assert.equal(compactCatalog.data.truncated, true);
   const api = await cli("api");
   const apiSymbol = await cli("api", "--symbol", "defineGame");
   const installedIndex = JSON.parse(
@@ -356,6 +366,8 @@ try {
     await readFile(path.join(directory, "AGENTS.md"), "utf8"),
     /GAME-AUTHOR\.md/,
   );
+  assert.match(await readFile(path.join(directory, "AGENTS.md"), "utf8"), /guide --goal/);
+  assert.match(await readFile(path.join(directory, "AGENTS.md"), "utf8"), /not an engine-only DSL/);
   const checked = await cli("check");
   assert.equal(checked.status, "succeeded");
   assert.ok(!(checked.data.diagnostics ?? []).some((item: { code: string }) => item.code === "TC_ENGINE_INPUT_MISSING"), JSON.stringify(checked));

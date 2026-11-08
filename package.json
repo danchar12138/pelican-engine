@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -46,6 +46,7 @@
     "distribution:verify-registry": "tsx tools/npm/verify-registry.ts",
     "verify": "npm run typecheck && npm test && npm run distribution:test",
     "release:publish": "node tools/npm/publish.mjs",
+    "release:github": "tsx tools/npm/github-release.ts",
     "clean": "node tools/clean.mjs",
     "benchmark:render": "tsx tools/benchmark-rendering.ts",
     "evaluate:author": "tsx tools/evaluate-authoring.ts"

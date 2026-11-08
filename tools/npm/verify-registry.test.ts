@@ -96,6 +96,9 @@ test("workflow tests before publish, verifies registry afterwards and uses no lo
   assert.match(ci, /npm run verify/);
   assert.match(ci, /ubuntu-latest, windows-latest, macos-latest/);
   assert.ok(workflow.indexOf("npm publish") < workflow.indexOf("distribution:verify-registry"));
+  assert.ok(workflow.indexOf("distribution:verify-registry") < workflow.indexOf("release:github"));
+  assert.match(workflow, /contents: write/);
+  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   assert.equal((workflow.match(/NODE_AUTH_TOKEN:/g) ?? []).length, 0);
   assert.match(workflow, /id-token: write/);
 });

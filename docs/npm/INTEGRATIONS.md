@@ -2,6 +2,10 @@
 
 游戏开发使用 npm 的 `pelican-engine`。普通 TypeScript 是创作语言；引擎的组件、图和服务是可组合能力，不要求所有算法都重写为引擎语法。
 
+可以自由组织游戏源码、类、闭包、数据结构和自己的内容生成器，与引擎 API 混合使用；不要求把每一段游戏逻辑变成引擎内置规则。用 `npm install <package>` 将组件声明在游戏 package.json，正常 import。引擎 1.x 自带的背包、对话、任务等只是可选便利服务，自己的实现无需套用这些数据模型。
+
+起步可用 `pelican guide --goal npm`；浏览器模块与每实例状态直接用 `pelican create --template runtime-lifecycle`，按返回的 `dependencies` 安装依赖。渲染组合用 `pelican create --template managed-rendering`。两者都是公开 npm 项目配方，不需要引擎源码。
+
 ## 先选择合适的接入方式
 
 | 需求 | 接入方式 | 谁管理状态和资源 |
@@ -14,6 +18,8 @@
 | 任意 Three.js/TSL/raw GPU 插件 | 尚无通用无损接入协议；查询所需算子、资源与帧阶段的准确缺口 | 不把私有 renderer/device/world 对象当成稳定接口 |
 
 算法复用不需要另建“批准依赖列表”。旧 `content: "static"` 模式才有 runtime-only libraries 配置。新项目使用 `content: "typescript"`。
+
+依赖的实际运行环境仍要匹配：Node-only 文件系统／命令行包用于资产和构建准备，不能假定浏览器存在 fs 或 process；DOM 库放在浏览器实例初始化。联网库可以接入，但引擎没有承诺内置多人状态同步，也不会自动把外部网络结果录入确定性回放。不要通过放开依赖就宣称这些未实现系统已经存在。
 
 ## 每个游戏实例有自己的初始化和状态
 

@@ -36,12 +36,19 @@ await record("install-current-tarball", async () => {
   return { workspace, engineVersion: SDK_VERSION };
 });
 await record("machine-discovery", async () => {
+  const guide = await run(["guide"]);
+  assert.match(guide.data.authoring.language, /Not a mandatory engine DSL/);
+  const targeted = await run(["guide", "--goal", "npm"]);
+  assert.ok(targeted.data.discovery.recipes.some((recipe: { id: string }) => recipe.id === "runtime-lifecycle"));
+  const full = await run(["capabilities"]), compact = await run(["capabilities", "--summary"]);
+  const fullBytes = Buffer.byteLength(JSON.stringify(full.data)), summaryBytes = Buffer.byteLength(JSON.stringify(compact.data));
+  assert.ok(summaryBytes < fullBytes * .6);
   const features = await run(["capabilities", "--feature", "pointer"]);
   assert.ok(features.data.features.some((feature: { id: string }) => feature.id === "input.pointer"));
   const api = await run(["api", "--search", "PointerState"]);
   assert.ok(api.data.symbols.some((symbol: { name: string }) => symbol.name === "PointerState"));
   const recipe = await run(["recipe", "--id", "pointer-3d"]); assert.match(recipe.data.source, /pointer\(\)/);
-  return { features: features.data, symbols: api.data.symbols.map((symbol: { name: string }) => symbol.name) };
+  return { features: features.data, symbols: api.data.symbols.map((symbol: { name: string }) => symbol.name), coldStart: { guideBytes: Buffer.byteLength(JSON.stringify(guide.data)), fullBytes, summaryBytes, npmRecipe: "runtime-lifecycle" } };
 });
 const browser = await chromium.launch({ headless: true, channel: "chromium", args: graphicsLaunchArguments() });
 let port = 43900;

@@ -2,6 +2,8 @@
 
 当前功能状态与精确符号通过 `npx --no-install pelican capabilities` 查询；该结果由 `packages/sdk/src/capabilities.ts` 维护。公开签名通过 `pelican api --search <query>` 或 `--symbol <name>` 查询，来自同一 SDK 源码。实现元数据不代表每种设备、规模与组合均已通过运行验证。
 
+首次 npm 使用从 `pelican guide` 开始，简短任务用 `guide --goal <关键词>`。全目录有兼容的完整形式和可选 `--summary` 摘要；摘要／完整形式均支持 `--limit/--offset`，依据 `total/truncated/nextOffset` 翻页。普通 TypeScript 与浏览器兼容 npm 组件是正式创作方式，不存在算法依赖白名单或强制内置玩法 DSL。
+
 | 能力 | 使用入口 | 主要边界 |
 | --- | --- | --- |
 | npm 独立开发 | `pelican create/dev/check/build` | Node.js 24，Windows/macOS/Linux；平台检查结果以实际 CI 为准 |

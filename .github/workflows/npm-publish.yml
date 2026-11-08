@@ -17,6 +17,9 @@ jobs:
     uses: ./.github/workflows/ci.yml
   publish:
     needs: verify
+    permissions:
+      contents: write
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,3 +38,7 @@ jobs:
       - name: npm publish exact tarball using OIDC (--tag latest)
         run: npm run release:publish
       - run: npm run distribution:verify-registry
+      - name: Synchronize GitHub Release after registry verification
+        run: npm run release:github
+        env:
+          GH_TOKEN: ${{ github.token }}

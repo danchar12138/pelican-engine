@@ -15,6 +15,7 @@ import ts from "typescript";
 import { generateApiIndex } from "../api-index.ts";
 import { renderRecipes, recipeCatalog } from "./recipes.ts";
 import { SDK_VERSION } from "../../packages/sdk/src/index.ts";
+import { npmReadme } from "./readme.ts";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
 export const staging = path.resolve(root, ".pelican/npm/package");
@@ -208,7 +209,7 @@ export async function buildDistribution() {
       {
         name: "pelican-engine",
         version: pkg.version,
-        description: "Pelican Engine public SDK and offline development CLI",
+        description: "Code-first game engine for AI coding tools. TypeScript, WebGPU, npm components and managed extensions in one package.",
         type: "module",
         license: "MIT",
         engines: pkg.engines,
@@ -216,6 +217,9 @@ export async function buildDistribution() {
           type: "git",
           url: "https://github.com/danchar12138/pelican-engine.git",
         },
+        homepage: "https://github.com/danchar12138/pelican-engine#readme",
+        bugs: { url: "https://github.com/danchar12138/pelican-engine/issues" },
+        keywords: ["game-engine", "typescript", "webgpu", "ai-tools", "ecs", "pbr", "path-tracing"],
         exports: {
           ".": { types: "./lib/sdk/index.d.ts", import: "./lib/sdk/index.js" },
         },
@@ -282,11 +286,11 @@ export async function buildDistribution() {
   await put("docs/npm/RECIPES.md", await renderRecipes(root));
   await put(
     "AGENTS.md",
-    "# Pelican Engine game author\n\nUse the installed npm package in this game workspace. Read [the author contract](docs/npm/GAME-AUTHOR.md). Query `pelican capabilities`, `pelican api --search <query>` and `pelican recipe --id <id>`. Do not clone the contributor repository to make games.\n",
+    "# Pelican Engine game author\n\nUse the installed npm package in this game workspace. Start with `pelican guide` or `pelican guide --goal <short goal>`. Ordinary TypeScript, local modules and browser-compatible npm dependencies are supported; built-in gameplay services are optional. Read [the author workflow](docs/npm/GAME-AUTHOR.md) and [custom integrations](docs/npm/INTEGRATIONS.md). Discover with `pelican capabilities --summary`, exact `pelican api --symbol Type.member` and complete `pelican recipe --id <id>`. Use runtime.create plus own/defer and versioned state hooks for browser dependencies. Do not clone the contributor repository to make games.\n",
   );
   await put(
     "README.md",
-    await readFile(path.join(root, "docs/npm/DISTRIBUTION.md"), "utf8"),
+    npmReadme(await readFile(path.join(root, "README.md"), "utf8")),
   );
   // Generate current API documentation without editing the repository's tracked index.
   const apiRoot = path.join(staging, ".api-input");

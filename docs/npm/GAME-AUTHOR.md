@@ -4,6 +4,8 @@
 
 ## 创建和查询
 
+第一次使用先运行 `npx --no-install pelican guide`。这个紧凑 JSON 入口说明当前安装版本的完整起步流程、普通 npm 组合方式、实例状态与清理约定。`pelican guide --goal npm` 或 `--goal 存档` 将简短目标定位到真实能力、公开类型和完整配方，不要求通读源码或全量 API。
+
 需要 Node.js 24.x 和 npm。工具支持 Windows、macOS、Linux；玩家按浏览器实际图形能力检测，不按系统品牌白名单限制。
 
 ```sh
@@ -16,6 +18,8 @@ npx pelican dev
 `--prefix .` 避免 npm 选择 parent 项目。首次 dev 只在允许的空目录生成内容，不覆盖已有游戏。停止服务后可执行：
 
 ```sh
+npx --no-install pelican guide
+npx --no-install pelican capabilities --summary --limit 8
 npx --no-install pelican capabilities --feature content
 npx --no-install pelican api --search "pointer"
 npx --no-install pelican recipe --id pointer-3d
@@ -25,6 +29,10 @@ npx --no-install pelican build
 ```
 
 `create` 用于新的空项目；已有默认文件时先保留工作，再决定是否替换。`recipe` 返回完整源码 JSON，`capabilities` 返回真实配方 ID、接口和边界，`help` 返回命令协议。无需读取长篇文档猜测符号；查询精确的 `api --symbol <name>`。类型与机器索引随 npm 包生成，入口 `pelican-engine` 是唯一公开 SDK。
+
+新项目生成的 `AGENTS.md` 就是包内入口，不依赖专用 AI 平台。`capabilities --summary` 省略详细别名和限制，只用于挑选能力；选定后使用 `--feature <id>` 读完整边界。分页返回 `total/truncated/nextOffset`，使用 `--limit <1..100> --offset <n>` 继续，不把第一页当成全部能力。
+
+完整能力结果仍保留原 1.x 形式。精确方法用 `api --symbol Type.member`；搜索用 `api --search <词> --member --limit 5`，避免一次加载整份类型。未知词先尝试同义词、短关键词和所属 service。只在明确缺口时反馈，不因查询失败私自替换渲染器或砍掉游戏要求。
 
 能力查询支持 ID、中英文与同义词，例如 `capabilities --feature 音效`、`--feature heightmap`、`--feature 计算着色器`、`--feature 后处理`、`--feature physics2d`、`--feature 存档` 和 `--feature geometry`。每项返回 `description`、`aliases`、真实 SDK `symbols`、实现状态、后端与限制；未带 `--feature` 时列出完整目录。这些是实现元数据，当前设备是否支持仍查询 `ctx.render.capabilities()`。目录未收录返回失败码 `TC_CAPABILITY_UNKNOWN`，不表示已经证明不支持；明确排除的硬件光追等返回 `TC_CAPABILITY_UNSUPPORTED`，不会以空数组成功响应。
 
