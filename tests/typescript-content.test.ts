@@ -168,6 +168,39 @@ const b=defineMaterial({id:'same',color:'#000000'});` +
     );
     assert.equal(thenable.success, false);
     assert.ok(thenable.diagnostics.some((d) => d.code === "TC_SYSTEM_ASYNC"));
+    const marker = await compile(
+      imports +
+        `const s=defineSystem({id:'fake',run:{__runtime:true} as any});` +
+        empty,
+    );
+    assert.equal(marker.success, false);
+    assert.ok(marker.diagnostics.some((d) => d.code === "TC_SYSTEM_RUN"));
+    const structuralMarker = await compile(
+      imports +
+        `const fake={id:'fake',kind:'system',run:{__runtime:true}} as any;export default defineGame({id:'game',systems:[fake],scene:defineScene({id:'main',entities:[]})});`,
+    );
+    assert.equal(structuralMarker.success, false);
+    assert.ok(
+      structuralMarker.diagnostics.some((d) => d.code === "TC_SYSTEM_RUN"),
+    );
+    const structuralFunction = await compile(
+      imports +
+        `const system={id:'manual',kind:'system' as const,run(){}};export default defineGame({id:'game',systems:[system],scene:defineScene({id:'main',entities:[]})});`,
+    );
+    assert.equal(
+      structuralFunction.success,
+      true,
+      JSON.stringify(structuralFunction.diagnostics),
+    );
+    const jsonNames = await compile(
+      imports +
+        `const Data=defineComponent({id:'Data',schema:{payload:{type:'json',default:{kind:'system',run:{__runtime:true}}}}});export default defineGame({id:'game',components:[Data],scene:defineScene({id:'main',entities:[]})});`,
+    );
+    assert.equal(
+      jsonNames.success,
+      true,
+      JSON.stringify(jsonNames.diagnostics),
+    );
     const instance = await compile(
       imports +
         `class Bad {kind='game' as const;id='game';scene=defineScene({id:'main',entities:[]});} export default new Bad();`,

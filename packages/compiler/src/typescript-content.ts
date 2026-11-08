@@ -81,20 +81,27 @@ export async function typescriptContent(options: {
           import { collected, locations } from 'pelican-engine';
           let count = 0, characters = 0;
           const active = new Set();
+          // Identify runtime declarations by their role, not by arbitrary JSON
+          // fields named kind/run. Structural SystemDefinition objects are valid.
+          const runtimeSystems = new WeakSet([
+            ...collected.filter(value => value.kind === 'system'),
+            ...(Array.isArray(game?.systems) ? game.systems.filter(value => value && typeof value === 'object') : []),
+          ]);
           function clean(value, depth = 0, runtime = false) {
             if (++count > 200000 || depth > 128) throw new Error('TC_CONTENT_BUDGET: Content exceeds 200000 values or 128 levels.');
             if (typeof value === 'string') { characters += value.length; if (characters > 8 * 1024 * 1024) throw new Error('TC_CONTENT_BUDGET: Content strings exceed 8 MiB.'); }
-            if (value === undefined) return undefined;
-            if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-            if (typeof value === 'number' && Number.isFinite(value)) return value;
-            if (typeof value === 'function' && runtime) {
+            if (runtime) {
+              if (typeof value !== 'function') throw new Error('TC_SYSTEM_RUN: System run must be an actual function.');
               if (value.constructor.name !== 'Function') throw new Error('TC_SYSTEM_ASYNC: Systems must be synchronous ordinary functions.');
               return { __runtime: true };
             }
+            if (value === undefined) return undefined;
+            if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+            if (typeof value === 'number' && Number.isFinite(value)) return value;
             if (typeof value !== 'object' || active.has(value)) throw new Error('TC_CONTENT_VALUE: Content must contain finite data without cycles; functions belong in system.run.');
             if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) throw new Error('TC_CONTENT_VALUE: Export plain declaration data, not class instances, Map or Set.');
             active.add(value);
-            const result = Array.isArray(value) ? value.map(v => clean(v, depth + 1)) : Object.fromEntries(Object.entries(value).filter(([,v]) => v !== undefined).map(([k,v]) => [k, clean(v, depth + 1, value.kind === 'system' && k === 'run')]));
+            const result = Array.isArray(value) ? value.map(v => clean(v, depth + 1)) : Object.fromEntries(Object.entries(value).filter(([,v]) => v !== undefined).map(([k,v]) => [k, clean(v, depth + 1, runtimeSystems.has(value) && k === 'run')]));
             active.delete(value);
             return result;
           }
