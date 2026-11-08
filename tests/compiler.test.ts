@@ -306,6 +306,13 @@ function success(
   );
   assert.ok(result.ir);
 }
+async function copySDK(engine: string): Promise<void> {
+  await fs.cp(path.join(engineRoot, "packages/sdk/src"), path.join(engine, "packages/sdk/src"), { recursive: true });
+  // The lifecycle owns bounded JSON snapshots through the shared schema validator.
+  const schema = path.join(engine, "packages/schema/src");
+  await fs.mkdir(schema, { recursive: true });
+  await fs.copyFile(path.join(engineRoot, "packages/schema/src/json-value.ts"), path.join(schema, "json-value.ts"));
+}
 function facade(ir: SceneIR): EngineFacade {
   const entities = new Map(
     ir.scene.entities.map((e) => [e.id, structuredClone(e)]),
@@ -872,12 +879,7 @@ test("compiler: SDK source and installed tool versions participate in cache inva
   const p = await project(t);
   const engine = path.join(p.root, "engine copy");
   const sdkDir = path.join(engine, "packages/sdk/src");
-  await fs.mkdir(sdkDir, { recursive: true });
-  await fs.copyFile(path.join(engineRoot, "packages/sdk/src/capabilities.ts"), path.join(sdkDir, "capabilities.ts"));
-  await fs.copyFile(
-    path.join(engineRoot, "packages/sdk/src/index.ts"),
-    path.join(sdkDir, "index.ts"),
-  );
+  await copySDK(engine);
   const compile = () =>
     compileProject({ projectRoot: p.root, outDir: "dist", engineRoot: engine });
   const first = await compile();
@@ -1368,12 +1370,7 @@ test("compiler M1: selected engine SDK version is inspected without executing th
 test("compiler M1: runtime/schema additions, edits and removals invalidate project cache", async (t) => {
   const p = await project(t);
   const engine = path.join(p.root, "cache engine");
-  await fs.mkdir(path.join(engine, "packages/sdk/src"), { recursive: true });
-    await fs.copyFile(path.join(engineRoot, "packages/sdk/src/capabilities.ts"), path.join(engine, "packages/sdk/src/capabilities.ts"));
-  await fs.copyFile(
-    path.join(engineRoot, "packages/sdk/src/index.ts"),
-    path.join(engine, "packages/sdk/src/index.ts"),
-  );
+  await copySDK(engine);
   const compile = () =>
     compileProject({ projectRoot: p.root, outDir: "dist", engineRoot: engine });
   const initial = await compile();
@@ -1381,7 +1378,7 @@ test("compiler M1: runtime/schema additions, edits and removals invalidate proje
   assert.equal(
     initial.diagnostics.filter((d) => d.code === "TC_ENGINE_INPUT_MISSING")
       .length,
-    3,
+    2,
   );
   const hit = await compile();
   success(hit);

@@ -11,8 +11,8 @@ import {
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
 import { SDK_VERSION, engineCapabilities } from "../packages/sdk/src/index.ts";
-import { readRecipe, recipeIds } from "./npm/recipes.ts";
-import { generateApiIndex, queryApiSymbol } from "./api-index.ts";
+import { readRecipe, readRecipeFiles, recipeDependencies, recipeIds } from "./npm/recipes.ts";
+import { generateApiIndex, queryApi } from "./api-index.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
 import { compressDist } from "./compress-dist.ts";
 import { createBuildOutput } from "./build-output.ts";
@@ -46,7 +46,8 @@ const activeManifest = JSON.parse(
 const defaultProject = layout.installed
   ? process.cwd()
   : path.join(engineRoot, "examples/m2");
-const command = args[0] ?? "help";
+const command = args.includes("--help") || args.includes("-h") ? "help"
+  : ["--version", "-v"].includes(args[0] ?? "") ? "version" : args[0] ?? "help";
 const option = (name: string, fallback?: string) => {
   const index = args.indexOf(`--${name}`);
   return index >= 0 ? args[index + 1] : fallback;
@@ -80,14 +81,15 @@ async function compile() {
   return compileProject({ projectRoot: requestedProjectRoot, outDir: target, engineRoot });
 }
 async function main() {
+  if (command === "version") { emit(envelope("succeeded", { name: "pelican-engine", version: SDK_VERSION })); return; }
   if (command === "help") {
     emit(
       envelope("succeeded", {
         commands: [
           "doctor",
-          "capabilities [--feature <id-or-query>]",
+          "capabilities [--feature <id-or-English/中文-query>] (distinct unknown/unsupported errors)",
           "recipe --id <recipe-id>",
-          "api [--symbol <exact-name> | --search <query>] [--limit 20]",
+          "api [--symbol <Type-or-Type.member> | --search <query> [--member] [--limit 20]]",
           "setup [--install-browser] [--offline]",
           "create [--project <directory>] [--template minimal|<recipe-id>]",
           "migrate [--project <directory>] [--apply --from <version|unlocked>]",
@@ -106,7 +108,7 @@ async function main() {
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
           "snapshot --output <file> | restore --file <file>",
           "record --action start|stop|cancel | replay --file <trace.json>",
-          "status | cancel --task <id> | reset-session | api [--symbol <name>]",
+          "status | cancel --task <id> | reset-session",
         ],
         stage: activeManifest.stage,
       }),
@@ -141,21 +143,12 @@ async function main() {
           await readFile(path.join(engineRoot, "docs/api/index.json"), "utf8"),
         )
       : await generateApiIndex(engineRoot);
-    let matches = queryApiSymbol(index.symbols, args.slice(1));
-    const search = option("search");
-    if (search !== undefined) {
-      const limit = Number(option("limit", "20"));
-      if (!search.trim() || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("TC_API_SEARCH: Supply a nonempty query and limit in [1,100].");
-      if (matches !== undefined) throw new Error("TC_API_SEARCH: Use either --symbol or --search, not both.");
-      const terms = search.toLowerCase().split(/\s+/);
-      matches = index.symbols.filter((symbol: { name: string; signature: string }) => terms.every(term => (symbol.name + " " + symbol.signature).toLowerCase().includes(term))).slice(0, limit);
-    }
+    const result = queryApi(index, args.slice(1));
     emit(
       envelope(
         "succeeded",
-        matches === undefined
-          ? { engineVersion: SDK_VERSION, symbols: index.symbols.length }
-          : { engineVersion: SDK_VERSION, symbols: matches },
+        { engineVersion: SDK_VERSION, ...result,
+          ...(index.installedDeclarations ? { installedDeclarations: index.installedDeclarations, sourceProvenance: index.sourceProvenance } : {}) },
         [],
         ["docs/api/index.json", "docs/api/REFERENCE.md"].map((file) =>
           layout.installed ? path.join(engineRoot, file) : file,
@@ -165,15 +158,23 @@ async function main() {
     return;
   }
   if (command === "capabilities") {
+    const positions = args.flatMap((arg, i) => arg === "--feature" ? [i] : []);
+    if (positions.length > 1) throw new Error("TC_CAPABILITY_QUERY: Supply --feature exactly once.");
     const query = option("feature", "")!;
-    emit(envelope("succeeded", { engineVersion: SDK_VERSION, format: "pelican.capabilities", features: engineCapabilities(query),
+    if (positions.length && (!query?.trim() || query.startsWith("--"))) throw new Error("TC_CAPABILITY_QUERY: Supply a nonempty feature ID or query after --feature.");
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === "--feature") { i++; continue; }
+      throw new Error(`TC_CAPABILITY_QUERY: Unexpected argument '${args[i]}'. Use capabilities [--feature <id-or-query>]. Source: packages/sdk/src/capabilities.ts.`);
+    }
+    const features = engineCapabilities(query);
+    emit(envelope("succeeded", { engineVersion: SDK_VERSION, format: "pelican.capabilities", features, total: features.length, truncated: false,
       runtimeProbe: "inspect", recipes: recipeIds, acceptance: "Implementation metadata only; runtime/backend/hardware evidence is separate." }));
     return;
   }
   if (command === "recipe") {
     const id = option("id");
     if (!id) throw new Error("TC_RECIPE_ID: Supply --id; capabilities lists available recipes.");
-    emit(envelope("succeeded", { id, source: await readRecipe(engineRoot, id, layout.installed), entry: "game.ts", create: `pelican create --template ${id}` }));
+    emit(envelope("succeeded", { id, source: await readRecipe(engineRoot, id, layout.installed), files: await readRecipeFiles(engineRoot, id, layout.installed), dependencies: recipeDependencies(id), entry: "game.ts", create: `pelican create --template ${id}` }));
     return;
   }
   if (
@@ -360,7 +361,10 @@ async function main() {
       );
     if (template === "minimal" || recipeIds.includes(template!)) {
       const source = template === "minimal" ? undefined : await readRecipe(engineRoot, template!, layout.installed);
-      for (const filename of ["game.ts", "pelican.project.json", "AGENTS.md"])
+      const files = template === "minimal" ? {} : await readRecipeFiles(engineRoot, template!, layout.installed);
+      for (const filename of Object.keys(files)) if (path.basename(filename) !== filename || !filename.endsWith(".ts"))
+        throw new Error("TC_RECIPE_PATH: Recipe helper must be a project-local TypeScript filename.");
+      for (const filename of ["game.ts", "pelican.project.json", "AGENTS.md", ...Object.keys(files)])
         try {
           await access(path.join(projectRoot, filename));
           throw new Error(
@@ -371,6 +375,7 @@ async function main() {
         }
       await createMinimalProject(projectRoot, engineRoot, layout.installed);
       if (source !== undefined) await writeFile(path.join(projectRoot, "game.ts"), source, "utf8");
+      for (const [file, text] of Object.entries(files)) await writeFile(path.join(projectRoot, file), text, { encoding: "utf8", flag: "wx" });
       emit(
         envelope(
           "succeeded",
@@ -378,6 +383,7 @@ async function main() {
             project: path.basename(projectRoot),
             engineVersion: SDK_VERSION,
             template,
+            dependencies: recipeDependencies(template!),
           },
           [],
           ["game.ts", "pelican.project.json", "AGENTS.md"],

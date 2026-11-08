@@ -1,4 +1,6 @@
 import * as THREE from "three/webgpu";
+import { createManagedGeometry } from "./managed-geometry.ts";
+import { setupPBRMaterial } from "./pbr-material.ts";
 import { resolveViewport } from "./viewport.ts";
 import { createPointerInput } from "./pointer.ts";
 import { diagnosticFrom } from "../../runtime/src/error.ts";
@@ -55,6 +57,7 @@ import {
 } from "./checkpoint.ts";
 import type {
   EngineFacade,
+  GameInstance,
   Transform,
   ComponentData,
   RenderSettings,
@@ -497,13 +500,11 @@ function createEntityView(
     const material = materials.get(entity.mesh.material);
     if (!material)
       throw new Error(`TC_MATERIAL_MISSING: ${entity.mesh.material}`);
-    const g = entity.mesh.geometry;
-    const geometry =
-      g.kind === "box"
-        ? new THREE.BoxGeometry(...(g.size ?? [1, 1, 1]))
-        : g.kind === "sphere"
-          ? new THREE.SphereGeometry(g.radius ?? 0.5, g.segments ?? 64, Math.max(8, Math.ceil((g.segments ?? 64) / 2)))
-          : new THREE.PlaneGeometry(...(g.size ?? [1, 1]));
+    const geometry = createManagedGeometry(entity.mesh.geometry, entity.id);
+    if (!geometry.hasAttribute("uv") && [material.map, material.normalMap, material.roughnessMap, material.metalnessMap, material.aoMap, material.emissiveMap].some(Boolean)) {
+      geometry.dispose();
+      throw new Error(`TC_GEOMETRY_UV: ${entity.id}.geometry.uv: Material ${entity.mesh.material} uses texture maps. Repair: Supply one UV pair per vertex.`);
+    }
     for (const input of material.userData.pelicanGraphInputs ?? []) {
       if ((input === "uv" || input === "uv1") && !geometry.hasAttribute(input)) {
         geometry.dispose();
@@ -756,7 +757,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
   let nextRenderBufferBridge: ReturnType<typeof createRenderBufferBridge> | undefined;
   let nextRenderTextureBridge: ReturnType<typeof createRenderTextureBridge> | undefined;
   let candidate: RuntimeHost | undefined;
-  let candidateGame: { update(dt: number): void; dispose(): void } | undefined;
+  let candidateGame: GameInstance | undefined;
   let attached = false;
   let committed = false;
   let previousCleanup: (() => Promise<void>) | undefined;
@@ -873,6 +874,9 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     candidateGame = module.createGame(candidate.facade);
     candidate.attach(candidateGame);
     attached = true;
+    // Restoring author state and publishing a scene both require the new
+    // instance's async dependencies and bindings, not only a configured host.
+    await boundedOperation(candidateGame.ready ?? Promise.resolve(), "game runtime initialization");
     if (ir.postProcesses?.length) nextPostComposer = createPostProcessComposer(renderer, width, height, ir.postProcesses, nextGameplay?.textures ?? new Map(), nextRenderBufferBridge, nextRenderTextureBridge);
     const nextCamera = {
       position: [...ir.scene.camera.position],
@@ -916,9 +920,8 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
           definition.attenuationDistance ?? Infinity;
       }
       material.name = definition.id;
-      if (definition.texture)
-        material.map = nextGameplay!.textures.get(definition.texture)!;
       nextMaterials.set(definition.id, material);
+      setupPBRMaterial(material, definition, nextGameplay!.textures);
       nextSurfaceDefaults.set(definition.id, { color: material.color.clone(), emissive: material.emissive.clone(),
         roughness: material.roughness, metalness: material.metalness, emissiveIntensity: material.emissiveIntensity });
       if (definition.graph || definition.graphs || definition.vertex) {

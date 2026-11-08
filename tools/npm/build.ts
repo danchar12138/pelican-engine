@@ -154,7 +154,7 @@ export async function buildDistribution() {
     strict: true,
     allowImportingTsExtensions: true,
     types: [],
-    lib: ["lib.es2023.d.ts"],
+    lib: ["lib.es2023.d.ts", "lib.dom.d.ts", "lib.dom.iterable.d.ts"],
   });
   const diagnostics = ts.getPreEmitDiagnostics(program);
   if (diagnostics.some((d) => d.category === ts.DiagnosticCategory.Error))
@@ -227,6 +227,7 @@ export async function buildDistribution() {
           "docs",
           "licenses",
           "AGENTS.md",
+          "llms.txt",
           "README.md",
           "LICENSE",
           "engine.manifest.json",
@@ -262,6 +263,7 @@ export async function buildDistribution() {
     ),
   );
   await cp(path.join(root, "LICENSE"), path.join(staging, "LICENSE"));
+  await cp(path.join(root, "llms.txt"), path.join(staging, "llms.txt"));
   for (const name of [
     "docs/assets/pelican-mark.svg",
     "docs/CAPABILITIES.md",
@@ -273,6 +275,7 @@ export async function buildDistribution() {
     "docs/RENDER-BACKENDS.md",
     "docs/THIRD-PARTY-NOTICES.md",
     "docs/npm/GAME-AUTHOR.md",
+    "docs/npm/INTEGRATIONS.md",
   ])
     await put(name, await readFile(path.join(root, name), "utf8"));
   // Documentation contains copyable asset-free recipes, not source example projects.

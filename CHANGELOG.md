@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.0
+
+- 恢复鹈鹕图标与 README 项目展示，npm 包同样提供图标、价值说明和独立游戏开发入口。
+- 发光面使用 alias sampling 与三角形索引 PDF，显式灯光不再重复扫描整张发光三角形表；缓存静态发光元数据。
+- 保留不可变提取几何的私有 provenance，减少重复验证；缓存几何打包与身份，按脏块更新 GPU 数据，保持外部输入和失败恢复检查。
+- 新增每实例 runtime.create、就绪状态、own/defer 生命周期、版本化状态 hooks，接入 Host 快照、恢复、回放与失败回滚；检查构建和浏览器定义漂移。
+- 新增 BufferGeometryInput、normal/roughness/metalness/AO/emissive 贴图与 normalScale；新增 API v1 受管渲染扩展组合。
+- 物理后端改为异步加载，支持 auto/required/disabled 计划；保留空世界查询及明确的需求冲突诊断。
+- CLI 支持常见 --help/-h 与 --version/-v 入口，保持 JSON 协议。
+- 补全能力目录和中英文别名；API 支持成员检索、精确 Type.member、相关性排序及 total/truncated。新增多文件 runtime 和受管渲染配方、llms.txt 与依赖接入指南。
+- 增加跨平台生成目录清理工具、同资产 npm 渲染对比与独立 AI 作者评测记录器。运行输出不提交源码仓库。
+- 浏览器场景切换与读档等待异步作者实例就绪；Windows 构建目录重命名对短暂共享锁进行有界重试，保留失败恢复路径。
+- 自动化工具默认使用完整无界面 Chromium，保持实际 GPU；就绪检查不依赖 RAF 或桌面焦点，增加无焦点／禁用 RAF 的实际安装包复跑。
+
 ## 1.2.0
 
 - 游戏开发统一使用 npm；仓库只供引擎贡献者，当前树不再保存历史证据、阶段任务、旧源码 ZIP 发布工具和重复生成文档。

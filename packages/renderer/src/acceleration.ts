@@ -4,7 +4,7 @@ import type {
   SurfaceTriangle,
   SurfaceVec3,
 } from "./surface.ts";
-import { isFrozenCapturedPixels } from "./surface.ts";
+import { isFrozenCapturedPixels, hasCapturedGeometry, isCapturedTriangle } from "./surface.ts";
 
 export interface AccelerationFrame {
   readonly nodes: Float32Array;
@@ -166,8 +166,11 @@ function equal(a: unknown, b: unknown): boolean {
   );
 }
 
+const identities = new WeakMap<SurfaceTriangle, string>();
 function identity(t: SurfaceTriangle): string {
-  return JSON.stringify([
+  const cached = identities.get(t);
+  if (cached) return cached;
+  const key = JSON.stringify([
     t.objectUuid,
     t.geometryUuid,
     t.instanceId,
@@ -175,6 +178,8 @@ function identity(t: SurfaceTriangle): string {
     t.elementOffset,
     t.vertexIndices,
   ]);
+  if (isCapturedTriangle(t)) identities.set(t, key);
+  return key;
 }
 
 function orientation(t: SurfaceTriangle): number {
@@ -235,7 +240,19 @@ function validate(
       "INVALID_SNAPSHOT",
       "Expected a version 1 SurfaceScene; re-extract the surface",
     );
-  finiteData(snapshot, "snapshot", frozenData);
+  const captured = hasCapturedGeometry(snapshot);
+  if (captured) {
+    // Extraction already owns/froze and validated all numeric geometry. Keep
+    // explicit shape/area/reference checks below; avoid reflective re-walking
+    // every position, UV, normal and descriptor on every animated frame.
+    const visiting = new WeakSet<object>([snapshot]);
+    // Wrappers can append arbitrary fields or accessors to trusted geometry.
+    // Validate those too, including cycles back to this new wrapper.
+    for (const key of Reflect.ownKeys(snapshot)) if (key !== "triangles") {
+      const descriptor = Object.getOwnPropertyDescriptor(snapshot, key)!;
+      finiteData("value" in descriptor ? descriptor.value : Reflect.get(snapshot, key), String(key), frozenData, visiting);
+    }
+  } else finiteData(snapshot, "snapshot", frozenData);
   const materials = new Map<string, SurfaceMaterial>();
   for (const m of snapshot.materials) {
     if (
@@ -299,7 +316,7 @@ function validate(
           label +
             " has zero or unrepresentable area; remove degenerate geometry",
         );
-      if (frozenData.has(t)) triangles.add(t);
+      if (captured || frozenData.has(t)) triangles.add(t);
     }
     if (!materials.has(t.materialUuid))
       fail(

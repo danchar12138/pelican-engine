@@ -495,13 +495,13 @@ export class Extractor {
         } else if (ts.isShorthandPropertyAssignment(prop)) {
           result[name] = this.evaluate(prop.name, mod);
           origins.set(name, prop);
-        } else if (ts.isMethodDeclaration(prop) && name === "run") {
+        } else if (ts.isMethodDeclaration(prop) && (name === "run" || name === "create")) {
           result[name] = this.evaluate(prop as unknown as ts.Expression, mod);
           origins.set(name, prop);
         } else
           this.fail(
             "TC_STATIC_SYNTAX",
-            "Only data properties and system run functions are supported.",
+            "Only data properties, system run and runtime create functions are supported.",
             prop,
           );
       }

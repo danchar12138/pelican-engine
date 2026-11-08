@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "stage": "stable",
   "license": "MIT",
   "protocolVersion": "0.1.0",
@@ -9,7 +9,7 @@
   "publicApi": "packages/sdk/src/index.ts",
   "workflow": "CONTRIBUTING.md",
   "releasePolicy": "docs/RELEASING.md",
-  "releaseScope": "npm-typescript-portability",
+  "releaseScope": "runtime-extensibility-render-scaling",
   "developmentPlatforms": [
     "windows",
     "macos",

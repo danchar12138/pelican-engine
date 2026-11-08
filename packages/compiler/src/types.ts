@@ -1,5 +1,6 @@
 import type {
   ComponentSchema,
+  GameInput,
   Geometry,
   Graph,
   GraphType,
@@ -107,6 +108,9 @@ export interface SceneIR {
   version: 1;
   engineVersion: string;
   gameId: string;
+  services?: GameInput["services"];
+  /** Build-visible lifecycle declaration; implementation stays in the game module. */
+  runtime?: { version: string };
   render?: RenderSettings;
   postProcesses?: PostProcessIR[];
   computeBuffers?: ComputeBufferInput[];
@@ -180,6 +184,12 @@ export interface SceneIR {
     roughness: number;
     metalness: number;
     texture?: string;
+    normalMap?: string;
+    roughnessMap?: string;
+    metalnessMap?: string;
+    aoMap?: string;
+    emissiveMap?: string;
+    normalScale?: readonly [number, number];
     graph?: GraphIR;
     graphs?: Partial<Record<keyof MaterialGraphs, GraphIR>>;
     vertex?: Partial<Record<keyof VertexGraphs, GraphIR>>;

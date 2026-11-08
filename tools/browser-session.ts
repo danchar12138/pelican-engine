@@ -26,7 +26,10 @@ export function graphicsLaunchArguments(platform: NodeJS.Platform = process.plat
 
 export function automationLaunchOptions(timeoutMs = 30_000, platform: NodeJS.Platform = process.platform): LaunchOptions {
   return {
-    headless: false,
+    // Full Chromium without a desktop window: user focus, keyboard and window
+    // occlusion cannot alter an automation run. Never select software rendering.
+    headless: true,
+    channel: "chromium",
     timeout: timeoutValue(timeoutMs),
     args: [
       ...graphicsLaunchArguments(platform),

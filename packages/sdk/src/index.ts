@@ -1,7 +1,12 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
 import { describeFeatures } from "./capabilities.ts";
+import { expandRenderExtensions } from "./render-extension.ts";
+import { createGameInstance } from "./runtime-lifecycle.ts";
 export interface EngineFeature {
   id: string;
+  /** Discovery text and vocabulary; implementation/backend limits still apply. */
+  description?: string;
+  aliases?: readonly string[];
   implementation: "implemented" | "partial";
   symbols: readonly string[];
   backends: readonly ("webgpu" | "webgl2" | "cpu")[];
@@ -10,7 +15,7 @@ export interface EngineFeature {
 }
 /** Implementation metadata, not runtime hardware acceptance; use ctx.render.capabilities for the active device. */
 export function engineCapabilities(query = ""): EngineFeature[] { return describeFeatures(query); }
-export const SDK_VERSION = "1.2.0";
+export const SDK_VERSION = "1.3.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -66,7 +71,7 @@ export interface EngineFacade {
   query(component: ComponentDefinition | string): readonly string[];
   /** Compiler/host integration. Game systems are scheduled by the engine, not by game code. */
   runGameSystems?(systems: readonly SystemDefinition[], dt: number): void;
-  configureGameSystems?(systems: readonly SystemDefinition[]): void;
+  configureGameSystems?(systems: readonly SystemDefinition[], runtime?: { version: string }): void;
 }
 export interface EntityHandle {
   readonly world: number;
@@ -1689,7 +1694,22 @@ export type SystemPhase = (typeof SYSTEM_PHASES)[number];
 export type Geometry =
   | { kind: "box"; size?: Vec3 }
   | { kind: "sphere"; radius?: number; segments?: number }
-  | { kind: "plane"; size?: readonly [number, number] };
+  | { kind: "plane"; size?: readonly [number, number] }
+  | BufferGeometryInput;
+/** Declarative triangle geometry. The engine copies and owns all GPU attributes.
+ * At most 1,048,576 vertices and 3,145,728 indices; numbers must fit finite float32.
+ * Normals are generated when omitted. UVs are required when using material maps.
+ * Runtime attribute mutation is not exposed; authoring requires no Three.js import.
+ */
+export interface BufferGeometryInput {
+  kind: "buffer";
+  positions: readonly number[];
+  normals?: readonly number[];
+  uv?: readonly number[];
+  indices?: readonly number[];
+  /** Compute bounding box and sphere on creation. Defaults to true. */
+  computeBounds?: boolean;
+}
 export const GRAPH_TYPES = ["float", "vec2", "vec3", "vec4", "bool"] as const;
 export type GraphType = typeof GRAPH_TYPES[number];
 export type GraphValue = number | boolean | Vec2 | Vec3 | Vec4;
@@ -1757,6 +1777,18 @@ export interface MaterialInput {
   roughness?: number;
   metalness?: number;
   texture?: AssetDefinition | string;
+  /** Tangent-space normal texture asset; sampled as linear data. */
+  normalMap?: AssetDefinition | string;
+  /** Green channel, multiplied by roughness; sampled as linear data. */
+  roughnessMap?: AssetDefinition | string;
+  /** Blue channel, multiplied by metalness; sampled as linear data. */
+  metalnessMap?: AssetDefinition | string;
+  /** Red channel ambient occlusion on the primary UVs; sampled as linear data. */
+  aoMap?: AssetDefinition | string;
+  /** Color texture, using the asset's declared color space (sRGB by default). */
+  emissiveMap?: AssetDefinition | string;
+  /** Tangent-space normal XY multipliers. Defaults to [1, 1]. */
+  normalScale?: Vec2;
   graph?: Graph;
   graphs?: MaterialGraphs;
   vertex?: VertexGraphs;
@@ -1936,10 +1968,47 @@ export interface SystemInput {
 export interface SystemDefinition extends SystemInput {
   readonly kind: "system";
 }
+/** Build-visible scheduling contract; runtime.create supplies its run function by ID. */
+export type SystemMetadata = Omit<SystemDefinition, "run"> & { run?: SystemInput["run"] };
+export interface GameRuntimeScope {
+  readonly engine: EngineFacade;
+  readonly signal: AbortSignal;
+  /** Synchronous cleanup, invoked once in reverse registration order, including failed initialization. */
+  defer(release: () => void): void;
+  /** Transfer ownership of a disposable resource to this instance and return it unchanged. */
+  own<T extends { dispose(): void }>(resource: T): T;
+}
+export interface GameRuntimeState {
+  systems?: Readonly<Record<string, SystemInput["run"]>>;
+  /** Finite JSON; same bounded data contract as component JSON fields. Supply all three state hooks together. */
+  snapshot?(): JsonValue;
+  /** Throw on invalid data. Validation must be synchronous and must not mutate state. */
+  validateSnapshot?(value: JsonValue): void;
+  restore?(value: JsonValue): void;
+  dispose?(): void;
+}
+export interface GameRuntimeDefinition {
+  /** Author-owned save schema version. Incompatible versions require an explicit migration outside restore. */
+  version: string;
+  /** Called once per instance, never by content construction. Put browser-only imports/initialization here. */
+  create(scope: GameRuntimeScope): GameRuntimeState | void | Promise<GameRuntimeState | void>;
+}
+export interface GameRuntimeSnapshot {
+  format: "pelican.game-runtime";
+  version: 1;
+  game: string;
+  runtimeVersion: string;
+  payload: JsonValue;
+}
 export interface GameInput {
   id: string;
   scene: SceneDefinition;
-  systems?: readonly SystemDefinition[];
+  /** auto preserves synchronous physics for authored code; disabled keeps empty queries without loading the 3D backend. */
+  services?: { readonly physics3d?: "auto" | "required" | "disabled" };
+  systems?: readonly SystemMetadata[];
+  runtime?: GameRuntimeDefinition;
+  /** Composable managed rendering resources and per-instance runtime setup. */
+  extensions?: readonly RenderExtensionDefinition[];
   components?: readonly ComponentDefinition[];
   prefabs?: readonly PrefabDefinition[];
   materials?: readonly MaterialDefinition[];
@@ -1958,7 +2027,28 @@ export interface GameInput {
 export interface GameDefinition extends GameInput {
   readonly kind: "game";
 }
+/** Versioned integration contract. Resources use the same IDs, graphs, ownership and diagnostics as ordinary SDK declarations. */
+export interface RenderExtensionDefinition {
+  readonly kind: "render-extension";
+  readonly apiVersion: 1;
+  id: string;
+  version: string;
+  systems?: readonly SystemMetadata[];
+  materials?: readonly MaterialDefinition[];
+  assets?: readonly AssetDefinition[];
+  computes?: readonly ComputeDefinition[];
+  postProcesses?: readonly PostProcessDefinition[];
+  computeBuffers?: readonly ComputeBufferInput[];
+  computeTextures?: readonly ComputeTextureInput[];
+  create?: GameRuntimeDefinition["create"];
+}
 export interface GameInstance {
+  /** Legacy hand-written instances may omit readiness. Compiled instances always supply it. */
+  readonly ready?: Promise<void>;
+  readonly status?: "initializing" | "ready" | "failed" | "disposed";
+  snapshot?(): GameRuntimeSnapshot | undefined;
+  validateSnapshot?(value: unknown): void;
+  restore?(value: unknown): void;
   update(dt: number): void;
   dispose(): void;
 }
@@ -1986,50 +2076,20 @@ export function definePrefab(input: PrefabInput): PrefabDefinition {
 export function defineScene(input: SceneInput): SceneDefinition {
   return { ...input, kind: "scene" };
 }
-export function defineSystem(input: SystemInput): SystemDefinition {
+export function defineSystem<T extends Omit<SystemInput, "run"> & { run?: SystemInput["run"] }>(input: T): T & { readonly kind: "system" } {
   return { ...input, kind: "system" };
 }
 export function defineGame(input: GameInput): GameDefinition {
-  return { ...input, kind: "game" };
+  return { ...expandRenderExtensions(input), kind: "game" };
+}
+/** Use ordinary npm modules to export reusable rendering packages without taking private GPU ownership. */
+export function defineRenderExtension(input: Omit<RenderExtensionDefinition, "kind" | "apiVersion">): RenderExtensionDefinition {
+  return { ...input, kind: "render-extension", apiVersion: 1 };
 }
 /** Runtime wrapper used by compiled game.js. Construction is extracted statically or evaluated in an owned compiler process. */
 export function instantiateGame(
   game: GameDefinition,
   engine: EngineFacade,
 ): GameInstance {
-  let disposed = false;
-  const systems = [...(game.systems ?? [])];
-  engine.configureGameSystems?.(systems);
-  return {
-    update(dt) {
-      if (disposed)
-        throw new Error("TC_RUNTIME_DISPOSED: Game has been disposed.");
-      if (!Number.isFinite(dt) || dt < 0)
-        throw new Error(
-          "TC_RUNTIME_DT: Expected a finite, non-negative timestep.",
-        );
-      if (engine.runGameSystems) engine.runGameSystems(systems, dt);
-      else {
-        // Compatibility for the M0 facade harness; the M1 browser host always owns scheduling.
-        const context = new Proxy(engine, {
-          get(target, key, receiver) {
-            if (
-              ["time", "entities", "random", "emit", "events"].includes(
-                String(key),
-              )
-            )
-              throw new Error(
-                `TC_RUNTIME_SERVICE_UNAVAILABLE: ${String(key)} requires a pelican runtime host.`,
-              );
-            return Reflect.get(target, key, receiver);
-          },
-        }) as SystemContext;
-        for (const system of systems) system.run(context, dt);
-      }
-    },
-    dispose() {
-      disposed = true;
-      systems.length = 0;
-    },
-  };
+  return createGameInstance(game, engine);
 }

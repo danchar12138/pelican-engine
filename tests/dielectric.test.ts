@@ -667,7 +667,7 @@ test(
         | Awaited<ReturnType<NonNullable<typeof browser>["newPage"]>>
         | undefined;
       let backend: unknown;
-      for (const headless of [true, false]) {
+      for (const headless of [true]) {
         try {
           browserServer = await chromium.launchServer({
             headless,
@@ -715,7 +715,7 @@ test(
             "adapter probe",
           );
           if ("skip" in adapter) throw Error(adapter.skip);
-          backend = { ...adapter, headless, angle: "d3d11" };
+          backend = { ...adapter, headless };
           break;
         } catch (error) {
           failures.push(

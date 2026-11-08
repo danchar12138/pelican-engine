@@ -3,6 +3,8 @@ import path from "node:path";
 
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
+  { id: "runtime-lifecycle", anchor: "runtime-lifecycle", title: "Per-instance runtime and browser dependencies", summary: "Initialize a browser-only npm module, own resources and save/restore instance-local state." },
+  { id: "managed-rendering", anchor: "managed-rendering", title: "Managed geometry and rendering extension", summary: "Build an indexed mesh from arrays and compose a versioned postprocess extension." },
   { id: "pointer-3d", anchor: "pointer-3d", title: "Pointer-controlled 3D game", summary: "Move, aim, spawn and remove physical props, and restart a complete game loop." },
   { id: "orthographic-2d", anchor: "orthographic-raster", title: "Orthographic raster", summary: "Move simple 2D-positioned objects under an orthographic camera." },
   { id: "physics2d", anchor: "2d-rigid-bodies", title: "2D rigid bodies", summary: "Move an XY body in an independent 2D physics world." },
@@ -18,6 +20,16 @@ const recipes = [
   { id: "streaming-world", anchor: "static-world-chunks", title: "Static world chunks", summary: "Load static chunks and build or remove markers." },
 ] as const;
 export const recipeIds: readonly string[] = recipes.map(recipe => recipe.id);
+const extraFiles: Readonly<Record<string, readonly string[]>> = { "runtime-lifecycle": ["browser-counter.ts"] };
+export async function readRecipeFiles(root: string, id: string, installed = false): Promise<Record<string, string>> {
+  if (!recipeIds.includes(id)) throw new Error("TC_RECIPE_ID: Unknown recipe; query capabilities for exact IDs.");
+  if (installed) {
+    const catalog = JSON.parse(await readFile(path.join(root, "docs/api/recipes.json"), "utf8"));
+    return catalog.recipes.find((item: { id: string }) => item.id === id)?.files ?? {};
+  }
+  return Object.fromEntries(await Promise.all((extraFiles[id] ?? []).map(async file => [file, await readFile(path.join(root, "examples", id, file), "utf8")])));
+}
+export function recipeDependencies(id: string): Record<string, string> { return id === "runtime-lifecycle" ? { fflate: "0.8.3" } : {}; }
 export async function readRecipe(root: string, id: string, installed = false): Promise<string> {
   if (!recipeIds.includes(id)) throw new Error("TC_RECIPE_ID: Unknown recipe; query capabilities for exact IDs.");
   if (installed) {
@@ -29,7 +41,7 @@ export async function readRecipe(root: string, id: string, installed = false): P
   return readFile(path.join(root, "examples", id, "game.ts"), "utf8");
 }
 export async function recipeCatalog(root: string) {
-  return { format: "pelican.recipes", version: 1, recipes: await Promise.all(recipes.map(async recipe => ({ ...recipe, entry: "game.ts", source: await readRecipe(root, recipe.id) }))) };
+  return { format: "pelican.recipes", version: 1, recipes: await Promise.all(recipes.map(async recipe => ({ ...recipe, entry: "game.ts", source: await readRecipe(root, recipe.id), files: await readRecipeFiles(root, recipe.id), dependencies: recipeDependencies(recipe.id) }))) };
 }
 
 export async function renderRecipes(root: string): Promise<string> {
@@ -38,7 +50,7 @@ export async function renderRecipes(root: string): Promise<string> {
     "",
     "> Implementation recipes, not blanket runtime acceptance. Query `pelican recipe --id <id>` for machine-readable source or create a project with `pelican create --template <id>`.",
     "",
-    "Each recipe is a complete asset-free `game.ts` using only `pelican-engine`.",
+    "Recipes return complete game source plus any required helper files and explicit npm dependencies. Rendering uses pelican-engine; algorithm packages are ordinary game dependencies.",
     "In a new installed game directory, create a minimal project with `npx --no-install pelican create --template minimal`, then replace its generated `game.ts` with one recipe. Back up any existing game work before replacing it. Use `npx --no-install pelican dev` or `npx --no-install pelican build` afterward.",
     "",
     "Game development uses the installed npm package. No engine checkout or source ZIP is required.",
@@ -54,6 +66,11 @@ export async function renderRecipes(root: string): Promise<string> {
     const source = (await readFile(path.join(root, "examples", item.id, "game.ts"), "utf8")).replace(/\r\n/g, "\n").trimEnd();
     lines.push(`## ${item.title}`, "", item.summary, "",
       `Contributor fixture: \`examples/${item.id}/game.ts\`.`, "", "````ts", source, "````", "");
+    for (const [file, text] of Object.entries(await readRecipeFiles(root, item.id)))
+      lines.push(`Helper: \`${file}\``, "", "````ts", text.trimEnd(), "````", "");
+    const dependencies = recipeDependencies(item.id);
+    if (Object.keys(dependencies).length)
+      lines.push("Install in the game workspace:", "", "```sh", "npm install --save-exact " + Object.entries(dependencies).map(([name, version]) => `${name}@${version}`).join(" "), "```", "");
   }
   return lines.join("\n");
 }

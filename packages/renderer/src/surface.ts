@@ -1,6 +1,15 @@
 import * as THREE from "three";
 import type { SurfaceVertexDeformer } from "./vertex-contract.ts";
 
+// Only extractor-owned deeply frozen objects receive this private provenance.
+// A caller freezing arbitrary data cannot opt out of the general validation path.
+const capturedSurfaces = new WeakSet<object>();
+const capturedGeometry = new WeakSet<object>();
+const capturedTriangles = new WeakSet<object>();
+export function isCapturedSurface(value: object): boolean { return capturedSurfaces.has(value); }
+export function hasCapturedGeometry(value: SurfaceScene): boolean { return capturedGeometry.has(value.triangles); }
+export function isCapturedTriangle(value: SurfaceTriangle): boolean { return capturedTriangles.has(value); }
+
 export type SurfaceVec2 = readonly [number, number];
 export type SurfaceVec3 = readonly [number, number, number];
 export type SurfaceVec4 = readonly [number, number, number, number];
@@ -2054,13 +2063,17 @@ export function extractSurfaceScene(
     for (const child of object.children) visit(child, true);
   };
   visit(scene, true);
-  return freezeDeep({
+  const captured = freezeDeep({
     version: 1 as const,
     triangles,
     materials,
     textures,
     diagnostics,
   });
+  capturedSurfaces.add(captured);
+  capturedGeometry.add(captured.triangles);
+  for (const triangle of captured.triangles) capturedTriangles.add(triangle);
+  return captured;
 }
 function textureById(
   snapshot: SurfaceScene,

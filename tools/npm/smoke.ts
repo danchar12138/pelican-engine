@@ -22,7 +22,7 @@ import {
   withAutomationDeadline,
 } from "../browser-session.ts";
 import { artifacts, root, staging } from "./build.ts";
-import { SDK_VERSION } from "../../packages/sdk/src/index.ts";
+import { SDK_VERSION, engineCapabilities } from "../../packages/sdk/src/index.ts";
 import { verifyRegistryInstallLock } from "./verify-registry.ts";
 
 const execute = promisify(execFile);
@@ -138,6 +138,9 @@ try {
   const bin = path.join(installed, "lib/tools/npm/entry.js");
   const cli = async (...args: string[]) =>
     JSON.parse(await run(process.execPath, [bin, ...args]));
+  for (const args of [["--help"], ["-h"], ["api", "--help"]])
+    assert.ok((await cli(...args)).data.commands.some((command: string) => command.startsWith("api ")));
+  assert.equal((await cli("--version")).data.version, SDK_VERSION);
   const api = await cli("api");
   const apiSymbol = await cli("api", "--symbol", "defineGame");
   const installedIndex = JSON.parse(
@@ -149,6 +152,41 @@ try {
     installedIndex.symbols.filter((symbol: { name: string }) => symbol.name === "defineGame"),
   );
   assert.ok(apiSymbol.data.symbols.length > 0);
+  assert.equal(api.data.members, installedIndex.members.length);
+  const play = await cli("api", "--symbol", "AudioService.play");
+  assert.deepEqual(play.data.symbols, installedIndex.members.filter((member: { name: string }) => member.name === "AudioService.play"));
+  assert.equal(play.data.symbols[0].owner, "AudioService");
+  assert.match(play.data.symbols[0].signature, /^play\(/);
+  assert.equal(play.data.total, 1);
+  assert.equal(play.data.truncated, false);
+  assert.equal(play.data.installedDeclarations, "lib/sdk/index.d.ts");
+  assert.equal(play.data.sourceProvenance.shipped, false);
+  const methods = await cli("api", "--search", "play", "--member", "--limit", "1");
+  assert.equal(methods.data.symbols[0].member, "play");
+  assert.ok(methods.data.total > 1);
+  assert.equal(methods.data.truncated, true);
+  const catalog = await cli("capabilities");
+  assert.deepEqual(catalog.data.features, engineCapabilities());
+  assert.equal(catalog.data.total, catalog.data.features.length);
+  for (const feature of catalog.data.features) {
+    const found = await cli("capabilities", "--feature", feature.id);
+    assert.equal(found.data.features[0].id, feature.id);
+  }
+  assert.equal((await cli("capabilities", "--feature", "音效")).data.features[0].id, "audio.playback");
+  for (const [args, code] of [
+    [["capabilities", "--feature", "notACataloguedCapabilityXYZ"], "TC_CAPABILITY_UNKNOWN"],
+    [["capabilities", "--feature", "硬件光追"], "TC_CAPABILITY_UNSUPPORTED"],
+    [["api", "--symbol", "AudioService.noSuchMethod"], "TC_API_SYMBOL_UNKNOWN"],
+    [["api", "--search", "noSuchPublicMemberXYZ", "--member"], "TC_API_SEARCH_UNKNOWN"],
+  ] as const) {
+    let failure: { stdout?: string } | undefined;
+    try { await execute(process.execPath, [bin, ...args], { cwd: directory, env: offline, timeout: 120_000 }); }
+    catch (error) { failure = error as { stdout?: string }; }
+    assert.ok(failure, `${args.join(" ")} must fail`);
+    const output = JSON.parse(failure.stdout ?? "");
+    assert.equal(output.status, "failed");
+    assert.equal(output.diagnostics[0].code, code);
+  }
   try {
     await execute(process.execPath, [bin, "api", "--symbol", "NotAPublicSymbol"], {
       cwd: directory, env: offline, timeout: 120_000,

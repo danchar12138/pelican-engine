@@ -108,7 +108,7 @@ node --import tsx --test tests/denoiser.test.ts
 node tools/run-with-env.mjs PELICAN_DENOISER_GPU=1 -- node --import tsx --test tests/denoiser.test.ts
 ```
 
-`runDenoiserGpuTest()` 使用已有 TypeScript 将实际模块转为内存中的 ES module，临时 localhost HTTP server + Playwright 加载，无主渲染路径、临时 bundle 文件、外部服务或用户点击。Node 侧 60 秒 deadline 包住初始化、browser launch、GPU probe 和执行；`finally` 关闭自有 browser/server，browser 内 finally 销毁 buffers/device。headless 创建设备失败时自动尝试 headed；两者都带 `--use-angle=d3d11`，不把 ANGLE 参数当作已测得的 WebGPU backend。无硬件时 opt-in 失败而非 skip/软件回退，检查 `isFallbackAdapter === false` 并拒绝显式软件名称。
+`runDenoiserGpuTest()` 使用已有 TypeScript 将实际模块转为内存中的 ES module，临时 localhost HTTP server + Playwright 加载，无主渲染路径、临时 bundle 文件、外部服务或用户点击。Node 侧 60 秒 deadline 包住初始化、browser launch、GPU probe 和执行；`finally` 关闭自有 browser/server，browser 内 finally 销毁 buffers/device。使用完整无界面 Chromium，不启动可见窗口，不依赖键盘或桌面焦点；图形参数由共享浏览器工具按平台提供，不把启动参数当作已测得的 WebGPU backend。无硬件时 opt-in 失败而非 skip/软件回退，检查 `isFallbackAdapter === false` 并拒绝显式软件名称。
 
 实测日期 **2026-11-04**：NVIDIA `blackwell`，`isFallbackAdapter: false`；headless 由于 `dxcompiler.dll` Windows Error 87 失败，自动 headed 成功。真实 WGSL 异步 pipeline 编译、dispatch、readback 已执行，且 uncaptured GPU error 为空：
 

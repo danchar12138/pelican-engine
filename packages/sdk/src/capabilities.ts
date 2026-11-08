@@ -1,7 +1,84 @@
 import type { EngineFeature } from "./index.ts";
+// Discovery metadata; public signatures stay in index.ts.
+const aliases: Readonly<Record<string, readonly string[]>> = {
+  "content.typescript": ["typescript", "ts", "npm", "脚本"],
+  "content.libraries": ["dependencies", "packages", "algorithm", "algorithms", "browser-only", "lazy load", "per-instance", "plugin", "依赖", "第三方库", "算法", "浏览器依赖", "懒加载", "每实例"],
+  "content.pure": ["static", "legacy", "静态内容", "纯函数"],
+  "state.json": ["json", "structured state", "结构化状态", "组件数据"],
+  "runtime.ecs": ["ecs", "entities", "components", "systems", "events", "实体", "组件", "系统", "事件"],
+  "runtime.lifecycle": ["runtime", "lifecycle", "runtime.create", "browser-only", "per-instance", "lazy load", "ownership", "own", "defer", "生命周期", "每实例", "懒加载", "资源所有权", "资源释放"],
+  "input.pointer": ["mouse", "touch", "pen", "pointer lock", "鼠标", "触摸", "指针", "指针锁"],
+  "input.actions": ["keyboard", "gamepad", "controller", "键盘", "手柄", "输入动作"],
+  "render.raster": ["rasterization", "webgl2", "光栅", "渲染"],
+  "render.path": ["path tracing", "hybrid", "software ray tracing", "路径追踪", "软件光追", "混合渲染"],
+  "render.material": ["pbr", "material graph", "shader graph", "vertex", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap", "normalScale", "normal map", "plugin", "three.js", "tsl", "private renderer", "材质", "着色器图", "顶点图", "法线贴图", "粗糙度贴图", "金属度贴图", "环境遮蔽贴图", "自发光贴图", "插件", "渲染私有对象"],
+  "render.geometry": ["geometry", "mesh", "primitive", "box", "sphere", "plane", "buffer geometry", "custom geometry", "indexed mesh", "几何", "网格", "基础形状", "自定义几何", "索引网格"],
+  "render.runtime": ["render extension", "render plugin", "managed graph", "runtime composition", "plugin", "渲染扩展", "受管图资源", "运行时组合", "插件"],
+  "render.postprocess": ["postprocess", "post process", "postprocessing", "effects", "后处理", "后期效果"],
+  "render.bindings": ["storage buffer", "render texture", "buffer binding", "渲染缓冲", "渲染纹理", "资源绑定"],
+  "compute.managed": ["compute", "gpgpu", "compute shader", "gpu compute", "计算", "计算着色器", "通用计算"],
+  "physics.rigid3d": ["physics", "physics3d", "rigidbody", "rigid body", "joints", "物理", "三维物理", "刚体", "关节"],
+  "physics.rigid2d": ["physics2d", "2d physics", "2d rigid body", "二维物理", "2d物理", "二维刚体"],
+  "simulation.coupling": ["cloth", "rope", "fluid", "soft body", "布料", "绳索", "流体", "软体", "耦合模拟"],
+  "world.streaming": ["streaming", "chunks", "世界分块", "分块驻留"],
+  "world.terrain": ["terrain", "heightfield", "heightmap", "sculpt", "地形", "高度场", "高度图", "地形雕刻"],
+  "world.navigation": ["navigation", "pathfinding", "astar", "a star", "寻路", "导航", "网格寻路"],
+  "world.scenes": ["scene", "prefab", "场景", "预制体", "场景切换"],
+  "gameplay.loop": ["inventory", "quest", "dialogue", "背包", "任务", "对话", "玩法"],
+  "storage.save": ["save", "load", "restore", "persistence", "savegame", "存档", "读档", "保存", "持久化"],
+  "audio.playback": ["audio", "sound", "music", "sfx", "音频", "声音", "音乐", "音效", "播放"],
+  "audio.mixer": ["audio bus", "mixer", "fade", "reverb", "混音", "总线", "淡入淡出", "混响"],
+  "animation.playback": ["animation", "skeletal", "crossfade", "root motion", "动画", "骨骼动画", "根运动"],
+  "animation.grounding": ["grounding", "ik", "脚部贴地", "逆运动学"],
+  "presentation.sprites": ["sprite", "atlas", "billboard", "精灵", "图集", "公告板"],
+  "presentation.tilemaps": ["tilemap", "tile map", "瓦片", "瓦片地图"],
+  "presentation.ui": ["ui", "hud", "interface", "界面", "用户界面"],
+  "presentation.camera": ["camera", "orthographic", "perspective", "相机", "正交", "透视"],
+  "presentation.lights": ["light", "lighting", "灯光", "光源"],
+  "presentation.cinematics": ["cinematic", "timeline", "cutscene", "过场", "时间轴"],
+  "localization.messages": ["localization", "i18n", "locale", "translation", "本地化", "多语言", "翻译"],
+};
+const descriptions: Readonly<Record<string, string>> = {
+  "content.typescript": "普通 TypeScript 游戏声明与同步系统；构建模块会在 Node 和浏览器执行。",
+  "content.libraries": "算法类 npm 可直接复用。browser-only 依赖在已实现的 runtime.create 中按实例懒加载，使用 GameRuntimeScope.own/defer 管理释放。引擎私有对象不是稳定 plugin 协议。",
+  "content.pure": "兼容既有静态内容的纯函数与有限声明求值。",
+  "state.json": "组件字段中的有限 JSON 状态，支持分离读写与快照。",
+  "runtime.ecs": "通用实体、组件、同步系统、阶段调度和事件。",
+  "runtime.lifecycle": "已实现每实例 runtime.create 异步初始化、就绪等待、own/defer 资源所有权与释放，以及显式版本的 JSON 状态钩子。",
+  "input.pointer": "鼠标、触摸、笔、多触点与画布局部指针锁输入。",
+  "input.actions": "键盘动作、标准映射手柄与 UI/玩法输入分配。",
+  "render.raster": "WebGPU 光栅渲染与 WebGL2 光栅回退。",
+  "render.path": "基于 compute 软件 BVH 的路径追踪与混合渲染。",
+  "render.material": "已实现 PBR 材质图、顶点图、normalMap/roughnessMap/metalnessMap/aoMap/emissiveMap 与 normalScale；渲染私有 Three.js/TSL 对象不是稳定 plugin 协议。",
+  "render.geometry": "已实现 box/sphere/plane 及 BufferGeometryInput 声明式三角网格，支持位置、法线、UV 和可选索引，由引擎复制并持有资源。",
+  "render.runtime": "已实现 RenderExtensionDefinition/defineRenderExtension 的版本化组合：受管材质、资产、compute、后处理图资源和每实例 runtime；不暴露 raw 渲染对象。",
+  "render.postprocess": "声明式后处理图、参数控制与历史图像重置。",
+  "render.bindings": "材质与后处理的托管计算缓冲和纹理绑定。",
+  "compute.managed": "WebGPU 计算图、托管缓冲/纹理与任务状态查询。",
+  "physics.rigid3d": "三维刚体、关节和物理查询。",
+  "physics.rigid2d": "独立 XY 二维物理世界、关节、角色控制器和空间查询。",
+  "simulation.coupling": "布料、绳索、流体与软体的交互模拟。",
+  "world.streaming": "预制体世界分块驻留管理，资产仍预先全局准备。",
+  "world.terrain": "有限高度场、地形雕刻以及物理/导航同步。",
+  "world.navigation": "有限二维网格寻路、障碍、代价和导航代理。",
+  "world.scenes": "声明场景、预制体和运行时场景加载。",
+  "gameplay.loop": "可选背包、任务和对话配方服务。",
+  "storage.save": "单机本地存档、读档与事务状态。",
+  "audio.playback": "音频逻辑声部、空间播放、暂停、定位和变速。",
+  "audio.mixer": "音频总线、音量淡变和全局卷积混响。",
+  "animation.playback": "模型动画片段、混合、根运动与重定向。",
+  "animation.grounding": "命名骨骼链的运动学贴地。",
+  "presentation.sprites": "实体精灵、纹理图集和逐帧动画。",
+  "presentation.tilemaps": "有限瓦片网格以及可选二维物理/导航同步。",
+  "presentation.ui": "声明式界面、状态和布局修改。",
+  "presentation.camera": "公开相机状态与投影控制。",
+  "presentation.lights": "声明光源的运行时参数控制。",
+  "presentation.cinematics": "游戏编排的过场时间轴、轨道与标记。",
+  "localization.messages": "作者提供的翻译、语言回退、复数和数字格式化。",
+};
 const features: readonly EngineFeature[] = [
   { id: "content.typescript", implementation: "implemented", symbols: ["defineGame", "defineScene", "defineSystem"], backends: ["cpu"], limits: ["New npm projects select content: typescript; existing manifests default to static", "Ordinary TypeScript, loops, classes, closures and browser-compatible npm packages", "Trusted construction executes in an owned Node process, not a security sandbox", "10s default process deadline, configurable 100..120000ms; 512MiB V8 heap", "Export finite plain declaration data with stable IDs; synchronous runtime systems", "200000 serialized values, 128 levels and 8MiB strings per extraction"], recipes: ["pointer-3d"] },
-  { id: "content.libraries", implementation: "implemented", symbols: ["defineSystem"], backends: ["cpu"], limits: ["TypeScript content uses normal browser-compatible project npm dependencies", "Legacy static mode uses manifest libraries for runtime-only imports", "Engine implementation objects are not a public integration contract"], recipes: [] },
+  { id: "content.libraries", implementation: "implemented", symbols: ["defineSystem", "GameRuntimeDefinition", "GameRuntimeScope"], backends: ["cpu"], limits: ["Algorithm npm packages can be reused directly when compatible with content construction in Node and browser execution", "Load browser-only dependencies inside per-instance runtime.create; content module top-level initialization still executes during Node construction", "Use scope.own/defer for instance-owned cleanup; external object state needs explicit JSON snapshot hooks", "Legacy static mode uses manifest libraries for runtime-only imports", "Private renderer/Three.js/WASM implementation objects are not a stable plugin contract"], recipes: [] },
   { id: "input.pointer", implementation: "implemented", symbols: ["PointerState", "GamepadInputService"], backends: ["cpu"], limits: ["Canvas-local CSS pixels; NDC Y-up", "Pointer lock requires a trusted canvas gesture", "At most 16 active mouse/pen/touch contacts"], recipes: ["pointer-3d"] },
   { id: "content.pure", implementation: "implemented", symbols: ["defineScene", "defineGame"], backends: ["cpu"], limits: ["Pure local functions: const bindings and return", "map, flatMap, filter, concat and Array.from", "200000 evaluation steps, 32 nested calls, 16384 generated entries", "No I/O, mutation, async or source-module execution"], recipes: ["pointer-3d"] },
   { id: "state.json", implementation: "implemented", symbols: ["JsonValue", "Field", "defineComponent"], backends: ["cpu"], limits: ["Per field: depth 16, 8192 nodes, 65536 UTF-8 bytes", "Finite plain JSON only; detached reads/writes"], recipes: ["dynamic-ui"] },
@@ -12,9 +89,46 @@ const features: readonly EngineFeature[] = [
   { id: "world.streaming", implementation: "partial", symbols: ["WorldStreamingService"], backends: ["cpu"], limits: ["Root prefab residency; prepared assets remain global", "No asynchronous asset streaming or origin rebasing", "Cross-chunk ownership dependencies must be detached"], recipes: ["streaming-world"] },
   { id: "gameplay.loop", implementation: "implemented", symbols: ["InventoryService", "QuestService", "DialogueService", "StorageService"], backends: ["cpu"], limits: ["Single-player local save/restore", "One save/load/scene transaction at a time"], recipes: ["gameplay-loop"] },
   { id: "animation.grounding", implementation: "partial", symbols: ["AnimationControlService", "AnimationGroundingDefinition"], backends: ["cpu"], limits: ["World Y-up kinematic grounding; not ragdoll balance", "1..8 named limb chains; full combination matrix outstanding"], recipes: [] },
+  { id: "runtime.ecs", implementation: "implemented", symbols: ["SystemContext", "EntityCommands", "EngineFacade", "defineComponent", "defineSystem", "SYSTEM_PHASES"], backends: ["cpu"], limits: ["Structural entity edits commit at engine command boundaries", "System callbacks are synchronous; closures and external objects are not automatically saved"], recipes: ["pointer-3d"] },
+  { id: "runtime.lifecycle", implementation: "implemented", symbols: ["GameRuntimeDefinition", "GameRuntimeScope", "GameRuntimeState", "GameRuntimeSnapshot", "GameInstance", "instantiateGame"], backends: ["cpu"], limits: ["Async imports and initialization belong in runtime.create, called once per instance; await instance.ready before updates", "scope.own owns disposable resources; scope.defer registers synchronous cleanup in reverse order, including initialization failure", "System callbacks and state/cleanup hooks remain synchronous; cancellation uses scope.signal", "Supply snapshot, validateSnapshot and restore together with an explicit runtime version; external objects are not automatically serialized"], recipes: ["runtime-lifecycle"] },
+  { id: "input.actions", implementation: "implemented", symbols: ["InputService", "GamepadInputService", "GamepadState"], backends: ["cpu"], limits: ["Keyboard actions use KeyboardEvent.key", "Gamepad availability depends on the browser; UI can suppress gameplay input"], recipes: ["pointer-3d"] },
+  { id: "render.material", implementation: "implemented", symbols: ["MaterialInput", "MaterialGraphs", "VertexGraphs", "Graph", "defineMaterial", "RenderService"], backends: ["webgpu", "webgl2"], limits: ["Authored normalMap, roughnessMap, metalnessMap, aoMap, emissiveMap and normalScale are implemented; clearcoat is not exposed by MaterialInput", "normalMap uses tangent-space linear data; roughness, metalness and AO use G, B and R channels respectively; normalScale multiplies normal XY", "PBR map wiring does not establish parity across raster/hybrid/path modes; verify the active backend and mode", "Typed engine graphs and public material parameters; no arbitrary Three.js/TSL plugin contract", "Managed compute-resource bindings require WebGPU"], recipes: ["pointer-3d"] },
+  { id: "render.geometry", implementation: "implemented", symbols: ["Geometry", "BufferGeometryInput", "MeshDefinition"], backends: ["webgpu", "webgl2"], limits: ["BufferGeometryInput declares triangle positions, optional normals/UVs/indices; the engine copies and owns attributes", "At most 1048576 vertices and 3145728 indices; numeric attributes must fit finite float32", "Missing normals are generated; mapped materials require UVs; runtime attribute mutation is not exposed", "No internal Three.js geometry object is a stable public API"], recipes: ["pointer-3d", "orthographic-2d"] },
+  { id: "render.runtime", implementation: "implemented", symbols: ["RenderExtensionDefinition", "defineRenderExtension", "GameRuntimeScope"], backends: ["webgpu", "webgl2"], limits: ["API version 1 requires unique extension IDs and explicit versions; resources compose through existing SDK IDs and graph validation", "Composes materials, assets, compute/postprocess graphs, managed buffers/textures, declared systems and per-instance create", "Game and extension runtime versions are composed for snapshot compatibility; state and cleanup follow GameRuntimeScope ownership", "Compute and managed resource bindings require WebGPU; composition does not bypass backend capability checks", "No raw renderer/GPU/Three.js/TSL objects or arbitrary renderer callback contract"], recipes: [] },
+  { id: "render.postprocess", implementation: "implemented", symbols: ["definePostProcess", "PostProcessInput", "PostProcessService"], backends: ["webgpu", "webgl2"], limits: ["Declared graph passes with explicit parameters and history reset", "Compute-buffer and managed-texture slots require WebGPU"], recipes: [] },
+  { id: "render.bindings", implementation: "implemented", symbols: ["RenderBufferBindings", "RenderTextureBindings", "ComputeBufferHandle", "ComputeTextureHandle"], backends: ["webgpu"], limits: ["Managed handles and declared slots only; no GPUBuffer/GPUTexture return values", "Backend capability and slot type/shape checks apply"], recipes: [] },
+  { id: "compute.managed", implementation: "implemented", symbols: ["ComputeService", "defineCompute", "ComputeInput", "ComputeDispatchInput", "ComputeTaskState"], backends: ["webgpu"], limits: ["Dispatch requires an active WebGPU compute executor; WebGL2 does not support it", "Handles represent owned buffers, rgba32float textures and tasks; reads return detached CPU data", "Readback observes committed results; inspect task state before using asynchronous results"], recipes: [] },
+  { id: "physics.rigid2d", implementation: "implemented", symbols: ["Physics2DService", "Physics2DBodyDefinition", "Physics2DJointDefinition", "Physics2DCharacterOptions"], backends: ["cpu"], limits: ["Scene must opt into physics2d; independent XY world", "Raycast and overlap queries observe the last completed physics step", "Compound colliders are restricted to fixed bodies"], recipes: [] },
+  { id: "world.terrain", implementation: "implemented", symbols: ["TerrainService", "TerrainDefinition", "TerrainHeightEdit"], backends: ["cpu"], limits: ["Finite heightfields with 2..64 vertices per dimension; not voxel terrain", "Height edits synchronize render geometry, 3D physics and optional owned navigation", "Requires declared material and production 3D physics service"], recipes: [] },
+  { id: "world.navigation", implementation: "implemented", symbols: ["NavigationService", "NavigationGrid", "NavigationAgentDefinition"], backends: ["cpu"], limits: ["Finite 2D grid navigation, not continuous flying or underwater navigation", "Search work is bounded by the configured cell budget"], recipes: [] },
+  { id: "world.scenes", implementation: "implemented", symbols: ["SceneService", "defineScene", "definePrefab", "EntityCommands"], backends: ["cpu"], limits: ["Scene loads share the save/load transaction boundary", "Scene and prefab references must resolve to declared content"], recipes: ["gameplay-loop", "streaming-world"] },
+  { id: "storage.save", implementation: "implemented", symbols: ["StorageService", "SceneService", "JsonValue"], backends: ["cpu"], limits: ["Local single-player engine snapshots; not cloud or multiplayer persistence", "Save/load and scene changes use one transaction at a time; inspect StorageService.status", "External closures, DOM and third-party object state are not automatically serialized"], recipes: ["gameplay-loop"] },
+  { id: "audio.playback", implementation: "implemented", symbols: ["AudioService", "AudioVoiceState", "SoundDefinition"], backends: ["cpu"], limits: ["Audible Web Audio output requires browser audio support and trusted user activation", "Logical voices support pause/resume, seek, playback rate, priority and optional entity spatialization/3D-physics occlusion", "Logical playback time follows fixed simulation ticks"], recipes: [] },
+  { id: "audio.mixer", implementation: "implemented", symbols: ["AudioService", "AudioBusDefinition", "AudioReverb"], backends: ["cpu"], limits: ["Declared bus gains, fixed-tick fades and global convolution reverb", "Browser audio activation rules still apply"], recipes: [] },
+  { id: "animation.playback", implementation: "implemented", symbols: ["AnimationService", "AnimationControlService", "AnimationRootMotionDefinition", "AnimationRetargetDefinition"], backends: ["cpu"], limits: ["Controls declared model clips and named skeleton chains", "Root motion and retargeting follow authored configuration and asset compatibility"], recipes: [] },
+  { id: "presentation.sprites", implementation: "implemented", symbols: ["SpriteService", "SpriteDefinition", "SpriteAnimation"], backends: ["cpu"], limits: ["Sprites reference live entities and declared textured materials", "Atlas animation uses fixed simulation time"], recipes: ["orthographic-2d"] },
+  { id: "presentation.tilemaps", implementation: "implemented", symbols: ["TilemapService", "TilemapDefinition", "TilemapPhysics2DOptions", "TilemapNavigationOptions"], backends: ["cpu"], limits: ["Finite authored tile grids; optional navigation and 2D collision synchronization", "2D collision synchronization requires scene physics2d"], recipes: [] },
+  { id: "presentation.ui", implementation: "implemented", symbols: ["UIService", "UIElementDefinition", "UILayoutPatch"], backends: ["cpu"], limits: ["Declared UI elements and runtime layout/state patches", "Actual browser focus and input behavior require browser verification"], recipes: ["dynamic-ui"] },
+  { id: "presentation.camera", implementation: "implemented", symbols: ["CameraService", "CameraState"], backends: ["cpu"], limits: ["Public camera state and projection controls; no internal Three.js camera object"], recipes: ["pointer-3d", "orthographic-2d"] },
+  { id: "presentation.lights", implementation: "implemented", symbols: ["LightService", "LightDefinition", "LightPatch"], backends: ["cpu"], limits: ["Runtime overrides apply to declared lights; actual rendering depends on the backend"], recipes: ["pointer-3d"] },
+  { id: "presentation.cinematics", implementation: "implemented", symbols: ["CinematicService", "CinematicDefinition", "CinematicTrack"], backends: ["cpu"], limits: ["Authored timelines and markers; referenced scene targets must exist"], recipes: [] },
+  { id: "localization.messages", implementation: "implemented", symbols: ["LocalizationService", "LocalizationMessage", "LocalizationPlural"], backends: ["cpu"], limits: ["Game-authored translations with fallback and Intl number/plural formatting", "No automatic translation or platform account integration"], recipes: [] },
+];
+const normalize = (value: string) => value.normalize("NFKC").toLowerCase().trim().replace(/[\s._/-]+/g, " ");
+// Explicit exclusions are not advertised as implemented features. Unknown queries remain distinct.
+const unsupported = [
+  { names: ["render.hardware-raytracing", "hardware ray tracing", "hardware rt", "硬件光追", "硬件光线追踪"], reason: "render.path uses compute software BVH tracing, not hardware RT. Use --feature render.path; see packages/sdk/src/capabilities.ts." },
+  { names: ["networking", "multiplayer", "netcode", "联网", "联机", "多人同步"], reason: "No built-in network synchronization framework is implemented. Browser-compatible npm libraries remain available; see docs/CAPABILITIES.md." },
+  { names: ["async asset streaming", "asynchronous asset streaming", "异步资源流送", "异步资产流送"], reason: "world.streaming manages prefab residency with globally prepared assets. Use --feature world.streaming; see packages/runtime/src/world-streaming.ts." },
 ];
 export function describeFeatures(query = ""): EngineFeature[] {
-  const search = query.toLowerCase().trim();
-  return features.filter(feature => !search || [feature.id, ...feature.symbols, ...feature.recipes].some(value => value.toLowerCase().includes(search)))
-    .map(feature => ({ ...feature, symbols: [...feature.symbols], backends: [...feature.backends], limits: [...feature.limits], recipes: [...feature.recipes] }));
+  const search = normalize(query);
+  const excluded = unsupported.find(item => item.names.some(name => normalize(name) === search));
+  if (excluded) throw new Error(`TC_CAPABILITY_UNSUPPORTED: '${query}' is explicitly unsupported. ${excluded.reason}`);
+  const terms = search.split(" ");
+  const vocabulary = (feature: EngineFeature) => [feature.id, ...feature.symbols, ...feature.recipes, ...(aliases[feature.id] ?? [])].map(normalize);
+  const matches = features.filter(feature => !search || terms.every(term => vocabulary(feature).some(value => value.includes(term))));
+  if (matches.length === 0) throw new Error(`TC_CAPABILITY_UNKNOWN: '${query}' is not catalogued; this does not establish that it is unsupported. Run pelican capabilities to list known IDs or pelican api --search <term> to inspect public declarations. Source: packages/sdk/src/capabilities.ts.`);
+  return matches.sort((a, b) => Number(vocabulary(b).includes(search)) - Number(vocabulary(a).includes(search)))
+    .map(feature => ({ ...feature, description: descriptions[feature.id], aliases: [...(aliases[feature.id] ?? [])], symbols: [...feature.symbols], backends: [...feature.backends], limits: [...feature.limits], recipes: [...feature.recipes] }));
 }

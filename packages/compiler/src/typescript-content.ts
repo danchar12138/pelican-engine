@@ -23,6 +23,7 @@ export class ContentError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    readonly source?: SourceLocation,
   ) {
     super(message);
   }
@@ -87,9 +88,13 @@ export async function typescriptContent(options: {
             ...collected.filter(value => value.kind === 'system'),
             ...(Array.isArray(game?.systems) ? game.systems.filter(value => value && typeof value === 'object') : []),
           ]);
-          function clean(value, depth = 0, runtime = false) {
+          function clean(value, depth = 0, runtime = false, factory = false) {
             if (++count > 200000 || depth > 128) throw new Error('TC_CONTENT_BUDGET: Content exceeds 200000 values or 128 levels.');
             if (typeof value === 'string') { characters += value.length; if (characters > 8 * 1024 * 1024) throw new Error('TC_CONTENT_BUDGET: Content strings exceed 8 MiB.'); }
+            if (factory) {
+              if (typeof value !== 'function' || !['Function', 'AsyncFunction'].includes(value.constructor.name)) throw new Error('TC_GAME_RUNTIME_CONTRACT: runtime.create must be an ordinary or async function.');
+              return { __runtime: true };
+            }
             if (runtime) {
               if (typeof value !== 'function') throw new Error('TC_SYSTEM_RUN: System run must be an actual function.');
               if (value.constructor.name !== 'Function') throw new Error('TC_SYSTEM_ASYNC: Systems must be synchronous ordinary functions.');
@@ -101,7 +106,7 @@ export async function typescriptContent(options: {
             if (typeof value !== 'object' || active.has(value)) throw new Error('TC_CONTENT_VALUE: Content must contain finite data without cycles; functions belong in system.run.');
             if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) throw new Error('TC_CONTENT_VALUE: Export plain declaration data, not class instances, Map or Set.');
             active.add(value);
-            const result = Array.isArray(value) ? value.map(v => clean(v, depth + 1)) : Object.fromEntries(Object.entries(value).filter(([,v]) => v !== undefined).map(([k,v]) => [k, clean(v, depth + 1, runtimeSystems.has(value) && k === 'run')]));
+            const result = Array.isArray(value) ? value.map(v => clean(v, depth + 1)) : Object.fromEntries(Object.entries(value).filter(([,v]) => v !== undefined).map(([k,v]) => [k, clean(v, depth + 1, runtimeSystems.has(value) && k === 'run', value === game.runtime && k === 'create')]));
             active.delete(value);
             return result;
           }
@@ -111,7 +116,7 @@ export async function typescriptContent(options: {
             if (!process.send) throw new Error('TC_CONTENT_PROCESS: Missing compiler IPC channel.');
             process.send({ result }, () => process.exit(0));
           } catch (error) {
-            process.send({ error: String(error) }, () => process.exit(1));
+            process.send({ error: error instanceof Error ? error.stack : String(error) }, () => process.exit(1));
           }
         `;
           const file = id.split("?")[0];
@@ -143,6 +148,21 @@ export async function typescriptContent(options: {
       "Content bundle did not produce an entry.",
     );
   const directory = await mkdtemp(path.join(tmpdir(), "pelican-content-"));
+  const executionError = (message: string): ContentError => {
+    const browserGlobal = /\b(?:window|document|navigator|HTMLElement|AudioContext|Worker|localStorage)\b[^\n]*is not defined/.test(message);
+    let source: SourceLocation | undefined;
+    for (const line of message.split("\n")) {
+      const match = /(?:\(|at )(file:\/\/\/.*|[A-Za-z]:[\\/].*|\/.*):(\d+):(\d+)\)?$/.exec(line.trimEnd());
+      if (!match) continue;
+      let filename = match[1];
+      if (filename.startsWith("file:")) try { filename = fileURLToPath(filename); } catch { continue; }
+      const relative = path.relative(options.projectRoot, filename);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) continue;
+      source = { file: slash(relative), line: +match[2], column: +match[3], length: 1 };
+      break;
+    }
+    return new ContentError(browserGlobal ? "TC_CONTENT_BROWSER_GLOBAL" : /TC_[A-Z_]+/.exec(message)?.[0] ?? "TC_CONTENT_EXECUTION", message.slice(0, 4096), source);
+  };
   let packet: Packet;
   try {
     const file = path.join(directory, "content.mjs");
@@ -194,12 +214,7 @@ export async function typescriptContent(options: {
       });
       child.on("message", (message: any) => {
         if (message?.error) {
-          const code =
-            /TC_[A-Z_]+/.exec(message.error)?.[0] ?? "TC_CONTENT_EXECUTION";
-          failure = new ContentError(
-            code,
-            String(message.error).slice(0, 4096),
-          );
+          failure = executionError(String(message.error));
         } else if (message?.result) received = message.result;
       });
       child.on("error", (error) => {
@@ -210,11 +225,7 @@ export async function typescriptContent(options: {
         if (failure) reject(failure);
         else if (code !== 0 || !received)
           reject(
-            new ContentError(
-              "TC_CONTENT_EXECUTION",
-              stderr.slice(-4096) ||
-                "Content process exited without declaration data.",
-            ),
+            executionError(stderr.slice(-4096) || "Content process exited without declaration data."),
           );
         else resolve(received);
       });

@@ -26,7 +26,22 @@ npx --no-install pelican build
 
 `create` 用于新的空项目；已有默认文件时先保留工作，再决定是否替换。`recipe` 返回完整源码 JSON，`capabilities` 返回真实配方 ID、接口和边界，`help` 返回命令协议。无需读取长篇文档猜测符号；查询精确的 `api --symbol <name>`。类型与机器索引随 npm 包生成，入口 `pelican-engine` 是唯一公开 SDK。
 
+能力查询支持 ID、中英文与同义词，例如 `capabilities --feature 音效`、`--feature heightmap`、`--feature 计算着色器`、`--feature 后处理`、`--feature physics2d`、`--feature 存档` 和 `--feature geometry`。每项返回 `description`、`aliases`、真实 SDK `symbols`、实现状态、后端与限制；未带 `--feature` 时列出完整目录。这些是实现元数据，当前设备是否支持仍查询 `ctx.render.capabilities()`。目录未收录返回失败码 `TC_CAPABILITY_UNKNOWN`，不表示已经证明不支持；明确排除的硬件光追等返回 `TC_CAPABILITY_UNSUPPORTED`，不会以空数组成功响应。
+
+方法级查询直接使用同一份 SDK 生成的机器索引：
+
+```sh
+npx --no-install pelican api --symbol AudioService.play
+npx --no-install pelican api --symbol AudioService
+npx --no-install pelican api --search play --member --limit 5
+npx --no-install pelican api --search "TerrainService sculpt" --member
+```
+
+`--symbol` 精确且区分大小写，保留完整类型查询，也支持 `Type.member`；方法重载逐条返回。`--search` 优先排列精确符号名与精确成员名，`--member` 将搜索限定为成员，`--limit` 范围 1..100。查询结果中的 `total` 是截断前总数，`truncated` 表示是否省略结果；成员附带小粒度 `signature`、`owner`、`source` 和 `line`。无命中返回 `TC_API_SEARCH_UNKNOWN`。npm 包的 `docs/api/index.json` 保留顶层 `symbols` 并增加 `members`；源码路径/行号仅标识生成时来源，实际类型检查使用包内 `lib/sdk/index.d.ts`，CLI 同时返回 `installedDeclarations` 与 `sourceProvenance`。
+
 ## 普通 TypeScript 与依赖
+
+运行实例、browser-only 库、资源释放、状态保存、受管几何与渲染插件的完整接入见 [INTEGRATIONS](INTEGRATIONS.md)。优先查询已有能力再决定第三方实现；未知查询不等于不支持。
 
 新项目的 `pelican.project.json` 包含 `content: "typescript"` 和精确 `engineVersion`。支持普通循环、类、闭包、可变局部数据、模块和浏览器兼容 npm 依赖，依赖从游戏的 `package.json`/安装目录解析，不用再填 `libraries` 白名单。
 
@@ -53,6 +68,8 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 自动化支持 inspect、step、pointer、batch 和 capture。批处理预检查所有命令后顺序执行，运行失败不会回滚已经完成的命令。检查返回的 `causeCodes`、tick、stage、system、source；类型或编译成功不代表 GPU、音频、用户输入和长时间运行已经通过。
 
 开发时反复执行 check → dev → 实际操作/自动化 → inspect/capture → 修复。按需用 `pelican setup` 安装浏览器自动化依赖，普通构建不要求浏览器。发布游戏只部署 `build` 的 `dist/` 到 HTTP(S) 静态服务器；不要部署引擎源码项目。
+
+`?automation=1` 的开发测试页默认暂停，使用显式 step 或 resume 推进，停着不等于初始化卡住。普通 dev／生产页自动运行。测试应使用独立 headless 浏览器，按数值 polling 等待就绪，不依赖桌面焦点或回车；不要把人工输入当成自动化通过条件。音频解锁仍遵守浏览器的真实交互策略。
 
 ## 最小渲染内容
 

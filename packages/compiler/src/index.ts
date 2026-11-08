@@ -122,8 +122,20 @@ async function bundle(
   entry: string,
   sdkPath: string,
   projectRoot: string,
+  construction?: import("./extract.ts").ObjectValue,
 ): Promise<{ code: string; map: string; dependencies: string[] }> {
   const dependencies = new Set<string>();
+  // Detect declarations which branch on Node/browser globals without running runtime.create.
+  // This is a drift checksum, not a security signature. Function bodies belong to the runtime bundle.
+  const fingerprintSource = `function fingerprint(value) {
+    const text = JSON.stringify(value, (_, item) => typeof item === 'function' ? {__runtime:true} :
+      item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().filter(key => item[key] !== undefined).map(key => [key, item[key]])) : item);
+    let result = 2166136261;
+    for (let i = 0; i < text.length; i++) result = Math.imul(result ^ text.charCodeAt(i), 16777619);
+    return result >>> 0;
+  }`;
+  const expected = construction === undefined ? undefined :
+    (new Function(`${fingerprintSource}; return fingerprint;`)() as (value: unknown) => number)(construction);
   const virtual = slash(
     path.join(projectRoot, "__pelican_m0_game_entry__.js"),
   );
@@ -153,7 +165,11 @@ async function bundle(
               JSON.stringify(slash(entry)) +
               "; import { instantiateGame } from " +
               JSON.stringify(slash(sdkPath)) +
-              "; export function createGame(engine) { return instantiateGame(game, engine); }"
+              `; ${expected === undefined ? "" : fingerprintSource}
+              export function createGame(engine) {
+                ${expected === undefined ? "" : `if (fingerprint(game) !== ${expected}) throw new Error(${JSON.stringify(`TC_GAME_CONSTRUCTION_DRIFT: ${slash(path.relative(projectRoot, entry))}; Node content and browser declarations differ. Keep build metadata deterministic and move browser-only work/imports into runtime.create.`)});`}
+                return instantiateGame(game, engine);
+              }`
             );
         },
       },
@@ -558,7 +574,8 @@ export async function compileProject(
       skipLibCheck: true,
       allowImportingTsExtensions: true,
       types: [],
-      lib: ["lib.es2023.d.ts", ...(manifest.content === "typescript" ? ["lib.dom.d.ts", "lib.dom.iterable.d.ts"] : [])],
+      // The public lifecycle includes browser cancellation and browser-compatible dependencies.
+      lib: ["lib.es2023.d.ts", "lib.dom.d.ts", "lib.dom.iterable.d.ts"],
       paths: { "pelican-engine": [slash(layout.types)] },
     };
     const program = ts.createProgram([entry], compilerOptions);
@@ -582,9 +599,36 @@ export async function compileProject(
     const contentDependencies: string[] = [];
     if (manifest.content === "typescript") {
       const checker = program.getTypeChecker();
+      const inspectRuntime = (argument: ts.Expression): void => {
+        const runtime = checker.getTypeAtLocation(argument).getProperty("runtime");
+        const runtimeType = runtime && checker.getTypeOfSymbolAtLocation(runtime, argument).getNonNullableType();
+        const factory = runtimeType?.getProperty("create");
+        const callable = factory && checker.getTypeOfSymbolAtLocation(factory, argument);
+        for (const signature of callable?.getCallSignatures() ?? []) {
+          const result = checker.getAwaitedType(checker.getReturnTypeOfSignature(signature));
+          for (const state of result?.isUnion() ? result.types : result ? [result] : []) {
+            const systems = state.getProperty("systems");
+            const bindings = systems && checker.getTypeOfSymbolAtLocation(systems, argument).getNonNullableType();
+            for (const binding of bindings?.getProperties() ?? []) {
+              const run = checker.getTypeOfSymbolAtLocation(binding, argument);
+              for (const runSignature of run.getCallSignatures()) {
+                const returns = checker.getReturnTypeOfSignature(runSignature);
+                if ((returns.isUnion() ? returns.types : [returns]).some(type => type.getProperty("then"))) {
+                  const origin = binding.valueDeclaration ?? argument;
+                  diagnostics.push({ code: "TC_SYSTEM_ASYNC", severity: "error", message: `Runtime system '${binding.name}' cannot return a Promise/thenable.`,
+                    suggestion: "Await dependencies in runtime.create; return synchronous system functions.",
+                    source: projectLocation(projectRoot, origin.getSourceFile(), origin.getStart(), origin.getWidth()) });
+                }
+              }
+            }
+          }
+        }
+      };
       const inspectSystems = (node: ts.Node): void => {
         if (ts.isCallExpression(node)) {
           const declaration = checker.getResolvedSignature(node)?.declaration;
+          if (declaration && ts.isFunctionDeclaration(declaration) && declaration.name?.text === "defineGame" &&
+              path.resolve(declaration.getSourceFile().fileName) === path.resolve(layout.types) && node.arguments[0]) inspectRuntime(node.arguments[0]);
           if (declaration && ts.isFunctionDeclaration(declaration) && declaration.name?.text === "defineSystem" &&
               path.resolve(declaration.getSourceFile().fileName) === path.resolve(layout.types) && node.arguments[0]) {
             const argument = node.arguments[0];
@@ -611,8 +655,10 @@ export async function compileProject(
       } catch (error) {
         diagnostics.push({ code: error instanceof ContentError ? error.code : "TC_CONTENT_BUILD", severity: "error",
           message: error instanceof Error ? error.message : String(error),
-          suggestion: "Correct trusted TypeScript construction; use content: static for nonexecuting declarations.",
-          source: { file: slash(path.relative(projectRoot, entry)), line: 1, column: 1, length: 1 } });
+          suggestion: error instanceof ContentError && error.code === "TC_CONTENT_BROWSER_GLOBAL"
+            ? "Move browser-only imports and initialization into runtime.create(scope), using await import('./browser-runtime.ts'); keep declaration modules runnable in Node."
+            : "Correct trusted TypeScript construction; use content: static for nonexecuting declarations.",
+          source: error instanceof ContentError && error.source ? error.source : { file: slash(path.relative(projectRoot, entry)), line: 1, column: 1, length: 1 } });
         return await fail();
       }
     } else {
@@ -688,7 +734,7 @@ export async function compileProject(
             : "Compatible schema; runtime may patch logic/content at a safe boundary.",
       };
     }
-    const bundled = await bundle(entry, sdkPath, projectRoot);
+    const bundled = await bundle(entry, sdkPath, projectRoot, manifest.content === "typescript" ? game : undefined);
     for (const input of report.inputs) inputMap.set(input.root + ":" + input.path, input);
     for (const file of bundled.dependencies) {
       if (file === path.join(projectRoot, "__pelican_m0_game_entry__.js")) continue;

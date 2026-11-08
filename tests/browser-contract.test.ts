@@ -30,6 +30,8 @@ import { resolveEntityDefinition } from "../packages/runtime/src/prefabs.ts";
 import { createGameServices } from "../packages/runtime/src/game-services.ts";
 import { createModelLibrary } from "../packages/renderer/src/models.ts";
 import { prepareGameplay } from "../packages/renderer/src/gameplay.ts";
+import { createManagedGeometry } from "../packages/renderer/src/managed-geometry.ts";
+import { setupPBRMaterial } from "../packages/renderer/src/pbr-material.ts";
 import { createLightPlugin } from "../packages/gameplay/src/lights.ts";
 import { createCinematicOverlay } from "../packages/renderer/src/cinematic-overlay.ts";
 import { createRopeVisualOwner } from "../packages/renderer/src/rope-visuals.ts";
@@ -81,6 +83,8 @@ function harness(names: string[], context: Record<string, unknown>) {
   }).outputText;
   const scope = vm.createContext({
     structuredClone,
+    createManagedGeometry,
+    setupPBRMaterial,
     gameplay: undefined,
     renderControl: undefined,
     computeControl: undefined,
@@ -613,11 +617,17 @@ async function loadHarness() {
   const manager = new ResourceManager<any>();
   let payload: unknown = definition;
   let moduleFail = false;
+  let runtimeReady: Promise<void> | undefined;
+  let created!: () => void;
+  let whenCreated = new Promise<void>(resolve => { created = resolve; });
   manager.registerLoader("json", { load: async () => payload, dispose() {} });
   manager.registerLoader("module", {
     load: async () => {
       if (moduleFail) throw new Error("module failure");
-      return moduleValue;
+      return { createGame(engine: Parameters<typeof moduleValue.createGame>[0]) {
+        const game = moduleValue.createGame(engine); created();
+        return runtimeReady ? { ...game, ready: runtimeReady } : game;
+      } };
     },
     dispose() {},
   });
@@ -630,6 +640,7 @@ async function loadHarness() {
       ...view,
       THREE,
       RuntimeHost,
+      boundedOperation: async (work: Promise<unknown>) => await work,
       // The actual browser has one realm; translate the VM-created descriptor into the owner's realm.
       resourceManager: {
         createScope: () => manager.createScope(),
@@ -686,6 +697,8 @@ async function loadHarness() {
     failModule() {
       moduleFail = true;
     },
+    setReadiness(value: Promise<void>) { runtimeReady = value; whenCreated = new Promise<void>(resolve => { created = resolve; }); },
+    created: () => whenCreated,
     async dispose() {
       context.runtime.dispose();
       await context.gameplay?.dispose();
@@ -695,6 +708,32 @@ async function loadHarness() {
     },
   };
 }
+
+test("browser scene transactions await author initialization before commit and preserve old content on rejection", async () => {
+  for (const reject of [false, true]) {
+    const rig = await loadHarness();
+    let resolve!: () => void, fail!: (error: Error) => void;
+    const ready = new Promise<void>((yes, no) => { resolve = yes; fail = no; });
+    rig.setReadiness(ready);
+    try {
+      const previous = rig.context.runtime;
+      const transaction = rig.context.loadGame();
+      await rig.created();
+      assert.equal(rig.context.runtime, previous);
+      assert.equal(previous.inspect().disposed, false);
+      if (reject) {
+        fail(new Error("runtime initialization failed"));
+        await assert.rejects(transaction, /runtime initialization failed/);
+        assert.equal(rig.context.runtime, previous);
+        assert.equal(previous.inspect().disposed, false);
+      } else {
+        resolve(); await transaction;
+        assert.notEqual(rig.context.runtime, previous);
+        assert.equal(previous.inspect().disposed, true);
+      }
+    } finally { await rig.dispose(); }
+  }
+});
 
 for (const failure of [
   "json-null",

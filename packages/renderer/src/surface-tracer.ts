@@ -33,9 +33,11 @@ import {
 } from "./surface.ts";
 import { createMediumCatalog, type MediumCatalog } from "./medium.ts";
 import { createEnvironmentCapture, describeEnvironment, sameEnvironmentRevision, type EnvironmentRevision } from "./environment.ts";
-import { appendEmissiveLights } from "./emissive-lights.ts";
+import { createEmissiveLightCache } from "./emissive-lights.ts";
 import { buildEnvironmentImportance } from "./environment-importance.ts";
 import { packTraversalData } from "./traversal-nodes.ts";
+import { changedBufferRanges } from "./dirty-upload.ts";
+import { createSurfaceGeometryPacker } from "./surface-gpu.ts";
 import { packPreviousSurfacePositions } from "./surface-motion.ts";
 import { MOTION_SHADER } from "./motion-shader.ts";
 import {
@@ -135,6 +137,8 @@ export class SurfaceTracer {
   private capture = createSurfaceCapture();
   private acceleration = createSurfaceAcceleration();
   private buffers = new Map<BufferKey, Entry>();
+  private uploaded = new Map<BufferKey, Uint8Array>();
+  private packGeometry = createSurfaceGeometryPacker();
   private frame?: AccelerationFrame;
   private textures: readonly SurfaceTexture[] = [];
   private materialData?: Float32Array;
@@ -149,6 +153,8 @@ export class SurfaceTracer {
   private textureGpuCopyBytes = 0;
   private materialGeneration = 0;
   private lightData?: Float32Array;
+  private explicitLightRecords = 0;
+  private emitterCache = createEmissiveLightCache();
   private lightingSignature = "";
   private uniform: GPUBuffer;
   private presentUniform: GPUBuffer;
@@ -494,6 +500,7 @@ export class SurfaceTracer {
         GPUBufferUsage.COPY_SRC,
     });
     this.buffers.set(key, { buffer, bytes: size });
+    this.uploaded.delete(key);
     if (key === "materials") this.materialGeneration++;
     previous?.buffer.destroy();
     this.computeGroup = undefined;
@@ -502,11 +509,18 @@ export class SurfaceTracer {
     return buffer;
   }
   private put(key: BufferKey, data: ArrayBufferView) {
+    const priorBuffer = this.buffers.get(key)?.buffer;
     const buffer = this.ensure(key, data.byteLength);
     if (data.byteLength) {
-      this.device.queue.writeBuffer(buffer, 0, bytes(data));
-      if (key === "materials") this.materialGeneration++;
-      this.uploadBytes += data.byteLength;
+      const view = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      const previous = priorBuffer === buffer ? this.uploaded.get(key) : undefined;
+      const ranges = changedBufferRanges(previous, view);
+      for (const range of ranges) {
+        this.device.queue.writeBuffer(buffer, range.offset, view.subarray(range.offset, range.offset + range.size));
+        this.uploadBytes += range.size;
+      }
+      if (key === "materials" && ranges.length) this.materialGeneration++;
+      this.uploaded.set(key, view.slice());
     }
     return buffer;
   }
@@ -756,6 +770,8 @@ export class SurfaceTracer {
     this.motionMatches = { matched: 0, missing: 0 };
     this.motionGroup = undefined;
     this.lightData = undefined;
+    this.emitterCache.clear();
+    this.uploaded.clear();
     this.lightingSignature = "";
     this.mediumCatalog?.dispose();
     this.mediumCatalog = undefined;
@@ -1070,7 +1086,7 @@ export class SurfaceTracer {
     // A material can become transmissive or opaque without moving triangles.
     // IDs live in the geometry buffer, not the material table.
     if (!this.frame || accelerationOutOfSync || frame.changes.kind !== "none" || this.geometryMediumRevision !== this.mediumRevision) {
-      const geometry = packSurfaceGeometry(
+      const geometry = this.packGeometry(
           captured.surface,
           frame.orderedTriangles,
           this.mediumIds,
@@ -1079,30 +1095,7 @@ export class SurfaceTracer {
         traversalNodes = packTraversalData(frame.nodes, geometry);
       this.geometryData = geometry;
       if (!motionEnabled) this.put("triangles", geometry);
-      const old = this.buffers.get("nodes"),
-        buffer = this.ensure("nodes", traversalNodes.byteLength);
-      if (!this.frame || accelerationOutOfSync || !old || old.buffer !== buffer || frame.changes.kind === "rebuild")
-        this.put("nodes", traversalNodes);
-      else
-        for (const range of frame.changes.nodeRanges) {
-          this.device.queue.writeBuffer(
-            buffer,
-            range.offset * 4,
-            bytes(
-              traversalNodes.subarray(range.offset, range.offset + range.count),
-            ),
-          );
-          this.uploadBytes += range.count * 4;
-        }
-      if (old?.buffer === buffer && frame.changes.kind !== "rebuild") {
-        const tail = traversalNodes.subarray(frame.nodes.length);
-        this.device.queue.writeBuffer(
-          buffer,
-          frame.nodes.byteLength,
-          bytes(tail),
-        );
-        this.uploadBytes += tail.byteLength;
-      }
+      this.put("nodes", traversalNodes);
       this.reset = true;
     }
     if (motionEnabled) {
@@ -1118,12 +1111,13 @@ export class SurfaceTracer {
       combined.set(motion.data, geometry.length);
       this.put("triangles", combined);
     }
-    const lighting = appendEmissiveLights(
+    const lighting = this.emitterCache.update(
       graphEmissiveProposal(captured.surface, graphs),
       frame.orderedTriangles,
       captured.lights,
     );
     this.emissiveCount = lighting.emitters;
+    this.explicitLightRecords = lighting.explicitRecords;
     let explicit = 0;
     for (let index = 3; index < captured.lights.length; index += 12)
       if (captured.lights[index] < 2 || captured.lights[index] === 5) explicit++;
@@ -1131,8 +1125,8 @@ export class SurfaceTracer {
       explicit +
       (this.emissiveCount ? 1 : 0) +
       (this.environmentIndex >= 0 ? 1 : 0);
-    if (!equal(this.lightData, lighting.data)) {
-      this.lightData = lighting.data;
+    if (!equal(this.lightData, lighting.gpuData)) {
+      this.lightData = lighting.gpuData;
       this.lightBufferDirty = true;
       this.reset = true;
     }
@@ -1501,7 +1495,7 @@ export class SurfaceTracer {
       ...right.toArray(),
       jitterY,
       ...up.toArray(),
-      this.emissiveCount ? 1 : 0,
+      this.emissiveCount,
       ...this.environment,
       this.backgroundIndex + 1,
       this.width,
@@ -1510,7 +1504,7 @@ export class SurfaceTracer {
       camera.near,
       this.frame.metrics.nodes,
       this.frame.metrics.triangles,
-      (this.lightData?.length ?? 0) / 12,
+      this.explicitLightRecords,
       this.reset ? 1 : 0,
       settings.exposure,
       settings.samplesPerFrame,
@@ -2093,6 +2087,7 @@ export class SurfaceTracer {
       frameSerial: this.serial - 1,
       mediumFaults: this.mediumFaults,
       historyResets: this.resets,
+      emissiveSampling: { emitters: this.emissiveCount, explicitRecords: this.explicitLightRecords, selection: "alias-table", pdf: "triangle-index", cache: this.emitterCache.inspect() },
       contentGeneration: this.contentGeneration,
       volumeTransport: {
         volumes: this.mediumIds.size,
@@ -2197,6 +2192,8 @@ export class SurfaceTracer {
     this.disposed = true;
     this.clearFragmentBuffers();
     this.capture.dispose();
+    this.emitterCache.clear();
+    this.uploaded.clear();
     this.mediumCatalog?.dispose();
     this.mediumCatalog = undefined;
     this.mediumFaces = [];

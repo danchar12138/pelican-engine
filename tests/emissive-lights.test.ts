@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { extractSurfaceScene } from "../packages/renderer/src/surface.ts";
-import { appendEmissiveLights } from "../packages/renderer/src/emissive-lights.ts";
+import { appendEmissiveLights, createEmissiveLightCache } from "../packages/renderer/src/emissive-lights.ts";
 test("emitter importance records preserve explicit lights and normalize area-radiance probabilities", () => {
   const scene = new THREE.Scene(),
     a = new THREE.Mesh(
@@ -53,6 +53,34 @@ test("emitter importance records preserve explicit lights and normalize area-rad
   }
   assert.ok(Math.abs(probability - 1) < 1e-6);
   assert.equal(last, 1);
+  // Independently reconstruct probabilities from the alias table. This checks
+  // every category exactly, without depending on a noisy random-frequency test.
+  const reconstructed = new Float64Array(packed.emitters);
+  for (let slot = 0; slot < packed.emitters; slot++) {
+    const offset = 12 + slot * 12;
+    const threshold = packed.data[offset + 9], alias = packed.data[offset + 10];
+    assert.ok(threshold >= 0 && threshold <= 1 && Number.isInteger(alias));
+    reconstructed[slot] += threshold / packed.emitters;
+    reconstructed[alias] += (1 - threshold) / packed.emitters;
+    const triangle = packed.data[offset];
+    const lookup = packed.data.length + triangle * 12;
+    assert.equal(packed.gpuData[lookup], packed.data[offset + 1]);
+    assert.equal(packed.gpuData[lookup + 1], packed.data[offset + 2]);
+  }
+  reconstructed.forEach((probability, slot) => assert.ok(Math.abs(probability - packed.data[12 + slot * 12 + 2]) < 1e-7));
+});
+
+test("static emitting geometry is cached while opaque motion and tiny emitters preserve the PDF", () => {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({ emissive: 0xffffff, emissiveIntensity: 0.000001 })));
+  const surface = extractSurfaceScene(scene), cache = createEmissiveLightCache();
+  const first = cache.update(surface, surface.triangles, new Float32Array());
+  assert.equal(cache.update(surface, surface.triangles, new Float32Array()), first);
+  assert.equal(first.emitters, 2); assert.equal(cache.inspect().hits, 1);
+  const reversed = cache.update(surface, [...surface.triangles].reverse(), new Float32Array());
+  assert.equal(reversed.signature, first.signature);
+  assert.equal(cache.inspect().builds, 2);
+  assert.equal(reversed.emitters, first.emitters);
 });
 
 test("emitter history signature ignores traversal indices but detects actual light/material/geometry changes", () => {

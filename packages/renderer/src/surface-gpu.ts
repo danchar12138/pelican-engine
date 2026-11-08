@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { hasCapturedGeometry } from "./surface.ts";
 import type {
   SurfaceScene,
   SurfaceTriangle,
@@ -10,6 +11,13 @@ export const SURFACE_GPU_ABI = 1;
 export const SURFACE_TRIANGLE_FLOATS = 72;
 export const SURFACE_MATERIAL_FLOATS = 32;
 export const SURFACE_TEXTURE_FLOATS = 24;
+type GeometryCache = WeakMap<SurfaceTriangle, { key: string; data: Float32Array }>;
+/** Cached only for deeply frozen extractor-owned triangles; raw inputs are still checked. */
+export function createSurfaceGeometryPacker() {
+  const cache: GeometryCache = new WeakMap();
+  return (snapshot: SurfaceScene, ordered: readonly SurfaceTriangle[], ids: ReadonlyMap<string, number>, windings: ReadonlyMap<string, 1 | -1>) =>
+    packSurfaceGeometry(snapshot, ordered, ids, windings, cache);
+}
 const fail = (code: string, message: string): never => {
   throw new Error(code + ": " + message);
 };
@@ -58,6 +66,7 @@ export function packSurfaceGeometry(
   ordered: readonly SurfaceTriangle[] = snapshot.triangles,
   volumeIds: ReadonlyMap<string, number> = new Map(),
   volumeWindings: ReadonlyMap<string, 1 | -1> = new Map(),
+  cache?: GeometryCache,
 ) {
   validateSurfaceTextureCoordinates(snapshot, ordered);
   const materials = indexMap(snapshot.materials);
@@ -67,6 +76,11 @@ export function packSurfaceGeometry(
       materialIndex = reference(materials, triangle.materialUuid),
       offset = index * SURFACE_TRIANGLE_FLOATS;
     const material = snapshot.materials[materialIndex];
+    const volumeKey = JSON.stringify([triangle.objectUuid, triangle.instanceId]);
+    const volumeId = volumeIds.get(volumeKey) ?? 0;
+    const cacheKey = `${materialIndex}:${material.vertexColors}:${volumeId}:${volumeWindings.get(volumeKey) ?? 0}`;
+    const cached = cache?.get(triangle);
+    if (cached?.key === cacheKey) { output.set(cached.data, offset); continue; }
     const color = triangle.instanceColor ?? [1, 1, 1],
       tangent = triangle.vertices.every(
         (vertex) => vertex.tangent !== undefined,
@@ -114,16 +128,18 @@ export function packSurfaceGeometry(
         (normalized[1] * normalized[5] - normalized[2] * normalized[4]);
     if (!Number.isFinite(determinant) || determinant === 0)
       fail("TC_SURFACE_GPU_NORMAL_MATRIX", "Singular normal matrix.");
-    const volumeKey = JSON.stringify([triangle.objectUuid, triangle.instanceId]);
-    const volumeId = volumeIds.get(volumeKey) ?? 0;
     // Physical shells can have either authored winding, even through a mirror.
     // Non-volume triangles keep their original transform-facing convention.
     output[offset + 63] = volumeId ? (volumeWindings.get(volumeKey) ?? (determinant > 0 ? 1 : -1)) : (determinant > 0 ? 1 : -1);
     output[offset + 67] = volumeId;
     output[offset + 71] = (triangle.castShadow === false ? 0 : 1) +
       (triangle.receiveShadow === false ? 0 : 2);
+    const packed = output.subarray(offset, offset + SURFACE_TRIANGLE_FLOATS);
+    for (const value of packed) finite(value, "Triangle data");
+    // Do not trust shallow freezes: nested mutable positions must invalidate.
+    if (cache && hasCapturedGeometry(snapshot))
+      cache.set(triangle, { key: cacheKey, data: packed.slice() });
   }
-  for (const value of output) finite(value, "Triangle data");
   return output;
 }
 export interface PackedSurfaceResources {

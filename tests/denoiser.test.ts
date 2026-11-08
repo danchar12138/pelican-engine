@@ -848,9 +848,10 @@ export async function runDenoiserGpuTest() {
         const address = server.address();
         assert.ok(address && typeof address !== "string");
         const attempts: string[] = [];
-        for (const headless of [true, false]) {
+        for (const headless of [true]) {
           browser = await chromium.launch({
             headless,
+            channel: "chromium",
             timeout: 12_000,
             args: [
               ...graphicsLaunchArguments(),
@@ -897,8 +898,7 @@ export async function runDenoiserGpuTest() {
             );
             await browser.close();
             browser = undefined;
-            if (!headless) throw new Error(attempts.join("\n"));
-            continue;
+            throw new Error(attempts.join("\n"));
           } finally {
             clearTimeout(probeTimer);
           }
@@ -908,7 +908,7 @@ export async function runDenoiserGpuTest() {
           const result = await page.evaluate(execute);
           return {
             ...result,
-            mode: headless ? "headless-angle-d3d11" : "headed-angle-d3d11",
+            mode: "headless-chromium-hardware",
             attempts,
           };
         }

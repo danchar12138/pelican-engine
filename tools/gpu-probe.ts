@@ -1,7 +1,8 @@
 import { graphicsLaunchArguments } from "./browser-session.ts";
 import { chromium } from "playwright";
 const browser = await chromium.launch({
-  headless: false,
+  headless: true,
+  channel: "chromium",
   args: [...graphicsLaunchArguments(), "--disable-background-timer-throttling"],
 });
 try {

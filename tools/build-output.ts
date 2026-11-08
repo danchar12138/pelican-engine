@@ -1,6 +1,20 @@
 import { lstat, mkdir, mkdtemp, realpath, rename } from "node:fs/promises";
 import path from "node:path";
 
+/** Windows AV/indexing and filesystem watchers can temporarily deny a directory
+ * rename. Retrying does not remove either tree or bypass the caller's identity checks. */
+export async function renameBuildDirectory(from: string, to: string, move = rename,
+  wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  for (let attempt = 0; ; attempt++) {
+    try { await move(from, to); return; }
+    catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (process.platform !== "win32" || !["EPERM", "EACCES", "EBUSY"].includes(code ?? "") || attempt >= 11) throw error;
+      await wait(Math.min(25 * 2 ** attempt, 500));
+    }
+  }
+}
+
 const fail = (code: string, message: string): never => { throw new Error(`TC_BUILD_${code}: ${message}`); };
 const samePath = (a: string, b: string) => process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
 const inside = (parent: string, child: string) => {
@@ -67,7 +81,7 @@ export async function createBuildOutput(output: string) {
           return fail("CHANGED", `dist changed before backup; it was not replaced. Partial files remain at '${stageRoot}'.`);
         if (!samePath(await realpath(destination), destination) || !samePath(await directDirectory(cacheRoot, backupRoot), backupRoot))
           return fail("PATH", `Build paths changed before backup; staged output remains at '${stageRoot}'.`);
-        try { await rename(destination, backup); }
+        try { await renameBuildDirectory(destination, backup); }
         catch (error) {
           throw new AggregateError([error], `TC_BUILD_BACKUP: Could not confirm preservation of the previous dist. Inspect '${destination}' and '${backup}'; staged output remains at '${stageRoot}'.`);
         }
@@ -79,7 +93,7 @@ export async function createBuildOutput(output: string) {
         const finalStage = await lstat(stageRoot);
         if (stageIdentity.ino && (finalStage.ino !== stageIdentity.ino || finalStage.dev !== stageIdentity.dev))
           return fail("CHANGED", `Build staging changed before commit; inspect '${stageRoot}'.`);
-        await rename(stageRoot, destination);
+        await renameBuildDirectory(stageRoot, destination);
       } catch (error) {
         let restored = false, targetAbsent = false;
         try { targetAbsent = !(await maybeStat(destination)); } catch { /* Preserve both paths if the destination cannot be inspected. */ }
@@ -88,7 +102,7 @@ export async function createBuildOutput(output: string) {
             const saved = await lstat(backup), resolved = await realpath(backup);
             if (saved.isDirectory() && !saved.isSymbolicLink() && inside(cacheRoot, resolved) && samePath(resolved, backup) &&
                 samePath(await realpath(path.dirname(destination)), parent)) {
-              await rename(backup, destination); restored = true;
+              await renameBuildDirectory(backup, destination); restored = true;
             }
           } catch { /* Preserve both paths for manual recovery. */ }
         }

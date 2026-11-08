@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -45,7 +45,10 @@
     "distribution:smoke": "tsx tools/npm/smoke.ts",
     "distribution:verify-registry": "tsx tools/npm/verify-registry.ts",
     "verify": "npm run typecheck && npm test && npm run distribution:test",
-    "release:publish": "node tools/npm/publish.mjs"
+    "release:publish": "node tools/npm/publish.mjs",
+    "clean": "node tools/clean.mjs",
+    "benchmark:render": "tsx tools/benchmark-rendering.ts",
+    "evaluate:author": "tsx tools/evaluate-authoring.ts"
   },
   "dependencies": {
     "fast-png": "8.0.0",

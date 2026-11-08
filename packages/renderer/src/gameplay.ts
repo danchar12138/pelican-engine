@@ -7,7 +7,7 @@ import type { EntityHandle, PhysicsService } from "../../sdk/src/index.ts";
 import type { GraphIR, SceneIR } from "../../compiler/src/types.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import { createGameServices } from "../../runtime/src/game-services.ts";
-import { createPhysicsFactory } from "../../physics/index.ts";
+import { preparePhysicsServices } from "./service-plan.ts";
 import { createNavigationPlugin } from "../../navigation/src/index.ts";
 import { createWorldStreamingPlugin } from "../../runtime/src/world-streaming.ts";
 import { createTerrainPlugin } from "../../runtime/src/terrain.ts";
@@ -434,15 +434,10 @@ export async function prepareGameplay(
         ],
       }; },
     ];
-    if (ir.scene.physics2d) {
-      const { createPhysics2DFactory } = await import("../../physics/physics2d.ts");
-      plugins.push(await createPhysics2DFactory());
-    }
-    {
-      const factory = await createPhysicsFactory();
+    for (const factory of await preparePhysicsServices(ir)) {
       plugins.push((context) => {
         const plugin = factory(context);
-        physics = plugin.services?.physics;
+        if (plugin.services?.physics) physics = plugin.services.physics;
         return plugin;
       });
     }

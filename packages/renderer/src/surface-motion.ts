@@ -1,4 +1,6 @@
 import type { SurfaceScene, SurfaceTriangle } from "./surface.ts";
+import { isCapturedTriangle } from "./surface.ts";
+const identities = new WeakMap<SurfaceTriangle, string>();
 
 const MAX_FLOAT = 3.4028234663852886e38;
 
@@ -13,6 +15,8 @@ function fail(code: string, label: string): never {
 }
 
 function identity(t: SurfaceTriangle, label: string): string {
+  const cached = identities.get(t);
+  if (cached) return cached;
   if (
     !t ||
     typeof t.objectUuid !== "string" ||
@@ -30,7 +34,7 @@ function identity(t: SurfaceTriangle, label: string): string {
   )
     fail("INVALID_IDENTITY", label);
   // Keep exactly the geometry identity used by acceleration.ts, not material UUID.
-  return JSON.stringify([
+  const key = JSON.stringify([
     t.objectUuid,
     t.geometryUuid,
     t.instanceId,
@@ -38,6 +42,8 @@ function identity(t: SurfaceTriangle, label: string): string {
     t.elementOffset,
     t.vertexIndices,
   ]);
+  if (isCapturedTriangle(t)) identities.set(t, key);
+  return key;
 }
 
 function index(scene: SurfaceScene, label: string, positions: boolean) {

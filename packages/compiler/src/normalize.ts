@@ -544,16 +544,20 @@ export async function normalize(
         def,
         "transmission",
       );
-    if (def.texture !== undefined) {
-      material.texture = ref(def.texture, def, "texture");
-      requireRef("asset", material.texture, def, "texture");
-      if (registry("asset").get(material.texture)?.type !== "texture")
-        error(
-          "TC_ASSET_TYPE",
-          "Material textures must reference texture assets.",
-          def,
-          "texture",
-        );
+    for (const slot of ["texture", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"] as const) {
+      if (def[slot] === undefined) continue;
+      const asset = ref(def[slot], def, slot);
+      material[slot] = asset;
+      requireRef("asset", asset, def, slot);
+      if (registry("asset").get(asset)?.type !== "texture")
+        error("TC_ASSET_TYPE", "Material maps must reference defineAsset texture IDs.", def, slot,
+          "Declare a texture with defineAsset and use its ID or definition in " + slot + ".");
+    }
+    if (def.normalScale !== undefined) {
+      const value = def.normalScale;
+      if (!Array.isArray(value) || value.length !== 2 || [value[0], value[1]].some(v => typeof v !== "number" || !Number.isFinite(v) || !Number.isFinite(Math.fround(v)) || (v !== 0 && Math.fround(v) === 0)))
+        error("TC_MATERIAL_NORMAL_SCALE", "normalScale requires two finite float32 numbers.", def, "normalScale", "Use [x, y] multipliers representable as float32.");
+      else material.normalScale = [value[0], value[1]];
     }
     const slots = renderBuffers(def, "Material");
     const sampled = renderTextures(def, "Material");
@@ -714,13 +718,64 @@ export async function normalize(
       const geometry = obj(m.geometry, m, "geometry");
       const material = ref(m.material, m, "material");
       requireRef("material", material, m, "material");
-      if (!["box", "sphere", "plane"].includes(String(geometry.kind)))
+      if (!["box", "sphere", "plane", "buffer"].includes(String(geometry.kind)))
         error(
           "TC_GEOMETRY_KIND",
-          "M0 geometry must be box, sphere, or plane.",
+          "Geometry must be box, sphere, plane, or buffer.",
           geometry,
           "kind",
         );
+      if (geometry.kind === "buffer") {
+        const fields = ["kind", "positions", "normals", "uv", "indices", "computeBounds"];
+        for (const key of Object.keys(geometry)) if (!fields.includes(key))
+          error("TC_GEOMETRY_FIELD", "Unknown buffer geometry field " + key + ".", geometry, key,
+            "Use positions, normals, uv, indices and computeBounds.");
+        const attribute = (key: "positions" | "normals" | "uv", stride: number, required = false): number[] | undefined => {
+          const values = geometry[key];
+          if (values === undefined && !required) return undefined;
+          if (!Array.isArray(values) || values.length === 0 || values.length % stride !== 0 || values.length > 1048576 * stride) {
+            error("TC_GEOMETRY_ATTRIBUTE", key + " must be a nonempty flat array of " + stride + " components per vertex, at most 1048576 vertices.", geometry, key,
+              "Supply a finite triangle buffer with matching attribute counts.");
+            return undefined;
+          }
+          const invalid = values.findIndex(v => typeof v !== "number" || !Number.isFinite(v) || !Number.isFinite(Math.fround(v)) || (v !== 0 && Math.fround(v) === 0));
+          if (invalid !== -1)
+            error("TC_GEOMETRY_NUMBER", key + "[" + invalid + "] is not a finite float32 number.", geometry, key,
+              "Remove NaN, infinity, overflow and values too small for float32.");
+          return values.slice();
+        };
+        const positions = attribute("positions", 3, true), normals = attribute("normals", 3), uv = attribute("uv", 2);
+        const count = positions ? positions.length / 3 : 0;
+        for (const [key, values, stride] of [["normals", normals, 3], ["uv", uv, 2]] as const)
+          if (values && values.length / stride !== count)
+            error("TC_GEOMETRY_ATTRIBUTE", key + " count must match positions.", geometry, key, "Provide one attribute value per position.");
+        if (normals) for (let i = 0; i < normals.length; i += 3)
+          if (normals[i] === 0 && normals[i + 1] === 0 && normals[i + 2] === 0) {
+            error("TC_GEOMETRY_NORMAL", "normals[" + i / 3 + "] is zero.", geometry, "normals", "Supply nonzero normals or omit normals to generate them.");
+            break;
+          }
+        if (geometry.indices !== undefined) {
+          const indices = geometry.indices;
+          if (!Array.isArray(indices) || indices.length === 0 || indices.length % 3 !== 0 || indices.length > 3145728)
+            error("TC_GEOMETRY_INDEX", "indices must contain complete triangles, at most 3145728 entries.", geometry, "indices", "Supply three integer vertex indices per triangle.");
+          else {
+            const invalid = indices.findIndex(v => !Number.isSafeInteger(v) || v < 0 || v >= count);
+            if (invalid !== -1) error("TC_GEOMETRY_INDEX", "indices[" + invalid + "] is outside the vertex buffer.", geometry, "indices", "Use integer indices in [0, vertexCount)." );
+            geometry.indices = indices.slice();
+          }
+        } else if (count % 3 !== 0)
+          error("TC_GEOMETRY_INDEX", "Nonindexed positions must contain complete triangles.", geometry, "positions", "Provide three vertices per triangle or declare indices.");
+        if (geometry.computeBounds !== undefined && typeof geometry.computeBounds !== "boolean")
+          error("TC_GEOMETRY_BOUNDS", "computeBounds must be boolean.", geometry, "computeBounds", "Use true to compute bounds on creation, or omit for the default true.");
+        if (positions) geometry.positions = positions;
+        if (normals) geometry.normals = normals;
+        if (uv) geometry.uv = uv;
+      }
+      if (geometry.kind === "buffer" && geometry.uv === undefined) {
+        const definition = registry("material").get(material);
+        if (definition && ["texture", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"].some(slot => definition[slot] !== undefined))
+          error("TC_GEOMETRY_UV", "Buffer geometry using material " + material + " requires primary UVs.", geometry, "uv", "Supply one UV pair per vertex for material texture maps.");
+      }
       if (geometry.kind === "box") {
         const size = vector(geometry.size, geometry, "size", [1, 1, 1]);
         if (size.some((x) => x <= 0))
@@ -1261,6 +1316,15 @@ export async function normalize(
       );
     sceneIds.add(scene.id);
   }
+  if (game.runtime !== undefined) {
+    const runtime = obj(game.runtime, game, "runtime");
+    if (typeof runtime.version !== "string" || !runtime.version.trim() ||
+        !runtime.create || typeof runtime.create !== "object" || !(runtime.create as Obj).__runtime)
+      error("TC_GAME_RUNTIME_CONTRACT", "runtime requires a non-empty version and create(scope) function.", runtime, "create");
+    for (const key of Object.keys(runtime))
+      if (!["version", "create"].includes(key))
+        error("TC_GAME_RUNTIME_CONTRACT", "Unknown runtime property: " + key, runtime, key);
+  }
   const systems: SceneIR["systems"] = [];
   const systemOwners: Obj[] = [];
   const systemIds = new Set<string>();
@@ -1285,13 +1349,12 @@ export async function normalize(
         error("TC_SYSTEM_METADATA", "Unknown system property: " + key, s, key);
     if (
       s.kind !== "system" ||
-      !s.run ||
-      typeof s.run !== "object" ||
-      !(s.run as Obj).__runtime
+      (s.run === undefined ? game.runtime === undefined :
+        typeof s.run !== "object" || s.run === null || !(s.run as Obj).__runtime)
     )
       error(
         "TC_SYSTEM_RUN",
-        "Systems must use defineSystem with a run function.",
+        "Systems require a run function or a game.runtime.create binding.",
         s,
         "run",
       );
@@ -1605,11 +1668,29 @@ export async function normalize(
       ...(sound.bus !== undefined ? { bus: sound.bus as string } : {}),
     });
   }
+  let services: SceneIR["services"];
+  if (game.services !== undefined) {
+    const declaration = obj(game.services, game, "services");
+    for (const key of Object.keys(declaration))
+      if (key !== "physics3d") error("TC_GAME_SERVICES", "Unknown runtime service: " + key, declaration, key);
+    const physics3d = declaration.physics3d;
+    if (physics3d !== undefined && !["auto", "required", "disabled"].includes(physics3d as string))
+      error("TC_GAME_SERVICES", "services.physics3d must be auto, required or disabled.", declaration, "physics3d");
+    else services = physics3d === undefined ? {} : { physics3d: physics3d as "auto" | "required" | "disabled" };
+    if (physics3d === "disabled") {
+      const physical = [...resolvedPrefabs.values(), ...allScenes.flatMap(scene => scene.entities)]
+        .find(entity => entity.rigidBody || entity.character);
+      if (physical) error("TC_PHYSICS_SERVICE_CONFLICT", `services.physics3d is disabled but '${physical.id}' declares a rigidBody or character.`,
+        declaration, "physics3d", 'Set services.physics3d to "auto" or "required", or remove the 3D physics declaration.');
+    }
+  }
   const ir: SceneIR = {
     format: "pelican.scene",
     version: 1,
     engineVersion: SDK_VERSION,
     gameId: id(game),
+    ...(services !== undefined ? { services } : {}),
+    ...(game.runtime !== undefined ? { runtime: { version: (game.runtime as Obj).version as string } } : {}),
     ...(game.render !== undefined
       ? {
           render: (() => {

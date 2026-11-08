@@ -217,7 +217,7 @@ const spin = defineSystem({ id: "spin", phase: "update", run(engine, dt) {
   const t = engine.getTransform("shape");
   engine.setTransform("shape", { rotation: [0, t.rotation[1] + dt, 0] });
 } });
-export default defineGame({ id: "game", scene, systems: [spin] });
+export default defineGame({ id: "game", scene, systems: [spin], services: { physics3d: "disabled" } });
 `,
     { flag: "wx" },
   );

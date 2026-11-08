@@ -49,6 +49,12 @@ async function game(name: string, template: string, action: (page: Page, command
   const project = path.join(workspace, name);
   await run(["create", "--project", project, "--template", template]);
   if (["cloth-sheet", "softbody-ball", "fluid-basin", "rope-reaction"].includes(name)) await writeFile(path.join(project, "game.ts"), await readFile(path.join(root, "examples", name, "game.ts"), "utf8"));
+  if (name === "unattended") {
+    const source = await readFile(path.join(project, "game.ts"), "utf8");
+    await writeFile(path.join(project, "game.ts"), source
+      .replace('id: "runtime-lifecycle",', 'id: "runtime-lifecycle", ui: [{id:"save",kind:"button",text:"Save",x:8,y:8},{id:"load",kind:"button",text:"Load",x:120,y:8}],')
+      .replace("ticks++;", 'ticks++; for(const event of ctx.events("ui.activate")){const id=(event.payload as {id:string}).id; if(id==="save")ctx.storage.save("counter"); if(id==="load")ctx.storage.load("counter");}'));
+  }
   if (name === "dynamic-residency") await writeFile(path.join(project, "game.ts"), `import{defineGame,defineScene,defineSystem,definePrefab}from'pelican-engine';
     const box=definePrefab({id:'box',rigidBody:{type:'dynamic',mass:1,collider:{shape:'box',size:[1,1,1]}}});
     const update=defineSystem({id:'update',run(ctx){if(ctx.time.tick===1){ctx.streaming.configure({chunkSize:8,loadRadius:0,unloadRadius:0});ctx.streaming.defineChunk({x:0,z:0,entities:[{id:'chunk-body',prefab:'box',transform:{position:[0,3,0]}}]});ctx.streaming.setFocus([0,0,0]);}if(ctx.time.tick===4)ctx.streaming.setFocus([100,0,0]);if(ctx.time.tick===7)ctx.streaming.setFocus([0,0,0]);}});
@@ -60,13 +66,20 @@ async function game(name: string, template: string, action: (page: Page, command
   const child = spawn(process.execPath, [cli, "dev", "--project", project, "--port", String(++port)], { cwd: project, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   let log = ""; child.stdout.on("data", data => log += data); child.stderr.on("data", data => log += data);
   const page = await selectedBrowser.newPage({ viewport: name === "quality" ? { width: 480, height: 270 } : { width: 960, height: 540 }, deviceScaleFactor: name === "quality" ? 2 : 1 });
+  await page.addInitScript("globalThis.__name = value => value;");
+  if (name === "unattended") await page.addInitScript(() => {
+    window.requestAnimationFrame = () => 0;
+    window.cancelAnimationFrame = () => {};
+    document.hasFocus = () => false;
+    Object.defineProperty(document, "visibilityState", { get: () => "hidden" });
+  });
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   try {
     let listening = false;
     for (let i = 0; i < 150; i++) { try { await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(500) }); listening = true; break; } catch { if (child.exitCode !== null) throw Error(log); await new Promise(resolve => setTimeout(resolve, 100)); } }
     assert.ok(listening, log);
     await page.goto(`http://127.0.0.1:${port}/?automation=1`);
-    await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true", undefined, { timeout: 30000 });
+    await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true", undefined, { timeout: 30000, polling: 100 });
     const command = async (input: unknown) => {
       const result = await page.evaluate(input => (globalThis as any).__pelican.command(input), input);
       assert.equal(result.status, "succeeded", JSON.stringify(result)); return result.data;
@@ -81,6 +94,29 @@ async function game(name: string, template: string, action: (page: Page, command
   }
 }
 try {
+  await record("no-focus-no-raf-runtime-initialization", () => game("unattended", "runtime-lifecycle", async (page, command) => {
+    const initial = await command({ type: "inspect" }); assert.equal(initial.tick, 0);
+    assert.equal(await page.locator("[data-pelican-counter]").count(), 1);
+    await command({ type: "step", count: 3 });
+    const after = await command({ type: "inspect" }); assert.equal(after.tick, 3);
+    assert.match(await page.locator("[data-pelican-counter]").innerText(), /3 ticks/);
+    assert.equal(await page.evaluate(() => document.hasFocus()), false);
+    await page.locator('[data-pelican-element="save"]').click();
+    await command({ type: "step", count: 1 });
+    const checkpoint = await page.locator("[data-pelican-counter]").innerText();
+    assert.match(checkpoint, /4 ticks/);
+    await command({ type: "step", count: 3 });
+    assert.match(await page.locator("[data-pelican-counter]").innerText(), /7 ticks/);
+    await page.locator('[data-pelican-element="load"]').click();
+    await command({ type: "step", count: 1 });
+    assert.equal(await page.locator("[data-pelican-counter]").count(), 1);
+    assert.equal(await page.locator("[data-pelican-counter]").innerText(), checkpoint);
+    const restored = await command({ type: "inspect" });
+    assert.deepEqual(restored.errors, []);
+    await command({ type: "step", count: 1 });
+    assert.match(await page.locator("[data-pelican-counter]").innerText(), /5 ticks/);
+    return { initialTick: 0, finalTick: after.tick, focus: false, rafDisabled: true, nativeInputRequired: false, asyncRuntimeSaveLoad: true, ownedMarkers: 1 };
+  }));
   await record("pointer-game-lifecycle", () => game("pointer", "pointer-3d", async (page, command) => {
     await command({ type: "step", count: 1 });
     await command({ type: "input", key: "e", pressed: true }); await command({ type: "step", count: 1 }); await command({ type: "input", key: "e", pressed: false });

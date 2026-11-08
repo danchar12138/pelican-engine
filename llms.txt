@@ -1,0 +1,22 @@
+# Pelican Engine
+
+Pelican is a single npm package for TypeScript games authored by external coding agents. Install pelican-engine in a separate game workspace; the repository is for engine contributors.
+
+## Discover before choosing an implementation
+
+- Run `npx pelican capabilities --feature <goal>` for supported capabilities, aliases and limits.
+- Run `npx pelican api --symbol <Type.member>` for an exact method contract.
+- Run `npx pelican api --search <goal> --member --limit 8` for compact ranked methods.
+- Run `npx pelican recipe --id <id>` for complete source files and dependency requirements.
+- Unknown search results are not proof of unsupported behavior. Search aliases and the owning service before implementing a replacement.
+
+## Authoring
+
+- Game workflow: docs/npm/GAME-AUTHOR.md
+- Dependencies, lifecycle, geometry and rendering integrations: docs/npm/INTEGRATIONS.md
+- Exact generated SDK contract: docs/api/index.json and lib/sdk/index.d.ts in the npm package
+- Capability boundaries: docs/CAPABILITIES.md
+
+Ordinary browser-compatible npm algorithms can be used directly. Load browser-only libraries inside runtime.create. Give each instance its own state; register resource cleanup with scope.own/defer and save state through versioned snapshot/validateSnapshot/restore hooks. No game-runtime language model or mandatory AI platform is required.
+
+Use managed geometry, PBR textures, compute resources and defineRenderExtension for supported rendering integration. Arbitrary Three.js, TSL, raw GPU or physics objects are not a stable engine integration contract. Report an exact missing capability instead of silently replacing the renderer or reducing the requested game.

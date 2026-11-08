@@ -5,6 +5,7 @@ import {
   type ComponentSchema,
   type ComponentValue,
   type GameInstance,
+  type GameRuntimeSnapshot,
   type SystemContext,
   type SystemDefinition,
 } from "../../sdk/src/index.ts";
@@ -39,6 +40,7 @@ export interface HostPluginSnapshot {
   payload: unknown;
 }
 export interface HostTrace extends SchedulerTrace {
+  runtime?: { initial: GameRuntimeSnapshot; final: GameRuntimeSnapshot };
   plugins?: {
     initial: Record<string, HostPluginSnapshot>;
     final: Record<string, HostPluginSnapshot>;
@@ -51,6 +53,7 @@ export interface HostSnapshot {
   world: WorldSnapshot;
   scheduler: SchedulerSnapshot;
   plugins?: Record<string, HostPluginSnapshot>;
+  runtime?: GameRuntimeSnapshot;
 }
 
 function canonical(value: unknown): string {
@@ -98,6 +101,7 @@ export class RuntimeHost {
   private readonly plugins: RuntimePlugin[] = [];
   private readonly services: Partial<RuntimeServices> = {};
   private recordingPlugins?: Record<string, HostPluginSnapshot>;
+  private recordingRuntime?: GameRuntimeSnapshot;
   private asyncActive = false;
   private drivingAsync = false;
   private disposing = false;
@@ -241,7 +245,7 @@ export class RuntimeHost {
       ) => this.world.setComponent(entity, id(component), value),
       query: (component) => this.world.query(id(component)),
       runGameSystems: (systems, dt) => this.runSystems(systems, dt),
-      configureGameSystems: (systems) => this.configureSystems(systems),
+      configureGameSystems: (systems, runtime) => this.configureSystems(systems, runtime),
       get time() {
         host.assertAlive();
         return {
@@ -655,8 +659,10 @@ export class RuntimeHost {
     this.game = game;
   }
 
-  private configureSystems(systems: readonly SystemDefinition[]): void {
+  private configureSystems(systems: readonly SystemDefinition[], runtime?: { version: string }): void {
     this.assertBoundary();
+    if (this.scene.runtime && runtime?.version !== this.scene.runtime.version)
+      throw new Error("TC_GAME_RUNTIME_CONTRACT: Author runtime version differs from compiled metadata; rebuild the game and use the matching module.");
     if (this.systemIdentity) {
       this.assertSystems(systems);
       return;
@@ -836,6 +842,16 @@ export class RuntimeHost {
 
   async stepAsync(count = 1): Promise<void> {
     this.validateStep(count);
+    // Initialization can use the facade and register resources before simulation owns its async lock.
+    if (this.game!.status === "initializing") {
+      try {
+        await this.game!.ready;
+        this.validateStep(count);
+      } catch (error) {
+        this.recordStepFailure(error);
+        throw error;
+      }
+    }
     this.asyncActive = true;
     try {
       for (let i = 0; i < count; i++) {
@@ -937,6 +953,7 @@ export class RuntimeHost {
 
   snapshot(): HostSnapshot {
     this.assertBoundary();
+    const runtime = this.game?.snapshot?.();
     const scheduler = this.scheduler.snapshot();
     return {
       format: "pelican.host",
@@ -945,6 +962,7 @@ export class RuntimeHost {
       world: structuredClone(scheduler.world),
       scheduler,
       ...(this.plugins.length ? { plugins: this.pluginSnapshot() } : {}),
+      ...(runtime ? { runtime: cloneSerializable(runtime) } : {}),
     };
   }
 
@@ -1002,20 +1020,27 @@ export class RuntimeHost {
     }
     if (!pluginSnapshots && this.plugins.length)
       throw new Error("TC_PLUGIN_SNAPSHOT_SET: Plugin snapshots are required.");
-    if (!this.plugins.length) {
-      this.scheduler.restore(data.scheduler);
-      return;
-    }
+    this.validateRuntime(data.runtime);
     // A failed settle may leave in-flight sidecars, not a capturable checkpoint.
     // Recovery can restore a known-good checkpoint, but cannot roll back to it.
     const faulted = this.scheduler.inspect().fault !== null || this.plugins.some(plugin => plugin.requiresRecovery?.() === true);
     const previousScheduler = faulted ? undefined : this.scheduler.snapshot();
     const previousPlugins =
       !faulted && this.plugins.length ? this.pluginSnapshot() : undefined;
+    const previousRuntime = faulted ? undefined : this.game?.snapshot?.();
+    let schedulerRestored = false;
     try {
       this.scheduler.restore(data.scheduler);
+      schedulerRestored = true;
       if (pluginSnapshots) this.restorePlugins(pluginSnapshots);
+      this.game?.restore?.(data.runtime);
     } catch (error) {
+      // Scheduler validation is atomic. Avoid replacing valid entity handles on a rejected candidate.
+      if (!schedulerRestored) {
+        if (this.plugins.length)
+          throw new Error(`TC_PLUGIN_RESTORE: ${String(error)}; previous state unchanged.`, { cause: error });
+        throw error;
+      }
       const rollbackErrors: string[] = [];
       if (previousScheduler) {
         try {
@@ -1039,9 +1064,13 @@ export class RuntimeHost {
         }
         if (!rollbackErrors.length) try { this.afterRestorePlugins(); } catch (rollbackError) { rollbackErrors.push(String(rollbackError)); }
       }
+      if (previousRuntime) {
+        try { this.game!.restore!(previousRuntime); }
+        catch (rollbackError) { rollbackErrors.push(`runtime: ${String(rollbackError)}`); }
+      }
       const partial = rollbackErrors.length > 0;
       const wrapped = new Error(
-        `TC_PLUGIN_RESTORE: ${String(error)}${partial ? `; partialState=true; rollback failures: ${rollbackErrors.join("; ")}` : "; previous state restored."}`,
+        `${data.runtime ? "TC_GAME_RUNTIME_RESTORE" : "TC_PLUGIN_RESTORE"}: ${String(error)}${partial ? `; partialState=true; rollback failures: ${rollbackErrors.join("; ")}` : "; previous state restored."}`,
       );
       this.errors.push(diagnosticFrom(wrapped));
       throw wrapped;
@@ -1050,10 +1079,12 @@ export class RuntimeHost {
 
   startRecording(): void {
     this.assertConfigured();
+    const runtime = this.game?.snapshot?.();
     this.recordingPlugins = this.plugins.length
       ? this.pluginSnapshot()
       : undefined;
     this.scheduler.startRecording();
+    this.recordingRuntime = runtime;
   }
   stopRecording(): HostTrace {
     this.assertConfigured();
@@ -1064,16 +1095,24 @@ export class RuntimeHost {
         final: this.pluginSnapshot(),
       };
     }
+    if (this.recordingRuntime) trace.runtime = {
+      initial: this.recordingRuntime,
+      final: this.game!.snapshot!()!,
+    };
     this.recordingPlugins = undefined;
+    this.recordingRuntime = undefined;
     return trace;
   }
   cancelRecording(): void {
     this.assertConfigured();
     this.recordingPlugins = undefined;
+    this.recordingRuntime = undefined;
     this.scheduler.cancelRecording();
   }
   private preflightReplay(trace: unknown) {
     const data = this.scheduler.preflightReplay(trace) as HostTrace;
+    this.validateRuntime(data.runtime?.initial);
+    this.validateRuntime(data.runtime?.final);
     for (const snapshot of [data.initial, data.final])
       for (const entity of snapshot.world.entities)
         resolveEntityDefinition(this.scene, entity);
@@ -1111,10 +1150,19 @@ export class RuntimeHost {
     return { data, initial, final };
   }
 
+  private validateRuntime(value: unknown): void {
+    if (this.game?.validateSnapshot) this.game.validateSnapshot(value);
+    else if (value !== undefined)
+      throw new Error("TC_GAME_RUNTIME_SNAPSHOT: Checkpoint requires a matching attached author runtime.");
+  }
+
   private checkReplay(
     result: ReturnType<RuntimeScheduler["replay"]>,
     final?: Record<string, HostPluginSnapshot>,
+    runtime?: GameRuntimeSnapshot,
   ) {
+    if (result.status === "passed" && canonical(this.game?.snapshot?.()) !== canonical(runtime))
+      throw new Error("TC_REPLAY_DIVERGENCE: Final author runtime state differs; verify deterministic systems and complete snapshot hooks.");
     if (
       result.status === "passed" &&
       final &&
@@ -1136,15 +1184,21 @@ export class RuntimeHost {
 
   replay(trace: unknown): ReturnType<RuntimeScheduler["replay"]> {
     this.assertConfigured();
+    let previous: HostSnapshot | undefined;
     try {
       if (this.plugins.some((plugin) => plugin.settle !== undefined))
         throw new Error(
           "TC_RUNTIME_REPLAY_ASYNC_REQUIRED: Use replayAsync for plugins with settle boundaries.",
         );
       const { data, initial, final } = this.preflightReplay(trace);
+      if (data.runtime) previous = this.snapshot();
       if (initial) this.restorePlugins(initial);
-      return this.checkReplay(this.scheduler.replay(data), final);
+      this.game?.restore?.(data.runtime?.initial);
+      const result = this.checkReplay(this.scheduler.replay(data), final, data.runtime?.final);
+      if (result.status === "failed" && previous) this.restore(previous);
+      return result;
     } catch (error) {
+      if (previous) try { this.restore(previous); } catch (rollbackError) { this.errors.push(diagnosticFrom(new Error(`TC_GAME_RUNTIME_ROLLBACK: partialState=true; ${String(rollbackError)}`))); }
       this.errors.push(diagnosticFrom(error));
       return { status: "failed", actionsExecuted: 0, fault: null };
     }
@@ -1154,9 +1208,16 @@ export class RuntimeHost {
     trace: unknown,
   ): Promise<ReturnType<RuntimeScheduler["replay"]>> {
     this.assertConfigured();
+    let previous: HostSnapshot | undefined;
     try {
+      if (this.game?.status === "initializing") {
+        await this.game.ready;
+        this.assertConfigured();
+      }
       const { data, initial, final } = this.preflightReplay(trace);
+      if (data.runtime) previous = this.snapshot();
       if (initial) this.restorePlugins(initial);
+      this.game?.restore?.(data.runtime?.initial);
       this.asyncActive = true;
       this.drivingAsync = true;
       let pending: ReturnType<RuntimeScheduler["replayAsync"]>;
@@ -1170,8 +1231,13 @@ export class RuntimeHost {
       }
       const result = await pending;
       this.assertAlive();
-      return this.checkReplay(result, final);
+      this.asyncActive = false;
+      const checked = this.checkReplay(result, final, data.runtime?.final);
+      if (checked.status === "failed" && previous) this.restore(previous);
+      return checked;
     } catch (error) {
+      this.asyncActive = false;
+      if (previous && !this.released) try { this.restore(previous); } catch (rollbackError) { this.errors.push(diagnosticFrom(new Error(`TC_GAME_RUNTIME_ROLLBACK: partialState=true; ${String(rollbackError)}`))); }
       this.errors.push(diagnosticFrom(error));
       return { status: "failed", actionsExecuted: 0, fault: null };
     } finally {

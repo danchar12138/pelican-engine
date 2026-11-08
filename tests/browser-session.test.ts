@@ -44,9 +44,10 @@ function hasCode(code: string) {
     error instanceof AutomationError && error.code === code;
 }
 
-test("launch options keep headed D3D11 with only the requested background safeguards", () => {
+test("launch options isolate full headless Chromium from desktop input and retain actual graphics", () => {
   const options = automationLaunchOptions(30_000, "win32");
-  assert.equal(options.headless, false);
+  assert.equal(options.headless, true);
+  assert.equal(options.channel, "chromium");
   assert.equal(options.timeout, 30_000);
   assert.deepEqual(options.args, [
     "--use-angle=d3d11",
