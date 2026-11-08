@@ -8,7 +8,8 @@ import { createGameServices, GAME_SERVICES_MAX_VOICES } from "../packages/runtim
 import { RuntimeHost } from "../packages/runtime/src/host.ts";
 import type { SceneIR } from "../packages/compiler/src/types.ts";
 
-test("public fade drives a continuous real Chromium Web Audio graph without GPU and cleans up", { timeout: 60000 }, async () => {
+for (const timingDelay of [0, 160])
+ test(`public fade drives real Chromium Web Audio with ${timingDelay}ms sampling delay and cleans up`, { timeout: 60000 }, async () => {
   const server = await createServer({ configFile: false, server: { middlewareMode: true, fs: { strict: false } }, logLevel: "error" });
   const http = createHttpServer((req, res) => {
     if (req.url === "/__fade_blank") { res.setHeader("Content-Type", "text/html"); res.end("<!doctype html><title>fade</title>"); }
@@ -50,17 +51,22 @@ test("public fade drives a continuous real Chromium Web Audio graph without GPU 
       host.attach(sdk.instantiateGame(game,host.facade));
       const camera=new THREE.PerspectiveCamera(),objects=new Map();
       const action=fn=>{command=fn;host.step();command=()=>{};content.present(camera,objects,.01,999)};
-      const signal=async ms=>{await new Promise(r=>setTimeout(r,ms));const a=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(a);return Math.max(...a.map(Math.abs))};
+      let signalTime=0;
+      const signal=async (ms,delayed=false)=>{await new Promise(r=>setTimeout(r,ms+(delayed?${timingDelay}:0)));signalTime=context.currentTime;const a=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(a);return Math.max(...a.map(Math.abs))};
       await context.resume();action(a=>{voice=a.play('s')});let baseline=await signal(110);
       for(let i=0;i<8&&baseline<.05;i++)baseline=await signal(110);
+      const fadeStart=context.currentTime;
       action(a=>a.fadeBus('music',0,.6));
-      const early=await signal(80),mid=await signal(180),late=await signal(190);
+      const early=await signal(80,true),earlyAt=signalTime-fadeStart;
+      const mid=await signal(180,true),midAt=signalTime-fadeStart;
+      const late=await signal(190,true),lateAt=signalTime-fadeStart;
       const gain=content.inspect().audio.busVolumes[0].volume;
       const saved=host.snapshot();
       action(a=>a.busVolume('music',1));const reset=await signal(100);
       host.restore(saved);content.present(camera,objects,.01,999);
       const restored=await signal(50);
-      action(a=>a.pause(voice));const paused=await signal(70);
+      // Pause/resume verifies voice transport independently of the prior ramp.
+      action(a=>{a.busVolume('music',1);a.pause(voice)});const paused=await signal(70);
       action(a=>a.resume(voice));const resumed=await signal(100);
       action(a=>a.stop(voice));const silent=await signal(70);
       let oldest;
@@ -70,12 +76,21 @@ test("public fade drives a continuous real Chromium Web Audio graph without GPU 
       const afterEviction={starts,stops,voices:content.inspect().audio.voices.length,oldestGone:!content.inspect().audio.voices.some(v=>v.id===oldest)};
       host.dispose();await content.dispose();const closed=context.state;
       GainNode.prototype.connect=connect;AudioBufferSourceNode.prototype.start=start;AudioBufferSourceNode.prototype.stop=stop;URL.revokeObjectURL(url);
-      return {baseline,early,mid,late,gain,reset,restored,paused,resumed,silent,starts,stops,closed,beforeEviction,afterEviction};
+      return {baseline,early,mid,late,earlyAt,midAt,lateAt,gain,reset,restored,paused,resumed,silent,starts,stops,closed,beforeEviction,afterEviction};
     })()`) as Record<string, unknown>;
     const n = (key: string) => result[key] as number;
     assert.ok(n("baseline") > .1, JSON.stringify(result));
-    assert.ok(n("early") > n("mid") && n("mid") > n("late") && n("late") > .01, JSON.stringify(result));
-    assert.ok(n("early") < n("baseline") * .99 && n("early") > n("baseline") * .5, JSON.stringify(result));
+    // Real audio time keeps advancing when a loaded OS delays setTimeout. A
+    // sample after the 600ms ramp must be silent, rather than fail for being zero.
+    // Compare the actual signal to the analytical ramp at its measured audio time.
+    let intermediate = 0;
+    for (const key of ["early", "mid", "late"]) {
+      const expected = Math.max(0, 1 - n(`${key}At`) / .6);
+      assert.ok(Math.abs(n(key) / n("baseline") - expected) < .16, JSON.stringify(result));
+      if (expected > .1 && expected < .9) intermediate++;
+    }
+    assert.ok(intermediate > 0, `No intermediate audio sample was observed: ${JSON.stringify(result)}`);
+    assert.ok(n("early") > n("late"), JSON.stringify(result));
     assert.ok(n("gain") > .98, JSON.stringify(result)); // simulation ticks do not advance during wall-clock fade
     assert.ok(n("reset") > n("late") * 2 && n("restored") > .05, JSON.stringify(result));
     assert.ok(n("paused") < .001 && n("resumed") > .05 && n("silent") < .001, JSON.stringify(result));
