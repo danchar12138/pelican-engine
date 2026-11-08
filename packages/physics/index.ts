@@ -1358,6 +1358,11 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   return {
     id: pluginId,
     version: "3",
+    ...(definitions.length === 0 ? { legacySnapshot: () => {
+      const empty = simulation([], gravity, catalog);
+      try { return { format: "pelican.physics-rapier3d", version: 3, scene, history: [], bindings: [], ...empty.header() }; }
+      finally { empty.dispose(); }
+    } } : {}),
     requiresRecovery: () => nativeFault,
     services: { physics },
     terrainPhysicsBridge: {

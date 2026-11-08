@@ -321,11 +321,34 @@ export async function prepareGameplay(
         systems: [
           {
             id: "$engine.models",
-            phase: "presentation",
+            phase: "physics",
+            before: ["$engine.physics"],
+            writes: ["Transform"],
             run: (dt) => {
               const records = context.world.records();
               models.reconcileBindings(modelDefinitions(records));
+              const apply = records.filter(record => resolveEntityDefinition(ir, record)?.model && models.animation.rootMotion(record.id)?.mode === "apply");
+              for (const record of apply) {
+                const definition = resolveEntityDefinition(ir, record)!;
+                const scale = record.transform.scale;
+                if (record.parent !== undefined || definition.rigidBody || scale.some(value => value <= 0) || Math.max(...scale) - Math.min(...scale) > 1e-6)
+                  throw new Error(`TC_MODEL_ROOT_MOTION_BODY: '${record.id}' apply requires a character or non-physical root with positive uniform scale; use extract for custom physics.`);
+              }
               models.tick(dt);
+              for (const record of apply) {
+                const definition = resolveEntityDefinition(ir, record)!, model = definition.model!, motion = models.animation.consumeRootMotion(record.id), transform = context.world.getTransform(record.id);
+                const modelMatrix = new THREE.Matrix4().compose(new THREE.Vector3(...(model.offset ?? [0, 0, 0])),
+                  new THREE.Quaternion().setFromEuler(new THREE.Euler(...(model.rotation ?? [0, 0, 0]))), new THREE.Vector3().setScalar(model.scale ?? 1));
+                const local = modelMatrix.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(...motion.translation), new THREE.Quaternion(...motion.rotation), new THREE.Vector3(1, 1, 1))).multiply(modelMatrix.clone().invert());
+                const displacement = new THREE.Vector3(), change = new THREE.Quaternion(); local.decompose(displacement, change, new THREE.Vector3());
+                const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(...transform.rotation));
+                displacement.multiplyScalar(transform.scale[0]).applyQuaternion(rotation);
+                const angles = new THREE.Euler().setFromQuaternion(rotation.multiply(change), "XYZ"), nextRotation = [angles.x, angles.y, angles.z] as const;
+                if (definition.character) {
+                  (context.getPhysicsService?.() ?? (() => { throw new Error("TC_MODEL_ROOT_MOTION_PHYSICS: Character root motion requires production physics."); })()).moveCharacter(record.id, displacement.toArray());
+                  context.world.setTransform(record.id, { rotation: nextRotation });
+                } else context.world.setTransform(record.id, { position: [transform.position[0] + displacement.x, transform.position[1] + displacement.y, transform.position[2] + displacement.z], rotation: nextRotation });
+              }
             },
           },
         ],

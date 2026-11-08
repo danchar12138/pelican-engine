@@ -1122,6 +1122,15 @@ export interface AdditiveAnimationState {
   playing: boolean;
 }
 /** CCD inverse-kinematics chain; target coordinates are local to the loaded model root. */
+export interface AnimationIKJointLimit {
+  bone: string;
+  enabled?: boolean;
+  /** Local XYZ Euler bounds in radians. */
+  rotationMin?: Vec3;
+  rotationMax?: Vec3;
+  /** Optional normalized local hinge axis. */
+  hingeAxis?: Vec3;
+}
 export interface AnimationIKDefinition {
   id: string;
   effector: string;
@@ -1132,6 +1141,12 @@ export interface AnimationIKDefinition {
   weight?: number;
   /** Maximum radians per joint update; omitted means no additional limit. */
   maxAngle?: number;
+  jointLimits?: readonly AnimationIKJointLimit[];
+  /** Model-local bend direction target for a two-link limb. */
+  pole?: Vec3;
+  /** Desired effector orientation in model-root space, as a normalized quaternion. */
+  orientation?: Vec4;
+  orientationWeight?: number;
 }
 export interface AnimationIKState {
   id: string;
@@ -1141,9 +1156,47 @@ export interface AnimationIKState {
   iterations: number;
   weight: number;
   maxAngle?: number;
+  jointLimits?: readonly AnimationIKJointLimit[];
+  pole?: Vec3;
+  orientation?: Vec4;
+  orientationWeight?: number;
+}
+export interface AnimationRootMotionDefinition {
+  bone: string;
+  /** Translation channels in the root bone's parent frame; defaults to X/Z. */
+  axes?: readonly [boolean, boolean, boolean];
+  rotation?: "none" | "yaw" | "full";
+  /** apply moves a non-physical root or character through the engine; extract leaves movement to game code. */
+  mode?: "extract" | "apply";
+}
+export interface AnimationRootMotionDelta { translation: Vec3; rotation: Vec4 }
+export interface AnimationRootMotionState {
+  bone: string;
+  axes: readonly [boolean, boolean, boolean];
+  rotation: "none" | "yaw" | "full";
+  mode: "extract" | "apply";
+  pending: AnimationRootMotionDelta;
+}
+export interface AnimationRetargetDefinition {
+  /** New clip name on the target model. Authored clips cannot be replaced. */
+  name: string;
+  sourceAsset: string;
+  sourceClip: string;
+  /** Explicit target-bone to source-bone mapping. */
+  bones: Readonly<Record<string, string>>;
+  /** Source hip bone; its mapped target receives scaled translation. */
+  hip: string;
+  scale?: number;
+  fps?: number;
 }
 /** Full model animation controls exposed by system contexts. */
 export interface AnimationControlService extends AnimationService {
+  setRootMotion(entity: string, definition: AnimationRootMotionDefinition | null): void;
+  rootMotion(entity: string): AnimationRootMotionState | null;
+  consumeRootMotion(entity: string): AnimationRootMotionDelta;
+  retarget(entity: string, definition: AnimationRetargetDefinition): void;
+  removeRetargetedClip(entity: string, name: string): void;
+  retargetedClips(entity: string): readonly AnimationRetargetDefinition[];
   /** Play two complete clips together; weight is the second clip's contribution in [0,1]. */
   blend(entity: string, first: string, second: string, weight: number): void;
   /** Change the second clip's weight without restarting either clip. */

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add IK joint limits, normalized hinge axes, two-link pole targets and effector orientation blending; behavior and recovery are unverified.
+- Add isolated bind-pose-corrected skeletal clip retargeting, generated-clip lifecycle and descriptor-based snapshot reconstruction; runtime behavior and costs are unverified.
+- Add loop-aware root-motion extraction and optional character/non-physical root application before native physics, with snapshot-preserved pending movement. Root motion, animation order and blocking interactions are unverified.
+- Add empty-world legacy physics state for older scenes that did not initialize a 3D physics owner; compatibility is unverified.
+
 ## 0.15.0 - 2026-11-08
 
 - Compile-only simulation/terrain development batch. Cross-material solving, native terrain collision, navigation, tracing, resource costs and recovery have not been runtime-validated. Complete 1.0 scope is still unfinished.

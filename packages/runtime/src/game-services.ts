@@ -550,6 +550,30 @@ export function createGameServices(
       },
     },
     animation: {
+      setRootMotion(entity, definition) {
+        alive(); if (!animation.setRootMotion) throw new Error("TC_ANIMATION_ADAPTER: Root motion is unavailable.");
+        animation.setRootMotion(entity, cloneSerializable(definition));
+      },
+      rootMotion(entity) {
+        alive(); if (!animation.rootMotion) throw new Error("TC_ANIMATION_ADAPTER: Root motion is unavailable.");
+        return animation.rootMotion(entity);
+      },
+      consumeRootMotion(entity) {
+        alive(); if (!animation.consumeRootMotion) throw new Error("TC_ANIMATION_ADAPTER: Root motion is unavailable.");
+        return animation.consumeRootMotion(entity);
+      },
+      retarget(entity, definition) {
+        alive(); if (!animation.retarget) throw new Error("TC_ANIMATION_ADAPTER: Skeletal retargeting is unavailable.");
+        animation.retarget(entity, cloneSerializable(definition));
+      },
+      removeRetargetedClip(entity, name) {
+        alive(); if (!animation.removeRetargetedClip) throw new Error("TC_ANIMATION_ADAPTER: Skeletal retargeting is unavailable.");
+        animation.removeRetargetedClip(entity, name);
+      },
+      retargetedClips(entity) {
+        alive(); if (!animation.retargetedClips) throw new Error("TC_ANIMATION_ADAPTER: Skeletal retargeting is unavailable.");
+        return animation.retargetedClips(entity);
+      },
       blend(entity, first, second, weight) {
         alive();
         if (!animation.blend) throw new Error("TC_ANIMATION_ADAPTER: Clip blending is unavailable in this animation adapter.");

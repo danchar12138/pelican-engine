@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local animation development adds per-link IK bounds/hinges/disable flags, two-link pole targets and effector orientation; isolated bind-corrected skeletal clip retargeting with descriptor snapshots; and interpolant-based loop-aware root-motion extraction/application through non-physical roots or character controllers before native physics. Skeletal behavior, animation order, movement, retargeting and restoration are unverified. Automatic grounding/full-body balance, cinematic sequencing and broader animation/physics arbitration remain incomplete. See [Skeletal Animation](ANIMATION.md).
+
 - Local terrain development adds a public height-grid service with batched edits and world-space sculpting, one f32 mesh source for rendering/tracing/native trimesh collision, immediate physics-query refresh, slope/step-based owned navigation grids, terrain-following X/Z agents, shared particle-surface contacts and cross-owner snapshots. This is bounded CPU height-surface terrain, not arbitrary volumetric destruction, dynamic residency or guaranteed rigid-body ejection when edits engulf bodies. Runtime, GPU, navigation, contact and restore behavior are unverified. See [Terrain](TERRAIN.md).
 
 - Exceptions after entering native action application now fault the owner regardless of diagnostic prefix; a TC-prefixed error is no longer treated as proof of unchanged native state. Common invalid body/vector commands are rejected before applying an action. Recovery remains unverified.

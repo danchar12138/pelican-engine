@@ -11,6 +11,8 @@ import type {
   AdditiveAnimationState,
   AnimationIKDefinition,
   AnimationIKState,
+  AnimationRetargetDefinition,
+  AnimationRootMotionState,
   AnimationService,
   AnimationControlService,
   AssetDefinition,
@@ -18,6 +20,8 @@ import type {
 } from "../../sdk/src/index.ts";
 import { additiveConfiguration, createAdditiveClip, listAdditiveBones, type AdditiveConfiguration } from "./model-additive.ts";
 import { createModelIK, ikTarget, prepareModelIK, type ModelIKRig } from "./model-ik.ts";
+import { createRetargetedClip, retargetDefinition } from "./model-retarget.ts";
+import { createRootMotion, type ModelRootMotion } from "./model-root-motion.ts";
 
 export type ModelSource = string | { id: string; url?: string; path?: string };
 export interface ModelFadeSnapshot {
@@ -47,6 +51,8 @@ export interface ModelAnimationSnapshot {
   additives?: Omit<AdditiveAnimationState, "playing">[];
   /** Absent in snapshots created before inverse-kinematics chains. */
   iks?: AnimationIKState[];
+  retargets?: AnimationRetargetDefinition[];
+  rootMotion?: AnimationRootMotionState;
   actions: ModelActionSnapshot[];
 }
 export interface ModelLibrarySnapshot {
@@ -157,6 +163,8 @@ interface InstanceState {
   additives: Map<string, AdditiveLayer>;
   iks: Map<string, ModelIKRig>;
   ikBase: Map<THREE.Bone, THREE.Quaternion>;
+  retargets: Map<string, AnimationRetargetDefinition>;
+  rootMotion: ModelRootMotion | null;
 }
 interface AdditiveLayer {
   id: string;
@@ -274,6 +282,26 @@ class ModelLibraryImpl implements ModelLibrary {
   private disposing?: Promise<void>;
 
   readonly animation: AnimationControlService = {
+    setRootMotion: (entity, definition) => {
+      const state = this.instance(entity), next = definition === null ? null : createRootMotion(state.root, definition), previous = state.rootMotion;
+      state.rootMotion = next;
+      try { this.refreshPose(state); }
+      catch (error) {
+        state.rootMotion = previous;
+        try { this.refreshPose(state); } catch (rollback) { throw new AggregateError([error, rollback], "TC_MODEL_ROOT_MOTION_ROLLBACK: Restore a known-good checkpoint."); }
+        throw error;
+      }
+    },
+    rootMotion: entity => this.instance(entity).rootMotion?.snapshot() ?? null,
+    consumeRootMotion: entity => this.instance(entity).rootMotion?.consume() ?? { translation: [0, 0, 0], rotation: [0, 0, 0, 1] },
+    retarget: (entity, definition) => this.installRetarget(this.instance(entity), definition),
+    removeRetargetedClip: (entity, name) => {
+      const state = this.instance(entity), definition = state.retargets.get(name);
+      if (!definition) throw new Error(`TC_MODEL_RETARGET_MISSING: ${entity}/${name}; choose a generated clip.`);
+      if (state.actions.has(name) || [...state.additives.values()].some(layer => layer.source === name)) throw new Error(`TC_MODEL_RETARGET_IN_USE: ${entity}/${name}; stop its base/additive playback first.`);
+      state.mixer.uncacheClip(state.clips.get(name)!); state.clips.delete(name); state.retargets.delete(name);
+    },
+    retargetedClips: entity => [...this.instance(entity).retargets.values()].map(value => structuredClone(value)),
     play: (entity, clip, options = {}) => this.play(entity, clip, options),
     blend: (entity, first, second, weight) => {
       const state = this.instance(entity), a = state.clips.get(first), b = state.clips.get(second);
@@ -762,6 +790,8 @@ class ModelLibraryImpl implements ModelLibrary {
       additives: new Map(),
       iks: new Map(),
       ikBase: new Map(),
+      retargets: new Map(),
+      rootMotion: null,
     };
     state.handle = Object.freeze({
       entity: entityId,
@@ -840,6 +870,10 @@ class ModelLibraryImpl implements ModelLibrary {
           fade.elapsed = Math.min(fade.duration, fade.elapsed + dt);
           state.actions.get(name)!.setEffectiveWeight(this.fadeWeight(fade));
         }
+        state.rootMotion?.advance([
+          ...[...state.actions].map(([name, action]) => ({ clip: state.clips.get(name)!, action })),
+          ...[...state.additives.values()].map(layer => ({ clip: layer.clip, action: layer.action })),
+        ], dt);
         state.mixer.update(dt);
         for (const [name, fade] of state.fades) {
           if (fade.elapsed < fade.duration) continue;
@@ -850,6 +884,7 @@ class ModelLibraryImpl implements ModelLibrary {
           }
         }
       }
+      state.rootMotion?.strip();
       this.solveIKPose(state);
     }
   }
@@ -870,6 +905,8 @@ class ModelLibraryImpl implements ModelLibrary {
             ...(state.blend ? { blend: { ...state.blend } } : {}),
             ...(state.additives.size ? { additives: this.additiveStates(state).map(({ playing: _playing, ...saved }) => saved) } : {}),
             ...(state.iks.size ? { iks: this.ikStates(state) } : {}),
+            ...(state.retargets.size ? { retargets: [...state.retargets.values()].map(value => structuredClone(value)) } : {}),
+            ...(state.rootMotion ? { rootMotion: state.rootMotion.snapshot() } : {}),
             actions: [...state.actions.entries()].map(([clip, action]) => ({
               clip,
               time: action.time,
@@ -918,6 +955,14 @@ class ModelLibraryImpl implements ModelLibrary {
       const template = this.templates.get(item.asset);
       if (!template) throw invalid();
       const clips = new Map(template.clips.map((clip) => [clip.name, clip]));
+      if (item.retargets !== undefined) {
+        if (!Array.isArray(item.retargets) || item.retargets.length > 64) throw invalid();
+        for (const raw of item.retargets) {
+          const definition = retargetDefinition(raw), source = this.templates.get(definition.sourceAsset), clip = source?.clips.find(value => value.name === definition.sourceClip);
+          if (clips.has(definition.name) || !source || !clip) throw invalid();
+          clips.set(definition.name, createRetargetedClip(template.scene, source.scene, clip, definition));
+        }
+      }
       if (
         item.currentClip !== null &&
         (typeof item.currentClip !== "string" || !clips.has(item.currentClip))
@@ -1006,6 +1051,11 @@ class ModelLibraryImpl implements ModelLibrary {
           prepareModelIK(template.scene, ik);
         }
       }
+      if (item.rootMotion !== undefined) {
+        if (!item.rootMotion || typeof item.rootMotion !== "object" || !Object.hasOwn(item.rootMotion, "pending")) throw invalid();
+        const { pending, ...options } = item.rootMotion;
+        createRootMotion(template.scene, options, pending);
+      }
     }
     return structuredClone(data);
   }
@@ -1021,7 +1071,7 @@ class ModelLibraryImpl implements ModelLibrary {
       setValue(values: number[], offset: number): void;
     };
     const poses: Array<{ binding: PoseBinding; values: number[] }> = [];
-    const bonePoses: Array<{ bone: THREE.Bone; quaternion: THREE.Quaternion }> = [];
+    const bonePoses: Array<{ bone: THREE.Bone; quaternion: THREE.Quaternion; position: THREE.Vector3; scale: THREE.Vector3 }> = [];
     const touched: InstanceState[] = [];
     let committed = false;
     let commitStarted = false;
@@ -1033,7 +1083,7 @@ class ModelLibraryImpl implements ModelLibrary {
       );
       for (const state of affected) {
         state.root.traverse(object => {
-          if (object instanceof THREE.Bone) bonePoses.push({ bone: object, quaternion: object.quaternion.clone() });
+          if (object instanceof THREE.Bone) bonePoses.push({ bone: object, quaternion: object.quaternion.clone(), position: object.position.clone(), scale: object.scale.clone() });
         });
         const tracks = new Map<string, THREE.KeyframeTrack>();
         for (const clip of state.clips.values())
@@ -1079,7 +1129,7 @@ class ModelLibraryImpl implements ModelLibrary {
         try { pose.binding.setValue(pose.values, 0); }
         catch (rollbackError) { failures.push(rollbackError); }
       }
-      for (const pose of bonePoses) pose.bone.quaternion.copy(pose.quaternion);
+      for (const pose of bonePoses) { pose.bone.quaternion.copy(pose.quaternion); pose.bone.position.copy(pose.position); pose.bone.scale.copy(pose.scale); }
       if (commitStarted)
         throw new AggregateError([error, ...failures], "TC_MODEL_RESTORE_COMMIT_FAILED: commit may be partial; model state is not guaranteed atomic");
       if (failures.length)
@@ -1101,6 +1151,9 @@ class ModelLibraryImpl implements ModelLibrary {
     for (const action of state.actions.values()) action.stop();
     state.actions.clear();
     state.fades.clear();
+    for (const name of state.retargets.keys()) { state.mixer.uncacheClip(state.clips.get(name)!); state.clips.delete(name); }
+    state.retargets.clear();
+    for (const definition of item.retargets ?? []) this.installRetarget(state, definition);
     state.action = null;
     state.clip = null;
     state.blend = item.blend ? { ...item.blend } : null;
@@ -1131,6 +1184,7 @@ class ModelLibraryImpl implements ModelLibrary {
       state.additives.get(saved.id)!.action.paused = saved.paused;
     }
     for (const saved of item.iks ?? []) state.iks.set(saved.id, createModelIK(state.root, saved));
+    state.rootMotion = item.rootMotion ? createRootMotion(state.root, { bone: item.rootMotion.bone, axes: item.rootMotion.axes, rotation: item.rootMotion.rotation, mode: item.rootMotion.mode }, item.rootMotion.pending) : null;
     this.refreshPose(state);
   }
 
@@ -1228,6 +1282,7 @@ class ModelLibraryImpl implements ModelLibrary {
   private refreshPose(state: InstanceState): void {
     this.resetIKPose(state);
     state.mixer.update(0);
+    state.rootMotion?.strip();
     this.solveIKPose(state);
   }
 
@@ -1257,6 +1312,15 @@ class ModelLibraryImpl implements ModelLibrary {
       });
     } catch (error) { rig.dispose(); throw error; }
     previous?.dispose();
+  }
+
+  private installRetarget(state: InstanceState, raw: AnimationRetargetDefinition): void {
+    const definition = retargetDefinition(structuredClone(raw));
+    if (state.clips.has(definition.name) || state.retargets.size >= 64) throw new Error(`TC_MODEL_RETARGET_CLIP: ${state.entity}/${definition.name}; choose a new name and keep at most 64 generated clips.`);
+    const source = this.templates.get(definition.sourceAsset), clip = source?.clips.find(value => value.name === definition.sourceClip);
+    if (!source || !clip) throw new Error(`TC_MODEL_RETARGET_SOURCE: ${definition.sourceAsset}/${definition.sourceClip}; prepare a declared source model and clip first.`);
+    const result = createRetargetedClip(state.root, source.scene, clip, definition);
+    state.clips.set(definition.name, result); state.retargets.set(definition.name, definition);
   }
 
   private additiveStates(state: InstanceState): AdditiveAnimationState[] {
