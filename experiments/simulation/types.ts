@@ -7,6 +7,8 @@ export type SimulationCollider =
   | { kind: "plane"; id: string; normal: Vec3; offset: number }
   | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 export interface SimulationOptions {
+  /** Engine-private production mode: bodies are explicit native samples, never a reference sphere. */
+  externalBodies?: boolean;
   seed?: number;
   fixedDt?: number;
   substeps?: number;
@@ -29,6 +31,7 @@ export interface SimulationOptions {
   bodyVelocity?: Vec3;
 }
 export interface ResolvedOptions {
+  externalBodies?: boolean;
   seed: number;
   fixedDt: number;
   substeps: number;
@@ -149,6 +152,7 @@ export interface SimulationBodyCoupling {
   };
 }
 export interface Simulation {
+  setSampledBodies(bodies: readonly ({ id: string; position: Vec3; velocity: Vec3 } & ({ kind: "sphere"; radius: number } | { kind: "box"; halfExtents: Vec3; rotation: Vec3 }))[]): void;
   readonly kind: SimulationKind;
   step(steps?: number, coupling?: SimulationBodyCoupling): SimulationInspection;
   /** Private engine scheduling; a yielded state remains owned by this solver. */

@@ -263,6 +263,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
   return {
     id: "$engine.ropes", version: "1", services: { ropes: service }, simulation: schedule,
     requiresRecovery: () => schedule.faulted,
+    afterRestore() { ensureRefs(); },
     afterPhysics() {
       alive(); ensureRefs();
       const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string>; attachmentRefs: Map<number, EntityHandle> }[] = [];

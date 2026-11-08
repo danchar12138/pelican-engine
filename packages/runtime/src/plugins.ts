@@ -164,6 +164,8 @@ export interface RuntimePlugin {
   /** Cross-owner snapshot preflight before any plugin or World mutation. */
   validatePeers?(value: unknown, peers: Readonly<Record<string, { version?: string; payload: unknown }>>): void;
   restore(value: unknown): void;
+  /** Resolve generation handles/derived peer samples only after every owner has restored. */
+  afterRestore?(): void;
   /** Synchronous engine-owned work after the physics phase and before postPhysics systems. */
   afterPhysics?(): void;
   /** Private fixed-tick participant; yielded states are never exposed to game systems. */

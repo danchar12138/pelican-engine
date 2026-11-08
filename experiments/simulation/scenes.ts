@@ -32,6 +32,7 @@ export function resolveOptions(
   if (!KINDS.includes(kind))
     fail("SIM_KIND", `Unknown simulation kind: ${kind}`);
   const result: ResolvedOptions = {
+    ...(options.externalBodies === undefined ? {} : { externalBodies: options.externalBodies }),
     seed: options.seed ?? 12345,
     fixedDt: options.fixedDt ?? 1 / 60,
     substeps: options.substeps ?? 6,
@@ -92,6 +93,7 @@ export function resolveOptions(
     fail("SIM_OPTIONS", "softBodyGrid is soft-body-only and requires three integer dimensions in [2,5].");
   if (result.selfCollisions !== undefined && (kind !== "softbody" || typeof result.selfCollisions !== "boolean"))
     fail("SIM_OPTIONS", "selfCollisions is a soft-body-only boolean option.");
+  if (result.externalBodies !== undefined && (typeof result.externalBodies !== "boolean" || !["fluid", "softbody"].includes(kind))) fail("SIM_OPTIONS", "externalBodies is a fluid/soft-body-only boolean option.");
   return result;
 }
 export function makeScene(
@@ -104,7 +106,7 @@ export function makeScene(
     kind,
     options: copy(options),
     tick: 0,
-    bodies: [
+    bodies: options.externalBodies ? [] : [
       {
         id: "body:0",
         position: copy(options.bodyPosition),

@@ -1,7 +1,7 @@
 import type { SoftBodyBodyCollider, SoftBodyDefinition, SoftBodyService, SoftBodyState, SoftBodyVisualState, Vec2, Vec3 } from "../../sdk/src/index.ts";
 import type { RuntimePluginFactory } from "../../runtime/src/plugins.ts";
 import type { EntityHandle } from "../../sdk/src/index.ts";
-import { requireSampledBody, resolveSampledBody, validateSampledBodyPeers, validateSampledBodyWorld } from "./sampled-body-binding.ts";
+import { bindParticleBodies, checkParticleBodies, particleColliderIds, syncParticleBodies, validateSampledBodyPeers, validateSampledBodyWorld } from "./sampled-body-binding.ts";
 import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createSimulation, type Simulation, type SimulationSnapshot } from "../../../experiments/simulation/index.ts";
 import { differingSimulationOption } from "./snapshot-options.ts";
@@ -12,7 +12,7 @@ import { applyParticleForces } from "./particle-forces.ts";
 import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
 import { createRopeBodyCoupling, virtualCollider, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
-type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
+type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRefs: Map<string, EntityHandle>; externalBodies: boolean };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
 const fail = (code: string, detail: string): never => { throw new Error(`TC_SOFTBODY_${code}: ${detail}`); };
 const validId = (value: unknown): value is string => typeof value === "string" && value.trim() === value && value.length > 0 && value.length <= 128;
@@ -24,26 +24,32 @@ const planarUvs = (positions: readonly Vec3[]): Vec2[] => {
   const width = Math.max(max[a] - min[a], 1e-6), height = Math.max(max[b] - min[b], 1e-6);
   return positions.map(point => [(point[a] - min[a]) / width, (point[b] - min[b]) / height]);
 };
-function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: ReadonlySet<string>): Entry {
+function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: ReadonlySet<string>, restoredExternal?: boolean): Entry {
   const definition = cloneSerializable(input);
   if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty soft-body id.");
+  const externalBodies = restoredExternal ?? (definition.autoStep === true);
+  if (externalBodies && !definition.autoStep) return fail("BODY_COLLIDER", "Native body mode requires automatic stepping.");
   if (definition.fixedDt !== undefined && definition.fixedDt !== fixedDt) return fail("FIXED_DT", "Soft-body fixedDt must match the host fixedDt.");
   if (definition.autoStep !== undefined && typeof definition.autoStep !== "boolean") return fail("AUTO_STEP", "autoStep must be boolean.");
   if (definition.bodyReactions !== undefined && typeof definition.bodyReactions !== "boolean") return fail("BODY_REACTION", "bodyReactions must be boolean.");
   if (definition.bodyReactions && !definition.bodyColliders?.length) return fail("BODY_REACTION", "bodyReactions require bodyColliders.");
   if (definition.bodyColliders !== undefined) {
-    if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > 1) return fail("BODY_COLLIDER", "Soft bodies support at most one body collider.");
+    if (!Array.isArray(definition.bodyColliders) || definition.bodyColliders.length > (externalBodies ? 64 : 1)) return fail("BODY_COLLIDER", "Soft bodies support at most 64 live native body colliders (one in legacy snapshots).");
     if (definition.bodyColliders.length && !definition.autoStep) return fail("BODY_COLLIDER", "bodyColliders require autoStep: true.");
-    const binding = definition.bodyColliders[0];
-    if (binding && (!validId(binding.id) || !validId(binding.entity))) return fail("BODY_COLLIDER", "Body binding requires nonempty ids.");
+    const ids = new Set<string>(), entities = new Set<string>();
+    for (const binding of definition.bodyColliders) {
+      if (!binding || !validId(binding.id) || !validId(binding.entity) || ids.has(binding.id) || entities.has(binding.entity)) return fail("BODY_COLLIDER", "Body bindings need distinct nonempty IDs and entities.");
+      ids.add(binding.id); entities.add(binding.entity);
+    }
   }
   if (definition.visual && (!validId(definition.visual.material) || !materials.has(definition.visual.material))) return fail("VISUAL_MATERIAL", "visual.material must name a declared material.");
   const { id: _id, autoStep: _autoStep, visual: _visual, bodyColliders: _bodyColliders, bodyReactions: _bodyReactions, ...options } = definition;
   const simulationOptions = {
     ...options,
     fixedDt,
+    externalBodies,
     softBodyGrid: definition.softBodyGrid ? [...definition.softBodyGrid] as [number, number, number] : undefined,
-    ...(definition.bodyColliders?.length ? { twoWayCoupling: definition.bodyReactions ?? false } : {}),
+    ...(externalBodies || definition.bodyColliders?.length ? { twoWayCoupling: definition.bodyReactions ?? false } : {}),
     origin: definition.origin ? [...definition.origin] as [number, number, number] : undefined,
     container: definition.container ? { min: [...definition.container.min] as [number, number, number], max: [...definition.container.max] as [number, number, number] } : undefined,
     gravity: definition.gravity ? [...definition.gravity] as [number, number, number] : undefined,
@@ -53,7 +59,7 @@ function createEntry(input: SoftBodyDefinition, fixedDt: number, materials: Read
   const simulation = createSimulation("softbody", simulationOptions);
   try {
     const uvs = planarUvs(simulation.getRenderState().particles.map(particle => particle.position));
-    return { definition, simulation, uvs };
+    return { definition, simulation, uvs, bodyRefs: new Map(), externalBodies };
   } catch (error) { simulation.dispose(); throw error; }
 }
 function disposeEntries(entries: Map<string, Entry>): void { for (const entry of entries.values()) entry.simulation.dispose(); entries.clear(); }
@@ -63,14 +69,13 @@ function parseSnapshot(value: unknown, fixedDt: number, materials: ReadonlySet<s
   try {
     for (const item of (value as { softBodies: Saved[] }).softBodies) {
       if (!item || typeof item !== "object") return fail("SNAPSHOT", "Invalid soft-body entry.");
-      const entry = createEntry(item.definition, fixedDt, materials);
+      const entry = createEntry(item.definition, fixedDt, materials, item.state?.options?.externalBodies ?? false);
       if (result.has(entry.definition.id)) { entry.simulation.dispose(); return fail("SNAPSHOT", `Duplicate soft-body id '${entry.definition.id}'.`); }
       result.set(entry.definition.id, entry);
       const expected = entry.simulation.snapshot().options;
       entry.simulation.restore(item.state);
-      checkColliderBindings(item.state.colliders, entry.definition.bodyColliders ?? [], "TC_SOFTBODY_SNAPSHOT");
-      if (!entry.definition.bodyColliders?.length && (item.state.sampledBodies?.length || item.state.sampledBoxes?.length))
-        fail("SNAPSHOT", `Soft body '${entry.definition.id}' has sampled bodies but no binding.`);
+      checkColliderBindings(item.state.colliders, particleColliderIds(entry), "TC_SOFTBODY_SNAPSHOT");
+      checkParticleBodies(entry, item.state, "TC_SOFTBODY_SNAPSHOT");
       const differing = differingSimulationOption(entry.simulation.snapshot().options, expected, "softbody", !!entry.definition.bodyColliders?.length);
       if (differing) fail("SNAPSHOT", `Soft body '${entry.definition.id}' option '${differing}' differs from its definition.`);
       if (entry.definition.bodyColliders?.length)
@@ -90,26 +95,17 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
   const materials = new Set(context.scene.materials.map(material => material.id));
   let entries = new Map<string, Entry>(), disposed = false, pendingRefs = false;
   const alive = () => { if (disposed) fail("DISPOSED", "Soft-body service is disposed."); };
-  const ensureRefs = () => { if (!pendingRefs) return; const refs = [...entries.values()].map(entry => ({ entry, binding: entry.definition.bodyColliders?.[0] })).map(({ entry, binding }) => ({ entry, ref: binding ? resolveSampledBody(context, binding, "TC_SOFTBODY_SNAPSHOT") : undefined })); for (const item of refs) item.entry.bodyRef = item.ref; pendingRefs = false; };
+  const ensureRefs = () => { if (!pendingRefs) return; for (const entry of entries.values()) bindParticleBodies(context, entry, "TC_SOFTBODY_SNAPSHOT"); pendingRefs = false; };
   const get = (id: string) => { alive(); if (!validId(id)) return fail("ID", "Expected a nonempty soft-body id."); return entries.get(id) ?? fail("MISSING", `Soft body '${id}' does not exist.`); };
-  const syncBinding = (entry: Entry) => {
-    const binding = entry.definition.bodyColliders?.[0];
-    if (!binding) return;
-    const sample = requireSampledBody(context, binding, entry.bodyRef, "TC_SOFTBODY_BODY_COLLIDER");
-    if (sample.kind === "sphere")
-      entry.simulation.setBodyState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], sample.radius);
-    else entry.simulation.setBodyBoxState("body:0", [...sample.center] as [number, number, number], [...sample.linearVelocity] as [number, number, number], [...sample.halfExtents] as [number, number, number], [...sample.rotation] as [number, number, number]);
-    entry.simulation.setTwoWayCoupling(entry.definition.bodyReactions ?? false);
-    return sample;
-  };
+  const syncBinding = (entry: Entry) => syncParticleBodies(context, entry, "TC_SOFTBODY_BODY_COLLIDER");
   const service: SoftBodyService = {
-    create(definition) { alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty soft-body id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 soft bodies per host."); const entry = createEntry(definition, fixedDt, materials); try { const binding = entry.definition.bodyColliders?.[0]; if (binding) entry.bodyRef = resolveSampledBody(context, binding, "TC_SOFTBODY_BODY_COLLIDER"); syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
+    create(definition) { alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty soft-body id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Soft body '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 soft bodies per host."); const entry = createEntry(definition, fixedDt, materials); try { bindParticleBodies(context, entry, "TC_SOFTBODY_BODY_COLLIDER"); syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Soft body '${id}' is automatically stepped.`); const before = entry.simulation.snapshot(); try { entry.simulation.step(ticks); return inspect(entry); } catch (error) { try { entry.simulation.restore(before); } catch (rollbackError) { throw new Error(`TC_SOFTBODY_ROLLBACK: ${String(error)}; partialState=true; rollback failure: ${String(rollbackError)}`); } throw error; } },
     inspect(id) { return inspect(get(id)); },
     nearestParticle(id, position, maxDistance) { return nearestParticle(get(id).simulation, position, maxDistance, "TC_SOFTBODY_INPUT"); },
     visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual).sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const state = entry.simulation.getRenderState(), visual = entry.definition.visual!; return { id: entry.definition.id, material: visual.material, positions: state.particles.map(particle => particle.position), triangles: state.triangles, uvs: entry.uvs.map(uv => [uv[0], uv[1]] as Vec2), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true } satisfies SoftBodyVisualState; }); },
     setGravity(id, gravity) { const entry = get(id), value = gravityVector(gravity); entry.simulation.setGravity([...value]); entry.definition.gravity = value; },
-    setColliders(id, colliders) { const entry = get(id); setManualColliders(entry.simulation, colliders, entry.definition.bodyColliders ?? [], "TC_SOFTBODY_INPUT"); },
+    setColliders(id, colliders) { const entry = get(id); setManualColliders(entry.simulation, colliders, particleColliderIds(entry), "TC_SOFTBODY_INPUT"); },
     applyImpulse(id, particle, impulse) { get(id).simulation.applyImpulse(particle, [...cloneSerializable(impulse)] as [number, number, number]); },
     applyImpulses(id, impulses) { const entry = get(id); if (!Array.isArray(impulses) || impulses.length > 512) return fail("INPUT", "Expected at most 512 particle impulses."); entry.simulation.applyImpulses(impulses.map(item => { if (!item || typeof item !== "object" || typeof item.particle !== "string" || !/^particle:(0|[1-9]\d*)$/.test(item.particle)) return fail("INPUT", "Each impulse requires a particle id from inspect()."); return { id: item.particle, impulse: [...gravityVector(item.impulse)] as [number, number, number] }; })); },
     applyForce(id, particle, force) { applyParticleForces(get(id).simulation, [{ particle, force }], "TC_SOFTBODY_INPUT"); },
@@ -117,11 +113,13 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
   const schedule = createCoupledSchedule(() => entries.values(), 6,
-    entry => entry.simulation.snapshot(), (entry, state) => entry.simulation.restore(state),
+    entry => ({ solver: entry.simulation.snapshot(), definition: cloneSerializable(entry.definition), refs: entry.bodyRefs }),
+    (entry, state) => { entry.definition = state.definition; entry.bodyRefs = state.refs; entry.simulation.restore(state.solver); },
     (entry, count, sample) => entry.simulation.coupledTick(count, sample));
   return {
     id: "$engine.softBodies", version: "1", services: { softBodies: service }, simulation: schedule,
     requiresRecovery: () => schedule.faulted,
+    afterRestore() { ensureRefs(); for (const entry of entries.values()) syncBinding(entry); },
     afterPhysics() {
       alive();
       ensureRefs();
@@ -132,17 +130,17 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
         for (const entry of [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id))) {
           const snapshot = entry.simulation.snapshot();
           committed.push({ entry, snapshot });
-          const sample = syncBinding(entry);
-          const binding = entry.definition.bodyColliders?.[0];
+          const samples = syncBinding(entry);
           let coupling;
-          if (binding && sample) {
+          if (samples.length) {
             const reactive = entry.definition.bodyReactions ?? false;
-            let body = reactive ? bodies.get(binding.entity) : undefined;
-            if (!body) {
-              body = virtualCollider(sample, reactive);
-              if (reactive) bodies.set(binding.entity, body);
+            const coupled = new Map<string, VirtualRopeCollider>();
+            for (const { id, entity, sample } of samples) {
+              let body = reactive ? bodies.get(entity) : undefined;
+              if (!body) { body = virtualCollider(sample, reactive); if (reactive) bodies.set(entity, body); }
+              coupled.set(id, body);
             }
-            coupling = createRopeBodyCoupling(new Map([["body:0", body]]), new Map(), reactive);
+            coupling = createRopeBodyCoupling(coupled, new Map(), reactive);
           }
           const view = schedule.next(entry.definition.id, coupling);
           if (!view) entry.simulation.step(1, coupling);
@@ -168,7 +166,7 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
       }
     },
     legacySnapshot: () => ({ version: 1, softBodies: [] }),
-    snapshot: () => { alive(); ensureRefs(); return { version: 1, softBodies: [...entries.values()].sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const binding = entry.definition.bodyColliders?.[0]; if (binding && (!entry.bodyRef || !context.world.isAlive(entry.bodyRef))) fail("BODY_COLLIDER", `Body '${binding.entity}' is stale; remove the simulation before saving.`); return { definition: cloneSerializable(entry.definition), state: entry.simulation.snapshot() }; }) }; },
+    snapshot: () => { alive(); ensureRefs(); return { version: 1, softBodies: [...entries.values()].sort((a, b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { for (const binding of entry.definition.bodyColliders ?? []) { const ref = entry.bodyRefs.get(binding.id); if (!ref || !context.world.isAlive(ref)) fail("BODY_COLLIDER", `Body '${binding.entity}' is stale; advance or remove the simulation before saving.`); } return { definition: cloneSerializable(entry.definition), state: entry.simulation.snapshot() }; }) }; },
     validateSnapshot(value) { const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(staged); },
     validateWorld(value, world) { const staged = parseSnapshot(value, fixedDt, materials); try { validateSampledBodyWorld(context, world, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_SOFTBODY_SNAPSHOT"); } finally { disposeEntries(staged); } },
     validatePeers(value, peers) { const staged = parseSnapshot(value, fixedDt, materials); try { validateSampledBodyPeers(peers, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_SOFTBODY_SNAPSHOT"); } finally { disposeEntries(staged); } },

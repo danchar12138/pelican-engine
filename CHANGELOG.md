@@ -4,6 +4,7 @@
 
 - Freeze the final 1.0 implementation scope under D60 to simulation coupling, dynamic-world lifecycle and full-body animation integration; other historical roadmap items are not added to this delivery.
 - Interleave native physics and rope/cloth/soft-body/fluid integration on a shared substep clock, with once-per-tick forces, shared WCSPH pressure, per-substep reactions, moving-obstacle sweeps and structured fixed-tick history transactions. Runtime behavior, numerical stability, rollback and historical compatibility remain unverified.
+- Support 64 explicit native sphere/box bindings per automatic fluid/soft-body entry, detach stale generations and refresh derived samples after host restoration. New automatic entries no longer create a hidden reference sphere; manual/legacy snapshot layout is retained. Behavior and compatibility are unverified.
 
 ## 0.17.0 - 2026-11-08
 

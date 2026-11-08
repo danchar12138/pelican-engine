@@ -158,6 +158,7 @@ export const createClothPlugin: RuntimePluginFactory = context => {
   return {
     id: "$engine.cloth", version: "1", services: { cloth: service }, simulation: schedule,
     requiresRecovery: () => schedule.faulted,
+    afterRestore() { ensureRefs(); },
     afterPhysics() {
       alive(); ensureRefs(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition; refs: Map<string, EntityHandle> }[] = [];
       // Stage all cloth reactions until every automatic solver has completed. A later

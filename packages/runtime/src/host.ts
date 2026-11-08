@@ -571,6 +571,18 @@ export class RuntimeHost {
   private restorePlugins(snapshots: Record<string, HostPluginSnapshot>): void {
     for (const plugin of this.plugins)
       plugin.restore(cloneSerializable(snapshots[plugin.id]!.payload));
+    this.afterRestorePlugins();
+  }
+
+  private afterRestorePlugins(): void {
+    this.coupledPhysicsDone = false;
+    for (const plugin of this.plugins) {
+      const result: unknown = plugin.afterRestore?.();
+      if (result && (typeof result === "object" || typeof result === "function") && "then" in result) {
+        void Promise.resolve(result).catch(() => {});
+        throw new Error(`TC_PLUGIN_ASYNC: afterRestore for ${plugin.id} must be synchronous.`);
+      }
+    }
   }
 
   attach(game: GameInstance): void {
@@ -959,6 +971,7 @@ export class RuntimeHost {
             rollbackErrors.push(`${plugin.id}: ${String(rollbackError)}`);
           }
         }
+        if (!rollbackErrors.length) try { this.afterRestorePlugins(); } catch (rollbackError) { rollbackErrors.push(String(rollbackError)); }
       }
       const partial = rollbackErrors.length > 0;
       const wrapped = new Error(

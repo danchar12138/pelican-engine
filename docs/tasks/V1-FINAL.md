@@ -8,7 +8,7 @@ delivery. This file tracks implementation, not runtime acceptance.
 
 - [x] Advance native rigid bodies and rope/cloth/soft-body/fluid participants on
   a shared substep clock, rather than advancing each whole tick independently.
-- [ ] Exchange two-way rigid reactions within substeps and resolve shared
+- [x] Exchange two-way rigid reactions within substeps and resolve shared
   contacts with constitutive constraints, CCD and friction.
 - [x] Retain bounded scheduling, queued-force semantics, fixed-tick identity,
   reconstruction history, explicit faults and recoverable owner boundaries.

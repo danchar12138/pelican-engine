@@ -10,6 +10,7 @@ export function differingSimulationOption(
   kind: "fluid" | "softbody",
   bound: boolean,
 ): string | undefined {
+  if ((actual.externalBodies ?? false) !== (expected.externalBodies ?? false)) return "externalBodies";
   for (const key of ["seed", "fixedDt", "substeps", "iterations", "contacts"] as const)
     if (actual[key] !== expected[key]) return key;
   // Binding can update coupling independently of the initial solver configuration.

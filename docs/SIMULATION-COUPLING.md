@@ -35,6 +35,20 @@ Automatic entries interact across entries and material families. Manual
 solver's responsibility. The shared stage does not increment simulation ticks
 or consume queued forces a second time.
 
+New automatic fluid/soft-body entries contain no hidden reference rigid sphere.
+Their `bodyColliders` lists support up to 64 distinct live dynamic, non-trigger
+sphere/box bindings. `bodyReactions: true` transfers reactions to those native
+bodies; false gives one-way contact using sampled native motion and infinite
+effective body mass. Removed generations are detached, not rebound to a new
+entity that happens to reuse an ID. Internal sampled IDs are `body:<binding-id>`
+and must not be reused as manual collider IDs.
+
+Manual reference simulations and old snapshots retain their historical single
+`body:0` layout. Their `bodyPosition`/`bodyVelocity` parameters do not add a body
+to new automatic native-binding mode. Body shape/motion samples are derived
+cache data: after all host owners restore, they are refreshed from the restored
+native owner without advancing time or consuming forces.
+
 ## Contacts And Recovery
 
 Relative particle/moving-sphere sweeps and plane sweeps are analytic. Rounded oriented-box
@@ -73,9 +87,9 @@ Terrain surfaces participate as immovable zero-radius triangle domains. The
 native rigid world consumes the same f32 vertices through its terrain bridge.
 
 The implementation is a CPU, operator-split, interleaved integration with finite
-constraint iterations, not an exact monolithic implicit solve. Multiple live rigid
-bindings for fluid/soft-body entries and cross-material/world lifecycle are still
-being finished under D60. Topology tearing and GPU solvers remain separate historical
+constraint iterations, not an exact monolithic implicit solve. Cross-material/world
+residency and full-body animation integration are still being finished under D60.
+Topology tearing and GPU solvers remain separate historical
 roadmap work, not additions to the frozen final integration scope.
 
 Only compilation/builds are authorized at present. No numerical, physical,

@@ -529,7 +529,7 @@ export interface ClothService {
 }
 /** CPU WCSPH fluid prototype exposed as a bounded development service. */
 export interface FluidVisualOptions { material: string; radius?: number; castShadow?: boolean; receiveShadow?: boolean }
-/** One live dynamic non-trigger sphere or box sampled after each physics step. */
+/** A live dynamic non-trigger sphere or box sampled at each shared substep. */
 export interface FluidBodyCollider { readonly id: string; readonly entity: string }
 /** Axis-aligned container bounds relative to the simulation origin. */
 export interface SimulationContainer { min: Vec3; max: Vec3 }
@@ -540,8 +540,11 @@ export interface FluidDefinition {
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
   container?: SimulationContainer;
-  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
+  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3;
+  /** Reference sphere motion is used only by manual or restored legacy simulations. */
+  bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
+  /** Up to 64 distinct live native sphere/box bindings; no implicit body is added to new automatic fluids. */
   bodyColliders?: readonly FluidBodyCollider[];
   /** Exchange effective-mass contact reactions with bound bodies within shared substeps. */
   bodyReactions?: boolean;
@@ -593,7 +596,7 @@ export interface FluidService {
 }
 /** CPU tetrahedral soft-body service backed by the bounded XPBD reference solver. */
 export interface SoftBodyVisualOptions { material: string; castShadow?: boolean; receiveShadow?: boolean }
-/** One live dynamic non-trigger sphere or box sampled after each physics step. */
+/** A live dynamic non-trigger sphere or box sampled at each shared substep. */
 export interface SoftBodyBodyCollider { readonly id: string; readonly entity: string }
 export interface SoftBodyDefinition {
   id: string; autoStep?: boolean; seed?: number; fixedDt?: number; substeps?: number; iterations?: number;
@@ -604,8 +607,11 @@ export interface SoftBodyDefinition {
   /** Translates the reference particles and container in world space. */
   origin?: Vec3;
   container?: SimulationContainer;
-  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
+  contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3;
+  /** Reference sphere motion is used only by manual or restored legacy simulations. */
+  bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: SoftBodyVisualOptions;
+  /** Up to 64 distinct live native sphere/box bindings; new automatic soft bodies have no implicit body. */
   bodyColliders?: readonly SoftBodyBodyCollider[];
   /** Use approximate split-step effective-mass contacts with delayed reaction impulses; not a unified coupled solve. */
   bodyReactions?: boolean;

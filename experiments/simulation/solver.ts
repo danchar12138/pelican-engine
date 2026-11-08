@@ -470,6 +470,24 @@ export function createSimulation(
 
   return {
     kind,
+    setSampledBodies(bodies) {
+      alive();
+      if (!state.options.externalBodies || !Array.isArray(bodies) || bodies.length > 64) fail("SIM_BODY", "Explicit native body mode supports at most 64 samples.");
+      const ids = new Set<string>();
+      const staged = bodies.map(body => {
+        if (!body || typeof body.id !== "string" || !body.id.startsWith("body:") || ids.has(body.id) || !isVec3(body.position) || !isVec3(body.velocity)) fail("SIM_BODY", "Native body samples need unique ids and finite motion.");
+        ids.add(body.id);
+        if (body.kind === "sphere") {
+          if (!Number.isFinite(body.radius) || body.radius <= 0 || body.radius > 1e6) fail("SIM_BODY", "Native sphere radius must be in (0,1e6].");
+          return { body: { id: body.id, position: copy(body.position), velocity: copy(body.velocity), inverseMass: 0, radius: body.radius }, sphere: body.radius };
+        }
+        if (body.kind !== "box" || !isVec3(body.halfExtents) || body.halfExtents.some((v: number) => v <= 0 || v > 1e6) || !isVec3(body.rotation)) fail("SIM_BODY", "Invalid native box shape.");
+        return { body: { id: body.id, position: copy(body.position), velocity: copy(body.velocity), inverseMass: 0, radius: Math.min(...body.halfExtents) },
+          box: { halfExtents: copy(body.halfExtents), rotation: copy(body.rotation), frame: createBoxFrame(body.position, body.rotation) } };
+      });
+      state.bodies = staged.map(item => item.body); sampledRadii.clear(); sampledBoxes.clear();
+      for (const item of staged) { if (item.sphere !== undefined) sampledRadii.set(item.body.id, item.sphere); if (item.box) sampledBoxes.set(item.body.id, item.box); }
+    },
     *coupledTick(substeps, sample) {
       alive();
       if (integrating || !Number.isSafeInteger(substeps) || substeps < 1 || substeps > 32 || state.tick >= Number.MAX_SAFE_INTEGER) fail("SIM_STEPS", "Invalid or overlapping coupled tick.");
@@ -653,56 +671,59 @@ function validateSnapshot(
     if (!Number.isSafeInteger(input.tick) || input.tick < 0)
       throw new Error("invalid tick");
     for (const key of ["bodies", "particles"] as const) {
+      const external = key === "bodies" && expected.options.externalBodies;
       if (
         !Array.isArray(input[key]) ||
-        input[key].length !== expected[key].length
+        (external ? input[key].length > 64 : input[key].length !== expected[key].length)
       )
         throw new Error(`invalid ${key} count`);
+      const ids = new Set<string>();
       input[key].forEach((p, i) => {
         const reference = expected[key][i];
         if (
-          p.id !== reference.id ||
-          p.inverseMass !== reference.inverseMass ||
-          p.radius !== reference.radius ||
+          (external ? typeof p.id !== "string" || !p.id.startsWith("body:") || ids.has(p.id) || p.inverseMass !== 0 || !Number.isFinite(p.radius) || p.radius <= 0 || p.radius > 1e6 : p.id !== reference.id || p.inverseMass !== reference.inverseMass || p.radius !== reference.radius) ||
           !isVec3(p.position) ||
           !isVec3(p.velocity)
         )
           throw new Error(`invalid ${key}[${i}]`);
         if (
-          p.inverseMass === 0 &&
+          !external && p.inverseMass === 0 &&
           (JSON.stringify(p.position) !== JSON.stringify(reference.position) ||
             length(p.velocity) !== 0)
         )
           throw new Error("anchor changed");
+        ids.add(p.id);
       });
     }
     for (const key of ["distances", "volumes", "triangles"] as const)
       if (JSON.stringify(input[key]) !== JSON.stringify(expected[key]))
         throw new Error(`invalid ${key} topology`);
     const sampledIds = new Set<string>();
+    const referenceBodies = expected.options.externalBodies ? input.bodies : expected.bodies;
     if (input.sampledBodies !== undefined) {
-      if (!Array.isArray(input.sampledBodies) || input.sampledBodies.length > expected.bodies.length)
+      if (!Array.isArray(input.sampledBodies) || input.sampledBodies.length > referenceBodies.length)
         throw new Error("invalid sampled bodies");
       for (const body of input.sampledBodies) {
         if (!body || typeof body !== "object" || typeof body.id !== "string" || sampledIds.has(body.id) ||
-            !expected.bodies.some(item => item.id === body.id) || typeof body.radius !== "number" ||
+            !referenceBodies.some(item => item.id === body.id) || typeof body.radius !== "number" ||
             !Number.isFinite(body.radius) || body.radius <= 0 || body.radius > 1e6)
           throw new Error("invalid sampled body radius or identity");
         sampledIds.add(body.id);
       }
     }
     if (input.sampledBoxes !== undefined) {
-      if (!Array.isArray(input.sampledBoxes) || input.sampledBoxes.length > expected.bodies.length)
+      if (!Array.isArray(input.sampledBoxes) || input.sampledBoxes.length > referenceBodies.length)
         throw new Error("invalid sampled boxes");
       for (const box of input.sampledBoxes) {
         if (!box || typeof box !== "object" || typeof box.id !== "string" || sampledIds.has(box.id) ||
-            !expected.bodies.some(item => item.id === box.id) || !isVec3(box.halfExtents) ||
+            !referenceBodies.some(item => item.id === box.id) || !isVec3(box.halfExtents) ||
             box.halfExtents.some(value => value <= 0 || value > 1e6) || !isVec3(box.rotation) ||
             box.rotation.some(value => Math.abs(value) > 1e6))
           throw new Error("invalid sampled box shape or identity");
         sampledIds.add(box.id);
       }
     }
+    if (expected.options.externalBodies && sampledIds.size !== input.bodies.length) throw new Error("external body samples omit a native shape");
     if (input.particleForces !== undefined) {
       if (!Array.isArray(input.particleForces) || input.particleForces.length > expected.particles.length)
         throw new Error("invalid particle forces");
