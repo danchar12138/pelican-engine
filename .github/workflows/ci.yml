@@ -43,4 +43,4 @@ jobs:
       - name: Compile and pack npm SDK and CLI
         run: npm run distribution:pack
       - name: Verify the isolated installed package and static deployment
-        run: npm run distribution:smoke
+        run: npm run distribution:smoke -- --online-install

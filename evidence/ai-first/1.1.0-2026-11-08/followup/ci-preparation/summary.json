@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-08",
+  "version": "1.1.0",
+  "sourceFingerprint": "bbd62f7a602a70c43bbd9815ade1de93e1c5c607fb70d013413ba27714d760ec",
+  "runtimeSourceFingerprint": "75cdc5fea842dc9e8278df0fac18ba07d10aaea52828e393176e7f4afe12bf28",
+  "runtimeChangesSinceThatFingerprint": false,
+  "localFull": {
+    "tests": 1789,
+    "passed": 1784,
+    "failed": 0,
+    "skipped": 5,
+    "durationMs": 349384.5245
+  },
+  "ciRun42468883274": {
+    "regressions": "passed",
+    "build": "passed",
+    "pack": "passed",
+    "smoke": "failed before install: registry metadata not cached",
+    "npmPublish": "skipped"
+  },
+  "correction": "CI smoke allows network only during initial dependency preparation with --online-install; its subsequent author/build/dev/deploy checks still use the offline environment.",
+  "localCorrectedSmoke": "passed",
+  "distributionTests": {
+    "passed": 16,
+    "failed": 0
+  },
+  "installedRealWorkflows": {
+    "passed": 24,
+    "failed": 0
+  },
+  "gpuAndQuality": "Renderer/shader sources are unchanged from the 5 passing opt-in cases and the same-scene comparison in the parent evidence.",
+  "publication": "No npm publication occurred in either failed run. The corrected workflow must complete before publication can be claimed.",
+  "remainingTargets": [
+    "No universal superiority over arbitrary Three.js extensions or independent AI task-time benchmark is claimed."
+  ]
+}

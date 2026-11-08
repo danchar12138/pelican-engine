@@ -1,0 +1,9 @@
+{
+  "ci-run-42468883274.log": "7cb0cb49784948a7c0a1ce2be45def22badfa6356e4d00b485206ae1ca4c225e",
+  "distribution-tests.log": "e47bc61e6e349658064a7291bc17559034567bbc6d356114d5dd54202b179324",
+  "installed-games.json": "052c61d4fcfe89602e74224dcad1ee9ac71c81bd8247613f5abe4f2e6b0e08dc",
+  "local-full-tests.log": "bea47e1d9d98bae437cca79d7b8bc04009fe67f628b476d37183c4da9ef7ea43",
+  "online-install-then-offline-smoke.log": "977f97530a3d468e634df06f1d44fb428c5613a0048cd020536d88be5b21cb7b",
+  "source-fingerprint.json": "d04a5167ad783dabbda2001109d1e5448af635c40332a2a9f77a2fdae171df67",
+  "summary.json": "83f3ec930e38084f43a8137c3853f941a280a80a028c51c03892b22be2e6561f"
+}

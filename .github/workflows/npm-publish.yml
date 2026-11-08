@@ -37,7 +37,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run build
       - run: npm run distribution:pack
-      - run: npm run distribution:smoke
+      - run: npm run distribution:smoke -- --online-install
       - name: Install npm with trusted publishing support
         run: npm install --global npm@11.21.2
       - name: Publish to latest using OIDC
