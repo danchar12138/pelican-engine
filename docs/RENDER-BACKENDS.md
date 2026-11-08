@@ -22,7 +22,7 @@ const capabilities = ctx.render.capabilities();
 
 引擎不改变作者指定的分辨率、采样、灯光、材质或后处理来适应回退。不同后端可能存在数值、驱动或扩展能力差异；支持边界必须明确记录，不能把近似图像当作相同功能。WebGL2 可用模式为 `raster`；依赖 compute 的 `path`、`hybrid`、降噪和受控计算不能使用。初始内容要求不支持模式时明确失败，不自动重写内容。
 
-普通场景的正交相机已有 WebGPU `hybrid`/`path` 与逐采样初始介质开发实现；透明度裁剪的透射壳体返回 `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`，一致的正反整体绕序均有开发实现，采样点靠近壳体或分类歧义返回 `TC_TRACE_MEDIUM_STATE`，不自动切换模式。透视相机的近裁剪区域可能与透射体相交时也会启用逐射线分类；若透射壳体使用透明度裁剪则报 `TC_TRACE_NEAR_MEDIA_UNSUPPORTED`。历史 M0 光追侧车仍仅支持透视相机；WebGL2 仍仅支持光栅。正交介质、射线、World UI 投影、回退路径和硬件行为尚未运行验证。
+普通场景的正交相机已有 WebGPU `hybrid`/`path` 与逐采样初始介质开发实现；透明度裁剪的透射壳体返回 `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`，一致的正反整体绕序均有开发实现，采样点靠近壳体或分类歧义返回 `TC_TRACE_MEDIUM_STATE`，不自动切换模式。透视相机的近裁剪区域可能与透射体相交时也会启用逐射线分类；若透射壳体使用透明度裁剪则报 `TC_TRACE_NEAR_MEDIA_UNSUPPORTED`。历史 M0 光追侧车仍仅支持透视相机；WebGL2 仍仅支持光栅。普通场景、World UI 和真实回退路径有专项回归；复杂正交介质和跨设备组合仍需完整覆盖。
 
 状态栏显示当前 WebGPU/WebGL2。开发态 `inspect` 同时提供实际后端名称、适配器（适用时）和 `capabilities`；WebGL2 不伪造 WebGPU 适配器信息。
 

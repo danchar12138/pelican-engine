@@ -1327,6 +1327,14 @@ test("compiler M1: relative and absolute engine paths resolve without Git and wr
     );
     success(await p.compile());
   }
+  // A logical project alias may have a different parent depth than realpath
+  // (macOS /var -> /private/var, or a directory junction on Windows).
+  const alias = path.join(p.root, "logical-alias");
+  await fs.symlink(p.root, alias, process.platform === "win32" ? "junction" : "dir");
+  try {
+    await fs.writeFile(path.join(p.root, "pelican.project.json"), JSON.stringify({ engine: { version: SDK_VERSION, path: path.relative(alias, engineRoot) } }));
+    success(await compileProject({ projectRoot: alias, engineRoot, outDir: path.join(p.root, "alias-output") }));
+  } finally { await fs.rm(alias); }
   await fs.writeFile(
     path.join(p.root, "pelican.project.json"),
     JSON.stringify({ engine: { version: SDK_VERSION, path: "." } }),

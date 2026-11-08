@@ -342,7 +342,7 @@ export async function compileProject(
     if (manifest.engine?.path !== undefined) {
       try {
         const [locked, selected] = await Promise.all([
-          fs.realpath(resolveEnginePath(projectRoot, manifest.engine.path)),
+          fs.realpath(resolveEnginePath(requestedRoot, manifest.engine.path)),
           fs.realpath(engineRoot),
         ]);
         const equal =

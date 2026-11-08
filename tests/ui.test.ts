@@ -387,7 +387,7 @@ test(
           await page.evaluate(() =>
             navigator.clipboard.writeText("粘贴🙂中文"),
           );
-          await page.keyboard.press("Control+V");
+          await page.keyboard.press("ControlOrMeta+V");
           const pasted = await state(page);
           assert.equal(pasted.inputValue, "初粘贴🙂中文本");
           assert.ok(

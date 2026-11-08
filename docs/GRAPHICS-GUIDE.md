@@ -16,7 +16,7 @@
 
 不透射物理材质还可设置 `specularIntensity`（0 到 1，默认 1）和 `specularColor`（sRGB `#rgb`、`#rrggbb` 或颜色名称，默认白色）。这两个因子参与介质高光、掠射和 path/hybrid 采样；金属部分仍由 baseColor 决定。非默认高光与正 `transmission` 的组合目前返回 `TC_MATERIAL_SPECULAR_TRANSMISSION`，不会悄悄使用默认值。
 
-自包含 GLB 可使用 `KHR_materials_specular`／`KHR_materials_ior` 的常数材质因子；不透射材质还支持 specular 强度纹理 alpha 与 sRGB 颜色纹理 RGB，资产仅接受 TEXCOORD_0，`optimize` 保留并复核因子、图像和采样配置。高光颜色 PNG 支持 1/2/4-bit 灰度和调色板 Adam7、无色彩元数据的 16-bit，以及 gAMA 45455/100000、标准 sRGB cHRM、sRGB intent 0、cICP [1,13,0,1]；其他 16-bit 色彩块值和 ICC 仍明确拒绝。正透射结合高光纹理及其他未实现扩展仍不支持。示例 `examples/specular-material`、`examples/specular-textures` 和 `examples/specular-textures-16` 对照导入材质；探针属于历史开发记录。完整材质矩阵和公开注册表安装验收尚未完成。
+自包含 GLB 可使用 `KHR_materials_specular`／`KHR_materials_ior` 的常数材质因子；不透射材质还支持 specular 强度纹理 alpha 与 sRGB 颜色纹理 RGB，资产仅接受 TEXCOORD_0，`optimize` 保留并复核因子、图像和采样配置。高光颜色 PNG 支持 1/2/4-bit 灰度和调色板 Adam7、无色彩元数据的 16-bit，以及 gAMA 45455/100000、标准 sRGB cHRM、sRGB intent 0、cICP [1,13,0,1]；其他 16-bit 色彩块值和 ICC 仍明确拒绝。正透射结合高光纹理及其他未实现扩展仍不支持。示例 `examples/specular-material`、`examples/specular-textures` 和 `examples/specular-textures-16` 对照导入材质；探针属于历史开发记录。完整材质矩阵仍需覆盖更多资产与后端；公开 registry 安装与当前源码 tarball 安装是不同检查。
 
 ## 计算到渲染的缓冲绑定
 
@@ -128,7 +128,7 @@ ctx.render.configure({ mode: "hybrid", denoise: true });
 const settings = ctx.render.state();
 ```
 
-设置是可序列化状态，参加 Host 快照和恢复；未知字段、非法数值或模式明确失败，不公开 GPU 对象。调试视图支持 beauty/albedo/normal/depth/samples。材质支持 emissive/emissiveIntensity/opacity/transparent/alphaTest/side；`transparent: true` 可在 opacity 为 1 时启用纹理 alpha 混合，默认仍由 opacity 决定。显式关闭混合与 opacity 图或无裁剪的部分不透明度冲突时编译拒绝。相关渲染和路径追踪行为尚未运行验证；opacity 的随机覆盖不是折射。
+设置是可序列化状态，参加 Host 快照和恢复；未知字段、非法数值或模式明确失败，不公开 GPU 对象。调试视图支持 beauty/albedo/normal/depth/samples。材质支持 emissive/emissiveIntensity/opacity/transparent/alphaTest/side；`transparent: true` 可在 opacity 为 1 时启用纹理 alpha 混合，默认仍由 opacity 决定。显式关闭混合与 opacity 图或无裁剪的部分不透明度冲突时编译拒绝。相关渲染和路径追踪尚无完整的组合覆盖矩阵；opacity 的随机覆盖不是折射。
 
 ## 物理透射开发链路
 
@@ -157,7 +157,7 @@ npm run dev -- --project examples/refraction
 
 ## 已有链路
 
-- 正交相机的普通游戏场景已有 WebGPU hybrid/path 和逐采样初始介质开发实现；透射壳体支持一致的两种整体绕序及镜像变换；使用透明度裁剪时报 `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`。壳体须闭合且互不相交或严格嵌套；采样点靠近边界或分类歧义报 `TC_TRACE_MEDIUM_STATE`，不得降级冒充。历史 M0 侧车仍仅支持透视光追，WebGL2 仍仅光栅。分类、射线、重投影、性能和硬件行为尚未运行验证。
+- 正交相机的普通游戏场景已有 WebGPU hybrid/path 和逐采样初始介质开发实现；透射壳体支持一致的两种整体绕序及镜像变换；使用透明度裁剪时报 `TC_TRACE_ORTHOGRAPHIC_MEDIA_UNSUPPORTED`。壳体须闭合且互不相交或严格嵌套；采样点靠近边界或分类歧义报 `TC_TRACE_MEDIUM_STATE`，不得降级冒充。历史 M0 侧车仍仅支持透视光追，WebGL2 仍仅光栅。分类、射线、重投影及性能需按具体设备与场景覆盖，不能从基础案例推断全部通过。
 - 光栅模式使用 WebGPURenderer，WebGPU 初始化不可用时走 Three.js 内置 WebGL2 回退，不主动降画质。`game.render.capabilities()` / `ctx.render.capabilities()` 返回当前后端及可用模式；WebGL2 下切 path/hybrid 返回 `TC_RENDER_MODE_UNAVAILABLE`，降噪/计算返回 `TC_RENDER_COMPUTE_UNAVAILABLE`，原设置保持不变。两后端都不可用返回 `TC_RENDER_BACKEND_UNAVAILABLE`。状态栏同步显示 WebGPU/WebGL2。
 - path 使用当前表面/BVH 的实际光线命中，UV、法线、PBR 纹理和多材质组进入 WGSL。
 - hybrid 光栅化首命中，再使用同一材质/灯光进行真实阴影与二次光线求值，不透明叠加独立图片。
@@ -178,11 +178,11 @@ npm run dev -- --project examples/refraction
 
 `ctx.physics.angularVelocity(entity)` 查询世界坐标弧度／秒；`setAngularVelocity(entity, vec3)` 设置动态刚体角速度，`torqueImpulse(entity, vec3)` 施加世界空间力矩冲量，`impulseAtPoint(entity, impulse, worldPoint)` 在指定世界坐标施加冲量，同时影响平动和转动。后三者只支持动态刚体；固定、运动学或角色体返回 `TC_PHYSICS_BODY_TYPE`。写操作参与物理历史、快照和回放，旧快照仍兼容。
 
-示例 `examples/angular-physics` 只使用公开 SDK；源码渠道运行 `npm run dev -- --project examples/angular-physics`。首次正常物理步前移除刚体存在已知生命周期缺陷，详见[物理生命周期缺陷记录](PHYSICS-LIFECYCLE-ISSUE.md)；完整模拟交互仍需后续实现和验证。npm 渠道使用相同 SDK。
+示例 `examples/angular-physics` 只使用公开 SDK；源码渠道运行 `npm run dev -- --project examples/angular-physics`。首次移除、即刻查询、回放与恢复由专项回归覆盖；旧缺陷及修复可在 Git 历史追溯，不能把单个案例推广为全部模拟组合通过。游戏作者通过 npm 使用同一公开 SDK。
 
 ```sh
 npm run typecheck
-npm run probe:m3
+npm run probe:backends
 npm run build
 ```
 

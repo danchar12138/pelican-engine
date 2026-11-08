@@ -48,7 +48,7 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 
 优先 WebGPU，WebGL2 只回退光栅。compute、混合和路径追踪不在 WebGL2 上伪装支持。路径追踪使用软件 BVH，不是硬件 RT。材质图、计算图、纹理与缓冲绑定是公开扩展入口；任意 Three.js/TSL 插件没有现成的引擎接入协议。
 
-正常游戏跟随窗口与 DPR。自动截图可同时指定 URL 的 width/height 固定像素。生产默认隐藏诊断 HUD，需要时用 `?diagnostics=1`。固定时间的质量捕获先暂停，再用 `pelican render --mode path --samples 256 --denoise false` 和 `capture --live`，积累采样不会推进玩法。
+正常游戏跟随窗口与 DPR。自动截图可同时指定 URL 的 width/height 固定像素。开发与生产默认隐藏诊断 HUD，需要时用 `?diagnostics=1`。固定时间的质量捕获先暂停，再用 `pelican render --mode path --samples 256 --denoise false` 和 `capture --live`，积累采样不会推进玩法。
 
 自动化支持 inspect、step、pointer、batch 和 capture。批处理预检查所有命令后顺序执行，运行失败不会回滚已经完成的命令。检查返回的 `causeCodes`、tick、stage、system、source；类型或编译成功不代表 GPU、音频、用户输入和长时间运行已经通过。
 
@@ -86,4 +86,4 @@ export default defineGame({
 ```
 <!-- standalone-render-recipe:end -->
 
-完整配方由 `pelican recipe` 返回，也见 [RECIPES](RECIPES.md)。图形边界见 [GRAPHICS-GUIDE](../GRAPHICS-GUIDE.md)，动画见 [ANIMATION](../ANIMATION.md)，模拟见 [SIMULATION-COUPLING](../SIMULATION-COUPLING.md)。能力元数据见 `pelican capabilities`；缺失能力应明确反馈，不能通过修改引擎内部文件掩盖。
+完整配方由 `pelican recipe` 返回，npm 包同时包含由配方源生成的 `docs/npm/RECIPES.md`。图形边界见 [GRAPHICS-GUIDE](../GRAPHICS-GUIDE.md)，动画见 [ANIMATION](../ANIMATION.md)，模拟见 [SIMULATION-COUPLING](../SIMULATION-COUPLING.md)。能力元数据见 `pelican capabilities`；缺失能力应明确反馈，不能通过修改引擎内部文件掩盖。
