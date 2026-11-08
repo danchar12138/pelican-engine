@@ -108,6 +108,12 @@ try {
     assert.ok(packed.files.some((f: { path: string }) => f.path === `licenses/${name}/LICENSE`));
   assert.deepEqual(await readdir(directory), []);
   const registryInstall = process.argv.includes("--registry-install");
+  // Install the game-owned fixture in the initial dependency transaction. A
+  // cold npm cache need not contain metadata for a second offline re-resolution.
+  const helper = await mkdtemp(path.join(tmpdir(), "pelican-game-tools-"));
+  await writeFile(path.join(helper, "package.json"), JSON.stringify({ name: "pelican-game-tools-fixture", version: "1.0.0", type: "module", exports: { types: "./index.d.ts", import: "./index.js" } }));
+  await writeFile(path.join(helper, "index.js"), "export const shift = n => n * 3;");
+  await writeFile(path.join(helper, "index.d.ts"), "export function shift(n: number): number;");
   const installEnv = process.argv.includes("--online-install") || registryInstall
     ? { ...process.env, npm_config_offline: "false", npm_config_registry: "https://registry.npmjs.org", npm_config_audit: "false", npm_config_fund: "false" }
     : { ...offline, npm_config_registry: "https://registry.npmjs.org" };
@@ -120,6 +126,7 @@ try {
       "--no-audit",
       "--no-fund",
       registryInstall ? `pelican-engine@${SDK_VERSION}` : tarball,
+      helper,
     ],
     installEnv,
   );
@@ -355,12 +362,6 @@ try {
     );
   };
   // New npm projects can use ordinary TypeScript and project-owned dependencies.
-  const helper = path.join(directory, ".pelican/fixtures/game-tools");
-  await mkdir(helper, { recursive: true });
-  await writeFile(path.join(helper, "package.json"), JSON.stringify({ name: "pelican-game-tools-fixture", version: "1.0.0", type: "module", exports: { types: "./index.d.ts", import: "./index.js" } }));
-  await writeFile(path.join(helper, "index.js"), "export const shift = n => n * 3;");
-  await writeFile(path.join(helper, "index.d.ts"), "export function shift(n: number): number;");
-  await npmRun(["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--save-exact", helper]);
   await writeFile(path.join(directory, "game.ts"), `import { shift } from "pelican-game-tools-fixture";
     class Grid { build() { const values: {id:string,transform:{position:[number,number,number]}}[]=[];
       for(let i=0;i<3;i++) values.push({id:"generated-"+i,transform:{position:[shift(i),0,0]}}); return values; } }

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -1334,6 +1335,9 @@ test("compiler M1: relative and absolute engine paths resolve without Git and wr
   try {
     await fs.writeFile(path.join(p.root, "pelican.project.json"), JSON.stringify({ engine: { version: SDK_VERSION, path: path.relative(alias, engineRoot) } }));
     success(await compileProject({ projectRoot: alias, engineRoot, outDir: path.join(p.root, "alias-output") }));
+    const cli = spawnSync(process.execPath, ["--import", "tsx", path.join(engineRoot, "tools/cli.ts"), "check", "--project", alias], { cwd: engineRoot, encoding: "utf8", timeout: 30000, windowsHide: true });
+    assert.equal(cli.status, 0, cli.stdout + cli.stderr);
+    assert.equal(JSON.parse(cli.stdout).status, "succeeded");
   } finally { await fs.rm(alias); }
   await fs.writeFile(
     path.join(p.root, "pelican.project.json"),

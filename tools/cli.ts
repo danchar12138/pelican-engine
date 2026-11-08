@@ -77,7 +77,7 @@ const emit = (result: unknown) =>
 const target = path.join(projectRoot, ".pelican/public/generated");
 async function compile() {
   await mkdir(target, { recursive: true });
-  return compileProject({ projectRoot, outDir: target, engineRoot });
+  return compileProject({ projectRoot: requestedProjectRoot, outDir: target, engineRoot });
 }
 async function main() {
   if (command === "help") {
