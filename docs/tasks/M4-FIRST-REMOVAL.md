@@ -2,6 +2,8 @@
 
 状态：已在真实游戏和插件层复现，未修复；不属于 M4 验收通过项。优先保持现有物理行为、即时查询和快照可信，不使用推进正时间或只消除异常的替代方案。
 
+当前源码增加了一个纯数据预检：两个初始动态盒体的包围球明确分离，且历史首次步仅删除先创建体、未创建新体时，在分配候选 Rapier World 前以 `TC_PHYSICS_SNAPSHOT_UNSAFE_HISTORY` 拒绝回放。它可能拒绝符合该形态但原本能够恢复的旧快照；不覆盖其他形态，也不修复实时首步删除。旧 v3 夹具没有修改。按 D50/D58 未运行隔离复现或旧快照回归，因此不能宣称已验证兼容、安全或修复缺陷。
+
 ## 可复现入口
 
 - `npm run probe:physics-first-removal`：独占 GPU 的公开游戏链路，`examples/physics-first-removal` 在首 tick input 阶段先射线查询、再删除动态刚体；预期 physics 阶段正常推进并且 postPhysics 查询看不到已删除实体。当前失败，报告 `evidence/m4/development/first-removal-before-1793887996301/physics-first-removal.json` 中为 `TC_RUNTIME_SYSTEM`、`stage=system:$engine.physics`、`unreachable`。启动和失败报告记录的后端是真实 NVIDIA WebGPU。

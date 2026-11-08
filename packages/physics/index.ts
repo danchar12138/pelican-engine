@@ -1,4 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
+import { rejectKnownUnsafeInitialRemoval } from "./history-preflight.ts";
 import type {
   CharacterDefinition,
   EntityHandle,
@@ -945,8 +946,11 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           "TC_PHYSICS_SNAPSHOT",
           "Malformed/incompatible snapshot header; use an intact version 3 snapshot of this scene.",
         );
+      // This limited pure preflight rejects one known dangerous legacy history
+      // before native reconstruction; other replay hazards remain unresolved.
+      rejectKnownUnsafeInitialRemoval(definitions, s.history);
       // No caller-controlled bytes ever reach World.restoreSnapshot. Reconstruct
-      // safe native state from checked operations, then verify ALL native/header data.
+      // native state from checked operations, then compare native/header data.
       candidate = simulation(definitions, gravity, catalog);
       for (const action of s.history) candidate.apply(action, () => {});
       if (s.bindings.some((id) => !candidate!.bodies.has(id)))

@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local 3D physics development rejects one known unsafe legacy replay shape before allocating a native candidate: the first of two definitely separated dynamic boxes removed before the first step. This is a limited fail-closed guard, not a repair or proof that other histories are safe. Legacy compatibility and rejection behavior have not been runtime-validated.
+
 - Local rope development connects particles to dynamic sphere/box bodies at body-local points, with split-step bilateral impulse reactions, attachment contact filtering, runtime attach/detach and snapshot bindings. It is not continuous collision or a unified solver; force transfer, stability, native failure handling and restoration remain unverified.
 
 - Local development adds model-local CCD inverse-kinematics chains with selectable bones, target, weight, iterations, angular step limit and snapshot state. Chains run after base/additive animation; automatic grounding, retargeting, physical constraints and full-body IK remain incomplete. Solver behavior, rendering and restoration are unverified.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preflight one known unsafe two-box initial-removal history before native 3D physics replay; other history risks remain open and behavior is unverified.
+
 ## 0.12.0 - 2026-11-08
 
 - Development batch only: built without tests or runtime, browser, GPU, performance, compatibility or recovery validation. The 3D first-step deletion defect and other 1.0 requirements remain open.
