@@ -341,12 +341,10 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
     );
     const size = sizes[a.componentType],
       components = counts[a.type];
-    const matrix = a.type.startsWith("MAT"), alignment = matrix ? 4 : size;
-    if (matrix && (Math.sqrt(components) * size) % 4 !== 0)
-      ctx.unsupported(
-        at,
-        "Matrix accessors requiring column padding are not implemented.",
-      );
+    const matrix = a.type.startsWith("MAT"), matrixRows = matrix ? Math.sqrt(components) : 0;
+    const columnBytes = matrix ? Math.ceil((matrixRows * size) / 4) * 4 : 0;
+    const sourceElementBytes = matrix ? matrixRows * columnBytes : size * components;
+    const packedElementBytes = size * components, alignment = matrix ? 4 : size;
     if (a.normalized !== undefined)
       ctx.check(
         typeof a.normalized === "boolean" &&
@@ -361,7 +359,7 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
       "Accessor byte offset is misaligned.",
     );
     let source: Buffer | undefined,
-      stride = size * components,
+      stride = sourceElementBytes,
       start = 0;
     if (a.bufferView !== undefined) {
       const index = ctx.integer(
@@ -373,9 +371,9 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
       const view = json.bufferViews![index];
       stride = view.byteStride ?? stride;
       ctx.check(
-        stride >= size * components &&
+        stride >= sourceElementBytes &&
           stride % alignment === 0 &&
-          byteOffset + (a.count - 1) * stride + size * components <=
+          byteOffset + (a.count - 1) * stride + sourceElementBytes <=
             view.byteLength,
         at,
         "Accessor range or stride exceeds buffer view boundary.",
@@ -419,13 +417,13 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
         return (view.byteOffset ?? 0) + offset;
       };
       const indexStart = sparseStart(sparse.indices, "indices", indexSize, count * indexSize);
-      const valueStart = sparseStart(sparse.values, "values", alignment, count * components * size, size);
+      const valueStart = sparseStart(sparse.values, "values", alignment, count * sourceElementBytes, size);
       let previous = -1;
       for (let n = 0; n < count; n++) {
         const p = indexStart + n * indexSize;
         const index = indexSize === 1 ? bin.readUInt8(p) : indexSize === 2 ? bin.readUInt16LE(p) : bin.readUInt32LE(p);
         ctx.check(index > previous && index < a.count, sparseAt + "/indices", "Sparse indices must be strictly increasing and within accessor count.");
-        replacements.set(index, valueStart + n * components * size);
+        replacements.set(index, valueStart + n * sourceElementBytes);
         previous = index;
       }
     }
@@ -435,7 +433,11 @@ export function parseGLB(data: Buffer, ctx: InspectionContext): Container {
     for (let element = 0; element < a.count; element++)
       for (let c = 0; c < components; c++) {
         const replacement = replacements.get(element);
-        const p = replacement === undefined ? start + element * stride + c * size : replacement + c * size;
+        const column = matrix ? Math.floor(c / matrixRows) : 0;
+        const row = matrix ? c % matrixRows : c;
+        const p = replacement === undefined
+          ? start + element * stride + (matrix ? column * columnBytes + row * size : c * size)
+          : replacement + (matrix ? column * columnBytes + row * size : c * size);
         let v = 0;
         if (source || replacement !== undefined)
           switch (a.componentType) {

@@ -78,7 +78,6 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
     const size = COMPONENT_BYTES[accessor.componentType], components = COMPONENTS[accessor.type];
     if (typeof accessor.type !== "string" || !size || !components) return fail("Unsupported accessor component layout.");
     const matrixRows = accessor.type.startsWith("MAT") ? Math.sqrt(components) : 0;
-    if (matrixRows && (matrixRows * size) % 4 !== 0) return fail("Sparse matrix columns requiring padding are unsupported.");
     const bytes = accessor.count * size * components;
     if (!Number.isSafeInteger(bytes) || bytes < 0) return fail("Accessor byte length is not representable.");
     return sum + bytes;
@@ -91,6 +90,9 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
     if (!sparseInfo || typeof sparseInfo !== "object" || !sparseInfo.indices || typeof sparseInfo.indices !== "object" || !sparseInfo.values || typeof sparseInfo.values !== "object")
       return fail("Sparse accessor requires indices and values.");
     const componentSize = COMPONENT_BYTES[accessor.componentType], components = COMPONENTS[accessor.type];
+    const matrixRows = accessor.type.startsWith("MAT") ? Math.sqrt(components) : 0;
+    const matrixColumnBytes = matrixRows ? align4(matrixRows * componentSize) : 0;
+    const sourceElementSize = matrixRows ? matrixRows * matrixColumnBytes : componentSize * components;
     const elementSize = componentSize * components;
     const alignment = accessor.type.startsWith("MAT") ? 4 : componentSize;
     if (!Number.isSafeInteger(accessor.count) || accessor.count < 1 || !Number.isSafeInteger(sparseInfo.count) || sparseInfo.count < 1 || sparseInfo.count > accessor.count)
@@ -104,12 +106,16 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
       if (!Number.isSafeInteger(baseView.byteOffset ?? 0) || (baseView.byteOffset ?? 0) < 0 || !Number.isSafeInteger(baseView.byteLength) || baseView.byteLength < 1 || !Number.isSafeInteger((baseView.byteOffset ?? 0) + baseView.byteLength) || (baseView.byteOffset ?? 0) + baseView.byteLength > source.byteLength)
         return fail("Invalid sparse accessor base buffer view range.");
       const baseOffset = (baseView.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-      const stride = baseView.byteStride ?? elementSize;
-      const end = baseOffset + (accessor.count - 1) * stride + elementSize;
+      const stride = baseView.byteStride ?? sourceElementSize;
+      const end = baseOffset + (accessor.count - 1) * stride + sourceElementSize;
       if (!Number.isSafeInteger(accessor.byteOffset ?? 0) || (accessor.byteOffset ?? 0) < 0 || (accessor.byteOffset ?? 0) % componentSize || !Number.isSafeInteger(baseOffset) || baseOffset < 0 || !Number.isSafeInteger(stride) || stride < elementSize || stride % alignment || baseOffset % alignment || !Number.isSafeInteger(end) || end > source.byteLength || end > (baseView.byteOffset ?? 0) + baseView.byteLength)
         return fail("Sparse accessor base range or stride is invalid.");
-      for (let element = 0; element < accessor.count; element++)
-        dense.set(source.subarray(baseOffset + element * stride, baseOffset + element * stride + elementSize), element * elementSize);
+      for (let element = 0; element < accessor.count; element++) {
+        const sourceOffset = baseOffset + element * stride, targetOffset = element * elementSize;
+        if (!matrixRows) dense.set(source.subarray(sourceOffset, sourceOffset + elementSize), targetOffset);
+        else for (let column = 0; column < matrixRows; column++)
+          dense.set(source.subarray(sourceOffset + column * matrixColumnBytes, sourceOffset + column * matrixColumnBytes + matrixRows * componentSize), targetOffset + column * matrixRows * componentSize);
+      }
     } else if ((accessor.byteOffset ?? 0) !== 0) return fail("Accessor without a base view cannot have byteOffset.");
     const readPart = (part: SparsePart, byteCount: number, alignment: number, label: string, offsetAlignment = alignment) => {
       const partView = bufferViews[part.bufferView];
@@ -125,14 +131,17 @@ export function normalizeSparseGLB(input: ArrayBuffer | Uint8Array): Uint8Array 
     const indexSize = COMPONENT_BYTES[indices.componentType];
     if (![5121, 5123, 5125].includes(indices.componentType) || !indexSize) return fail("Sparse indices must use unsigned byte, short, or int.");
     const indexStart = readPart(indices, sparseInfo.count * indexSize, indexSize, "indices");
-    const valuesStart = readPart(sparseInfo.values, sparseInfo.count * elementSize, alignment, "values", componentSize);
+    const valuesStart = readPart(sparseInfo.values, sparseInfo.count * sourceElementSize, alignment, "values", componentSize);
     const data = new DataView(source.buffer, source.byteOffset, source.byteLength);
     let previous = -1;
     for (let entry = 0; entry < sparseInfo.count; entry++) {
       const p = indexStart + entry * indexSize;
       const index = indexSize === 1 ? data.getUint8(p) : indexSize === 2 ? data.getUint16(p, true) : data.getUint32(p, true);
       if (index <= previous || index >= accessor.count) return fail("Sparse indices must be increasing and in range.");
-      dense.set(source.subarray(valuesStart + entry * elementSize, valuesStart + (entry + 1) * elementSize), index * elementSize);
+      const sourceOffset = valuesStart + entry * sourceElementSize, targetOffset = index * elementSize;
+      if (!matrixRows) dense.set(source.subarray(sourceOffset, sourceOffset + elementSize), targetOffset);
+      else for (let column = 0; column < matrixRows; column++)
+        dense.set(source.subarray(sourceOffset + column * matrixColumnBytes, sourceOffset + column * matrixColumnBytes + matrixRows * componentSize), targetOffset + column * matrixRows * componentSize);
       previous = index;
     }
     denseParts.push(dense);

@@ -11,6 +11,8 @@
 
 ## Current Scope
 
+- Local asset development expands sparse glTF MAT2/MAT3 accessors with column padding into tightly packed accessors before the Three loader, and the GLB inspection path decodes padded matrix columns. Asset loading and numeric compatibility remain unverified.
+
 - Local 3D physics development checks snapshot lifecycle identity, entity types, bindings and tick counts against recorded history before allocating a native replay candidate. This rejects structurally inconsistent histories but is not authentication or isolation; structurally consistent malicious histories may still trigger the open native replay defect. Behavior and legacy compatibility remain unverified.
 
 - Local 3D physics development rejects one known unsafe legacy replay shape before allocating a native candidate: the first of two definitely separated dynamic boxes removed before the first step. This is a limited fail-closed guard, not a repair or proof that other histories are safe. Legacy compatibility and rejection behavior have not been runtime-validated.
