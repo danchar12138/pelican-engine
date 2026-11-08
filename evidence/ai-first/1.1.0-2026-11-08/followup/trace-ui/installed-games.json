@@ -1,0 +1,397 @@
+{
+  "engineVersion": "1.1.0",
+  "workspace": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican-ai-first-WXMh4s",
+  "records": [
+    {
+      "name": "install-current-tarball",
+      "passed": true,
+      "ms": 4527,
+      "data": {
+        "workspace": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican-ai-first-WXMh4s",
+        "engineVersion": "1.1.0"
+      }
+    },
+    {
+      "name": "machine-discovery",
+      "passed": true,
+      "ms": 1643,
+      "data": {
+        "features": {
+          "engineVersion": "1.1.0",
+          "format": "pelican.capabilities",
+          "features": [
+            {
+              "id": "input.pointer",
+              "implementation": "implemented",
+              "symbols": [
+                "PointerState",
+                "GamepadInputService"
+              ],
+              "backends": [
+                "cpu"
+              ],
+              "limits": [
+                "Canvas-local CSS pixels; NDC Y-up",
+                "Pointer lock requires a trusted canvas gesture",
+                "At most 16 active mouse/pen/touch contacts"
+              ],
+              "recipes": [
+                "pointer-3d"
+              ]
+            },
+            {
+              "id": "content.pure",
+              "implementation": "implemented",
+              "symbols": [
+                "defineScene",
+                "defineGame"
+              ],
+              "backends": [
+                "cpu"
+              ],
+              "limits": [
+                "Pure local functions: const bindings and return",
+                "map, flatMap, filter, concat and Array.from",
+                "200000 evaluation steps, 32 nested calls, 16384 generated entries",
+                "No I/O, mutation, async or source-module execution"
+              ],
+              "recipes": [
+                "pointer-3d"
+              ]
+            },
+            {
+              "id": "render.raster",
+              "implementation": "implemented",
+              "symbols": [
+                "RenderService",
+                "MaterialInput"
+              ],
+              "backends": [
+                "webgpu",
+                "webgl2"
+              ],
+              "limits": [
+                "Actual backend capabilities must be queried",
+                "Native DPR viewport; explicit capture width/height pins pixel dimensions"
+              ],
+              "recipes": [
+                "pointer-3d",
+                "orthographic-2d"
+              ]
+            },
+            {
+              "id": "physics.rigid3d",
+              "implementation": "implemented",
+              "symbols": [
+                "PhysicsService",
+                "PhysicsJointDefinition"
+              ],
+              "backends": [
+                "cpu"
+              ],
+              "limits": [
+                "Private Rapier native ABI",
+                "Checkpoint v4 after bounded replay window; legacy v3 readable",
+                "No universal malformed-native-data sandbox guarantee"
+              ],
+              "recipes": [
+                "pointer-3d"
+              ]
+            }
+          ],
+          "runtimeProbe": "inspect",
+          "recipes": [
+            "pointer-3d",
+            "orthographic-2d",
+            "physics2d",
+            "physics2d-character",
+            "gamepad",
+            "dynamic-ui",
+            "inventory",
+            "quests",
+            "dialogue",
+            "gameplay-loop",
+            "localization",
+            "navigation-agents",
+            "streaming-world"
+          ],
+          "acceptance": "Implementation metadata only; runtime/backend/hardware evidence is separate."
+        },
+        "symbols": [
+          "PointerState",
+          "GamepadInputService"
+        ]
+      }
+    },
+    {
+      "name": "pointer-game-lifecycle",
+      "passed": true,
+      "ms": 3744,
+      "data": {
+        "tick": 304,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "isFallbackAdapter": false,
+          "features": [
+            "depth32float-stencil8",
+            "rg11b10ufloat-renderable",
+            "texture-formats-tier1",
+            "bgra8unorm-storage",
+            "texture-compression-bc",
+            "dual-source-blending",
+            "core-features-and-limits",
+            "float32-filterable",
+            "indirect-first-instance",
+            "float32-blendable",
+            "depth-clip-control",
+            "texture-compression-bc-sliced-3d",
+            "timestamp-query",
+            "texture-formats-tier2",
+            "shader-f16",
+            "clip-distances",
+            "subgroups"
+          ]
+        },
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "button-save-load-cleanup",
+      "passed": true,
+      "ms": 2976,
+      "data": {
+        "roots": 1,
+        "tick": 8,
+        "errors": []
+      }
+    },
+    {
+      "name": "native-viewport-resize",
+      "passed": true,
+      "ms": 2619,
+      "data": {
+        "viewport": {
+          "width": 390,
+          "height": 844,
+          "cssWidth": 390,
+          "cssHeight": 844,
+          "pixelRatio": 1,
+          "fixed": false
+        },
+        "canvas": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        }
+      }
+    },
+    {
+      "name": "progressive-quality-render",
+      "passed": true,
+      "ms": 5399,
+      "data": {
+        "modes": [
+          "hybrid",
+          "path"
+        ],
+        "samples": 32,
+        "adapter": {
+          "vendor": "nvidia",
+          "architecture": "blackwell",
+          "isFallbackAdapter": false,
+          "features": [
+            "depth32float-stencil8",
+            "rg11b10ufloat-renderable",
+            "texture-formats-tier1",
+            "bgra8unorm-storage",
+            "texture-compression-bc",
+            "dual-source-blending",
+            "core-features-and-limits",
+            "float32-filterable",
+            "indirect-first-instance",
+            "float32-blendable",
+            "depth-clip-control",
+            "texture-compression-bc-sliced-3d",
+            "timestamp-query",
+            "texture-formats-tier2",
+            "shader-f16",
+            "clip-distances",
+            "subgroups"
+          ]
+        }
+      }
+    },
+    {
+      "name": "dynamic-chunk-native-residency",
+      "passed": true,
+      "ms": 2664,
+      "data": {
+        "tick": 8,
+        "restored": true
+      }
+    },
+    {
+      "name": "webgl2-real-fallback-and-mode-rejection",
+      "passed": true,
+      "ms": 2516,
+      "data": {
+        "backend": "webgl2",
+        "diagnostic": "TC_RENDER_MODE_UNAVAILABLE"
+      }
+    },
+    {
+      "name": "installed-recipe-orthographic-2d",
+      "passed": true,
+      "ms": 2936,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-physics2d",
+      "passed": true,
+      "ms": 3105,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-physics2d-character",
+      "passed": true,
+      "ms": 3133,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-gamepad",
+      "passed": true,
+      "ms": 2869,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-dynamic-ui",
+      "passed": true,
+      "ms": 2878,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-inventory",
+      "passed": true,
+      "ms": 2818,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-quests",
+      "passed": true,
+      "ms": 2850,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-dialogue",
+      "passed": true,
+      "ms": 2804,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-localization",
+      "passed": true,
+      "ms": 2857,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-navigation-agents",
+      "passed": true,
+      "ms": 2853,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-streaming-world",
+      "passed": true,
+      "ms": 2983,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-cloth-sheet",
+      "passed": true,
+      "ms": 3169,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-softbody-ball",
+      "passed": true,
+      "ms": 3445,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-fluid-basin",
+      "passed": true,
+      "ms": 3468,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "installed-recipe-rope-reaction",
+      "passed": true,
+      "ms": 3128,
+      "data": {
+        "tick": 120,
+        "backend": "WebGPUBackend"
+      }
+    },
+    {
+      "name": "production-native-dpr-and-no-debug-hud",
+      "passed": true,
+      "ms": 793,
+      "data": {
+        "width": 780,
+        "height": 1688,
+        "hudHidden": true,
+        "control": false,
+        "worldUI": {
+          "x": 195,
+          "y": 422,
+          "width": 100,
+          "height": 38
+        }
+      }
+    }
+  ]
+}

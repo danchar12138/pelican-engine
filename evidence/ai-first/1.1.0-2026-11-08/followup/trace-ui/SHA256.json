@@ -1,0 +1,9 @@
+{
+  "affected-tests.log": "9e9faf526b50338361fdf50843ddbecc66614a9899c682db002676c26309a5a2",
+  "after.json": "abdcf71f30ae738c22ba9cf5dac61a89303b208e5be6828b29c6900cbeee66cb",
+  "before.json": "0f2fc9edf6425dbeb440d9815b7861b4159386495d16a56f1814b753c0d128d3",
+  "installed-games.json": "15773572c0b895b6ed6c476f7d0db92654ce05649973b7ec2242ae8c720ff8db",
+  "source-fingerprint.json": "30aa97aab6545bda4259383308b76bd5953fc49744b4ed951832805e7af9a4c6",
+  "summary.json": "1c6256b4ea0064cd8ebe7f9011d58ff8fe4dc80d23f3549687b0667280cd491a",
+  "typecheck.log": "c2c34cf70b00230ebe71a26f02fc76061070f23ea7db7d831cba79573d028446"
+}

@@ -1,0 +1,40 @@
+✔ browser draw queue serializes asynchronous surface setup and keeps later frames runnable after failure (20.1694ms)
+✔ late errors after browser teardown cannot publish a new runtime fault (3.754ms)
+✔ paused input draws coalesce bursts instead of starting a second renderer initialization (3.2914ms)
+✔ browser views: destroy releases geometry; restore rebuilds authored mesh without restoring old handles (29.386ms)
+✔ browser views: runtime-only spawn is a Group; display maps are derived from World (10.2531ms)
+✔ browser views: removing a parent and child disposes each geometry once (7.31ms)
+✔ browser views: replacing a parent prefab preserves surviving child resources (7.3233ms)
+✔ browser views: replacing a parent prefab replaces its model without releasing a surviving child's shared geometry (33.6481ms)
+✔ gameplay model snapshots restore changed prefab definitions without mutating active models during preflight (250.9676ms)
+✔ browser views: spawned prefab creates real geometry and retains content identity across restore (9.7236ms)
+✔ browser load transaction: json-null preserves old Host, view and scope (30.9263ms)
+✔ browser load transaction: module preserves old Host, view and scope (29.6149ms)
+✔ browser load transaction: material-graph preserves old Host, view and scope (28.1678ms)
+✔ browser load transaction: missing-material preserves old Host, view and scope (24.4998ms)
+✔ browser load transaction: commit replaces content and disposes previous ownership (22.0132ms)
+✔ browser first-load transaction does not call Object3D.add with an empty spread (17.8868ms)
+✔ checkpoint: display validation is detached, rejects invalid topology/input/resource identity (0.8523ms)
+✔ checkpoint: real probe preflight rejects invalid simulation/world before touching live runtime (5.19ms)
+✔ inspect: bounded records, filtered totals, empty page and missing entity diagnostics (0.2971ms)
+✔ browser inspect: optional selection omits IR, slices both render maps, default shape stays compatible (7.1891ms)
+✔ browser restore: invalid sidecars leave real Host, generations and presentation unchanged (8.2494ms)
+✔ browser source contracts: restore preflights probes, Host retains ownership, production auto plays (3.7839ms)
+✔ browser disposal: idempotent cleanup isolates errors, clears ownership and stops RAF (2.9456ms)
+✔ CPU staged rollback preserves shared material and morph weights (live included: true) (19.547ms)
+✔ CPU staged rollback preserves shared material and morph weights (live included: false) (1.2721ms)
+✔ CPU replacement restore applies morph and material saved pose (1.0728ms)
+✔ CPU real GLB morph weight restore and exception rollback (38.127ms)
+✔ CPU replacement last stop restores original material not pre-restore pose (1.0741ms)
+✔ CPU independent shared mixers preserve first stop semantics (0.7274ms)
+✔ CPU independent shared mixers preserve last stop semantics (0.5517ms)
+✔ viewport follows native DPR and mobile dimensions without reducing quality (1.0728ms)
+✔ world UI keeps CSS coordinates when the raster canvas is hidden by path or hybrid presentation (0.1857ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1476.1615

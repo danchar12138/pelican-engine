@@ -1,0 +1,29 @@
+[
+  {
+    "mode": "raster",
+    "box": {
+      "x": 240,
+      "y": 135,
+      "width": 160,
+      "height": 36
+    }
+  },
+  {
+    "mode": "path",
+    "box": {
+      "x": 480,
+      "y": 270,
+      "width": 160,
+      "height": 36
+    }
+  },
+  {
+    "mode": "hybrid",
+    "box": {
+      "x": 480,
+      "y": 270,
+      "width": 160,
+      "height": 36
+    }
+  }
+]

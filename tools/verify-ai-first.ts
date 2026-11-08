@@ -52,9 +52,13 @@ async function game(name: string, template: string, action: (page: Page, command
     const box=definePrefab({id:'box',rigidBody:{type:'dynamic',mass:1,collider:{shape:'box',size:[1,1,1]}}});
     const update=defineSystem({id:'update',run(ctx){if(ctx.time.tick===1){ctx.streaming.configure({chunkSize:8,loadRadius:0,unloadRadius:0});ctx.streaming.defineChunk({x:0,z:0,entities:[{id:'chunk-body',prefab:'box',transform:{position:[0,3,0]}}]});ctx.streaming.setFocus([0,0,0]);}if(ctx.time.tick===4)ctx.streaming.setFocus([100,0,0]);if(ctx.time.tick===7)ctx.streaming.setFocus([0,0,0]);}});
     export default defineGame({id:'residency',prefabs:[box],systems:[update],scene:defineScene({id:'main',entities:[]})});`);
+  if (name === "quality") {
+    const source = await readFile(path.join(project, "game.ts"), "utf8");
+    await writeFile(path.join(project, "game.ts"), source.replace("systems: [spin]", 'systems: [spin], ui: [{id:"world-label",kind:"text",text:"world",x:0,y:0,world:{entity:"shape",offset:[0,0,0],occlude:false}}]'));
+  }
   const child = spawn(process.execPath, [cli, "dev", "--project", project, "--port", String(++port)], { cwd: project, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   let log = ""; child.stdout.on("data", data => log += data); child.stderr.on("data", data => log += data);
-  const page = await selectedBrowser.newPage({ viewport: { width: 960, height: 540 } });
+  const page = await selectedBrowser.newPage({ viewport: name === "quality" ? { width: 480, height: 270 } : { width: 960, height: 540 }, deviceScaleFactor: name === "quality" ? 2 : 1 });
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   try {
     let listening = false;
@@ -105,12 +109,14 @@ try {
     const canvas = await page.locator("canvas").first().boundingBox(); assert.equal(canvas!.width, 390); assert.equal(canvas!.height, 844);
     return { viewport: state.viewport, canvas };
   }));
-  await record("progressive-quality-render", () => game("quality", "minimal", async (_page, command) => {
+  await record("progressive-quality-render", () => game("quality", "minimal", async (page, command) => {
     const before = await command({ type: "inspect" });
     assert.equal(before.capabilities.backend, "webgpu"); assert.equal(before.adapter.isFallbackAdapter, false);
     for (const mode of ["hybrid", "path"]) {
       const rendered = await command({ type: "render", mode, samples: 32, denoise: false });
       assert.equal(rendered.render.samples, 32); const after = await command({ type: "inspect" }); assert.equal(after.tick, before.tick);
+      const label = await page.locator('[data-pelican-element="world-label"]').boundingBox();
+      assert.ok(label && Math.abs(label.x - 240) < 1 && Math.abs(label.y - 135) < 1, `${mode} world UI at DPR=2: ${JSON.stringify(label)}`);
     }
     return { modes: ["hybrid", "path"], samples: 32, adapter: before.adapter };
   }));

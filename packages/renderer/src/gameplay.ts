@@ -1,5 +1,6 @@
 ﻿import * as THREE from "three/webgpu";
 import { createUIRenderer } from "./ui.ts";
+import { presentationSize } from "./viewport.ts";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import type { EntityHandle, PhysicsService } from "../../sdk/src/index.ts";
@@ -589,8 +590,8 @@ export async function prepareGameplay(
         const size = renderer.getSize(new THREE.Vector2());
         // DOM controls use CSS pixels while native-DPR rendering uses physical
         // pixels. Offscreen/CPU adapters without a DOM canvas retain getSize().
-        const canvasRect = renderer.domElement?.getBoundingClientRect?.();
-        if (canvasRect && canvasRect.width > 0 && canvasRect.height > 0) size.set(canvasRect.width, canvasRect.height);
+        const css = presentationSize(size, renderer.domElement);
+        size.set(css.width, css.height);
         const positions = new Map<
           string,
           { x: number; y: number; visible: boolean; occluded: boolean }

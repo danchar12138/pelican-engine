@@ -1,4 +1,13 @@
 export interface ViewportSize { width: number; height: number; cssWidth: number; cssHeight: number; pixelRatio: number; fixed: boolean }
+/** The raster canvas can be hidden while its tracer owns presentation. */
+export function presentationSize(fallback: { x: number; y: number }, canvas?: { getBoundingClientRect?(): { width: number; height: number }; style?: { width: string; height: string } }): { width: number; height: number } {
+  const rect = canvas?.getBoundingClientRect?.();
+  if (rect && rect.width > 0 && rect.height > 0) return { width: rect.width, height: rect.height };
+  const width = canvas?.style?.width ?? "", height = canvas?.style?.height ?? "";
+  if (/^\d+(?:\.\d+)?px$/.test(width) && /^\d+(?:\.\d+)?px$/.test(height) && parseFloat(width) > 0 && parseFloat(height) > 0)
+    return { width: parseFloat(width), height: parseFloat(height) };
+  return { width: fallback.x, height: fallback.y };
+}
 
 /** Explicit capture dimensions are pixels; normal play follows CSS pixels and DPR. */
 export function resolveViewport(search: string, cssWidth: number, cssHeight: number, pixelRatio: number): ViewportSize {
