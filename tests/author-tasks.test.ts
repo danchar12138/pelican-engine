@@ -8,7 +8,7 @@ import {
 import { generateApiIndex } from "../tools/api-index.ts";
 import { authorGuide } from "../tools/author-guide.ts";
 import { recipeIds } from "../tools/npm/recipes.ts";
-import { contentIterationCompatibility } from "../packages/renderer/src/content-iteration.ts";
+import { contentIterationCompatibility } from "../packages/schema/src/content-iteration.ts";
 import type { SceneIR } from "../packages/compiler/src/types.ts";
 import { resolveRenderSettings } from "../packages/runtime/src/render-settings.ts";
 import { discoveryRecovery } from "../tools/discovery-recovery.ts";
@@ -32,6 +32,30 @@ test("every task resolves real capabilities, recipes and generated method declar
     for (const recipe of task.recipes)
       assert.ok(recipeIds.includes(recipe), recipe);
   }
+  assert.ok(
+    symbols.has("GameRuntimeInput.setup"),
+    "Typed setup must remain available to exact method discovery.",
+  );
+  for (const feature of engineCapabilities())
+    assert.ok(
+      engineTasks().some(
+        (task) => task.id === feature.id && task.features.includes(feature.id),
+      ),
+      `Undiscoverable feature ${feature.id}`,
+    );
+  for (const [goal, id] of [
+    ["播放声音", "audio.playback"],
+    ["我想雕刻地形", "world.terrain"],
+    ["add localization to my game", "localization.messages"],
+    ["显示瓦片地图", "presentation.tilemaps"],
+  ]) {
+    assert.ok(
+      authorGuide(["--goal", goal]).discovery.features.some(
+        (feature) => feature.id === id,
+      ),
+      goal,
+    );
+  }
 });
 test("natural-language goals compose tasks and unknown goals return honest actionable candidates", () => {
   for (const goal of [
@@ -48,6 +72,22 @@ test("natural-language goals compose tasks and unknown goals return honest actio
     assert.ok(result.discovery.next.length, goal);
   }
   assert.equal(engineTasks("jumpingjack").length, 0);
+  for (const [goal, feature, method] of [
+    ["npm", "runtime.composition", "defineGameRuntime"],
+    ["worker", "runtime.transports", "createWorkerAdapter"],
+    ["动态资源", "runtime.dynamic-data", "loadRuntimeBytes"],
+    ["画质", "render.quality", "renderQuality"],
+  ]) {
+    const result = authorGuide(["--goal", goal]);
+    assert.ok(
+      result.discovery.features.some((item) => item.id === feature),
+      goal,
+    );
+    assert.ok(
+      result.discovery.tasks.some((item) => item.methods.includes(method)),
+      method,
+    );
+  }
   const unknown = authorGuide(["--goal", "made-up-feature-xyz"]);
   assert.equal(unknown.discovery.status, "unrecognized");
   assert.equal(unknown.discovery.features.length, 0);

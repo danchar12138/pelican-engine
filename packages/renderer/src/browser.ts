@@ -1,5 +1,5 @@
 import * as THREE from "three/webgpu";
-import { contentIterationCompatibility } from "./content-iteration.ts";
+import { contentIterationCompatibility } from "../../schema/src/content-iteration.ts";
 import { createManagedGeometry } from "./managed-geometry.ts";
 import { setupPBRMaterial } from "./pbr-material.ts";
 import { resolveViewport } from "./viewport.ts";

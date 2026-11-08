@@ -26,6 +26,8 @@ Use your own functions, classes, modules, generators and rules alongside engine 
 
 Complete tasks: third-person (movement, grounded jump, follow, save/load), runtime-lifecycle (real npm dependency), external-adapters (Worker/WebSocket), dynamic-resources (bounded cancellable JSON to managed buffers). Concrete adapters createWorkerAdapter/createWebSocketAdapter share the generic ownership contract. Dynamic data is not automatically persisted; loadRuntimeJSON does not implement full model streaming.
 
+Use defineGameRuntime<State, Dependencies> when setup returns instance-local browser/npm objects; synchronous systems receive the typed dependency context as their fifth argument. It is not serialized or implicitly disposed. The npm-component recipe demonstrates this without globals. loadRuntimeBytes uses the same bounded cancellable transport for npm codecs; dynamic-texture demonstrates PNG-to-managed-texture publication. Validate decoded dimensions before allocating; encoded-byte budgets are not decoded-memory budgets.
+
 Development preserves full state for compatible logic-only edits. Changed declarations/assets require explicit restart; a failed candidate keeps the old instance. Inspect iteration diagnostics. renderQuality exposes realtime/preview/capture presets; realtime stays raster, preview/capture require WebGPU. Defaults include studio IBL unless lighting is explicitly none or an environment texture is supplied.
 
 Use managed geometry, PBR textures, compute resources and defineRenderExtension for supported rendering integration. Arbitrary Three.js, TSL, raw GPU or physics objects are not a stable engine integration contract. Report an exact missing capability instead of silently replacing the renderer or reducing the requested game.

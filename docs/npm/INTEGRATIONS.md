@@ -47,6 +47,8 @@ export default defineGame({
 
 `state.value` 在恢复时被替换为校验过的副本，不要长期缓存旧引用。辅助器不限制非存档数据结构；任意外部对象仍不自动存档。使用低级 hooks 的完整例子在 `runtime-lifecycle`。
 
+`defineGameRuntime<State, Dependencies>` 的 setup 可返回任意实例依赖（Map、浏览器视图、npm 客户端等），系统第五个参数接收这个类型化 context；不需要全局变量或把依赖对象塞进 JSON。context 不保存，也不隐式释放；资源仍用 scope 管理。需要该 context 时 setup 为必填。完整 `npm-component` 配方包含真实 fflate 往返、视图清理与存读档。
+
 浏览器模块可以在顶层访问 DOM，返回可释放对象；仅在 setup/create 内导入并 `scope.own(createView())`：
 
 ```ts
@@ -102,6 +104,8 @@ export function createView() {
 具体适配可直接用 `createWorkerAdapter`、`createWebSocketAdapter`，传标准端点、owned/borrowed 与 decode；Worker 可显式传 transfer 列表，WebSocket 还需 encode。未 OPEN 发送、解码失败、连接关闭和队列溢出有诊断，没有隐式重连。泛型适配器继续服务于 npm 客户端的自定义订阅协议。
 
 `loadRuntimeJSON(scope, { url, decode, maxBytes, timeoutMs })` 为动态数据提供流式大小检查、HTTP/JSON/UTF-8 校验、截止时间与实例取消。默认 1 MiB、10 秒，可显式调整到最多 64 MiB、120 秒。decode 同步且由作者定义，CORS/CSP 照常适用；不要在同步系统中 await。完整 `dynamic-resources` 配方把准备结果在固定 tick 写入受管缓冲并显式保存恢复，不把任意 fetch 伪装成资产流送。
+
+二进制使用同一预算和取消契约的 `loadRuntimeBytes`，返回精确 Uint8Array，再接普通 npm 解码器。完整 `dynamic-texture` 配方用 fast-png 解码 PNG、先检查解码尺寸、转换 sRGB 和行方向，然后在固定 tick 创建/绑定受管纹理并释放旧资源。编码大小不能限制解码后的内存；此配方限 RGBA8、16384 像素，不是任意不可信图像的沙箱。存档保存受管资源数据，不保存 URL 连接；场景候选初始化仍会执行 setup，因此远程资源不可用时不能承诺离线读档。
 
 ## 让编码 AI 找到已有能力
 

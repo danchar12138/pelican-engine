@@ -3,6 +3,8 @@ import path from "node:path";
 
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
+  { id: "npm-component", anchor: "npm-component", title: "Instance-local npm dependency context", summary: "Pass browser resources and a real npm compression codec from setup to systems without globals or JSON dependency objects." },
+  { id: "dynamic-texture", anchor: "dynamic-texture", title: "Dynamic PNG to managed texture", summary: "Fetch bounded bytes, decode with a game-owned npm codec, validate decoded size and publish a managed texture with save/restore." },
   { id: "third-person", anchor: "third-person", title: "Jump, follow camera and save/load", summary: "A complete physical character game with grounded jumps, follow camera, instance state and local saves." },
   { id: "dynamic-resources", anchor: "dynamic-resources", title: "Dynamic validated JSON to managed rendering", summary: "Fetch bounded cancellable data, validate it, publish on fixed ticks and preserve it in saves." },
   { id: "external-adapters", anchor: "external-adapters", title: "Workers, transports and managed resources", summary: "Bridge standard module Workers and optional WebSocket messages into fixed-tick systems and versioned rendering resources." },
@@ -32,7 +34,11 @@ export async function readRecipeFiles(root: string, id: string, installed = fals
   }
   return Object.fromEntries(await Promise.all((extraFiles[id] ?? []).map(async file => [file, await readFile(path.join(root, "examples", id, file), "utf8")])));
 }
-export function recipeDependencies(id: string): Record<string, string> { return id === "runtime-lifecycle" ? { fflate: "0.8.3" } : {}; }
+export function recipeDependencies(id: string): Record<string, string> {
+  if (["runtime-lifecycle", "npm-component"].includes(id)) return { fflate: "0.8.3" };
+  if (id === "dynamic-texture") return { "fast-png": "8.0.0" };
+  return {};
+}
 export async function readRecipe(root: string, id: string, installed = false): Promise<string> {
   if (!recipeIds.includes(id)) throw new Error("TC_RECIPE_ID: Unknown recipe; query capabilities for exact IDs.");
   if (installed) {

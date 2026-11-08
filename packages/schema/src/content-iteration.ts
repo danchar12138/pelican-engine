@@ -1,6 +1,6 @@
 import type { SceneIR } from "../../compiler/src/types.ts";
 
-/** Conservative logic-only reload. Saved services own stricter validation before candidate commit. */
+/** One compatibility policy for compiler reports and browser transactions. Save owners still preflight candidate state. */
 export function contentIterationCompatibility(
   previous: SceneIR,
   next: SceneIR,

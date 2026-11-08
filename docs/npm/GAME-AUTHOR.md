@@ -4,7 +4,7 @@
 
 ## 创建和查询
 
-第一次使用先运行 `npx --no-install pelican guide`，再用 `guide --goal "让角色跳跃并保存游戏"` 查询完整任务。返回排序后的任务、精确方法、完整配方、验证步骤与限制；多个意图可以组合。不要先通读源码或整份 API。
+第一次使用先运行 `npx --no-install pelican guide`，再用 `guide --goal "让角色跳跃并保存游戏"` 查询完整任务。精选任务与所有能力的派生入口提供方法、配方和限制；多个意图可以组合，但命中不代表整句话的所有要求都已支持，无配方的能力也不伪造完整例子。不要先通读源码或整份 API。
 
 需要 Node.js 24.x 和 npm。工具支持 Windows、macOS、Linux；玩家按浏览器实际图形能力检测，不按系统品牌白名单限制。
 
@@ -59,6 +59,8 @@ Worker、WebSocket 或 npm 组件可查询 `pelican guide --goal worker`，完�
 
 模块初始化同时用于构建和浏览器加载，使用稳定资源 ID 和确定性数据；不要在声明构造中放随机数、网络或外部副作用。DOM/浏览器 API 在 setup/runtime.create 或同步系统中使用，不放在声明构造顶层。普通依赖对象不会自动纳入存档、回放或资源释放；需要保存的状态放组件、公开服务或版本化 runtime 协议。
 
+程序化几何可正常使用 Math.sin/cos 等运算。声明漂移检查保留结构、ID 和离散整数检查，对有限浮点数只容忍极小的相对尾数误差，不要求作者为跨 Node/浏览器计算尾数手动量化网格。这不是允许随机或环境分支生成不同内容的开关。
+
 旧项目省略 `content` 时保留 `static` 模式，使用受限的非执行式表达式构建。该模式的 runtime-only 包需要 `libraries`；它不支持在内容构造中调用依赖。切换普通 TypeScript 后无需重写玩法，也不必沿用静态语法。
 
 ## 实现玩法
@@ -69,11 +71,15 @@ Worker、WebSocket 或 npm 组件可查询 `pelican guide --goal worker`，完�
 | --- | --- |
 | 移动、跳跃、跟随相机、存读档 | `third-person` |
 | browser-only npm、每实例资源与状态 | `runtime-lifecycle` |
+| setup 返回类型化 npm／浏览器依赖、无需全局变量 | `npm-component` |
 | 标准 Worker、WebSocket、受管缓冲更新 | `external-adapters` |
 | 有大小与截止预算的动态 JSON → 受管渲染 | `dynamic-resources` |
+| 动态二进制 → npm PNG 解码 → 受管纹理 | `dynamic-texture` |
 | 索引网格与渲染扩展包 | `managed-rendering` |
 
 `defineGameRuntime` 可展开到 `defineGame`：系统只声明一次，`state()` 每实例创建 JSON，`validateState` 校验，辅助器提供完整保存恢复协议。系统使用 `state.value`，恢复会替换它，不要把旧 value 缓存在闭包中。Map、类和第三方实例照常使用，但需自己的 JSON 编解码或原有 runtime hooks。`scope.cleanup` 返回可提前调用的幂等清理函数；`own/listen/defer` 保持兼容。
+
+非存档依赖可由 `defineGameRuntime<State, Dependencies>` 的 setup 返回，并由系统第五个参数接收。它们与 JSON 状态分开，每实例独立，不会自动序列化或释放；仍用 scope 负责资源。
 
 从组件、实体、系统、事件、输入和资源组合玩法，或使用 npm 中的算法模块。背包、任务、对话等服务是便利选项，不要求游戏遵循这些规则。组件 `{type:"json", default:[]}` 存有限普通 JSON，每字段最多深度16、8192节点、65536 UTF-8字节。
 
@@ -92,6 +98,8 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 正常游戏跟随窗口与 DPR。自动截图可同时指定 URL 的 width/height 固定像素。开发与生产默认隐藏诊断 HUD，需要时用 `?diagnostics=1`。固定时间的质量捕获先暂停，再用 `pelican render --mode path --samples 256 --denoise false` 和 `capture --live`，积累采样不会推进玩法。
 
 自动化支持 inspect、step、pointer、batch 和 capture。批处理预检查所有命令后顺序执行，运行失败不会回滚已经完成的命令。检查返回的 `causeCodes`、tick、stage、system、source；类型或编译成功不代表 GPU、音频、用户输入和长时间运行已经通过。
+
+`pointer` 注入的是游戏画布指针状态，不是浏览器 DOM 点击器；测试界面按钮时使用 Playwright 对元素的真实 click。启动失败的 CLI 诊断保留底层 `causeCodes`；例如 `TC_AUTOMATION_BOOT_FAILED` 加 `TC_GAME_CONSTRUCTION_DRIFT` 指向声明构造问题，而不只是要求盲目重开浏览器。
 
 开发时反复执行 check → dev → 实际操作/自动化 → inspect/capture → 修复。按需用 `pelican setup` 安装浏览器自动化依赖，普通构建不要求浏览器。发布游戏只部署 `build` 的 `dist/` 到 HTTP(S) 静态服务器；不要部署引擎源码项目。
 

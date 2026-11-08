@@ -16,6 +16,7 @@ import {
   type ControlStatus,
 } from "../tools/control-server.ts";
 import { createControlClient } from "../tools/control-client.ts";
+import { AutomationError } from "../tools/browser-session.ts";
 import {
   result,
   type ControlCommand,
@@ -35,6 +36,15 @@ test("structured runtime causes survive transport while free-text secrets and un
   assert.equal(response.diagnostics[0].tick, 18); assert.equal(response.diagnostics[0].stage, "system:$engine.physics");
   assert.deepEqual(response.diagnostics[0].source, { file: "game.ts", line: 12, column: 4 }); assert.equal(response.diagnostics[0].partialState, true);
   assert.doesNotMatch(JSON.stringify(response), /secret/);
+});
+test("boot failures retain sanitized engine causes and a targeted repair instead of hiding drift", async t => {
+  const f = await fixture(t, async () => { throw new AutomationError("TC_AUTOMATION_BOOT_FAILED", "TC_GAME_CONSTRUCTION_DRIFT: C:/private/secret.ts; token=private-secret"); });
+  const response = await f.client.send({ type: "inspect" });
+  assert.equal(response.status, "failed");
+  assert.equal(response.diagnostics[0].code, "TC_AUTOMATION_BOOT_FAILED");
+  assert.deepEqual(response.diagnostics[0].causeCodes, ["TC_GAME_CONSTRUCTION_DRIFT"]);
+  assert.match(response.diagnostics[0].remediation, /runtime.create\/setup/);
+  assert.doesNotMatch(JSON.stringify(response), /secret|C:\//);
 });
 
 test("capture returns the owned viewport PNG after step, reusing the serialized session", async (t) => {

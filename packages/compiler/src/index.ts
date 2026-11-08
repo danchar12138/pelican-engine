@@ -1,6 +1,8 @@
 import { mapSourcePath } from "./source-map.ts";
 import { compilerLayout } from "./distribution.ts";
 import { workerModuleEntries } from "./worker-modules.ts";
+import { contentIterationCompatibility } from "../../schema/src/content-iteration.ts";
+import { declarationFingerprintSource, type DeclarationFingerprint } from "../../schema/src/declaration-fingerprint.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -140,15 +142,12 @@ async function bundle(
   });
   // Detect declarations which branch on Node/browser globals without running runtime.create.
   // This is a drift checksum, not a security signature. Function bodies belong to the runtime bundle.
-  const fingerprintSource = `function fingerprint(value) {
-    const text = JSON.stringify(value, (_, item) => typeof item === 'function' ? {__runtime:true} :
-      item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().filter(key => item[key] !== undefined).map(key => [key, item[key]])) : item);
-    let result = 2166136261;
-    for (let i = 0; i < text.length; i++) result = Math.imul(result ^ text.charCodeAt(i), 16777619);
-    return result >>> 0;
-  }`;
+  const fingerprintSource = declarationFingerprintSource;
   const expected = construction === undefined ? undefined :
-    (new Function(`${fingerprintSource}; return fingerprint;`)() as (value: unknown) => number)(construction);
+    (new Function(`${fingerprintSource}; return fingerprint;`)() as (value: unknown) => DeclarationFingerprint)(construction);
+  const numericBytes = Buffer.alloc((expected?.numbers.length ?? 0) * 8);
+  expected?.numbers.forEach((value, index) => numericBytes.writeDoubleLE(value, index * 8));
+  const encodedNumbers = numericBytes.toString("base64");
   const virtual = slash(
     path.join(projectRoot, "__pelican_m0_game_entry__.js"),
   );
@@ -184,7 +183,7 @@ async function bundle(
               JSON.stringify(slash(sdkPath)) +
               `; ${expected === undefined ? "" : fingerprintSource}
               export function createGame(engine) {
-                ${expected === undefined ? "" : `if (fingerprint(game) !== ${expected}) throw new Error(${JSON.stringify(`TC_GAME_CONSTRUCTION_DRIFT: ${slash(path.relative(projectRoot, entry))}; Node content and browser declarations differ. Keep build metadata deterministic and move browser-only work/imports into runtime.create.`)});`}
+                ${expected === undefined ? "" : `if (!matchesDeclaration(game, ${expected.hash}, ${JSON.stringify(encodedNumbers)})) throw new Error(${JSON.stringify(`TC_GAME_CONSTRUCTION_DRIFT: ${slash(path.relative(projectRoot, entry))}; Node content and browser declarations differ beyond floating-point tolerance. Keep build metadata deterministic and move browser-only work/imports into runtime.create.`)});`}
                 return instantiateGame(game, engine);
               }`
             );
@@ -286,7 +285,7 @@ export async function compileProject(
     limitations: [
       "Content mode is selected by the project manifest: trusted TypeScript construction or legacy nonexecuting static extraction.",
       "Graph IR validation is implemented; GPU lowering and dispatch belong to the renderer.",
-      "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
+      "Compiler and browser share declaration compatibility; the browser performs transactional logic replacement. Incompatible changes require explicit restart, not automatic state migration.",
       "Construction and runtime modules must use stable IDs; arbitrary external side effects do not participate in incremental fingerprints.",
     ],
     durationMs: 0,
@@ -753,18 +752,12 @@ export async function compileProject(
       ),
     );
     if (previous?.format === 1) {
-      const sameSchema = previous.schemaHash === report.incremental.schemaHash;
-      const sameDefaults =
-        previous.defaultsHash === report.incremental.defaultsHash;
+      const policy = contentIterationCompatibility(previous.ir, ir);
       report.hotReload = {
-        strategy: sameSchema ? "patch" : "restart",
-        preserveState: sameSchema,
+        strategy: policy.compatible ? "patch" : "restart",
+        preserveState: policy.compatible,
         defaults: "new-entities-only",
-        reason: !sameSchema
-          ? "Component field layout/type changed; restart required."
-          : !sameDefaults
-            ? "Only compatible changes; retain existing component values, apply new defaults to newly created entities."
-            : "Compatible schema; runtime may patch logic/content at a safe boundary.",
+        reason: policy.reason,
       };
     }
     const bundled = await bundle(entry, sdkPath, projectRoot, manifest.content === "typescript" ? game : undefined, engineRoot);

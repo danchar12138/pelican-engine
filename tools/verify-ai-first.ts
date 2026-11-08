@@ -69,6 +69,13 @@ async function game(name: string, template: string, action: (page: Page, command
       .replace('id: "runtime-lifecycle",', 'id: "runtime-lifecycle", ui: [{id:"save",kind:"button",text:"Save",x:8,y:8},{id:"load",kind:"button",text:"Load",x:120,y:8}],')
       .replace("ticks++;", 'ticks++; for(const event of ctx.events("ui.activate")){const id=(event.payload as {id:string}).id; if(id==="save")ctx.storage.save("counter"); if(id==="load")ctx.storage.load("counter");}'));
   }
+  if (name === "floating-geometry") await writeFile(path.join(project, "game.ts"), `
+import {defineGame,defineScene,defineMaterial} from 'pelican-engine';
+const positions:number[]=[],uv:number[]=[],indices:number[]=[];
+for(let y=0;y<=16;y++)for(let x=0;x<=24;x++){const u=x/24,v=y/16;positions.push((u-.5)*3,(v-.5)*2,Math.sin(u*Math.PI*4)*Math.sin(v*Math.PI)*.4);uv.push(u,v);}
+for(let y=0;y<16;y++)for(let x=0;x<24;x++){const i=y*25+x;indices.push(i,i+1,i+25,i+1,i+26,i+25);}
+const paint=defineMaterial({id:'paint',color:'#2baebd',roughness:.4,side:'double'});
+export default defineGame({id:'floating-geometry',services:{physics3d:'disabled'},scene:defineScene({id:'main',camera:{position:[0,0,4],target:[0,0,0]},entities:[{id:'surface',mesh:{material:paint,geometry:{kind:'buffer',positions,uv,indices}}}]})});`);
   if (name === "dynamic-residency") await writeFile(path.join(project, "game.ts"), `import{defineGame,defineScene,defineSystem,definePrefab}from'pelican-engine';
     const box=definePrefab({id:'box',rigidBody:{type:'dynamic',mass:1,collider:{shape:'box',size:[1,1,1]}}});
     const update=defineSystem({id:'update',run(ctx){if(ctx.time.tick===1){ctx.streaming.configure({chunkSize:8,loadRadius:0,unloadRadius:0});ctx.streaming.defineChunk({x:0,z:0,entities:[{id:'chunk-body',prefab:'box',transform:{position:[0,3,0]}}]});ctx.streaming.setFocus([0,0,0]);}if(ctx.time.tick===4)ctx.streaming.setFocus([100,0,0]);if(ctx.time.tick===7)ctx.streaming.setFocus([0,0,0]);}});
@@ -108,6 +115,56 @@ async function game(name: string, template: string, action: (page: Page, command
   }
 }
 try {
+  await record("unquantized-procedural-math-and-boot-causes", () => game("floating-geometry", "minimal", async (page, command) => {
+    await command({ type: "step", count: 1 });
+    const state = await command({ type: "inspect" }); assert.deepEqual(state.errors, []);
+    const project = path.join(workspace, "floating-geometry"), file = path.join(project, "game.ts"), source = await readFile(file, "utf8");
+    await writeFile(file, source.replace("id:'floating-geometry'", "id:typeof window==='undefined'?'node-only':'browser-only'"));
+    await run(["check", "--project", project]);
+    let failure: any;
+    try { await execute(process.execPath, [cli, "inspect", "--project", project, "--port", String(port)], { cwd: project, timeout: 60000, maxBuffer: 4000000 }); }
+    catch (error) { failure = JSON.parse((error as { stdout: string }).stdout); }
+    assert.equal(failure?.status, "failed", JSON.stringify(failure));
+    assert.equal(failure.diagnostics[0].code, "TC_AUTOMATION_BOOT_FAILED");
+    assert.ok(failure.diagnostics[0].causeCodes.includes("TC_GAME_CONSTRUCTION_DRIFT"));
+    await run(["reset-session", "--port", String(port)]);
+    return { unquantizedVertices: 425, startup: true, deliberateDriftRejected: true, causeCodes: failure.diagnostics[0].causeCodes };
+  }));
+  await record("typed-instance-context-npm-and-save", () => game("typed-context", "npm-component", async (page, command) => {
+    await command({ type: "step", count: 3 });
+    const label = page.locator("[data-pelican-npm-counter]");
+    assert.match(await label.innerText(), /^3 ticks \| \d+ compressed bytes$/);
+    await page.locator('[data-pelican-element="save"]').click(); await command({ type: "step", count: 1 });
+    await command({ type: "step", count: 3 }); assert.match(await label.innerText(), /^7 ticks/);
+    await page.locator('[data-pelican-element="load"]').click(); await command({ type: "step", count: 1 });
+    await command({ type: "step", count: 1 });
+    assert.equal(await label.count(), 1); assert.match(await label.innerText(), /^5 ticks/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await label.evaluate(element => (element as HTMLElement).style.maxWidth), "358px");
+    return { npmRoundTrip: true, instanceContext: true, savedTicks: 4, resumedTicks: 5, ownedMarkers: 1 };
+  }));
+  await record("binary-npm-codec-managed-texture", () => game("dynamic-image", "dynamic-texture", async (page, command) => {
+    await command({ type: "step", count: 1 });
+    const first = await command({ type: "snapshot" });
+    const label = page.locator('[data-pelican-element="state"]');
+    assert.match(await label.innerText(), /^2 x 2 \| managed image$/);
+    const image = decode(await page.locator("canvas:visible").first().screenshot());
+    const colors = new Set<string>();
+    for (let y = 160; y < 380; y += 20) for (let x = 360; x < 600; x += 20) {
+      const i = (y * image.width + x) * image.channels;
+      colors.add(`${image.data[i]},${image.data[i + 1]},${image.data[i + 2]}`);
+    }
+    assert.ok(colors.size >= 4, `Decoded PNG must produce multiple real colors, got ${colors.size}`);
+    await command({ type: "step", count: 2 }); await command({ type: "restore", snapshot: first });
+    await command({ type: "step", count: 1 });
+    assert.deepEqual((await command({ type: "inspect" })).errors, []);
+    await page.evaluate(() => { (globalThis as any).__imageDocument = "same"; });
+    await command({ type: "reload" });
+    await command({ type: "step", count: 1 });
+    assert.equal(await page.evaluate(() => (globalThis as any).__imageDocument), "same");
+    assert.match(await label.innerText(), /^2 x 2/);
+    return { decodedSize: [2, 2], visibleColors: colors.size, managedCheckpoint: true, compatibleReload: true };
+  }));
   await record("third-person-jump-follow-and-save", () => game("third-person-flow", "third-person", async (page, command) => {
     await command({ type: "step", count: 90 });
     const base = await command({ type: "snapshot" });

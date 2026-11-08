@@ -1,6 +1,7 @@
 import type {
   GameRuntimeScope,
   RuntimeJSONInput,
+  RuntimeFetchInput,
   WorkerAdapterInput,
   WebSocketAdapterInput,
 } from "./index.ts";
@@ -134,10 +135,10 @@ export function bridgeWebSocket<I, O>(
   });
 }
 
-export async function fetchRuntimeJSON<T>(
+export async function fetchRuntimeBytes(
   scope: GameRuntimeScope,
-  input: RuntimeJSONInput<T>,
-): Promise<T> {
+  input: RuntimeFetchInput,
+): Promise<Uint8Array> {
   const maxBytes = input.maxBytes ?? 1048576,
     timeoutMs = input.timeoutMs ?? 10000;
   const fail = (message: string) =>
@@ -148,12 +149,9 @@ export async function fetchRuntimeJSON<T>(
     maxBytes > 67108864 ||
     !Number.isSafeInteger(timeoutMs) ||
     timeoutMs < 1 ||
-    timeoutMs > 120000 ||
-    typeof input.decode !== "function"
+    timeoutMs > 120000
   )
-    throw fail(
-      "Use maxBytes 1..67108864, timeoutMs 1..120000 and a synchronous decode function.",
-    );
+    throw fail("Use maxBytes 1..67108864 and timeoutMs 1..120000.");
   scope.signal.throwIfAborted();
   const controller = new AbortController();
   const cancel = trackRuntimeRelease(scope, () =>
@@ -189,7 +187,35 @@ export async function fetchRuntimeJSON<T>(
       bytes.set(chunk, offset);
       offset += chunk.length;
     }
-    const result = input.decode(
+    scope.signal.throwIfAborted();
+    return bytes;
+  } catch (error) {
+    throw fail(`Dynamic data was not published. ${String(error)}`);
+  } finally {
+    clearTimeout(timer);
+    try {
+      await reader?.cancel();
+    } catch {
+      /* Cancellation may already have closed the transport. */
+    }
+    reader?.releaseLock();
+    cancel();
+  }
+}
+
+export async function fetchRuntimeJSON<T>(
+  scope: GameRuntimeScope,
+  input: RuntimeJSONInput<T>,
+): Promise<T> {
+  const { decode, url } = input;
+  const fail = (message: string) =>
+    new Error(`TC_RUNTIME_FETCH: ${String(url)}; ${message}`);
+  if (typeof decode !== "function")
+    throw fail("Supply a synchronous decode function.");
+  const bytes = await fetchRuntimeBytes(scope, input);
+  scope.signal.throwIfAborted();
+  try {
+    const result = decode(
       JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
     );
     if (isAsyncValue(result)) {
@@ -202,14 +228,5 @@ export async function fetchRuntimeJSON<T>(
     return result;
   } catch (error) {
     throw fail(`Dynamic JSON was not published. ${String(error)}`);
-  } finally {
-    clearTimeout(timer);
-    try {
-      await reader?.cancel();
-    } catch {
-      /* Cancellation may already have closed the transport. */
-    }
-    reader?.releaseLock();
-    cancel();
   }
 }

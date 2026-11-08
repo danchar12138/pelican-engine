@@ -7,6 +7,7 @@ import {
   createWorkerAdapter,
   createWebSocketAdapter,
   loadRuntimeJSON,
+  loadRuntimeBytes,
   type EngineFacade,
 } from "../packages/sdk/src/index.ts";
 import { createRuntimeScope } from "../packages/sdk/src/runtime-scope.ts";
@@ -267,6 +268,48 @@ test("dynamic JSON enforces bytes, validation, HTTP errors, timeout and instance
     });
     scope.dispose();
     await assert.rejects(pending, /cancelled|abort/i);
+  } finally {
+    scope.dispose();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+test("binary fetch preserves exact bytes, bounds chunked responses and aborts active bodies", async () => {
+  const bytes = new Uint8Array([0, 255, 128, 0, 42]);
+  const server = createServer((request, response) => {
+    if (request.url === "/pending") {
+      response.writeHead(200);
+      response.write(bytes.subarray(0, 1));
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/octet-stream" });
+    response.write(bytes.subarray(0, 2));
+    response.end(bytes.subarray(2));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`,
+    scope = owner();
+  try {
+    assert.deepEqual(
+      await loadRuntimeBytes(scope.scope, { url: new URL(base) }),
+      bytes,
+    );
+    await assert.rejects(
+      loadRuntimeBytes(scope.scope, { url: base, maxBytes: 4 }),
+      /TC_RUNTIME_FETCH.*exceeds/,
+    );
+    await assert.rejects(
+      loadRuntimeBytes(scope.scope, { url: base + "/pending", timeoutMs: 30 }),
+      /Deadline/,
+    );
+    const pending = loadRuntimeBytes(scope.scope, { url: base + "/pending" });
+    scope.dispose();
+    await assert.rejects(pending, /cancelled|abort/i);
+    await assert.rejects(
+      loadRuntimeBytes(scope.scope, { url: base }),
+      /abort/i,
+    );
   } finally {
     scope.dispose();
     server.closeAllConnections();

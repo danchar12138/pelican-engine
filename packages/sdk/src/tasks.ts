@@ -1,4 +1,5 @@
 import type { EngineTask } from "./index.ts";
+import { describeFeatures } from "./capabilities.ts";
 
 // Task discovery only; exact signatures and feature boundaries remain source-derived.
 const tasks: readonly EngineTask[] = [
@@ -66,7 +67,12 @@ const tasks: readonly EngineTask[] = [
       "读档",
       "恢复进度",
     ],
-    features: ["storage.save", "runtime.lifecycle", "state.json"],
+    features: [
+      "storage.save",
+      "runtime.lifecycle",
+      "runtime.composition",
+      "state.json",
+    ],
     methods: [
       "StorageService.save",
       "StorageService.load",
@@ -98,6 +104,7 @@ const tasks: readonly EngineTask[] = [
     features: [
       "content.libraries",
       "runtime.lifecycle",
+      "runtime.composition",
       "runtime.adapters",
       "render.runtime",
     ],
@@ -108,7 +115,12 @@ const tasks: readonly EngineTask[] = [
       "createRuntimeAdapter",
       "defineRenderExtension",
     ],
-    recipes: ["runtime-lifecycle", "external-adapters", "managed-rendering"],
+    recipes: [
+      "npm-component",
+      "runtime-lifecycle",
+      "external-adapters",
+      "managed-rendering",
+    ],
     verify: [
       "Install recipe dependencies in the game; create two instances; dispose one without affecting the other; test save/load.",
     ],
@@ -127,7 +139,7 @@ const tasks: readonly EngineTask[] = [
       "外部消息",
       "消息队列",
     ],
-    features: ["runtime.adapters"],
+    features: ["runtime.adapters", "runtime.transports"],
     methods: [
       "createWorkerAdapter",
       "createWebSocketAdapter",
@@ -152,20 +164,26 @@ const tasks: readonly EngineTask[] = [
       "fetch",
       "远程数据",
     ],
-    features: ["runtime.adapters", "compute.managed", "render.bindings"],
+    features: [
+      "runtime.dynamic-data",
+      "runtime.adapters",
+      "compute.managed",
+      "render.bindings",
+    ],
     methods: [
       "loadRuntimeJSON",
+      "loadRuntimeBytes",
       "ComputeService.createBuffer",
       "ComputeService.writeBuffer",
       "ComputeService.createTexture",
       "RenderService.buffers",
     ],
-    recipes: ["dynamic-resources", "external-adapters"],
+    recipes: ["dynamic-texture", "dynamic-resources", "external-adapters"],
     verify: [
       "Test deadline/abort/size/validation failures; publish prepared data on a fixed tick; unbind before releasing resources.",
     ],
     limits: [
-      "Dynamic JSON is not full model/texture asset streaming or arbitrary mesh topology replacement; CORS/CSP still apply.",
+      "Bounded JSON/binary fetch and npm codecs can update managed resources, not full model streaming or arbitrary mesh topology replacement; CORS/CSP and decoded-size budgets still apply.",
     ],
   },
   {
@@ -185,10 +203,12 @@ const tasks: readonly EngineTask[] = [
       "render.raster",
       "render.path",
       "render.material",
+      "render.quality",
       "presentation.lights",
     ],
     methods: [
       "RenderService.configure",
+      "renderQuality",
       "RenderService.capabilities",
       "MaterialInput",
       "LightDefinition",
@@ -220,11 +240,24 @@ const normalize = (text: string) =>
   text
     .normalize("NFKC")
     .toLowerCase()
-    .replace(/[-_]+/g, " ")
+    .replace(/[._/-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 export function discoverTasks(goal = ""): EngineTask[] {
   const query = normalize(goal);
+  // Keep every real feature discoverable from a task sentence without duplicating its vocabulary or API.
+  const featureTasks: EngineTask[] = describeFeatures().map((feature) => ({
+    id: feature.id,
+    title: feature.description ?? feature.id,
+    aliases: [...(feature.aliases ?? []), ...feature.symbols],
+    features: [feature.id],
+    methods: [...feature.symbols],
+    recipes: [...feature.recipes],
+    verify: [
+      "Query the exact SDK contract and active backend, then run the behavior with game inputs/assets. Check diagnostics, save/restore and resource cleanup when applicable.",
+    ],
+    limits: [...feature.limits],
+  }));
   const score = (task: EngineTask) =>
     Math.max(
       0,
@@ -237,9 +270,13 @@ export function discoverTasks(goal = ""): EngineTask[] {
         return found ? word.length : 0;
       }),
     );
-  return tasks
-    .map((task) => ({ task, score: score(task) }))
+  return [...tasks, ...featureTasks]
+    .map((task, index) => ({
+      task,
+      score: score(task),
+      curated: index < tasks.length,
+    }))
     .filter((item) => !query || item.score > 0)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || Number(b.curated) - Number(a.curated))
     .map(({ task }) => structuredClone(task));
 }

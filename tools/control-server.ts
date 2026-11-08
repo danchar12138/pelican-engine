@@ -4,6 +4,7 @@ import type { ViteDevServer } from "vite";
 import type { Page } from "playwright";
 import {
   AutomationError,
+  automationCauseCodes,
   automationLaunchOptions,
   automationURL,
   waitForEngine,
@@ -80,6 +81,7 @@ class BridgeError extends Error {
   constructor(
     readonly code: string,
     readonly httpStatus = 503,
+    readonly causeCodes: readonly string[] = [],
   ) {
     super(code);
   }
@@ -300,6 +302,8 @@ const physicalPageFactory: ControlPageFactory = async ({
       error instanceof AutomationError
         ? error.code
         : "TC_CONTROL_BROWSER_UNAVAILABLE",
+      503,
+      error instanceof AutomationError ? automationCauseCodes(error) : error instanceof BridgeError ? error.causeCodes : [],
     );
   }
 };
@@ -565,16 +569,18 @@ function attach(
           const code =
             error instanceof BridgeError
               ? error.code
+              : error instanceof AutomationError ? error.code
               : "TC_CONTROL_TRANSPORT_FAILURE";
+          const causes = error instanceof BridgeError ? [...error.causeCodes] : error instanceof AutomationError ? automationCauseCodes(error) : [];
           discard();
+          const response = failed(task.summary.taskId, code,
+            "Browser transport failed. The owned session was discarded; explicitly reset before retrying.", state());
+          if (causes.length) response.diagnostics[0].causeCodes = causes;
+          if (causes.includes("TC_GAME_CONSTRUCTION_DRIFT")) response.diagnostics[0].remediation =
+            "Game declarations differ between build and browser beyond floating-point tolerance. Check IDs, shapes, values and environment-dependent top-level code; move browser initialization into runtime.create/setup. Reset the session after correcting the game.";
           settle(
             task,
-            failed(
-              task.summary.taskId,
-              code,
-              "Browser transport failed. The owned session was discarded; explicitly reset before retrying.",
-              state(),
-            ),
+            response,
           );
         } finally {
           if (active === task) active = undefined;

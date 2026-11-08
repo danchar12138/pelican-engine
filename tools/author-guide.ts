@@ -105,6 +105,7 @@ export function authorGuide(args: readonly string[]) {
       if (!ids.has(id)) { features.push(...engineCapabilities(id)); ids.add(id); }
   }
   const recipes = [...new Set([...tasks.flatMap(task => task.recipes), ...features.flatMap((feature) => feature.recipes)])];
+  const taskCatalog = engineTasks();
   return {
     format: "pelican.author-guide",
     version: 1,
@@ -128,11 +129,11 @@ export function authorGuide(args: readonly string[]) {
       dependencies:
         "Install dependencies in the game package.json. No algorithm dependency approval list in content: typescript. Legacy static mode is optional compatibility.",
       lifecycle:
-        "defineGameRuntime declares systems once with isolated validated JSON state and automatic save hooks. Or use runtime.create directly. Browser-only imports belong in setup/create; scope.own/listen/cleanup/defer and signal manage lifetime.",
+        "defineGameRuntime declares systems once with isolated JSON state/save hooks. setup can return a typed per-instance dependency context for systems; it is not saved. Or use runtime.create. scope.own/listen/cleanup/defer and signal manage lifetime.",
       state:
         "Use components or versioned snapshot/validateSnapshot/restore hooks for saved state. Third-party objects and closures are not saved automatically.",
       extensions:
-        "Compose gameplay/npm freely. createWorkerAdapter/createWebSocketAdapter or createRuntimeAdapter bridge owned/borrowed endpoints. loadRuntimeJSON prepares validated bounded dynamic data. Managed rendering and defineRenderExtension retain resource checks; gameplay services are optional.",
+        "Compose gameplay/npm freely. Worker/WebSocket/generic adapters bridge owned/borrowed endpoints. loadRuntimeJSON/loadRuntimeBytes prepare bounded data for npm codecs and managed textures. Validate decoded-size budgets. Managed rendering retains resource checks; gameplay services are optional.",
       boundary:
         "Private Three.js/GPU/WASM objects are not a stable ownership contract. Node-only dependencies belong in asset/build tooling. Synchronous system callbacks must not block or return promises.",
     },
@@ -140,7 +141,10 @@ export function authorGuide(args: readonly string[]) {
       status: failure ? "unrecognized" : goal ? "matched" : "catalog",
       ...(failure ? { failure } : {}),
       tasks: tasks.map(({ aliases: _aliases, ...task }) => task),
-      ...(!goal || failure ? { candidates: engineTasks().map(({ id, title }) => ({ id, title, query: `pelican guide --goal ${id}` })) } : {}),
+      ...(!goal || failure ? {
+        candidates: taskCatalog.slice(0, 8).map(({ id, title }) => ({ id, title, query: `pelican guide --goal ${id}` })),
+        catalog: { total: taskCatalog.length, truncated: taskCatalog.length > 8, query: "pelican capabilities --summary" },
+      } : {}),
       features: features.map(({ id, implementation, symbols, limits }) => ({
         id,
         implementation,
@@ -164,6 +168,7 @@ export function authorGuide(args: readonly string[]) {
           ],
       recovery:
         "An unknown query does not prove a missing capability. Use task candidates, the owning service and exact Type.member. Report the concrete gap; do not silently remove a requested feature.",
+      ...(goal ? { coverage: "Matched intents only, not proof that every clause is supported. Feature-derived tasks preserve original backend/implementation limits; recipes may be absent." } : {}),
     },
     verification:
       "check/build do not prove behavior. Run the game, inspect diagnostics and use step/input/capture. automation=1 pauses intentionally; use step/resume, not desktop Enter. Test instance cleanup and save/load when using external state.",

@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -49,7 +49,8 @@
     "release:github": "tsx tools/npm/github-release.ts",
     "clean": "node tools/clean.mjs",
     "benchmark:render": "tsx tools/benchmark-rendering.ts",
-    "evaluate:author": "tsx tools/evaluate-authoring.ts"
+    "evaluate:author": "tsx tools/evaluate-authoring.ts",
+    "evaluate:author:report": "tsx tools/author-evaluation-report.ts"
   },
   "dependencies": {
     "fast-png": "8.0.0",

@@ -8,8 +8,8 @@ import type {
 import { cloneJsonValue } from "../../schema/src/json-value.ts";
 import { handleNativeRejection, isAsyncValue } from "./runtime-async.ts";
 
-export function composeGameRuntime<T extends JsonValue>(
-  input: GameRuntimeInput<T>,
+export function composeGameRuntime<T extends JsonValue, C = void>(
+  input: GameRuntimeInput<T, C>,
 ): { systems: readonly SystemMetadata[]; runtime: GameRuntimeDefinition } {
   const definitions = input.systems.map((system) => ({ ...system }));
   if (
@@ -46,13 +46,13 @@ export function composeGameRuntime<T extends JsonValue>(
           );
         }
         const state: RuntimeState<T> = { value: checked(initial) };
-        await input.setup?.(scope, state);
+        const context = (await input.setup?.(scope, state)) as C;
         scope.signal.throwIfAborted();
         return {
           systems: Object.fromEntries(
             definitions.map((system) => [
               system.id,
-              (ctx, dt) => system.run(ctx, dt, state, scope),
+              (ctx, dt) => system.run(ctx, dt, state, scope, context),
             ]),
           ),
           snapshot: () => checked(state.value),

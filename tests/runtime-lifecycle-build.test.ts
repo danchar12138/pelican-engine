@@ -181,3 +181,22 @@ export default defineGame({id:'legacy',scene:defineScene({id:'s',entities:[]}),
   try { host.attach(module.createGame(host.facade)); host.step(); assert.equal(host.snapshot().scheduler.tick, 1); }
   finally { host.dispose(); }
 });
+test("compiled declarations tolerate observed numerical tails but reject meaningful browser value changes", async t => {
+  for (const browserValue of ["-0.06758126995938143", "-0.06"]) {
+    const { root, compile } = await fixture(t);
+    await writeFile(path.join(root, "game.ts"), `
+import {defineGame,defineScene} from 'pelican-engine';
+const x=typeof window==='undefined'?-0.06758126995938145:${browserValue};
+export default defineGame({id:'math',scene:defineScene({id:'s',entities:[{id:'shape',transform:{position:[x,0,0]}}]})});
+`);
+    const result = await compile();
+    assert.equal(result.success, true, JSON.stringify(result.diagnostics));
+    const code = (await readFile(path.join(root, "out/game.js"), "utf8")).replace("typeof window", "typeof globalThis");
+    const output = path.join(root, "browser-game.mjs"); await writeFile(output, code);
+    const module = await import(pathToFileURL(output).href), host = new RuntimeHost(result.ir!);
+    try {
+      if (browserValue === "-0.06") assert.throws(() => module.createGame(host.facade), /TC_GAME_CONSTRUCTION_DRIFT/);
+      else { const instance = module.createGame(host.facade); await instance.ready; instance.dispose(); }
+    } finally { host.dispose(); }
+  }
+});

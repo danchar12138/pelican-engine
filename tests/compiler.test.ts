@@ -678,7 +678,8 @@ test("compiler: cache reuses valid artifacts, source edits invalidate and schema
     defaults.report.incremental.defaultsHash,
     first.report.incremental.defaultsHash,
   );
-  assert.equal(defaults.report.hotReload.strategy, "patch");
+  assert.equal(defaults.report.hotReload.strategy, "restart");
+  assert.equal(defaults.report.hotReload.preserveState, false);
   assert.equal(defaults.report.hotReload.defaults, "new-entities-only");
   const extraField = ts.factory.createObjectLiteralExpression([
     ts.factory.createPropertyAssignment(

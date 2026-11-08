@@ -11,6 +11,11 @@ export class AutomationError extends Error {
   }
 }
 
+/** Preserve stable engine causes without exposing arbitrary browser messages, URLs or local paths. */
+export function automationCauseCodes(error: AutomationError): string[] {
+  return [...new Set(error.message.match(/\bTC_[A-Z0-9_]{1,90}\b/g) ?? [])].filter(code => code !== error.code).slice(0, 16);
+}
+
 function timeoutValue(timeoutMs: number): number {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000)
     throw new AutomationError(

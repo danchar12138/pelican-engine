@@ -5,7 +5,7 @@ import { createGameInstance } from "./runtime-lifecycle.ts";
 import { createMessageBridge } from "./runtime-adapter.ts";
 import { composeGameRuntime } from "./runtime-composition.ts";
 import { discoverTasks } from "./tasks.ts";
-import { bridgeWorker, bridgeWebSocket, fetchRuntimeJSON } from "./runtime-integrations.ts";
+import { bridgeWorker, bridgeWebSocket, fetchRuntimeJSON, fetchRuntimeBytes } from "./runtime-integrations.ts";
 import { qualitySettings } from "./render-quality.ts";
 export interface EngineFeature {
   id: string;
@@ -32,7 +32,7 @@ export interface EngineTask {
 }
 /** Ranked task intents; an empty result means unrecognized, not unsupported. */
 export function engineTasks(goal = ""): EngineTask[] { return discoverTasks(goal); }
-export const SDK_VERSION = "1.6.0";
+export const SDK_VERSION = "1.7.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -2058,13 +2058,19 @@ export interface WebSocketAdapterInput<I, O> {
 export function createWebSocketAdapter<I, O>(scope: GameRuntimeScope, input: WebSocketAdapterInput<I, O>): RuntimeMessageAdapter<I, O> {
   return bridgeWebSocket(scope, input);
 }
-export interface RuntimeJSONInput<T> {
+export interface RuntimeFetchInput {
   url: string | URL;
-  decode(value: unknown): T;
   /** Response body budget, default 1 MiB; bounded to 1..64 MiB. */
   maxBytes?: number;
   /** Deadline in ms, default 10000; bounded to 1..120000. */
   timeoutMs?: number;
+}
+export interface RuntimeJSONInput<T> extends RuntimeFetchInput {
+  decode(value: unknown): T;
+}
+/** Bounded cancellable bytes for ordinary npm codecs; no implicit GPU allocation, save or replay. */
+export function loadRuntimeBytes(scope: GameRuntimeScope, input: RuntimeFetchInput): Promise<Uint8Array> {
+  return fetchRuntimeBytes(scope, input);
 }
 /** Fetch dynamic JSON with cancellation, a byte budget and author validation; not automatic persistence/replay. */
 export function loadRuntimeJSON<T>(scope: GameRuntimeScope, input: RuntimeJSONInput<T>): Promise<T> {
@@ -2087,21 +2093,21 @@ export interface GameRuntimeDefinition {
 }
 /** Keep this cell, not a cached reference to value: restore replaces value with a detached validated copy. */
 export interface RuntimeState<T extends JsonValue> { value: T }
-export interface RuntimeSystemInput<T extends JsonValue> extends Omit<SystemInput, "run"> {
-  run(ctx: SystemContext, dt: number, state: RuntimeState<T>, scope: GameRuntimeScope): void;
+export interface RuntimeSystemInput<T extends JsonValue, C = void> extends Omit<SystemInput, "run"> {
+  run(ctx: SystemContext, dt: number, state: RuntimeState<T>, scope: GameRuntimeScope, context: C): void;
 }
-export interface GameRuntimeInput<T extends JsonValue> {
+export interface GameRuntimeInput<T extends JsonValue, C = void> {
   version: string;
   /** Fresh JSON per instance, never executed during declaration extraction. */
   state(): T;
   /** Validate detached data without mutation; an assertion function is optional. */
   validateState(value: JsonValue): void;
-  systems: readonly RuntimeSystemInput<T>[];
-  /** Browser-only dependencies and scoped resources; cannot replace the declared systems. */
-  setup?(scope: GameRuntimeScope, state: RuntimeState<T>): void | Promise<void>;
+  systems: readonly RuntimeSystemInput<T, C>[];
+  /** Returns transient instance dependencies; a non-void context requires setup when passed to defineGameRuntime. */
+  setup?(scope: GameRuntimeScope, state: RuntimeState<T>): C | Promise<C>;
 }
 /** Spread into defineGame: declares systems once and supplies isolated state plus all save hooks. */
-export function defineGameRuntime<T extends JsonValue>(input: GameRuntimeInput<T>): { systems: readonly SystemMetadata[]; runtime: GameRuntimeDefinition } {
+export function defineGameRuntime<T extends JsonValue, C = void>(input: GameRuntimeInput<T, C> & ([C] extends [void] ? unknown : Required<Pick<GameRuntimeInput<T, C>, "setup">>)): { systems: readonly SystemMetadata[]; runtime: GameRuntimeDefinition } {
   return composeGameRuntime(input);
 }
 export interface GameRuntimeSnapshot {
