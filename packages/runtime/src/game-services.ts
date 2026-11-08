@@ -10,6 +10,7 @@ import { cloneSerializable } from "./random.ts";
 import { isUiColor } from "../../schema/src/ui-color.ts";
 import { UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
 import { neutralGamepad, parseGamepad } from "./gamepad.ts";
+import { neutralPointer, parsePointer, advancePointer } from "./pointer.ts";
 import { audioPlayedTicks, audioVoicePosition } from "./audio-clock.ts";
 
 type Camera = NonNullable<SceneIR["scene"]["follow"]>;
@@ -21,7 +22,7 @@ export interface GameServiceRequest {
   id: string;
 }
 export interface GameServicesInspection {
-  input: { held: string[]; pressed: string[]; released: string[]; gamepadMode: "ui" | "game"; gamepadDeadzone: number; gamepad: GamepadState };
+  input: { held: string[]; pressed: string[]; released: string[]; gamepadMode: "ui" | "game"; gamepadDeadzone: number; gamepad: GamepadState; pointer: ReturnType<typeof neutralPointer>; pointerLock: boolean };
   camera: Camera | null;
   cameraPose: CameraPose | null;
   ui: SceneIR["ui"];
@@ -55,6 +56,7 @@ export interface GameServicesDriver {
   inspect(): GameServicesInspection;
   uiKind(id: string): UI[number]["kind"] | undefined;
   gamepadConfig(): { mode: "ui" | "game"; deadzone: number };
+  pointerConfig(): { lock: boolean };
   takeRequests(): GameServiceRequest[];
   /** Platform transaction handoff only; never exposed through the gameplay SDK. */
   adoptStorageRequest(type: "save" | "load", slot: string): void;
@@ -406,6 +408,8 @@ export function createGameServices(
       gamepadMode: "ui" as "ui" | "game",
       gamepadDeadzone: 0.15,
       gamepad: neutralGamepad(false, true),
+      pointer: neutralPointer(),
+      pointerLock: false,
     },
     camera: cloneSerializable(initialCamera),
     cameraPose: null as CameraPose | null,
@@ -515,6 +519,8 @@ export function createGameServices(
   };
   const services: Partial<RuntimeServices> = {
     input: {
+      pointer() { alive(); return parsePointer(state.input.pointer); },
+      setPointerLock(enabled) { alive(); check(typeof enabled === "boolean", "TC_POINTER_LOCK", "Pointer lock request must be boolean."); state.input.pointerLock = enabled; },
       setGamepadMode(mode) {
         alive();
         check(mode === "ui" || mode === "game", "TC_GAMEPAD_MODE", "Gamepad mode must be ui or game.");
@@ -893,7 +899,7 @@ export function createGameServices(
           "TC_AUDIO_VALUE",
           `Sound ${id} loop must be boolean.`,
         );
-        check(loop || durations[id] === null || offset < durations[id]!, "TC_AUDIO_POSITION", `Source offset for '${id}' must precede its end.`);
+        check(loop || durations[id] === null || offset < durations[id]! || (durations[id] === 0 && offset === 0), "TC_AUDIO_POSITION", `Source offset for '${id}' must precede its end.`);
         if (Object.hasOwn(values, "entity"))
           target(values.entity!, "TC_AUDIO_TARGET");
         if (Object.hasOwn(values, "occlusion"))
@@ -1053,7 +1059,7 @@ export function createGameServices(
     alive();
     const { held, pressed, released } = state.input;
     return cloneSerializable({
-      input: { held, pressed, released, gamepadMode: state.input.gamepadMode, gamepadDeadzone: state.input.gamepadDeadzone, gamepad: state.input.gamepad },
+      input: { held, pressed, released, gamepadMode: state.input.gamepadMode, gamepadDeadzone: state.input.gamepadDeadzone, gamepad: state.input.gamepad, pointer: state.input.pointer, pointerLock: state.input.pointerLock },
       camera: state.camera,
       cameraPose: state.cameraPose,
       ui: state.ui.map(displayUI),
@@ -1083,10 +1089,10 @@ export function createGameServices(
         "fixedDt",
         "input",
         "camera",
-        ...(Object.hasOwn(data, "cameraPose") ? ["cameraPose"] : []),
+        ...(data && Object.hasOwn(data, "cameraPose") ? ["cameraPose"] : []),
         "ui",
-        ...(Object.hasOwn(data, "uiNextGeneration") ? ["uiNextGeneration"] : []),
-        ...(Object.hasOwn(data, "uiTextBindings") ? ["uiTextBindings"] : []),
+        ...(data && Object.hasOwn(data, "uiNextGeneration") ? ["uiNextGeneration"] : []),
+        ...(data && Object.hasOwn(data, "uiTextBindings") ? ["uiTextBindings"] : []),
         "audio",
         "storage",
         "scene",
@@ -1122,7 +1128,11 @@ export function createGameServices(
     const inputFields = data.input && typeof data.input === "object" ? data.input : {};
     object(data.input, ["keys", "held", "pressed", "released", ...(Object.hasOwn(inputFields, "gamepadMode") ? ["gamepadMode"] : []),
       ...(Object.hasOwn(inputFields, "gamepadDeadzone") ? ["gamepadDeadzone"] : []),
-      ...(Object.hasOwn(inputFields, "gamepad") ? ["gamepad"] : [])], SNAPSHOT_ERROR);
+      ...(Object.hasOwn(inputFields, "gamepad") ? ["gamepad"] : []),
+      ...(Object.hasOwn(inputFields, "pointer") ? ["pointer"] : []), ...(Object.hasOwn(inputFields, "pointerLock") ? ["pointerLock"] : [])], SNAPSHOT_ERROR);
+    data.input.pointer = Object.hasOwn(inputFields, "pointer") ? parsePointer(data.input.pointer, SNAPSHOT_ERROR) : neutralPointer();
+    if (!Object.hasOwn(inputFields, "pointerLock")) data.input.pointerLock = false;
+    check(typeof data.input.pointerLock === "boolean", SNAPSHOT_ERROR, "Invalid pointer lock request.");
     if (!Object.hasOwn(data.input, "gamepadMode")) data.input.gamepadMode = "ui";
     if (!Object.hasOwn(data.input, "gamepadDeadzone")) data.input.gamepadDeadzone = 0.15;
     if (!Object.hasOwn(data.input, "gamepad")) data.input.gamepad = neutralGamepad(false, true);
@@ -1525,6 +1535,8 @@ export function createGameServices(
             gamepadMode: state.input.gamepadMode,
             gamepadDeadzone: state.input.gamepadDeadzone,
             gamepad,
+            pointer: advancePointer(state.input.pointer, context!.events().filter(event => event.type === "input.pointer").map(event => event.payload)),
+            pointerLock: state.input.pointerLock,
           };
           state.audio.voices = state.audio.voices.filter(
             (voice) => {
@@ -1588,6 +1600,7 @@ export function createGameServices(
     inspect,
     uiKind(id) { alive(); return state.ui.find(item => item.id === id)?.kind; },
     gamepadConfig() { alive(); return { mode: state.input.gamepadMode, deadzone: state.input.gamepadDeadzone }; },
+    pointerConfig() { alive(); return { lock: state.input.pointerLock }; },
     takeRequests() {
       alive();
       const pending = cloneSerializable(state.requests);

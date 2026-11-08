@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "../packages/physics/rapier.ts";
 import {
   createInternalJoints,
   type InternalJoint,

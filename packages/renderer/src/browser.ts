@@ -1,4 +1,8 @@
 import * as THREE from "three/webgpu";
+import { resolveViewport } from "./viewport.ts";
+import { createPointerInput } from "./pointer.ts";
+import { diagnosticFrom } from "../../runtime/src/error.ts";
+import { neutralPointer } from "../../runtime/src/pointer.ts";
 import { prepareGameplay, type GameplayContent } from "./gameplay.ts";
 import { createRopeVisualOwner } from "./rope-visuals.ts";
 import { createClothVisualOwner } from "./cloth-visuals.ts";
@@ -41,6 +45,7 @@ import {
 import {
   parseCommand,
   result as protocolResult,
+  type Envelope,
 } from "../../protocol/src/index.ts";
 import {
   validateBrowserCheckpoint,
@@ -63,13 +68,14 @@ import type {
 import { createWorldProbe } from "../../../experiments/world/index.ts";
 import type { WorldProbe } from "../../../experiments/world/types.ts";
 
-const width = Number(new URLSearchParams(location.search).get("width") ?? 960);
-const height = Number(
-  new URLSearchParams(location.search).get("height") ?? 540,
-);
+const readViewport = () => resolveViewport(location.search, window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
+let viewport = readViewport();
+let { width, height } = viewport;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errors: string[] = [];
 const startup = startupPolicy(import.meta.env.DEV, location.search);
+const diagnosticsVisible = import.meta.env.DEV || new URLSearchParams(location.search).get("diagnostics") === "1";
+status.hidden = !diagnosticsVisible;
 let adapterInfo:
   | {
       vendor: string;
@@ -123,11 +129,11 @@ for (const canvas of [rasterCanvas, traceCanvas]) {
   canvas.style.position = "absolute";
   canvas.style.left = "0";
   canvas.style.top = "0";
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
+  canvas.style.width = `${viewport.cssWidth}px`;
+  canvas.style.height = `${viewport.cssHeight}px`;
   document.body.appendChild(canvas);
 }
-traceCanvas.style.pointerEvents = "none";
+traceCanvas.style.pointerEvents = "auto";
 traceCanvas.style.display = "none";
 const standard = (color: number, roughness = 0.75) =>
   new THREE.MeshStandardMaterial({ color, roughness });
@@ -220,6 +226,7 @@ let drawTail: Promise<unknown> = Promise.resolve();
 let tickTail: Promise<void> = Promise.resolve();
 let nativeInputTail: Promise<void> = Promise.resolve();
 let gamepadHost: RuntimeHost | undefined, gamepadFingerprint: string | undefined;
+const pointerInput = createPointerInput(rasterCanvas, () => gameplay?.services.pointerConfig().lock ?? false, code => errors.push(code), [traceCanvas]);
 let inputDrawActive = false,
   inputDrawRequested = false;
 let frameSerial = 0;
@@ -495,7 +502,7 @@ function createEntityView(
       g.kind === "box"
         ? new THREE.BoxGeometry(...(g.size ?? [1, 1, 1]))
         : g.kind === "sphere"
-          ? new THREE.SphereGeometry(g.radius ?? 0.5, g.segments ?? 12, 8)
+          ? new THREE.SphereGeometry(g.radius ?? 0.5, g.segments ?? 64, Math.max(8, Math.ceil((g.segments ?? 64) / 2)))
           : new THREE.PlaneGeometry(...(g.size ?? [1, 1]));
     for (const input of material.userData.pelicanGraphInputs ?? []) {
       if ((input === "uv" || input === "uv1") && !geometry.hasAttribute(input)) {
@@ -984,8 +991,8 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string) {
     const previousRoot = new THREE.Group();
     if (gameRoot.children.length) previousRoot.add(...gameRoot.children);
     previousCleanup = async () => {
-      await cleanup("previous runtime", () => previous?.dispose());
       await cleanup("previous gameplay", () => previousGameplay?.dispose());
+      await cleanup("previous runtime", () => previous?.dispose());
       await cleanup("previous postprocess", () => previousPostComposer?.dispose());
       await cleanup("previous vertex bounds", () => previousVertexBounds?.dispose());
       await cleanup("previous buffer bridge", () => previousRenderBufferBridge?.dispose());
@@ -1242,9 +1249,31 @@ function draw(accumulate = false, changed = true) {
   drawTail = operation.catch(() => {});
   return operation;
 }
+function resizeViewport(): boolean {
+  const next = readViewport();
+  if (next.width === width && next.height === height && next.cssWidth === viewport.cssWidth && next.cssHeight === viewport.cssHeight) return false;
+  if (backendKind === "webgpu" && Math.max(next.width, next.height) > device.limits.maxTextureDimension2D)
+    throw new Error("TC_VIEWPORT_CAPABILITY: Requested native resolution exceeds the actual GPU texture limit. Set an explicit supported capture size; no resolution reduction was applied.");
+  const nextComposer = compiledIR?.postProcesses?.length
+    ? createPostProcessComposer(renderer, next.width, next.height, compiledIR.postProcesses, gameplay?.textures ?? new Map(), renderBufferBridge, renderTextureBridge) : undefined;
+  pendingSurface?.abort(); pendingSurface = undefined;
+  surfaceTracer?.dispose(); surfaceTracer = undefined;
+  postComposer?.dispose(); postComposer = nextComposer;
+  if (backendKind === "webgpu") { tracer?.dispose(); tracer = new GPUTracer(device, traceCanvas, next.width, next.height); }
+  viewport = next; width = next.width; height = next.height;
+  renderer.setSize(width, height, false);
+  for (const canvas of [rasterCanvas, traceCanvas]) { canvas.style.width = `${next.cssWidth}px`; canvas.style.height = `${next.cssHeight}px`; }
+  perspectiveCamera.aspect = width / height; perspectiveCamera.updateProjectionMatrix();
+  const halfHeight = (compiledIR?.scene.camera.orthographicSize ?? 10) / 2;
+  orthographicCamera.left = -halfHeight * width / height; orthographicCamera.right = halfHeight * width / height;
+  orthographicCamera.top = halfHeight; orthographicCamera.bottom = -halfHeight; orthographicCamera.updateProjectionMatrix();
+  traceContentDirty = true;
+  return true;
+}
 async function drawFrame(accumulate = false, changed = true) {
   if (disposed) throw new Error("TC_BROWSER_DISPOSED");
   await computeControl?.flush();
+  changed = resizeViewport() || changed;
   const start = performance.now();
   const ropeChanged = syncRuntime();
   changed = changed || ropeChanged;
@@ -1352,7 +1381,7 @@ async function drawFrame(accumulate = false, changed = true) {
       simulationMs: lastStepCpuMs,
     });
     if (metrics.length > 2000) metrics.shift();
-    status.hidden = false;
+    status.hidden = !diagnosticsVisible;
     status.textContent = runtimeStatus({
       backend: backendKind,
       mode,
@@ -1399,7 +1428,7 @@ async function drawFrame(accumulate = false, changed = true) {
     simulationMs: lastStepCpuMs,
   });
   if (metrics.length > 2000) metrics.shift();
-  status.hidden = false;
+  status.hidden = !diagnosticsVisible;
   status.textContent = runtimeStatus({
     backend: backendKind,
     mode,
@@ -1507,6 +1536,10 @@ function onKeyUp(event: KeyboardEvent) {
 function onWindowBlur() {
   const host = runtime, current = gameplay;
   gamepadFingerprint = undefined;
+  if (host && current && !disposed && !terminalFault && !loadingContent && !restoring) {
+    const keys = [...new Set(Object.values(compiledIR?.input ?? {}).flat())];
+    queueNativeInput(() => { if (runtime === host) for (const key of keys) host.input(key, false); });
+  }
   if (!host || !current || disposed || terminalFault || loadingContent || restoring || current.services.gamepadConfig().mode !== "game") return;
   const sample = sampleGameplayGamepad(true);
   queueNativeInput(() => { if (runtime === host) host.emitExternal("input.gamepad", sample); });
@@ -1514,9 +1547,15 @@ function onWindowBlur() {
 window.addEventListener("keydown", onKeyDown);
 window.addEventListener("keyup", onKeyUp);
 window.addEventListener("blur", onWindowBlur);
+function onVisibilityChange() { if (document.hidden) onWindowBlur(); }
+function onResize() { if (!playing && !disposed && runtime) requestInputDraw(); }
+document.addEventListener("visibilitychange", onVisibilityChange);
+window.addEventListener("resize", onResize);
 async function stepRuntime() {
   const started = performance.now();
   const host = requireRuntime();
+  const pointerSample = pointerInput.drain();
+  if (pointerSample) host.emitExternal("input.pointer", pointerSample);
   if (terminalFault)
     throw new Error(
       "TC_BROWSER_FAULTED: Restore a valid checkpoint or reload content before stepping.",
@@ -1572,6 +1611,7 @@ function inspect(options?: InspectPage) {
     },
     backend: backendKind === "webgpu" ? "WebGPUBackend" : backendKind === "webgl2" ? "WebGLBackend" : "uninitialized",
     adapter: adapterInfo,
+    viewport: { ...viewport },
     mode,
     rendering: {
       cameraProjection: camera instanceof THREE.OrthographicCamera ? "orthographic" : "perspective",
@@ -1652,6 +1692,9 @@ async function disposeBrowser() {
   window.removeEventListener("keydown", onKeyDown);
   window.removeEventListener("keyup", onKeyUp);
   window.removeEventListener("blur", onWindowBlur);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("resize", onResize);
+  pointerInput.dispose();
   rasterCanvas.removeEventListener("webglcontextrestored", onContextRestored);
   window.removeEventListener("pagehide", onPageHide);
   const pending: Promise<unknown>[] = [];
@@ -1664,13 +1707,13 @@ async function disposeBrowser() {
       errors.push(`TC_BROWSER_CLEANUP: ${String(error)}`);
     }
   };
+  clean(() => gameplay?.dispose());
   clean(() => runtime?.dispose());
   clean(() => computeControl?.dispose());
   clean(() => postComposer?.dispose());
   clean(() => vertexBounds?.dispose());
   clean(() => renderBufferBridge?.dispose());
   clean(() => renderTextureBridge?.dispose());
-  clean(() => gameplay?.dispose());
   clean(() => simulation?.dispose());
   clean(() => world?.dispose());
   clean(() => resourceManager.dispose());
@@ -1734,7 +1777,7 @@ async function initializeGpu() {
   const candidate = new THREE.WebGPURenderer({ canvas: rasterCanvas, antialias: true, powerPreference: "high-performance" });
   renderer = candidate;
   renderer.setPixelRatio(1);
-  renderer.setSize(width, height);
+  renderer.setSize(width, height, false);
   renderer.shadowMap.enabled = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.onDeviceLost = (info) => {
@@ -2219,7 +2262,7 @@ async function boot() {
       return { vertices, hash: lastGeometryHash };
     },
     cameraDirection: () => cameraFrame(),
-    command: async (input: unknown) => {
+    command: async (input: unknown): Promise<Envelope> => {
       const taskId = `runtime-${Date.now()}`;
       try {
         const command = parseCommand(input);
@@ -2296,6 +2339,36 @@ async function boot() {
             await draw();
             data = inspect();
             break;
+          case "batch": {
+            const results: Envelope[] = [];
+            for (const [index, child] of command.commands.entries()) {
+              const result = await api.command(child); results.push(result);
+              if (result.status !== "succeeded") return protocolResult(taskId, "failed", { completed: index, failedIndex: index, partialState: index > 0, results }, result.diagnostics);
+            }
+            data = { completed: results.length, partialState: false, results }; break;
+          }
+          case "pointer": {
+            pointerInput.drain();
+            requireRuntime().emitExternal("input.pointer", { ...neutralPointer(), position: [command.x, command.y],
+              ndc: [2 * command.x / viewport.cssWidth - 1, 1 - 2 * command.y / viewport.cssHeight], buttons: command.buttons,
+              delta: command.delta ?? [0, 0], wheel: command.wheel ?? [0, 0], inside: command.x >= 0 && command.y >= 0 && command.x <= viewport.cssWidth && command.y <= viewport.cssHeight });
+            data = { queued: true, nextTick: tick + 1 }; break;
+          }
+          case "render": {
+            if (playing) throw new Error("TC_RENDER_PAUSE_REQUIRED: Pause the simulation before deterministic quality rendering.");
+            const settings = renderControl!.service.state();
+            const next = { ...settings, mode: command.mode, samplesPerFrame: 1, denoise: command.denoise ?? settings.denoise };
+            validateRenderCapabilities(next, renderControl!.service.capabilities());
+            renderControl!.service.configure(next);
+            surfaceTracer?.invalidateTemporal("capture");
+            for (let i = 0; i < command.samples; i++) {
+              if (disposed || recoveringGpu || terminalFault) throw new Error("TC_RENDER_INTERRUPTED: Rendering owner is no longer active; inspect or reset before retrying.");
+              await draw(true, false);
+            }
+            await submittedWork("quality render completion");
+            data = { tick, requestedSamples: command.samples, render: surfaceTracer?.inspect(), settings: renderControl!.service.state() };
+            break;
+          }
           case "mode":
             data = await api.mode(command.mode);
             break;
@@ -2306,10 +2379,17 @@ async function boot() {
           );
         return protocolResult(taskId, "succeeded", data);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const runtimeDiagnostic = diagnosticFrom(error);
+        const message = runtimeDiagnostic.message;
+        if (runtimeDiagnostic.stage?.startsWith("system:")) {
+          runtimeDiagnostic.system = runtimeDiagnostic.stage.slice(7);
+          const source = compiledIR?.systems.find(system => system.id === runtimeDiagnostic.system)?.source;
+          if (source) runtimeDiagnostic.source = source;
+        }
         if (message.includes("TC_GPU_TIMEOUT")) reportFailure(error);
         return protocolResult(taskId, "failed", null, [
           {
+            ...runtimeDiagnostic,
             code: message.match(/TC_[A-Z0-9_]+/)?.[0] ?? "TC_CONTROL_FAILURE",
             severity: "error",
             message,

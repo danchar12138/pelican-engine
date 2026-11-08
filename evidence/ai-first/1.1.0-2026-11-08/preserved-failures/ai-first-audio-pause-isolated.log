@@ -1,0 +1,20 @@
+✖ audio pause uses real Chromium sources and fixed-tick offsets without GPU (43908.2533ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45463.9211
+
+✖ failing tests:
+
+test at tests\audio-pause-browser.test.ts:57:986
+✖ audio pause uses real Chromium sources and fixed-tick offsets without GPU (43908.2533ms)
+  page.evaluate: ReferenceError: sdk is not defined
+      at eval (eval at evaluate (:370:30), <anonymous>:20:67)
+      at async <anonymous>:396:30
+      at TestContext.<anonymous> (C:\Users\60459\Desktop\AI Project\threecat\tests\audio-pause-browser.test.ts:192:31) {
+    log: []
+  }

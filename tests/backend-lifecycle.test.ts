@@ -4,13 +4,15 @@ import { readFile } from "node:fs/promises";
 import { setImmediate as turn } from "node:timers/promises";
 import vm from "node:vm";
 import ts from "typescript";
+import * as THREE from "three/webgpu";
 import { SurfaceTracer } from "../packages/renderer/src/surface-tracer.ts";
 import {
   boundedOperation,
   inspectTraceCapabilities,
   runtimeStatus,
 } from "../packages/renderer/src/startup.ts";
-import { createRenderSettingsDriver } from "../packages/runtime/src/render-settings.ts";
+import { createRenderSettingsDriver as settingsDriver } from "../packages/runtime/src/render-settings.ts";
+const createRenderSettingsDriver: typeof settingsDriver = (settings = {}, materials = [], capabilities = () => renderCapabilities("webgpu"), ...rest) => settingsDriver(settings, materials, capabilities, ...rest);
 import {
   renderCapabilities,
   validateRenderCapabilities,
@@ -53,6 +55,7 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     .replaceAll("import.meta.env.DEV", "false");
   const scope = vm.createContext({
     AbortController,
+    THREE,
     structuredClone,
     performance,
     boundedOperation,
@@ -94,6 +97,26 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     mode: "path",
     tick: 3,
     probeEnabled: false,
+    dynamicVisualRevision: 0,
+    diagnosticsVisible: true,
+    gameSurfaceDefaults: new Map(),
+    ropeVisuals: { dispose() {} }, clothVisuals: { dispose() {} }, terrainVisuals: { dispose() {} }, fluidVisuals: { dispose() {} },
+    softBodyVisuals: { dispose() {} }, spriteVisuals: { dispose() {} }, tilemapVisuals: { dispose() {} }, cinematicOverlay: { dispose() {} },
+    clearDynamicVisuals() {},
+    cameraCapabilities: () => renderCapabilities("webgpu"),
+    renderedDynamicVisualRevision: 0,
+    traceContentDirty: true,
+    observedGraphOwner: undefined,
+    observedGraphRevision: -1,
+    observedGraphTick: -1,
+    gamepadHost: undefined,
+    gamepadFingerprint: undefined,
+    tickTail: Promise.resolve(),
+    nativeInputTail: Promise.resolve(),
+    drawTail: Promise.resolve(),
+    viewport: { width: 16, height: 8, cssWidth: 16, cssHeight: 8, pixelRatio: 1, fixed: true },
+    resizeViewport: () => false,
+    pointerInput: { drain() {}, dispose() {} },
     runtime: undefined,
     gameplay: undefined,
     simulation: undefined,
@@ -119,7 +142,7 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     scene: {},
     startup: { automation: true },
     status: { hidden: false, textContent: "" },
-    document: { documentElement: { dataset: { pelicanReady: "true" } } },
+    document: { documentElement: { dataset: { pelicanReady: "true" } }, removeEventListener() {} },
     window: { removeEventListener() {} },
     rasterCanvas: { style: {}, removeEventListener() {}, remove() {} },
     traceCanvas: { style: {}, remove() {} },
@@ -129,6 +152,9 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     animate() {},
     onKeyDown() {},
     onKeyUp() {},
+    onWindowBlur() {},
+    onVisibilityChange() {},
+    onResize() {},
     onContextRestored() {},
     onPageHide() {},
     reportFailure(error: unknown) {

@@ -29,7 +29,26 @@ The internal physics system leaves its read list unbounded because `World.record
 
 `raycast(origin, direction, maxDistance, options?)` normalizes the nonzero direction and returns the nearest valid hit in world units, including when called before the first physics tick. The optional fourth argument is `{ exclude?: readonly string[]; includeTriggers?: boolean }`. Triggers are **excluded by default**; set `includeTriggers: true` to include them. Camera collision can pass `{ exclude: [playerId] }`. Excluded entities, sensors and dead entities are filtered inside Rapier's native query so they cannot hide a valid wall behind them. Malformed vectors, distances or options fail explicitly. The package exports `PhysicsServiceWithQueries` as a local extension while the SDK fourth-argument signature is integrated separately.
 
-## Snapshots and ownership
+## Current checkpoints and legacy replay
+
+D61 introduces bounded replay with ABI-pinned v4 checkpoints. After 2048 recorded
+operations, capture the full native state and owner metadata as an immutable base
+and retain only the new operation tail. Compaction does not advance time, rebuild
+the active world or reset velocities, contacts, sleep, joints or character state.
+Restore builds an independent candidate WASM owner, checks native body/collider/
+joint/terrain identities, replays the bounded tail and compares the complete final
+header and native bytes before replacing the live owner. The native ABI hash must
+match. No fixed 100000-tick session limit remains; storage is bounded by active
+world size plus the tail rather than total session duration.
+
+Legacy v3 snapshots still reconstruct from checked operations without native-byte
+deserialization, and historical v3 fixtures remain unchanged. Version 4 intentionally
+uses native deserialization in a separate candidate memory, never the active owner.
+This isolation is not an authenticity check or a CPU/memory sandbox for arbitrary
+malformed native data. Cross-native-build migration requires a separate strategy.
+See `tests/physics-checkpoints.test.ts` and `tests/physics-v3-snapshot-compat.test.ts`.
+
+## Historical v3 design (superseded by v4 checkpoints above)
 
 Plugin version 3 uses a JSON snapshot with immutable authored/prefab catalog and gravity identity, checked operation history, native state bytes for comparison, and entity/handle, character, active-pair and live-binding headers. Versions 1 and 2 are explicitly incompatible.
 

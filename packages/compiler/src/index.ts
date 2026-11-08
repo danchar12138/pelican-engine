@@ -121,7 +121,8 @@ async function bundle(
   entry: string,
   sdkPath: string,
   projectRoot: string,
-): Promise<{ code: string; map: string }> {
+): Promise<{ code: string; map: string; dependencies: string[] }> {
+  const dependencies = new Set<string>();
   const virtual = slash(
     path.join(projectRoot, "__pelican_m0_game_entry__.js"),
   );
@@ -143,6 +144,8 @@ async function bundle(
           if (slash(id) === virtual) return virtualId;
         },
         load(id) {
+          const file = id.split("?")[0], relative = path.relative(projectRoot, file);
+          if (path.isAbsolute(file) && !relative.startsWith("..") && !path.isAbsolute(relative)) dependencies.add(file);
           if (id === virtualId)
             return (
               "import game from " +
@@ -196,7 +199,7 @@ async function bundle(
   map.sources = map.sources.map((source) =>
     mapSourcePath(source, projectRoot, sdkPath, path, sourceRoot),
   );
-  return { code: chunk.code, map: JSON.stringify(map) };
+  return { code: chunk.code, map: JSON.stringify(map), dependencies: [...dependencies] };
 }
 /** Parse, typecheck and statically extract declarations; NEVER import a game source module. */
 export async function compileProject(
@@ -234,7 +237,7 @@ export async function compileProject(
     },
     modules: [],
     limitations: [
-      "M0 static declaration subset; not arbitrary TypeScript compile-time execution.",
+      "Bounded pure content subset: local const/return helpers and collection transforms; no arbitrary source-module execution or I/O.",
       "Graph IR validation is implemented; GPU lowering and dispatch belong to the renderer.",
       "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
       "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim.",
@@ -430,6 +433,21 @@ export async function compileProject(
     } catch {
       /* optional manifest */
     }
+    if (manifest.libraries?.length) {
+      for (const library of manifest.libraries) {
+        const directory = path.join(projectRoot, "node_modules", library);
+        const resolved = await fs.realpath(directory).catch(() => undefined);
+        const relative = resolved && path.relative(projectRoot, resolved);
+        if (!resolved || relative!.startsWith("..") || path.isAbsolute(relative!)) {
+          diagnostics.push({ code: "TC_LIBRARY_LOCATION", severity: "error", message: `Runtime library '${library}' must be installed inside this game workspace.`, suggestion: "Install an exact package version in the game project; do not reference engine-private or external node_modules." });
+          return await fail();
+        }
+      }
+      for (const file of ["package.json", "package-lock.json", ...manifest.libraries.map(name => `node_modules/${name}/package.json`)]) {
+        const filename = path.join(projectRoot, file);
+        if (await fs.stat(filename).then(value => value.isFile()).catch(() => false)) initialInputs.push(await makeInput(filename, "project"));
+      }
+    }
     if (previous?.format === 1) {
       const sameTools = initialInputs.every((i) =>
         previous.inputs.some(
@@ -544,7 +562,7 @@ export async function compileProject(
     };
     const program = ts.createProgram([entry], compilerOptions);
     program.getTypeChecker(); // Bind source parents before source-mapped static extraction.
-    const extractor = new Extractor(program, projectRoot, layout.types);
+    const extractor = new Extractor(program, projectRoot, layout.types, new Set(manifest.libraries ?? []));
     const game = extractor.extract(entry);
     diagnostics.push(...extractor.diagnostics);
     for (const d of ts.getPreEmitDiagnostics(program)) {
@@ -622,6 +640,12 @@ export async function compileProject(
       };
     }
     const bundled = await bundle(entry, sdkPath, projectRoot);
+    for (const input of report.inputs) inputMap.set(input.root + ":" + input.path, input);
+    for (const file of bundled.dependencies) {
+      if (file === path.join(projectRoot, "__pelican_m0_game_entry__.js")) continue;
+      const input = await makeInput(file, "project"); inputMap.set(input.root + ":" + input.path, input);
+    }
+    report.inputs = [...inputMap.values()].sort((a, b) => a.root.localeCompare(b.root) || a.path.localeCompare(b.path));
     const artifactData: Record<string, string | Uint8Array> = {
       "scene.ir.json": JSON.stringify(ir, null, 2),
       "asset-notices.json": JSON.stringify(

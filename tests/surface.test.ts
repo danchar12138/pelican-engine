@@ -849,7 +849,7 @@ test("native InstancedMesh snapshots per-instance world matrices, identity and c
   nearVec(snapshot.triangles[2].vertices[1].position, [6, 6, 0]);
   nearVec(sampleSurfaceMaterial(snapshot, 0, bary).baseColor, [0.5, 0, 0]);
   nearVec(sampleSurfaceMaterial(snapshot, 2, bary).baseColor, [0, 0, 0.5]);
-  assert.equal(extractTriangles(scene).length, 2);
+  assert.equal(extractTriangles(scene).length, 4);
   assert.deepEqual(snapshot.triangles[2].instanceColor, [0, 0, 1]);
 });
 
@@ -1074,7 +1074,7 @@ test("invalid geometry/groups/indices/nonfinite data are rejected with stable co
 
 test("unknown materials, graph, active extensions, custom deformation and instanced morph are never silently faithful", async () => {
   expectCode(
-    () => extractSurfaceScene(setup(new THREE.MeshBasicMaterial()).scene),
+    () => extractSurfaceScene(setup(new THREE.ShaderMaterial()).scene),
     "SURFACE_MATERIAL_UNSUPPORTED",
   );
   const webgpu = await import("three/webgpu");

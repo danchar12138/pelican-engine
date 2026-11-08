@@ -285,14 +285,8 @@ try {
   await run(process.execPath, [
     path.join(directory, "node_modules/typescript/bin/tsc"),
     "--noEmit",
-    "--target",
-    "ES2023",
-    "--module",
-    "ESNext",
-    "--moduleResolution",
-    "Bundler",
-    "--skipLibCheck",
-    "game.ts",
+    "--project",
+    "tsconfig.json",
   ]);
   assert.equal((await cli("api")).data.engineVersion, SDK_VERSION);
   assert.ok((await cli("api")).data.symbols >= 76);

@@ -151,14 +151,17 @@ test(
         module: ts.ModuleKind.ESNext,
       },
     }).outputText;
+    const inputModule = ts.transpileModule(await readFile(new URL("../packages/schema/src/ui-input.ts", import.meta.url), "utf8"), {
+      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
+    }).outputText;
     const server = createServer((request, response) => {
       response.setHeader(
         "Content-Type",
-        request.url === "/ui.js"
+        request.url === "/ui.js" || request.url?.endsWith("/schema/src/ui-input.ts")
           ? "text/javascript; charset=utf-8"
           : "text/html; charset=utf-8",
       );
-      response.end(request.url === "/ui.js" ? javascript : html);
+      response.end(request.url === "/ui.js" ? javascript : request.url?.endsWith("/schema/src/ui-input.ts") ? inputModule : html);
     });
     let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
     const abort = () => {
@@ -245,8 +248,8 @@ test(
             top: "22px",
             bottom: "28px",
             bottomRight: "24px",
-            centerX: 450,
-            centerY: 325,
+              centerX: 549,
+              centerY: 424,
             padding: "8px 12px",
             bar: 0.6,
           });
@@ -522,7 +525,7 @@ test(
               const r = node.getBoundingClientRect();
               return { x: r.x, y: r.y };
             }),
-            { x: 420, y: 180 },
+            { x: 519, y: 279 },
           );
           await page.evaluate(() => {
             const f = window.uiTest;
@@ -546,9 +549,9 @@ test(
             await page
               .locator('[data-pelican-element="worldSecond"]')
               .evaluate((node) => node.getBoundingClientRect().x),
-            600,
+            699,
           );
-          await page.mouse.click(440, 195);
+          await page.mouse.click(539, 294);
           assert.equal((await state(page)).focus, "world");
           assert.equal(
             await page.evaluate(() => window.uiTest.inputs.length),
@@ -584,7 +587,7 @@ test(
                   focused: document.activeElement === node,
                   hit:
                     document
-                      .elementFromPoint(440, 195)
+                      .elementFromPoint(539, 294)
                       ?.getAttribute("data-pelican-element") ?? null,
                 };
               }),
@@ -596,7 +599,7 @@ test(
                 hit: null,
               },
             );
-            await page.mouse.click(440, 195);
+            await page.mouse.click(539, 294);
             assert.equal(
               await page.evaluate(() => window.uiTest.inputs.length),
               2,

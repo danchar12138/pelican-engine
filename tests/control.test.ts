@@ -27,6 +27,15 @@ const capturePNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRp8AAAAASUVORK5CYII=",
   "base64",
 );
+test("structured runtime causes survive transport while free-text secrets and unsafe source paths do not", async t => {
+  const fake = adapter(async () => result("runtime", "failed", null, [{ code: "TC_RUNTIME_SYSTEM", severity: "error", message: "private C:/secret/file token", remediation: "private secret", causeCodes: ["TC_PHYSICS_OPERATION", "TC_PHYSICS_SNAPSHOT"], tick: 18, stage: "system:$engine.physics", partialState: true, source: { file: "game.ts", line: 12, column: 4 } }]));
+  const f = await fixture(t, async () => fake.page);
+  const response = await f.client.send({ type: "step", count: 1 });
+  assert.equal(response.status, "failed"); assert.deepEqual(response.diagnostics[0].causeCodes, ["TC_PHYSICS_OPERATION", "TC_PHYSICS_SNAPSHOT"]);
+  assert.equal(response.diagnostics[0].tick, 18); assert.equal(response.diagnostics[0].stage, "system:$engine.physics");
+  assert.deepEqual(response.diagnostics[0].source, { file: "game.ts", line: 12, column: 4 }); assert.equal(response.diagnostics[0].partialState, true);
+  assert.doesNotMatch(JSON.stringify(response), /secret/);
+});
 
 test("capture returns the owned viewport PNG after step, reusing the serialized session", async (t) => {
   let tick = 0;

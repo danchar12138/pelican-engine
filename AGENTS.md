@@ -6,6 +6,8 @@
 
 ## 先读状态
 
+2026-11-08 最新 D61 恢复全面测试和新增回归授权，覆盖下方历史 D50/D58 禁令。当前优化以纯外部 AI 使用为目标；按 `docs/tasks/AI-FIRST-STABILIZATION.md` 串行实施，不能把目标中的 Three.js 对照优势声称为已经达成。
+
 - 当前主线、标准版本和后续开发顺序首先见 [当前研发状态](docs/STATUS.md)；旧阶段代号仅用于定位历史文档和证据，不用于新版本命名。
 - 当前阶段、未完成能力和证据入口见 [研发计划](docs/ROADMAP.md)、[M3 发布收敛清单](docs/tasks/M3-RELEASE-QUEUE.md) 和 [M3 任务](docs/tasks/M3.md)。执行前以工作树、当前清单和源码指纹重新核对，不将历史测试或旧 npm tarball 视为当前源码通过。
 - 历史增量及局限以各任务文档和原始报告为准：[高光纹理](docs/tasks/M3-SPECULAR-TEXTURES.md)、[动态纹理](docs/tasks/M3-RENDER-TEXTURES.md)、[导航](docs/tasks/M5-NAVIGATION-GRID.md) 和 [音频](docs/tasks/M6-AUDIO-PAUSE.md)。部分通过不代表对应里程碑整体验收。

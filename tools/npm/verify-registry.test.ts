@@ -88,10 +88,10 @@ test("retries tarball propagation without weakening byte comparison", async () =
   assert.equal(downloads, 6);
 }));
 
-test("workflow verifies registry only after publish and keeps the credential scoped to publish", async () => {
+test("workflow tests before publish, verifies registry afterwards and uses no long-lived token", async () => {
   const workflow = await readFile(path.resolve(".github/workflows/npm-publish.yml"), "utf8");
-  assert.ok(workflow.indexOf("distribution:gate") < workflow.indexOf("npm publish"));
+  assert.ok(workflow.indexOf("npm test") < workflow.indexOf("npm publish"));
   assert.ok(workflow.indexOf("npm publish") < workflow.indexOf("distribution:verify-registry"));
-  assert.ok(workflow.indexOf("distribution:verify-registry") < workflow.indexOf("--registry-install"));
-  assert.equal((workflow.match(/NODE_AUTH_TOKEN:/g) ?? []).length, 1);
+  assert.equal((workflow.match(/NODE_AUTH_TOKEN:/g) ?? []).length, 0);
+  assert.match(workflow, /id-token: write/);
 });

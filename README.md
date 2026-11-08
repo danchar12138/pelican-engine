@@ -2,7 +2,7 @@
   <img src="docs/assets/pelican-mark.svg" alt="Pelican Engine" width="120" height="120">
   <h1>Pelican Engine</h1>
   <p><strong>用 TypeScript 构建面向 Web 的游戏。</strong></p>
-  <p>代码优先 · WebGPU 优先 · 面向人和外部 AI 的开发工作流</p>
+  <p>代码优先 · WebGPU 优先 · 外部 AI 游戏开发协议</p>
   <p>
     <a href="https://www.npmjs.com/package/pelican-engine"><img src="https://img.shields.io/npm/v/pelican-engine?label=npm&amp;color=168b80" alt="npm version"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24536b" alt="MIT license"></a>
@@ -14,9 +14,9 @@
 
 ---
 
-Pelican Engine 是一个开源、代码优先的游戏引擎。它提供 TypeScript SDK、编译器、运行时、渲染器和命令行工具，帮助你用代码定义场景、材质和玩法，再构建可部署的 Web 游戏。游戏可以由人编写，也可以由外部 AI 编码工具协助；**游戏运行时不内置大模型或 AI 智能体**。
+Pelican Engine 是一个开源、代码优先的游戏引擎。它提供 TypeScript SDK、编译器、运行时、渲染器和命令行工具，由外部 AI 通过公开代码与结构化工具协议定义场景、材质和玩法，再构建可部署的 Web 游戏。人提供需求、约束和反馈；**游戏运行时不内置大模型或 AI 智能体**。
 
-> **1.0 里程碑**：本次按锁定范围收束共享子步模拟、动态世界生命周期和全身动画联动。当前只完成编译与构建，运行、硬件、性能和历史恢复尚未验收；版本号不代表所有历史能力清单已完成。具体实现与边界见 [当前研发状态](docs/STATUS.md)。
+> **1.1 AI 优先稳定化**：修复生命周期、模拟耦合、长会话与存读档问题，补齐指针、内容生成、结构化状态和 AI 工具协议；当前批次的真实测试与已知边界见 [研发状态](docs/STATUS.md) 和 [1.1.0 证据](evidence/ai-first/1.1.0-2026-11-08/summary.json)。历史 1.0 曾仅完成编译与构建，版本号不代表全部能力清单已验收。
 
 ## ✨ 能做什么
 

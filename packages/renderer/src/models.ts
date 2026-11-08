@@ -293,6 +293,23 @@ class ModelLibraryImpl implements ModelLibrary {
   private readonly definitions = new Map<string, KnownDefinition>();
   private readonly fetcher: typeof fetch;
   private closed = false;
+  private readonly animatedMaterials = new Map<THREE.Material, { original: THREE.Material; users: Set<InstanceState> }>();
+
+  private instanceAnimatedMaterials(state: InstanceState): THREE.Material[] {
+    if (![...state.clips.values()].some(clip => clip.tracks.some(track => /\.materials?(?:\.|\[)/.test(track.name)))) return [];
+    const materials = new Set<THREE.Material>();
+    state.root.traverse(object => { if (object instanceof THREE.Mesh) for (const material of Array.isArray(object.material) ? object.material : [object.material]) materials.add(material); });
+    return [...materials];
+  }
+  private activateAction(state: InstanceState, action: THREE.AnimationAction): void {
+    const saved = this.instanceAnimatedMaterials(state).map(material => ({ material, pose: material.clone(), original: this.animatedMaterials.get(material)?.original }));
+    try {
+      // Every mixer must capture the same authored baseline, not another
+      // instance's current animated pose, when activating its property bindings.
+      for (const { material, original } of saved) if (original) material.copy(original);
+      action.play();
+    } finally { for (const { material, pose } of saved) { material.copy(pose); pose.dispose(); } }
+  }
   private disposing?: Promise<void>;
 
   private readonly cinematicOwners = new Map<string, string>();
@@ -398,8 +415,8 @@ class ModelLibraryImpl implements ModelLibrary {
       for (const action of [firstAction, secondAction]) {
         action.reset(); action.setEffectiveTimeScale(1); action.setLoop(THREE.LoopRepeat, Infinity); action.clampWhenFinished = false;
       }
-      firstAction.setEffectiveWeight(1 - weight).play();
-      secondAction.setEffectiveWeight(weight).play();
+      firstAction.setEffectiveWeight(1 - weight); this.activateAction(state, firstAction);
+      secondAction.setEffectiveWeight(weight); this.activateAction(state, secondAction);
       state.actions.set(first, firstAction); state.actions.set(second, secondAction);
       state.action = firstAction; state.clip = first; state.blend = { first, second, weight };
       this.refreshPose(state);
@@ -898,6 +915,11 @@ class ModelLibraryImpl implements ModelLibrary {
         if (this.instances.get(entityId) === state) this.remove(entityId);
       },
     });
+    for (const material of this.instanceAnimatedMaterials(state)) {
+      let shared = this.animatedMaterials.get(material);
+      if (!shared) { shared = { original: material.clone(), users: new Set() }; this.animatedMaterials.set(material, shared); }
+      shared.users.add(state);
+    }
     try {
       if (initializeAnimation && definition.animation)
         this.playState(state, definition.animation.clip, definition.animation);
@@ -910,10 +932,17 @@ class ModelLibraryImpl implements ModelLibrary {
 
   private releaseInstance(state: InstanceState): void {
     const failures: unknown[] = [];
+    const savedMaterials = this.instanceAnimatedMaterials(state).map(material => ({ material, pose: material.clone(), shared: this.animatedMaterials.get(material) }));
     for (const rig of state.iks.values()) attemptCleanup(failures, () => rig.dispose());
     state.iks.clear(); state.ikBase.clear();
     attemptCleanup(failures, () => state.mixer.stopAllAction());
     attemptCleanup(failures, () => state.mixer.uncacheRoot(state.root));
+    for (const { material, pose, shared } of savedMaterials) {
+      shared?.users.delete(state);
+      attemptCleanup(failures, () => material.copy(shared?.users.size ? pose : shared?.original ?? pose));
+      pose.dispose();
+      if (shared && !shared.users.size) { shared.original.dispose(); this.animatedMaterials.delete(material); }
+    }
     attemptCleanup(failures, () => state.node.removeFromParent());
     attemptCleanup(failures, () => disposeInstanceResources(state.root));
     reportCleanup(failures, `TC_MODEL_INSTANCE_DISPOSE: Failed to release instance '${state.entity}'; inspect the error causes and restart the scene.`);
@@ -1308,7 +1337,7 @@ class ModelLibraryImpl implements ModelLibrary {
       action.timeScale = saved.speed;
       action.enabled = true;
       action.setEffectiveWeight(saved.weight);
-      action.play();
+      this.activateAction(state, action);
       action.time = saved.time;
       action.paused = saved.paused;
       if (saved.fade) state.fades.set(saved.clip, { ...saved.fade });
@@ -1500,7 +1529,7 @@ class ModelLibraryImpl implements ModelLibrary {
       action.reset().setEffectiveTimeScale(config.speed);
       action.setLoop(config.loop ? THREE.LoopRepeat : THREE.LoopOnce, config.loop ? Infinity : 1);
       action.clampWhenFinished = !config.loop;
-      action.setEffectiveWeight(config.weight).play();
+      action.setEffectiveWeight(config.weight); this.activateAction(state, action);
       action.time = config.startAt;
       previous?.action.stop();
       state.additives.set(id, { id, source: name, config, clip, action });
@@ -1579,7 +1608,8 @@ class ModelLibraryImpl implements ModelLibrary {
       loop ? Infinity : 1,
     );
     action.clampWhenFinished = !loop;
-    action.setEffectiveWeight(fade > 0 ? 0 : 1).play();
+    action.setEffectiveWeight(fade > 0 ? 0 : 1);
+    this.activateAction(state, action);
     action.time = startAt;
     if (fade > 0)
       state.fades.set(clipName, { from: 0, to: 1, duration: fade, elapsed: 0 });

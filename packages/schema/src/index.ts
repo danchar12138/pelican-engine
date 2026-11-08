@@ -10,7 +10,7 @@ export function componentJSONSchema(
   const properties = Object.fromEntries(
     Object.entries(definition.schema).map(([name, field]) => [
       name,
-      field.type === "vec3"
+      field.type === "json" ? { $ref: "#/$defs/JsonValue", default: field.default, "x-pelican-maxDepth": 16, "x-pelican-maxNodes": 8192, "x-pelican-maxBytes": 65536 } : field.type === "vec3"
         ? {
             type: "array",
             items: { type: "number" },
@@ -28,5 +28,9 @@ export function componentJSONSchema(
     additionalProperties: false,
     required: Object.keys(properties),
     properties,
+    ...(Object.values(definition.schema).some(field => field.type === "json") ? { $defs: { JsonValue: { anyOf: [
+      { type: ["null", "boolean", "number", "string"] }, { type: "array", items: { $ref: "#/$defs/JsonValue" } },
+      { type: "object", additionalProperties: { $ref: "#/$defs/JsonValue" }, propertyNames: { not: { enum: ["__proto__", "constructor", "prototype"] } } },
+    ] } } } : {}),
   };
 }

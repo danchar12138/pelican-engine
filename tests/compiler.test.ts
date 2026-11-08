@@ -872,6 +872,7 @@ test("compiler: SDK source and installed tool versions participate in cache inva
   const engine = path.join(p.root, "engine copy");
   const sdkDir = path.join(engine, "packages/sdk/src");
   await fs.mkdir(sdkDir, { recursive: true });
+  await fs.copyFile(path.join(engineRoot, "packages/sdk/src/capabilities.ts"), path.join(sdkDir, "capabilities.ts"));
   await fs.copyFile(
     path.join(engineRoot, "packages/sdk/src/index.ts"),
     path.join(sdkDir, "index.ts"),
@@ -1337,6 +1338,7 @@ test("compiler M1: selected engine SDK version is inspected without executing th
   const p = await project(t);
   const engine = path.join(p.root, "selected engine");
   await fs.mkdir(path.join(engine, "packages/sdk/src"), { recursive: true });
+  await fs.copyFile(path.join(engineRoot, "packages/sdk/src/capabilities.ts"), path.join(engine, "packages/sdk/src/capabilities.ts"));
   const marker = path.join(p.root, "sdk-executed.txt");
   await fs.writeFile(
     path.join(engine, "packages/sdk/src/index.ts"),
@@ -1355,6 +1357,7 @@ test("compiler M1: runtime/schema additions, edits and removals invalidate proje
   const p = await project(t);
   const engine = path.join(p.root, "cache engine");
   await fs.mkdir(path.join(engine, "packages/sdk/src"), { recursive: true });
+    await fs.copyFile(path.join(engineRoot, "packages/sdk/src/capabilities.ts"), path.join(engine, "packages/sdk/src/capabilities.ts"));
   await fs.copyFile(
     path.join(engineRoot, "packages/sdk/src/index.ts"),
     path.join(engine, "packages/sdk/src/index.ts"),

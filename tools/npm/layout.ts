@@ -166,6 +166,8 @@ export async function writeAuthorEntry(
       `Read [game-author workflow](${docs}/npm/GAME-AUTHOR.md),`,
       `[game recipes](${docs}/npm/RECIPES.md), [API reference](${docs}/api/REFERENCE.md), and [API index](${docs}/api/index.json).`,
       "Use the engine's JSON CLI protocol for checks, builds, browser controls and capture.",
+      "Start with pelican capabilities, pelican api --search <query>, and pelican recipe --id <id>. Create complete starter games with pelican create --template <recipe-id>.",
+      "Content helpers are bounded pure functions; gameplay runs in systems. Read runtime diagnostics causeCodes/tick/stage and never assume compilation establishes runtime behavior.",
       "Do not edit engine internals or node_modules. Do not run engine milestone/evidence/release workflows.",
       "",
     ].join("\n"),
@@ -224,6 +226,13 @@ export default defineGame({ id: "game", scene, systems: [spin] });
     { flag: "wx" },
   );
   await writeAuthorEntry(root, engineRoot);
+  try {
+    await writeFile(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: {
+      target: "ES2023", module: "ESNext", moduleResolution: "Bundler", strict: true, noEmit: true,
+      skipLibCheck: true, allowImportingTsExtensions: true, types: [], lib: ["ES2023"],
+      ...(!installed ? { paths: { "pelican-engine": [path.relative(root, path.join(engineRoot, "packages/sdk/src/index.ts")).replaceAll("\\", "/")] } } : {}),
+    }, include: ["**/*.ts"], exclude: ["node_modules", "dist", ".pelican"] }, null, 2) + "\n", { flag: "wx" });
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
 }
 
 async function pathPresent(file: string) {

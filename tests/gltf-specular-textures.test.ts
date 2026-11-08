@@ -100,14 +100,15 @@ test("specular bindings reject malformed references, missing UVs, alternate UVs 
       [null, "TC_ASSET_INVALID", new RegExp(field)],
       [{ index: 99 }, "TC_ASSET_INVALID", /index/],
       [{ index: 0, texCoord: -1 }, "TC_ASSET_INVALID", /texCoord/],
-      [{ index: 0, texCoord: 1 }, "TC_ASSET_UNSUPPORTED", /texCoord/],
-      [{ index: 0, extensions: { KHR_texture_transform: { offset: [1, 0] } } }, "TC_ASSET_UNSUPPORTED", /KHR_texture_transform/],
+      [{ index: 0, texCoord: 1 }, "TC_ASSET_INVALID", /material/],
+      [{ index: 0, extensions: { UNKNOWN_texture: {} } }, "TC_ASSET_UNSUPPORTED", /UNKNOWN_texture/],
     ];
     for (const [value, code, resource] of cases) {
       await assert.rejects(inspect(mutate(bytes, j => { j.materials[0].extensions.KHR_materials_specular[field] = value; })), (e: unknown) => {
         assert.ok(e instanceof AssetInspectionError); assert.equal(e.code, code); assert.match(e.resource, resource); return true;
       });
     }
+    await inspect(mutate(bytes, j => { j.extensionsUsed.push("KHR_texture_transform"); j.materials[0].extensions.KHR_materials_specular[field] = { index: 0, extensions: { KHR_texture_transform: { offset: [1, 0] } } }; }));
     await assert.rejects(inspect(mutate(bytes, j => { delete j.meshes[0].primitives[0].attributes.TEXCOORD_0; })), (e: unknown) => {
       assert.ok(e instanceof AssetInspectionError); assert.equal(e.code, "TC_ASSET_INVALID"); assert.match(e.resource, /material/); return true;
     });

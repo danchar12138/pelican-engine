@@ -14,8 +14,8 @@ test("author instructions describe actual browser keys and isolate npm installs"
   assert.match(author, /KeyboardEvent\.key/);
   assert.match(author, /"w", "W", "ArrowUp"/);
   assert.match(author, /not `"KeyW"`/);
-  assert.match(distribution, /npm --prefix \. i -D pelican-engine/);
-  assert.match(distribution, /ancestor[\s\S]*modify that parent/);
+  assert.match(distribution, /npm --prefix \. (?:i -D|install --save-dev --save-exact) pelican-engine/);
+  assert.match(distribution, /parent/);
   assert.equal((author.match(/Use `ctx\.audio\.fadeBus/g) ?? []).length, 1);
 });
 

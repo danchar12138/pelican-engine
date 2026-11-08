@@ -699,7 +699,7 @@ export class RuntimeHost {
         );
     }
     const engineSystems = this.plugins.flatMap((plugin) => [
-      ...(plugin.systems ?? []),
+      ...(plugin.systems ?? []).map(system => ({ ...system })),
     ]);
     const allIds = new Set<string>();
     for (const system of [...engineSystems, ...systems]) {
@@ -712,6 +712,11 @@ export class RuntimeHost {
     const gameInputIds = systems
       .filter((system) => (system.phase ?? "update") === "input")
       .map((system) => system.id);
+    // Optional engine adapters can run alone. Unknown game dependencies still fail.
+    for (const system of engineSystems) {
+      system.before = [...new Set([...(system.before ?? []), ...(system.beforeIfPresent ?? []).filter(id => allIds.has(id))])];
+      system.after = [...new Set([...(system.after ?? []), ...(system.afterIfPresent ?? []).filter(id => allIds.has(id))])];
+    }
     const gameSystems = systems.map((system) => {
       const run = system.run;
       return {
@@ -971,6 +976,14 @@ export class RuntimeHost {
           "TC_PLUGIN_SNAPSHOT_SET: Plugin snapshots are required.",
         );
       pluginSnapshots = this.validatePlugins(data.plugins ?? {});
+      // A missing optional engine plugin may provide an explicit empty legacy
+      // state. Migrate only its absent systems, never arbitrary game contracts.
+      const addedIds = new Set(this.plugins.filter(plugin => plugin.legacySnapshot && !Object.hasOwn(data.plugins ?? {}, plugin.id))
+        .flatMap(plugin => (plugin.systems ?? []).map(system => system.id)).filter(id => id.startsWith("$engine.")));
+      if (addedIds.size) {
+        const current = this.scheduler.snapshot().systems;
+        if (canonical(data.scheduler.systems) === canonical(current.filter(system => !addedIds.has(system.id)))) data.scheduler.systems = current;
+      }
       for (const plugin of this.plugins)
         plugin.validateWorld?.(
           cloneSerializable(pluginSnapshots[plugin.id].payload),

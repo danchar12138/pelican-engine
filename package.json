@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -12,6 +12,8 @@
     "setup": "tsx tools/setup.ts",
     "dev": "tsx tools/cli.ts dev",
     "typecheck": "tsc --noEmit",
+    "verify:ai": "tsx tools/verify-ai-first.ts",
+    "probe:quality-comparison": "tsx tools/quality-comparison.ts",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "compile": "tsx tools/cli.ts compile",
     "check": "tsx tools/cli.ts check",

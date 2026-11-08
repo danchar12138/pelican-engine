@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { observeNativeInstances } from "../packages/physics/native-instance.ts";
 import {
   createPhysicsFactory,
   createFactory,
@@ -151,7 +152,7 @@ function rig(
     events,
     step(count = 1, dt = 1 / 60) {
       for (let i = 0; i < count; i++)
-        world.runSystem(system.id, system, () => system.run(dt));
+        for (const system of plugin.systems!) world.runSystem(system.id, system, () => system.run(dt));
     },
     dispose() {
       plugin.dispose();
@@ -719,24 +720,24 @@ test("native resources are released exactly once after restore, validation failu
   const freedWorlds = new Set<RAPIER.World>(),
     freedQueues = new Set<RAPIER.EventQueue>(),
     freedControllers = new Set<RAPIER.KinematicCharacterController>();
-  const wf = RAPIER.World.prototype.free,
-    qf = RAPIER.EventQueue.prototype.free,
-    cf = RAPIER.KinematicCharacterController.prototype.free;
-  RAPIER.World.prototype.free = function () {
+  const unobserve = observeNativeInstances(native => {
+  const wf = native.World.prototype.free, qf = native.EventQueue.prototype.free, cf = native.KinematicCharacterController.prototype.free;
+  native.World.prototype.free = function () {
     assert.ok(!freedWorlds.has(this), "world double free");
     freedWorlds.add(this);
     return wf.call(this);
   };
-  RAPIER.EventQueue.prototype.free = function () {
+  native.EventQueue.prototype.free = function () {
     assert.ok(!freedQueues.has(this), "queue double free");
     freedQueues.add(this);
     return qf.call(this);
   };
-  RAPIER.KinematicCharacterController.prototype.free = function () {
+  native.KinematicCharacterController.prototype.free = function () {
     assert.ok(!freedControllers.has(this), "controller double free");
     freedControllers.add(this);
     return cf.call(this);
   };
+  });
   const r = rig();
   try {
     r.step(2);
@@ -764,9 +765,7 @@ test("native resources are released exactly once after restore, validation failu
       assert.throws(f, /TC_PHYSICS_DISPOSED/);
   } finally {
     r.dispose();
-    RAPIER.World.prototype.free = wf;
-    RAPIER.EventQueue.prototype.free = qf;
-    RAPIER.KinematicCharacterController.prototype.free = cf;
+    unobserve();
   }
 });
 
@@ -1036,26 +1035,32 @@ test("Host rejects malformed plugin state before changing scheduler, World or ph
 });
 
 test("constructor and candidate replay failures free acquired native objects", () => {
-  const wf = RAPIER.World.prototype.free,
-    qf = RAPIER.EventQueue.prototype.free,
-    cc = RAPIER.World.prototype.createCollider;
   let worlds = 0,
     queues = 0,
     colliders = 0;
-  RAPIER.World.prototype.free = function () {
+  let injectCollider = true, injectReplay = false;
+  const unobserve = observeNativeInstances(native => {
+  const wf = native.World.prototype.free, qf = native.EventQueue.prototype.free, cc = native.World.prototype.createCollider, step = native.World.prototype.step;
+  let steps = 0;
+  native.World.prototype.step = function (...args: Parameters<typeof step>) {
+    if (injectReplay && ++steps === 2) throw new Error("injected replay failure");
+    return step.apply(this, args);
+  };
+  native.World.prototype.free = function () {
     worlds++;
     return wf.call(this);
   };
-  RAPIER.EventQueue.prototype.free = function () {
+  native.EventQueue.prototype.free = function () {
     queues++;
     return qf.call(this);
   };
-  RAPIER.World.prototype.createCollider = function (
+  native.World.prototype.createCollider = function (
     ...args: Parameters<typeof cc>
   ) {
-    if (++colliders === 2) throw new Error("injected collider failure");
+    if (injectCollider && ++colliders === 2) throw new Error("injected collider failure");
     return cc.apply(this, args);
   };
+  });
   try {
     assert.throws(
       () => rig([character(), box("ball", [3, 2, 0], [1, 1, 1], "dynamic")]),
@@ -1063,11 +1068,12 @@ test("constructor and candidate replay failures free acquired native objects", (
     );
     assert.equal(worlds, 1);
     assert.equal(queues, 1);
-    RAPIER.World.prototype.createCollider = cc;
+    injectCollider = false;
     const r = rig();
     try {
+      r.step(2);
       const bad = snap(r);
-      bad.history.push({ kind: "move", id: "missing", value: [1, 0, 0] });
+      injectReplay = true;
       assert.throws(() => r.plugin.restore(bad), /TC_PHYSICS_SNAPSHOT/);
       assert.equal(worlds, 2);
       assert.equal(queues, 2);
@@ -1077,9 +1083,7 @@ test("constructor and candidate replay failures free acquired native objects", (
     assert.equal(worlds, 3);
     assert.equal(queues, 3);
   } finally {
-    RAPIER.World.prototype.free = wf;
-    RAPIER.EventQueue.prototype.free = qf;
-    RAPIER.World.prototype.createCollider = cc;
+    unobserve();
   }
 });
 
@@ -1300,18 +1304,15 @@ test("prefab discovery uses the existing native world, refreshes first-step quer
   const wall = box("wall-prefab", [2, 2, 0], [0.5, 4, 8]),
     crate = box("crate-prefab", [8, 2, 0], [1, 1, 1], "dynamic"),
     actor = character("actor-prefab", [10, 3, 0]);
+  const worlds = new Set<RAPIER.World>();
+  const unobserve = observeNativeInstances(native => {
+    const create = native.World.prototype.createRigidBody;
+    native.World.prototype.createRigidBody = function (...args: Parameters<typeof create>) { worlds.add(this); return create.apply(this, args); };
+  });
   const r = rig(
     [floor(), character("player", [0, 0.92, 0])],
     [wall, crate, actor],
   );
-  const create = RAPIER.World.prototype.createRigidBody;
-  const worlds = new Set<RAPIER.World>();
-  RAPIER.World.prototype.createRigidBody = function (
-    ...args: Parameters<typeof create>
-  ) {
-    worlds.add(this);
-    return create.apply(this, args);
-  };
   try {
     r.world.spawn({ id: "wall", prefab: wall.id, transform: wall.transform });
     r.world.spawn({
@@ -1347,7 +1348,7 @@ test("prefab discovery uses the existing native world, refreshes first-step quer
     assert.equal(worlds.size, 1);
     r.plugin.validateSnapshot(snap(r));
   } finally {
-    RAPIER.World.prototype.createRigidBody = create;
+    unobserve();
     r.dispose();
   }
 });

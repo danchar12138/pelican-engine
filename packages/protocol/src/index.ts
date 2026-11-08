@@ -13,6 +13,13 @@ export interface ProtocolDiagnostic {
   message: string;
   remediation: string;
   source?: { file: string; line: number; column: number };
+  causeCodes?: string[];
+  tick?: number;
+  stage?: string;
+  system?: string;
+  entity?: string;
+  resource?: string;
+  partialState?: boolean;
 }
 export interface Artifact {
   type: string;
@@ -51,6 +58,9 @@ export type ControlCommand =
   | { type: "resume" }
   | { type: "snapshot" }
   | { type: "capture" }
+  | { type: "render"; samples: number; mode: "hybrid" | "path"; denoise?: boolean }
+  | { type: "pointer"; x: number; y: number; buttons: number; delta?: readonly [number, number]; wheel?: readonly [number, number] }
+  | { type: "batch"; commands: readonly ControlCommand[] }
   | { type: "recordStart" }
   | { type: "recordStop" }
   | { type: "recordCancel" }
@@ -149,6 +159,23 @@ export function parseCommand(value: unknown): ControlCommand {
         throw new Error(
           "TC_PROTOCOL_COMPONENT: Expected entity, component and value.",
         );
+      break;
+    case "batch":
+      requireKeys(["commands"]);
+      if (!Array.isArray(v.commands) || !v.commands.length || v.commands.length > 32 || v.commands.some(command => !command || typeof command !== "object" || (command as { type?: unknown }).type === "batch"))
+        throw new Error("TC_PROTOCOL_BATCH: Supply 1..32 non-nested commands. Completed operations are not rolled back on runtime failure.");
+      for (const command of v.commands) parseCommand(command);
+      break;
+    case "pointer":
+      requireKeys(["x", "y", "buttons", ...(Object.hasOwn(v, "delta") ? ["delta"] : []), ...(Object.hasOwn(v, "wheel") ? ["wheel"] : [])]);
+      if (![v.x, v.y].every(n => typeof n === "number" && Number.isFinite(n) && Math.abs(n) <= 1e6) || !Number.isInteger(v.buttons) || (v.buttons as number) < 0 || (v.buttons as number) > 31 ||
+          [v.delta, v.wheel].some(value => value !== undefined && (!Array.isArray(value) || value.length !== 2 || value.some(n => typeof n !== "number" || !Number.isFinite(n) || Math.abs(n) > 1e6))))
+        throw new Error("TC_PROTOCOL_POINTER: Expected canvas-local CSS x/y, button mask 0..31 and finite delta/wheel pairs.");
+      break;
+    case "render":
+      requireKeys(["samples", "mode", ...(Object.hasOwn(v, "denoise") ? ["denoise"] : [])]);
+      if (!Number.isSafeInteger(v.samples) || (v.samples as number) < 1 || (v.samples as number) > 4096 || !["hybrid", "path"].includes(String(v.mode)) ||
+          (v.denoise !== undefined && typeof v.denoise !== "boolean")) throw new Error("TC_PROTOCOL_RENDER: Expected 1..4096 samples, hybrid/path mode and optional denoise boolean.");
       break;
     case "mode":
       requireKeys(["mode"]);

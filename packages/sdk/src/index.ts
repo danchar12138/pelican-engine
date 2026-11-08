@@ -1,5 +1,16 @@
 /** Pelican Engine public API. No renderer or GPU implementation types escape this module. */
-export const SDK_VERSION = "1.0.0";
+import { describeFeatures } from "./capabilities.ts";
+export interface EngineFeature {
+  id: string;
+  implementation: "implemented" | "partial";
+  symbols: readonly string[];
+  backends: readonly ("webgpu" | "webgl2" | "cpu")[];
+  limits: readonly string[];
+  recipes: readonly string[];
+}
+/** Implementation metadata, not runtime hardware acceptance; use ctx.render.capabilities for the active device. */
+export function engineCapabilities(query = ""): EngineFeature[] { return describeFeatures(query); }
+export const SDK_VERSION = "1.1.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -9,11 +20,13 @@ export interface Transform {
   scale: Vec3;
 }
 export type TransformPatch = Partial<Transform>;
+export type JsonValue = null | boolean | string | number | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 export type Field =
   | { type: "number"; default: number }
   | { type: "boolean"; default: boolean }
   | { type: "string"; default: string }
-  | { type: "vec3"; default: Vec3 };
+  | { type: "vec3"; default: Vec3 }
+  | { type: "json"; default: JsonValue };
 export type ComponentSchema = Readonly<Record<string, Field>>;
 export interface ComponentDefinition<
   S extends ComponentSchema = ComponentSchema,
@@ -29,9 +42,9 @@ export type ComponentValue<S extends ComponentSchema> = {
       ? boolean
       : S[K]["type"] extends "vec3"
         ? Vec3
-        : string;
+        : S[K]["type"] extends "json" ? JsonValue : string;
 };
-export type ComponentData = Record<string, number | boolean | string | Vec3>;
+export type ComponentData = Record<string, JsonValue>;
 export interface ComponentInstance {
   component: ComponentDefinition | string;
   value?: ComponentData;
@@ -1000,7 +1013,24 @@ export interface InputService {
   released(action: string): boolean;
   axis(negative: string, positive: string): number;
 }
+export interface PointerContact { id: number; position: Vec2; pressure: number; kind: "mouse" | "pen" | "touch" }
+export interface PointerState {
+  /** Canvas-local CSS pixels and normalized device coordinates (Y up). */
+  position: Vec2;
+  ndc: Vec2;
+  delta: Vec2;
+  wheel: Vec2;
+  buttons: number;
+  pressed: number;
+  released: number;
+  inside: boolean;
+  locked: boolean;
+  contacts: readonly PointerContact[];
+}
 export interface GamepadInputService extends InputService {
+  pointer(): PointerState;
+  /** Requests lock on the next trusted canvas gesture; false releases it. */
+  setPointerLock(enabled: boolean): void;
   /** Choose UI navigation or gameplay input; defaults to UI for backward compatibility. */
   setGamepadMode(mode: "ui" | "game"): void;
   /** Analog axis deadzone in [0, 0.95]; defaults to 0.15. */

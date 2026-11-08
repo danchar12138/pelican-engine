@@ -1,5 +1,59 @@
 # Pelican Engine Game Author
 
+## Current AI protocol (D61, 2026-11-08)
+
+This engine is authored exclusively through external AI tools. Query machine
+contracts before generating game code:
+
+```sh
+npx --no-install pelican capabilities --feature pointer
+npx --no-install pelican api --search "pointer"
+npx --no-install pelican recipe --id pointer-3d
+npx --no-install pelican create --template pointer-3d
+```
+
+All recipe IDs from `capabilities` can be used as templates in source and installed
+projects. `recipe` returns complete source JSON; no Markdown extraction or engine
+checkout is needed. Generated projects include a matching `tsconfig.json`.
+
+Content supports bounded pure local functions (`const` bindings and a return),
+`map`, `flatMap`, `filter`, `concat`, `Array.from`, templates and finite arithmetic.
+Limits are 200000 evaluation steps, 32 nested calls and 16384 entries per generated
+array. Compilation never executes game modules, I/O, async functions or mutations.
+Use systems for runtime behavior. Component `{type:"json",default:[]}` stores
+detached finite plain JSON up to depth 16, 8192 nodes and 65536 UTF-8 bytes per field.
+
+`ctx.input.pointer()` returns canvas-local CSS pixels, Y-up NDC, per-tick motion,
+wheel, button edges and active mouse/pen/touch contacts. `setPointerLock(true)`
+requests capture on the next trusted canvas gesture; the request is not a claim
+that the browser granted it. Lost focus releases held keys and contacts. Virtual
+pointer injection uses `pelican pointer`; deterministic automation uses
+`pelican batch --file commands.json`. Batches validate every command first, then
+execute sequentially; a runtime failure preserves completed results and does not
+roll back earlier commands. A render capture command inside a batch still requires
+the separate capture bridge and is rejected by the runtime.
+
+Normal gameplay uses native viewport size and DPR. Explicit URL `width` and
+`height` pin automation pixels; provide both. No automatic resolution reduction is
+applied. Production hides the diagnostic HUD; `?diagnostics=1` enables it explicitly.
+For fixed-time quality capture, pause then use `pelican render --mode path
+--samples 256 --denoise false`, followed by `capture --live`. Rendering accumulates
+samples without advancing gameplay. WebGL2 rejects compute-dependent requests.
+
+The project manifest may list author-approved `libraries` package names for pure
+algorithm reuse in runtime systems. Install exact versions in the game workspace.
+Their code is bundled and fingerprinted, never evaluated as static content. This
+allowlist is an explicit dependency boundary, not proof of library purity or a
+security sandbox. Node, Three.js, GPU and native physics imports remain prohibited.
+
+Physics retains legacy v3 replay and introduces ABI-pinned v4 checkpoints after
+2048 recorded operations. Native bytes are restored only in an independently owned
+candidate WASM memory; the active world is swapped after validation. This removes
+the old session cutoff. It does not authenticate saves, sandbox arbitrary malformed
+native input or establish compatibility across native ABI changes. Earlier
+build-only and first-step limitation statements below describe historical work;
+current evidence and remaining gaps are recorded in STATUS and the D61 task.
+
 For an installed game, start in an empty directory with `npm --prefix . install
 --save-dev --save-exact pelican-engine`, then run `npx pelican dev`. The CLI
 generates the minimal starter when the directory is eligible and preserves existing
@@ -58,9 +112,10 @@ and tick counts before candidate reconstruction. These checks do not authenticat
 snapshots or prove arbitrary histories safe. Native first-step behavior, legacy
 compatibility and failure recovery have not been runtime-validated for this build.
 
-3D replay candidates now run in a separate WASM memory from the live world.
-Only compiled code is shared; raw snapshot bytes are never passed to native
-deserialization. A candidate is committed only after its reconstructed state
+3D replay candidates run in a separate WASM memory from the live world.
+Only compiled code is shared. Legacy v3 uses operation reconstruction; v4 restores
+an ABI-pinned native checkpoint in the isolated candidate and replays a bounded
+tail. A candidate is committed only after its reconstructed state
 matches the supplied snapshot. If a live native operation fails, further access
 reports `TC_PHYSICS_RECOVERY_REQUIRED` until a known-good host checkpoint is
 restored or the scene is restarted. This implementation is not runtime-validated

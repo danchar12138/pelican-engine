@@ -11,6 +11,7 @@ import { SDK_VERSION } from "../../sdk/src/index.ts";
 import { resolveRenderSettings } from "../../runtime/src/render-settings.ts";
 import { isUiColor } from "../../schema/src/ui-color.ts";
 import { UI_INPUT_MAX_LENGTH } from "../../schema/src/ui-input.ts";
+import { cloneJsonValue } from "../../schema/src/json-value.ts";
 import { compileGraphDeclaration } from "./graph.ts";
 import { isGraphType, graphValue } from "../../sdk/src/graph-values.ts";
 import type {
@@ -187,7 +188,9 @@ export async function normalize(
     for (const [field, raw] of Object.entries(schema)) {
       const f = obj(raw, schema, field);
       const t = f.type;
-      const valid =
+      let jsonValid = false;
+      if (t === "json") try { cloneJsonValue(f.default); jsonValid = true; } catch { /* Report the declaration source below. */ }
+      const valid = t === "json" ? jsonValid :
         t === "number"
           ? typeof f.default === "number" && Number.isFinite(f.default)
           : t === "string"
@@ -1005,7 +1008,9 @@ export async function normalize(
             : Object.hasOwn(data, field)
               ? data[field]
               : structuredClone(fieldDef.default);
-          const valid =
+          let jsonValid = false;
+          if (fieldDef.type === "json") try { cloneJsonValue(value); jsonValid = true; } catch { /* Source diagnostic below. */ }
+          const valid = fieldDef.type === "json" ? jsonValid :
             fieldDef.type === "vec3"
               ? Array.isArray(value) &&
                 value.length === 3 &&

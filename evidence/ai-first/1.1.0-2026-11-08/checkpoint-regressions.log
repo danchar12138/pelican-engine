@@ -1,0 +1,11 @@
+✔ v4 checkpoint preserves native contacts, joints, characters and deterministic continuation across owners (762.3478ms)
+✔ terrain native owner mappings survive checkpoint compaction and reconstruction (463.1414ms)
+✔ empty games exceed the old session cutoff with bounded saved replay (2015.3745ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3834.3039

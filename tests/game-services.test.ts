@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { neutralPointer } from "../packages/runtime/src/pointer.ts";
+import { neutralGamepad } from "../packages/runtime/src/gamepad.ts";
+const inputDefaults = () => ({ gamepadMode: "ui", gamepadDeadzone: 0.15, gamepad: neutralGamepad(false, true), pointer: neutralPointer(), pointerLock: false });
 import type { SceneIR } from "../packages/compiler/src/types.ts";
 import {
   SDK_VERSION,
@@ -343,9 +346,12 @@ test("services: fixed driver contract, resolved copies, single host ownership an
       "audioClock",
       "completeVoice",
       "factory",
+      "gamepadConfig",
       "inspect",
+      "pointerConfig",
       "storageComplete",
       "takeRequests",
+      "uiKind",
     ]);
     assert.deepEqual(host.inspect().plugins.services, [
       "animation",
@@ -363,10 +369,11 @@ test("services: fixed driver contract, resolved copies, single host ownership an
     );
     const state = driver.inspect();
     assert.deepEqual(state, {
-      input: { held: [], pressed: [], released: [] },
+      input: { ...inputDefaults(), held: [], pressed: [], released: [] },
       camera: ir.scene.follow,
+      cameraPose: null,
       ui: ir.ui,
-      audio: { volume: 1, voices: [] },
+      audio: { volume: 1, reverb: { wet: 0, decay: 1, preDelay: 0 }, voices: [] },
       storage: { state: "idle", slot: null, error: null },
       scene: "field",
     });
@@ -436,6 +443,7 @@ test("services input: real host runs engine first, aggregates bindings, ignores 
     host.input("ui:unmapped", true);
     host.step();
     assert.deepEqual(driver.inspect().input, {
+      ...inputDefaults(),
       held: ["confirm", "jump", "shared"],
       pressed: ["confirm", "jump", "shared"],
       released: [],
@@ -464,6 +472,7 @@ test("services input: ordered press/release/repress preserves all same-tick tran
     host.input("Space", true);
     host.step();
     assert.deepEqual(driver.inspect().input, {
+      ...inputDefaults(),
       held: ["jump", "shared"],
       pressed: ["jump", "shared"],
       released: ["jump", "shared"],
@@ -472,12 +481,14 @@ test("services input: ordered press/release/repress preserves all same-tick tran
     host.input("Space", false);
     host.step();
     assert.deepEqual(driver.inspect().input, {
+      ...inputDefaults(),
       held: [],
       pressed: [],
       released: ["jump", "shared"],
     });
     host.step();
     assert.deepEqual(driver.inspect().input, {
+      ...inputDefaults(),
       held: [],
       pressed: [],
       released: [],
@@ -598,6 +609,7 @@ test("services audio: deterministic ids/ticks, definition defaults, limits and s
     assert.equal(first, "voice:1");
     assert.equal(second, "voice:2");
     assert.deepEqual(driver.inspect().audio, {
+      reverb: { wet: 0, decay: 1, preDelay: 0 },
       volume: 0.4,
       voices: [
         {
@@ -839,7 +851,7 @@ test("services snapshots: capture all deterministic state, restore atomically, n
     assert.equal(services.audio.play("unknown"), "voice:2");
     const before = plugin.snapshot();
     const corrupt = JSON.parse(JSON.stringify(before));
-    corrupt.ui[0].width = 500;
+    corrupt.ui[0].width = -500;
     assert.throws(() => plugin.restore(corrupt), /TC_SERVICES_SNAPSHOT/);
     assert.deepEqual(plugin.snapshot(), before);
     const leaked = JSON.parse(JSON.stringify(plugin.snapshot()));
@@ -1187,6 +1199,7 @@ test("services input: literal Space key and UI down/up in one tick retain edges 
     assert.deepEqual(observations[0], [false, true, true, true]);
     assert.equal(services.input.held("jump"), true);
     assert.deepEqual(driver.inspect().input, {
+      ...inputDefaults(),
       held: ["jump", "shared"],
       pressed: ["confirm", "jump", "shared"],
       released: ["confirm"],

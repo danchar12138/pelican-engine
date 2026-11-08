@@ -995,7 +995,7 @@ test("M1 refuses to replace missing or empty root dist with nested builds", asyn
   hasCode(await checkRelease({ projectRoot: root }), "TCREL_DIST");
 });
 
-test("future milestones need explicit scopes and implemented profiles; M8 cannot self-declare a full release", async () => {
+test("future milestones including M8 cannot self-declare acceptance or bypass unverified packaging opt-in", async () => {
   const root = await m1Fixture();
   const manifest = await readJson(root, "engine.manifest.json");
   for (let stage = 3; stage <= 8; stage++) {
@@ -1005,7 +1005,7 @@ test("future milestones need explicit scopes and implemented profiles; M8 cannot
       milestone,
       releaseScope: undefined,
     });
-    hasCode(await checkRelease({ projectRoot: root }), "TCREL_RELEASE_SCOPE");
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_UNVERIFIED_OPT_IN");
     await putJson(root, "engine.manifest.json", {
       ...manifest,
       milestone,
@@ -1013,8 +1013,8 @@ test("future milestones need explicit scopes and implemented profiles; M8 cannot
       prerelease: false,
       capabilityGate: { status: "passed", allCapabilitiesPassed: true },
     });
-    hasCode(await checkRelease({ projectRoot: root }), "TCREL_PROFILE");
-    hasCode(await packRelease({ projectRoot: root }), "TCREL_PROFILE");
+    hasCode(await checkRelease({ projectRoot: root }), "TCREL_UNVERIFIED_OPT_IN");
+    hasCode(await packRelease({ projectRoot: root }), "TCREL_UNVERIFIED_OPT_IN");
   }
   await putJson(root, "engine.manifest.json", { ...manifest, milestone: "M9" });
   hasCode(await checkRelease({ projectRoot: root }), "TCREL_MILESTONE");

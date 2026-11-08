@@ -2,11 +2,11 @@ import { defineComponent, defineGame, defineScene, defineSystem } from "pelican-
 
 type Slot = { id: string; generation: number } | null;
 const State = defineComponent({ id: "MenuState", schema: {
-  slots: { type: "string", default: "[]" },
+  slots: { type: "json", default: [] },
 } });
 const menu = defineSystem({ id: "dynamic-menu", phase: "update", reads: ["MenuState"], writes: ["MenuState"], run(ctx) {
   const state = ctx.getComponent("state", State);
-  const slots = JSON.parse(state.slots) as Slot[];
+  const slots = state.slots as Slot[];
   let changed = false;
   for (const event of ctx.events("ui.activate")) {
     const payload = event.payload as { id: string; generation?: number };
@@ -28,7 +28,7 @@ const menu = defineSystem({ id: "dynamic-menu", phase: "update", reads: ["MenuSt
       }
     }
   }
-  if (changed) ctx.setComponent("state", State, { slots: JSON.stringify(slots) });
+  if (changed) ctx.setComponent("state", State, { slots });
   ctx.ui.setText("hint", `Items: ${slots.filter(slot => slot !== null).length}/6`);
 } });
 

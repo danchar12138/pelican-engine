@@ -12,7 +12,7 @@ export type ObjectValue = { [key: string]: Value };
 interface Module {
   source: ts.SourceFile;
   bindings: Map<string, ts.Expression | ts.FunctionDeclaration>;
-  imports: Map<string, { file?: string; name: string }>;
+  imports: Map<string, { file?: string; name: string; runtimeOnly?: boolean }>;
   exports: Map<string, string | ts.Expression>;
 }
 const declarations: Record<string, string> = {
@@ -50,11 +50,20 @@ export class Extractor {
   private modules = new Map<string, Module>();
   private memo = new Map<string, Value>();
   private active = new Set<string>();
+  private scopes: Map<string, Value>[] = [];
+  private closures = new WeakMap<object, { module: Module; scopes: Map<string, Value>[] }>();
+  private fuel = 200000;
+  private callDepth = 0;
   constructor(
     readonly program: ts.Program,
     readonly projectRoot: string,
     readonly sdkPath: string,
+    readonly libraries: ReadonlySet<string> = new Set(),
   ) {}
+  private library(specifier: string): boolean {
+    const parts = specifier.split("/");
+    return this.libraries.has(specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]);
+  }
   location(node: ts.Node): SourceLocation {
     const source = node.getSourceFile();
     const start = node.getStart(source);
@@ -124,7 +133,7 @@ export class Extractor {
             argument,
           );
         const specifier = argument.text;
-        if (specifier !== "pelican-engine") {
+        if (specifier !== "pelican-engine" && !this.library(specifier)) {
           if (!specifier.startsWith("."))
             this.fail(
               "TC_PUBLIC_API",
@@ -175,6 +184,15 @@ export class Extractor {
             "Use named imports of declarations or gameplay functions.",
           );
         const clause = statement.importClause!;
+        if (this.library(specifier)) {
+          if (!clause.isTypeOnly) {
+            if (clause.name) mod.imports.set(clause.name.text, { name: "default", runtimeOnly: true });
+            if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+              for (const item of clause.namedBindings.elements) if (!item.isTypeOnly) mod.imports.set(item.name.text, { name: item.propertyName?.text ?? item.name.text, runtimeOnly: true });
+            } else if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) this.fail("TC_PUBLIC_API", "Runtime library imports must be named or default imports.", clause.namedBindings);
+          }
+          continue;
+        }
         let resolved: string | undefined;
         if (specifier !== "pelican-engine") {
           if (!specifier.startsWith("."))
@@ -342,7 +360,10 @@ export class Extractor {
             "Unknown static identifier: " + name,
             mod.source,
           );
-        value = this.evaluate(expression as ts.Expression, mod);
+        const callerScopes = this.scopes;
+        this.scopes = [];
+        try { value = this.evaluate(expression as ts.Expression, mod); }
+        finally { this.scopes = callerScopes; }
       }
       this.memo.set(key, value);
       return value;
@@ -351,6 +372,7 @@ export class Extractor {
     }
   }
   private evaluate(node: ts.Expression, mod: Module): Value {
+    if (--this.fuel < 0) this.fail("TC_STATIC_BUDGET", "Static content exceeds 200000 evaluation steps.", node, "Split content into smaller declared chunks.");
     if (
       ts.isParenthesizedExpression(node) ||
       ts.isAsExpression(node) ||
@@ -373,7 +395,29 @@ export class Extractor {
       };
       if (Object.hasOwn(constants, node.name.text)) return constants[node.name.text];
     }
-    if (ts.isIdentifier(node)) return this.binding(mod, node.text);
+    if (ts.isIdentifier(node)) {
+      for (const scope of [...this.scopes].reverse()) if (scope.has(node.text)) return scope.get(node.text)!;
+      return this.binding(mod, node.text);
+    }
+    if (ts.isTemplateExpression(node)) {
+      let result = node.head.text;
+      for (const span of node.templateSpans) {
+        const value = this.evaluate(span.expression, mod);
+        if (value !== null && typeof value === "object") this.fail("TC_STATIC_TYPE", "Template substitutions must be scalar values.", span.expression);
+        result += String(value) + span.literal.text;
+      }
+      if (result.length > 65536) this.fail("TC_STATIC_BUDGET", "Generated string exceeds 65536 characters.", node);
+      return result;
+    }
+    if (ts.isConditionalExpression(node)) return this.evaluate(this.evaluate(node.condition, mod) ? node.whenTrue : node.whenFalse, mod);
+    if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+      const value = this.evaluate(node.expression, mod);
+      const key = ts.isPropertyAccessExpression(node) ? node.name.text : this.evaluate(node.argumentExpression!, mod);
+      if (Array.isArray(value) && key === "length") return value.length;
+      if (value && typeof value === "object" && (typeof key === "string" || typeof key === "number") &&
+          !["constructor", "prototype", "__proto__"].includes(String(key)) && Object.hasOwn(value, key)) return (value as ObjectValue)[key];
+      this.fail("TC_STATIC_REFERENCE", "Static property is missing or not permitted.", node);
+    }
     if (
       ts.isArrowFunction(node) ||
       ts.isFunctionExpression(node) ||
@@ -382,6 +426,7 @@ export class Extractor {
     ) {
       const result = { __runtime: true };
       this.origins.set(result, node);
+      this.closures.set(result, { module: mod, scopes: this.scopes.map(scope => new Map(scope)) });
       return result;
     }
     if (ts.isArrayLiteralExpression(node)) {
@@ -447,7 +492,7 @@ export class Extractor {
           result[name] = this.evaluate(prop.initializer, mod);
           origins.set(name, prop.initializer);
         } else if (ts.isShorthandPropertyAssignment(prop)) {
-          result[name] = this.binding(mod, prop.name.text);
+          result[name] = this.evaluate(prop.name, mod);
           origins.set(name, prop);
         } else if (ts.isMethodDeclaration(prop) && name === "run") {
           result[name] = this.evaluate(prop as unknown as ts.Expression, mod);
@@ -464,6 +509,35 @@ export class Extractor {
       return result;
     }
     if (ts.isCallExpression(node)) {
+      const target = node.expression;
+      if (ts.isPropertyAccessExpression(target) && ts.isIdentifier(target.expression) && target.expression.text === "Array" &&
+          target.name.text === "from" && !mod.bindings.has("Array") && !mod.imports.has("Array")) {
+        if (node.arguments.length < 1 || node.arguments.length > 2) this.fail("TC_STATIC_TYPE", "Array.from requires a bounded source and optional mapper.", node);
+        const input = this.evaluate(node.arguments[0], mod);
+        const length = Array.isArray(input) ? input.length : input && typeof input === "object" ? (input as ObjectValue).length : undefined;
+        if (typeof length !== "number" || !Number.isSafeInteger(length) || length < 0 || length > 16384) this.fail("TC_STATIC_BUDGET", "Array.from length must be in [0,16384].", node);
+        if (!node.arguments[1]) {
+          if (!Array.isArray(input)) this.fail("TC_STATIC_TYPE", "Array.from of a length descriptor requires a mapper.", node);
+          return [...input];
+        }
+        const mapper = this.evaluate(node.arguments[1], mod);
+        return Array.from({ length }, (_, i) => this.callStatic(mapper, [Array.isArray(input) ? input[i] : null, i], node));
+      }
+      if (ts.isPropertyAccessExpression(target) && ["map", "flatMap", "filter", "concat"].includes(target.name.text)) {
+        const source = this.evaluate(target.expression, mod);
+        if (!Array.isArray(source) || source.length > 16384) this.fail("TC_STATIC_TYPE", "Static collection methods require arrays of at most 16384 entries.", node);
+        if (target.name.text === "concat") {
+          const result = source.concat(...node.arguments.map(arg => this.evaluate(arg, mod)));
+          if (result.length > 16384) this.fail("TC_STATIC_BUDGET", "Generated collection exceeds 16384 entries.", node);
+          return result;
+        }
+        if (node.arguments.length !== 1) this.fail("TC_STATIC_TYPE", "Static array methods require one pure callback.", node);
+        const fn = this.evaluate(node.arguments[0], mod);
+        const mapped = source.map((item, index) => this.callStatic(fn, [item, index, source], node));
+        const result = target.name.text === "filter" ? source.filter((_, i) => !!mapped[i]) : target.name.text === "flatMap" ? mapped.flat() : mapped;
+        if (result.length > 16384) this.fail("TC_STATIC_BUDGET", "Generated collection exceeds 16384 entries.", node);
+        this.origins.set(result, node); return result;
+      }
       const expression = node.expression;
       if (!node.questionDotToken && ts.isPropertyAccessExpression(expression) &&
           !expression.questionDotToken && ts.isIdentifier(expression.expression) &&
@@ -483,7 +557,9 @@ export class Extractor {
       const name = ts.isIdentifier(node.expression)
         ? mod.imports.get(node.expression.text)
         : undefined;
-      const kind = name && !name.file ? declarations[name.name] : undefined;
+      const kind = name && !name.file && !name.runtimeOnly ? declarations[name.name] : undefined;
+      if (!kind && ts.isIdentifier(target) && (mod.bindings.has(target.text) || mod.imports.get(target.text)?.file || this.scopes.some(scope => scope.has(target.text))))
+        return this.callStatic(this.evaluate(target, mod), node.arguments.map(arg => this.evaluate(arg, mod)), node);
       if (!kind || node.arguments.length !== 1)
         this.fail(
           "TC_STATIC_SIDE_EFFECT",
@@ -554,6 +630,7 @@ export class Extractor {
     }
     if (ts.isPrefixUnaryExpression(node)) {
       const value = this.evaluate(node.operand, mod);
+      if (node.operator === ts.SyntaxKind.ExclamationToken) return !value;
       if (
         typeof value === "number" &&
         [ts.SyntaxKind.PlusToken, ts.SyntaxKind.MinusToken].includes(
@@ -564,7 +641,16 @@ export class Extractor {
     }
     if (ts.isBinaryExpression(node)) {
       const a = this.evaluate(node.left, mod);
+      if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return a ? this.evaluate(node.right, mod) : a;
+      if (node.operatorToken.kind === ts.SyntaxKind.BarBarToken) return a ? a : this.evaluate(node.right, mod);
       const b = this.evaluate(node.right, mod);
+      if (node.operatorToken.kind === ts.SyntaxKind.PlusToken && (typeof a === "string" || typeof b === "string") && (a === null || typeof a !== "object") && (b === null || typeof b !== "object")) {
+        const result = String(a) + String(b);
+        if (result.length > 65536) this.fail("TC_STATIC_BUDGET", "Generated string exceeds 65536 characters.", node);
+        return result;
+      }
+      if (node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken) return a === b;
+      if (node.operatorToken.kind === ts.SyntaxKind.ExclamationEqualsEqualsToken) return a !== b;
       let value: number | undefined;
       if (typeof a === "number" && typeof b === "number") {
         switch (node.operatorToken.kind) {
@@ -580,6 +666,12 @@ export class Extractor {
           case ts.SyntaxKind.SlashToken:
             value = a / b;
             break;
+          case ts.SyntaxKind.PercentToken: value = a % b; break;
+          case ts.SyntaxKind.AsteriskAsteriskToken: value = a ** b; break;
+          case ts.SyntaxKind.LessThanToken: return a < b;
+          case ts.SyntaxKind.LessThanEqualsToken: return a <= b;
+          case ts.SyntaxKind.GreaterThanToken: return a > b;
+          case ts.SyntaxKind.GreaterThanEqualsToken: return a >= b;
         }
       }
       if (value !== undefined && Number.isFinite(value)) return value;
@@ -595,6 +687,33 @@ export class Extractor {
       node,
     );
   }
+  private callStatic(value: Value, args: Value[], at: ts.Node): Value {
+    const fn = value && typeof value === "object" ? this.origins.get(value) : undefined;
+    const closure = value && typeof value === "object" ? this.closures.get(value) : undefined;
+    if (!fn || !closure || !(ts.isFunctionDeclaration(fn) || ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) || !fn.body || fn.asteriskToken ||
+        ts.getModifiers(fn)?.some(m => m.kind === ts.SyntaxKind.AsyncKeyword)) this.fail("TC_STATIC_SIDE_EFFECT", "Only bounded pure local content functions may be evaluated.", at);
+    if (++this.callDepth > 32) this.fail("TC_STATIC_BUDGET", "Static function nesting exceeds 32 calls.", at);
+    const previous = this.scopes, locals = new Map<string, Value>();
+    this.scopes = [...closure.scopes, locals];
+    try {
+      for (const [index, parameter] of fn.parameters.entries()) {
+        if (!ts.isIdentifier(parameter.name) || parameter.dotDotDotToken) this.fail("TC_STATIC_SYNTAX", "Static function parameters must be named values.", parameter);
+        const argument = index < args.length ? args[index] : parameter.initializer ? this.evaluate(parameter.initializer, closure.module) : null;
+        locals.set(parameter.name.text, argument);
+      }
+      if (!ts.isBlock(fn.body)) return this.evaluate(fn.body, closure.module);
+      for (const statement of fn.body.statements) {
+        if (ts.isReturnStatement(statement) && statement.expression) return this.evaluate(statement.expression, closure.module);
+        if (ts.isVariableStatement(statement) && (statement.declarationList.flags & ts.NodeFlags.Const)) {
+          for (const declaration of statement.declarationList.declarations) {
+            if (!ts.isIdentifier(declaration.name) || !declaration.initializer) this.fail("TC_STATIC_SYNTAX", "Content functions require initialized const bindings.", declaration);
+            locals.set(declaration.name.text, this.evaluate(declaration.initializer, closure.module));
+          }
+        } else this.fail("TC_STATIC_SIDE_EFFECT", "Content functions support const bindings and a return; I/O, mutation and loops are not executed.", statement);
+      }
+      this.fail("TC_STATIC_TYPE", "Content function must return a value.", fn);
+    } finally { this.scopes = previous; this.callDepth--; }
+  }
   extract(entry: string): ObjectValue | undefined {
     try {
       const mod = this.module(entry);
@@ -606,7 +725,7 @@ export class Extractor {
         )
           continue;
         const rel = path.relative(this.projectRoot, sf.fileName);
-        if (!rel.startsWith("..") && !path.isAbsolute(rel))
+        if (!rel.startsWith("..") && !path.isAbsolute(rel) && !rel.split(path.sep).includes("node_modules"))
           this.module(sf.fileName);
       }
       for (const item of this.modules.values())
@@ -633,6 +752,14 @@ export class Extractor {
           "Default export must be a defineGame declaration.",
           mod.source,
         );
+      let nodes = 0, characters = 0;
+      const bounded = (value: Value, depth: number): void => {
+        if (++nodes > 200000 || depth > 128) this.fail("TC_STATIC_BUDGET", "Expanded content exceeds 200000 values or 128 levels.", mod.source);
+        if (typeof value === "string") characters += value.length;
+        if (characters > 8 * 1024 * 1024) this.fail("TC_STATIC_BUDGET", "Expanded content strings exceed 8 MiB.", mod.source);
+        if (value && typeof value === "object") for (const child of Object.values(value)) bounded(child, depth + 1);
+      };
+      bounded(result, 0);
       return result;
     } catch (error) {
       if (!(error instanceof ExtractionFailure)) throw error;

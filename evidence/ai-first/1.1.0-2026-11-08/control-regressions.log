@@ -1,0 +1,48 @@
+✔ structured runtime causes survive transport while free-text secrets and unsafe source paths do not (26.3922ms)
+✔ capture returns the owned viewport PNG after step, reusing the serialized session (18.0046ms)
+✔ capture size cap fits unchanged client limits and oversized PNGs fail without image or reset (25.9977ms)
+✔ capture never invents viewport dimensions or accepts output paths (4.7788ms)
+✔ pending capture shares fail-stop timeout and cancellation semantics, ignoring late PNGs (101.4247ms)
+✔ screenshot transport failure is sanitized and discards the owned session (3.1966ms)
+✔ attaching is lazy, resolves the bound port/base and reuses the same owned transport (11.6787ms)
+✔ real Vite GET status is not swallowed by the SPA fallback; no browser needed (51.684ms)
+✔ rejects production, missing HTTP servers, duplicate attach and unbounded timeout options (1.7649ms)
+✔ malformed commands are rejected before creating a browser, without reflecting request secrets (10.2725ms)
+✔ loopback Host and exact same HTTP origin are required, with no CORS opt-in (11.2403ms)
+✔ methods, JSON content type, encoding, task IDs and bounded bodies are checked (11.3463ms)
+✔ oversized JSON uploads finish draining before a reliable 413 response closes their socket (4.0214ms)
+✔ an unfinished request body times out without allocating a browser (54.6749ms)
+✔ an oversized unfinished upload remains bounded and returns 413 without retaining or launching (54.8176ms)
+✔ concurrent commands are FIFO and status exposes bounded metadata and caller-provided IDs (35.2133ms)
+✔ cancelling queued work never dispatches it and preserves the running session (31.7997ms)
+✔ running cancellation closes the owned page, invalidates queued tasks and requires explicit reset (37.463ms)
+✔ a command timeout fails stop, does not hang on evaluation and never claims state preserved (97.6604ms)
+✔ a late factory cannot dispatch stale commands or contaminate a fresh generation (164.6238ms)
+✔ closed transports and browser failures are sanitized and discard their generation (8.4234ms)
+✔ runtime failure envelopes preserve the session but raw runtime messages are not reflected (3.7231ms)
+✔ malformed runtime envelopes are transport failures rather than successful commands (2.2411ms)
+✔ client timeouts and aborts report uncertain state; HTTP disconnect cancels owned work (64.4548ms)
+✔ closing bridge interrupts running work, cancels queue and is idempotent (33.0068ms)
+✔ HTTP server close cleans up an idle owned browser even without explicit control.close (3.1293ms)
+✔ queue saturation returns a bounded busy response, never launching extra browsers (62.8148ms)
+✔ completed history is bounded without retaining snapshots or command payloads (159.8258ms)
+✔ cancel/reset malformed and unknown task requests are bounded without browser startup (4.8188ms)
+✔ client validates local URL, timeouts, serializability and commands before network use (2.1309ms)
+✔ client rejects non-envelope HTTP responses and never follows external redirects (3.0382ms)
+✔ explicit reset while running cancels old work and starts only a clean lazy session (15.0855ms)
+✔ cleanup failure blocks replacement and close reports a stable sanitized error (4.2467ms)
+✔ oversized runtime responses discard the session instead of growing the HTTP result (13.0655ms)
+✔ late successful commands cannot overwrite cancellation or a fresh session (23.4644ms)
+✔ undefined runtime return values are normalized to JSON null without losing the envelope (2.1799ms)
+✔ disconnecting during an unfinished body does not leak an unhandled request error (30.0797ms)
+✔ pointer aggregates tick movement, wheel and same-tick press/release edges (0.9378ms)
+✔ pointer rejects malformed and excessive snapshots before adoption (0.3632ms)
+✔ AI batches validate every command before writes and reject nesting or malformed pointers (0.3059ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1642.7063

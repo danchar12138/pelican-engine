@@ -1,3 +1,4 @@
+import { errorMessage } from "./error.ts";
 import {
   SYSTEM_PHASES,
   type RuntimeWorld,
@@ -478,7 +479,7 @@ export function createScheduler({
         code: "TC_SCHEDULER_TICK",
         tick: currentTick(),
         stage,
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error),
         partialState: true,
         eventFaults: [],
       };

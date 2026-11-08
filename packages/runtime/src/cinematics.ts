@@ -313,7 +313,7 @@ export const createCinematicPlugin: RuntimePluginFactory = context => {
   return {
     id: owner, version: "1", services: { cinematics: service }, requiresRecovery: () => faulted,
     legacySnapshot: (): Saved => ({ version: 1, definitions: [], state: idle(), bindings: [], camera: null, voices: [] }),
-    systems: [{ id: owner, phase: "physics", before: ["$engine.models", "$engine.physics"], writes: ["Transform"], run(dt) {
+    systems: [{ id: owner, phase: "physics", beforeIfPresent: ["$engine.models", "$engine.physics"], writes: ["Transform"], run(dt) {
       alive(); if (state.id === null) return; ensureRefs(); const definition = current()!;
       const lost = [...handles].filter(([, ref]) => !context.world.isAlive(ref)).map(([entity]) => entity);
       if (lost.length) {

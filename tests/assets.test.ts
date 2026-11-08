@@ -1091,7 +1091,7 @@ test("unknown image format is unsupported", async () => {
     Buffer.from("GIF89a"),
     "texture",
     unsupported,
-    /PNG or baseline JPEG/,
+    /PNG, baseline JPEG or Radiance RGBE/,
     "gif",
   );
 });

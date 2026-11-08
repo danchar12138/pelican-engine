@@ -1,0 +1,25 @@
+{"name":"install-current-tarball","passed":true}
+{"name":"machine-discovery","passed":true}
+{"name":"pointer-game-lifecycle","passed":true}
+{"name":"button-save-load-cleanup","passed":true}
+{"name":"native-viewport-resize","passed":true}
+{"name":"progressive-quality-render","passed":true}
+{"name":"dynamic-chunk-native-residency","passed":true}
+{"name":"webgl2-real-fallback-and-mode-rejection","passed":true}
+{"name":"installed-recipe-orthographic-2d","passed":true}
+{"name":"installed-recipe-physics2d","passed":true}
+{"name":"installed-recipe-physics2d-character","passed":true}
+{"name":"installed-recipe-gamepad","passed":true}
+{"name":"installed-recipe-dynamic-ui","passed":true}
+{"name":"installed-recipe-inventory","passed":true}
+{"name":"installed-recipe-quests","passed":true}
+{"name":"installed-recipe-dialogue","passed":true}
+{"name":"installed-recipe-localization","passed":true}
+{"name":"installed-recipe-navigation-agents","passed":true}
+{"name":"installed-recipe-streaming-world","passed":true}
+{"name":"installed-recipe-cloth-sheet","passed":true}
+{"name":"installed-recipe-softbody-ball","passed":true}
+{"name":"installed-recipe-fluid-basin","passed":true}
+{"name":"installed-recipe-rope-reaction","passed":true}
+{"name":"production-native-dpr-and-no-debug-hud","passed":true}
+{"output":"C:\\Users\\60459\\Desktop\\AI Project\\threecat\\.pelican\\ai-first-delivery-installed","workspace":"C:\\Users\\60459\\AppData\\Local\\Temp\\pelican-ai-first-py9HfS","passed":24}

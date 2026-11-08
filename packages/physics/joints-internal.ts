@@ -294,5 +294,19 @@ export function createInternalJoints(
       fail("TC_PHYSICS_JOINT_SNAPSHOT", `Snapshot rejected: ${String(error)}`);
     }
   }
-  return { create, joint, remove, removeForBody, snapshot, restore };
+  function handles() { return [...entries].map(([id, entry]) => ({ id, handle: entry.joint.handle })); }
+  function adopt(definitions: readonly InternalJoint[], saved: readonly { id: string; handle: number }[]) {
+    if (entries.size || definitions.length !== saved.length) fail("TC_PHYSICS_JOINT_SNAPSHOT", "Invalid checkpoint joint registry.");
+    const seen = new Set<number>();
+    for (const definition of definitions) {
+      const { definition: d, a, b } = checked(definition);
+      const handle = saved.find(item => item.id === d.id)?.handle;
+      const joint = handle === undefined ? null : world.impulseJoints.get(handle);
+      if (!joint || seen.has(handle!) || joint.body1().handle !== a.handle || joint.body2().handle !== b.handle)
+        fail("TC_PHYSICS_JOINT_SNAPSHOT", "Checkpoint joint endpoints differ from the native world.");
+      seen.add(handle!); entries.set(d.id, { definition: d, joint });
+    }
+    if (world.impulseJoints.len() !== entries.size) fail("TC_PHYSICS_JOINT_SNAPSHOT", "Checkpoint contains unowned joints.");
+  }
+  return { create, joint, remove, removeForBody, snapshot, restore, handles, adopt };
 }

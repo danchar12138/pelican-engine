@@ -9,7 +9,8 @@ import {
 } from "node:fs/promises";
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
-import { SDK_VERSION } from "../packages/sdk/src/index.ts";
+import { SDK_VERSION, engineCapabilities } from "../packages/sdk/src/index.ts";
+import { readRecipe, recipeIds } from "./npm/recipes.ts";
 import { generateApiIndex, queryApiSymbol } from "./api-index.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
 import { compressDist } from "./compress-dist.ts";
@@ -85,10 +86,13 @@ async function main() {
       envelope("succeeded", {
         commands: [
           "doctor",
+          "capabilities [--feature <id-or-query>]",
+          "recipe --id <recipe-id>",
+          "api [--symbol <exact-name> | --search <query>] [--limit 20]",
           "setup [--install-browser] [--offline]",
           layout.installed
-            ? "create [--project <directory>] [--template minimal]"
-            : "create [--project <directory>] [--template minimal|m2] (m2 is a source-only legacy sample)",
+            ? "create [--project <directory>] [--template minimal|<recipe-id>]"
+            : "create [--project <directory>] [--template minimal|<recipe-id>|m2] (m2 assets are source-only)",
           "migrate [--project <directory>] [--apply --from <version|unlocked>]",
           "migrate [--project <directory>] --list-backups",
           "migrate [--project <directory>] --restore <backup-name> --expect-current <sha256> --expect-backup <sha256>",
@@ -98,6 +102,9 @@ async function main() {
           "build --project <directory> [--base <path>]",
           "optimize --project <directory> --asset <id> [--output <new-project-relative.glb>]",
           "capture [--mode raster|hybrid|path] [--output file.png]",
+          "render --samples <1..4096> [--mode path|hybrid] [--denoise true|false] [--port <dev-port>]",
+          "pointer --x <css-x> --y <css-y> [--buttons <mask>] [--dx <px>] [--dy <px>] [--wheel-x <px>] [--wheel-y <px>]",
+          "batch --file <commands.json> [--port <dev-port>] (preflighted; completed operations are not rolled back)",
           "inspect | step --count <n> | pause | resume [--port <dev-port>]",
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
           "snapshot --output <file> | restore --file <file>",
@@ -137,7 +144,15 @@ async function main() {
           await readFile(path.join(engineRoot, "docs/api/index.json"), "utf8"),
         )
       : await generateApiIndex(engineRoot);
-    const matches = queryApiSymbol(index.symbols, args.slice(1));
+    let matches = queryApiSymbol(index.symbols, args.slice(1));
+    const search = option("search");
+    if (search !== undefined) {
+      const limit = Number(option("limit", "20"));
+      if (!search.trim() || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("TC_API_SEARCH: Supply a nonempty query and limit in [1,100].");
+      if (matches !== undefined) throw new Error("TC_API_SEARCH: Use either --symbol or --search, not both.");
+      const terms = search.toLowerCase().split(/\s+/);
+      matches = index.symbols.filter((symbol: { name: string; signature: string }) => terms.every(term => (symbol.name + " " + symbol.signature).toLowerCase().includes(term))).slice(0, limit);
+    }
     emit(
       envelope(
         "succeeded",
@@ -152,9 +167,24 @@ async function main() {
     );
     return;
   }
+  if (command === "capabilities") {
+    const query = option("feature", "")!;
+    emit(envelope("succeeded", { engineVersion: SDK_VERSION, format: "pelican.capabilities", features: engineCapabilities(query),
+      runtimeProbe: "inspect", recipes: recipeIds, acceptance: "Implementation metadata only; runtime/backend/hardware evidence is separate." }));
+    return;
+  }
+  if (command === "recipe") {
+    const id = option("id");
+    if (!id) throw new Error("TC_RECIPE_ID: Supply --id; capabilities lists available recipes.");
+    emit(envelope("succeeded", { id, source: await readRecipe(engineRoot, id, layout.installed), entry: "game.ts", create: `pelican create --template ${id}` }));
+    return;
+  }
   if (
     [
       "inspect",
+      "render",
+      "pointer",
+      "batch",
       "step",
       "pause",
       "resume",
@@ -182,6 +212,17 @@ async function main() {
     else {
       let operation: ControlCommand;
       if (command === "capture") operation = { type: "capture" };
+      else if (command === "pointer") operation = { type: "pointer", x: Number(option("x")), y: Number(option("y")), buttons: Number(option("buttons", "0")),
+        delta: [Number(option("dx", "0")), Number(option("dy", "0"))], wheel: [Number(option("wheel-x", "0")), Number(option("wheel-y", "0"))] };
+      else if (command === "batch") {
+        const file = option("file"); if (!file) throw new Error("TC_CLI_FILE: --file is required.");
+        const contents = JSON.parse(await readFile(path.resolve(file), "utf8")); operation = { type: "batch", commands: Array.isArray(contents) ? contents : contents.commands };
+      }
+      else if (command === "render") {
+        const denoise = option("denoise");
+        if (denoise !== undefined && !["true", "false"].includes(denoise)) throw new Error("TC_CLI_RENDER: --denoise must be true or false.");
+        operation = { type: "render", samples: Number(option("samples", "64")), mode: option("mode", "path") as "path" | "hybrid", ...(denoise === undefined ? {} : { denoise: denoise === "true" }) };
+      }
       else if (command === "inspect")
         operation = {
           type: "inspect",
@@ -315,13 +356,13 @@ async function main() {
   if (command === "create") {
     const template = option("template", "minimal");
     if (
-      !["minimal", "m2"].includes(template!) ||
-      (layout.installed && template !== "minimal")
+      !["minimal", ...recipeIds, ...(!layout.installed ? ["m2"] : [])].includes(template!)
     )
       throw new Error(
-        "TC_CREATE_TEMPLATE: Use minimal in either distribution; m2 sample assets are available in source checkouts only.",
+        "TC_CREATE_TEMPLATE: Use minimal or a recipe ID from capabilities; m2 assets are source-only.",
       );
-    if (template === "minimal") {
+    if (template === "minimal" || recipeIds.includes(template!)) {
+      const source = template === "minimal" ? undefined : await readRecipe(engineRoot, template!, layout.installed);
       for (const filename of ["game.ts", "pelican.project.json", "AGENTS.md"])
         try {
           await access(path.join(projectRoot, filename));
@@ -332,6 +373,7 @@ async function main() {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
       await createMinimalProject(projectRoot, engineRoot, layout.installed);
+      if (source !== undefined) await writeFile(path.join(projectRoot, "game.ts"), source, "utf8");
       emit(
         envelope(
           "succeeded",

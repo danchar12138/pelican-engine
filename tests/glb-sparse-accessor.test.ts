@@ -44,16 +44,16 @@ test("sparse overlays packed and zero bases before bounds validation", () => {
     assert.deepEqual(a.max, [2, 3, 0]);
   }
 });
-test("rejects sparse layouts that the current renderer cannot load correctly", () => {
+test("reads supported interleaved sparse vectors and rejects truncated matrix payloads", () => {
   const interleaved = fixture();
   interleaved.json.bufferViews[0].byteStride = 16;
   interleaved.json.bufferViews[0].byteLength = 48;
-  assert.throws(() => parse(interleaved), /TC_ASSET_UNSUPPORTED.*interleaved/);
+  assert.equal(parse(interleaved).accessors[0].values.length, 9);
   const matrix = fixture(false);
   matrix.json.accessors[0].type = "MAT4";
   delete matrix.json.accessors[0].min;
   delete matrix.json.accessors[0].max;
-  assert.throws(() => parse(matrix), /TC_ASSET_UNSUPPORTED.*Sparse matrices/);
+  assert.throws(() => parse(matrix), /TC_ASSET_INVALID.*boundary/);
 });
 test("sparse unsigned index widths and normalized integer values retain raw components", () => {
   for (const [type, width] of [[5121, 1], [5123, 2], [5125, 4]] as const) {

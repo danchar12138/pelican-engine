@@ -30,6 +30,23 @@ import { resolveEntityDefinition } from "../packages/runtime/src/prefabs.ts";
 import { createGameServices } from "../packages/runtime/src/game-services.ts";
 import { createModelLibrary } from "../packages/renderer/src/models.ts";
 import { prepareGameplay } from "../packages/renderer/src/gameplay.ts";
+import { createLightPlugin } from "../packages/gameplay/src/lights.ts";
+import { createCinematicOverlay } from "../packages/renderer/src/cinematic-overlay.ts";
+import { createRopeVisualOwner } from "../packages/renderer/src/rope-visuals.ts";
+import { createClothVisualOwner } from "../packages/renderer/src/cloth-visuals.ts";
+import { createFluidVisualOwner } from "../packages/renderer/src/fluid-visuals.ts";
+import { createSoftBodyVisualOwner } from "../packages/renderer/src/softbody-visuals.ts";
+import { createSpriteVisualOwner } from "../packages/renderer/src/sprite-visuals.ts";
+import { createTilemapVisualOwner } from "../packages/renderer/src/tilemap-visuals.ts";
+import { createCinematicPlugin } from "../packages/runtime/src/cinematics.ts";
+import { createRopePlugin } from "../packages/simulation/src/rope-plugin.ts";
+import { createClothPlugin } from "../packages/simulation/src/cloth-plugin.ts";
+import { createFluidPlugin } from "../packages/simulation/src/fluid-plugin.ts";
+import { createSoftBodyPlugin } from "../packages/simulation/src/softbody-plugin.ts";
+import { createTerrainPlugin } from "../packages/runtime/src/terrain.ts";
+import { createSpritePlugin } from "../packages/gameplay/src/sprites.ts";
+import { createTilemapPlugin } from "../packages/gameplay/src/tilemaps.ts";
+const presentationPlugins = [createLightPlugin, createCinematicPlugin, createRopePlugin, createClothPlugin, createFluidPlugin, createSoftBodyPlugin, createTerrainPlugin, createSpritePlugin, createTilemapPlugin];
 
 // Execute the actual browser function bodies with real CPU World/resources/Three objects.
 // No fake adapter result is used, and none of these tests constitutes GPU evidence.
@@ -82,6 +99,8 @@ function harness(names: string[], context: Record<string, unknown>) {
     createComputeTextureAssets,
     renderCapabilities,
     validateRenderCapabilities,
+    cameraCapabilities: (backend: "webgpu" | "webgl2") => renderCapabilities(backend),
+    perspectiveCamera: new THREE.PerspectiveCamera(), orthographicCamera: new THREE.OrthographicCamera(),
     backendKind: "webgpu",
     lastStepCpuMs: 0,
     performance,
@@ -90,9 +109,32 @@ function harness(names: string[], context: Record<string, unknown>) {
     runtimeStatus,
     inspectTraceCapabilities,
     probeEnabled: false,
+    dynamicVisualRevision: 0,
+    diagnosticsVisible: true,
+    gameSurfaceDefaults: new Map(),
+    clearDynamicVisuals() {},
+    ropeVisuals: createRopeVisualOwner(), clothVisuals: createClothVisualOwner(), terrainVisuals: createClothVisualOwner(),
+    fluidVisuals: createFluidVisualOwner(), softBodyVisuals: createSoftBodyVisualOwner(), spriteVisuals: createSpriteVisualOwner(), tilemapVisuals: createTilemapVisualOwner(),
+    cinematicOverlay: { clear() {}, dispose() {}, sync() {} },
+    renderedDynamicVisualRevision: 0,
+    traceContentDirty: true,
+    observedGraphOwner: undefined,
+    observedGraphRevision: -1,
+    observedGraphTick: -1,
+    gamepadHost: undefined,
+    gamepadFingerprint: undefined,
+    tickTail: Promise.resolve(),
+    nativeInputTail: Promise.resolve(),
+    drawTail: Promise.resolve(),
+    viewport: { width: 16, height: 8, cssWidth: 16, cssHeight: 8, pixelRatio: 1, fixed: true },
+    resizeViewport: () => false,
+    pointerInput: { drain() {}, dispose() {} },
+    onWindowBlur() {},
+    onVisibilityChange() {},
+    onResize() {},
     resolveEntityDefinition,
     URL,
-    document: { baseURI: "http://localhost/" },
+    document: { baseURI: "http://localhost/", removeEventListener() {} },
     ...context,
   });
   // Vite substitutions only; tested functions remain the source implementations.
@@ -112,7 +154,7 @@ test("browser draw queue serializes asynchronous surface setup and keeps later f
   const context = harness(["draw"], {
     drawTail: Promise.resolve(),
     frameSerial: 0,
-    document: { documentElement: { dataset: {} } },
+    document: { documentElement: { dataset: {} }, removeEventListener() {} },
     drawFrame: async () => {
       const id = ++call;
       active++;
@@ -256,7 +298,7 @@ const moduleValue = {
 };
 function hostRig() {
   const definition = ir();
-  const host = new RuntimeHost(definition);
+  const host = new RuntimeHost(definition, { plugins: presentationPlugins });
   host.attach(moduleValue.createGame(host.facade));
   return { definition, host };
 }
@@ -489,7 +531,9 @@ test("gameplay model snapshots restore changed prefab definitions without mutati
     const beforeInspection = gameplay.models.inspect();
     let disposed = 0;
     geometry.addEventListener("dispose", () => disposed++);
-    const plugin = gameplay.plugins[2]({ world: host.world, scene: definition, events: () => [], emit: () => { throw new Error("unexpected emit"); } });
+    const modelIndex = host.inspect().plugins.ids.indexOf("$engine.models");
+    assert.ok(modelIndex >= 0);
+    const plugin = gameplay.plugins[modelIndex]({ world: host.world, scene: definition, events: () => [], emit: () => { throw new Error("unexpected emit"); } });
     plugin.validateSnapshot(savedA.plugins!["$engine.models"].payload);
     assert.equal(gameplay.models.get("item"), active);
     assert.throws(() => gameplay!.models.register("item", { asset: "a" }), /TC_MODEL_DEFINITION_CONFLICT/);
@@ -606,7 +650,7 @@ async function loadHarness() {
         const models = createModelLibrary([]);
         const services = createGameServices(content, models.animation);
         return {
-          plugins: [services.factory],
+          plugins: [services.factory, ...presentationPlugins],
           models,
           services,
           textures: new Map(),
@@ -947,6 +991,7 @@ test("browser restore: invalid sidecars leave real Host, generations and present
     simulation,
     world,
     restoring: false,
+    gamepadFingerprint: undefined,
     disposed: false,
     frameAccumulator: 0,
     lastFrameTime: undefined,
@@ -1076,7 +1121,7 @@ test("browser disposal: idempotent cleanup isolates errors, clears ownership and
     lastFrameTime: 1,
     frameRequest: 7,
     cancelAnimationFrame: run("cancel"),
-    document: { documentElement: { dataset: {} } },
+    document: { documentElement: { dataset: {} }, removeEventListener() {} },
     window: { removeEventListener() {} },
     onKeyDown() {},
     onKeyUp() {},

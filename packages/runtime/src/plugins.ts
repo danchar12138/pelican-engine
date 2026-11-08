@@ -158,7 +158,7 @@ export interface RuntimePlugin {
   version?: string;
   legacySnapshot?(): unknown;
   services?: Partial<Omit<RuntimeServices, "input">> & { input?: InputService & Partial<GamepadInputService> };
-  systems?: readonly ScheduledSystem[];
+  systems?: readonly (ScheduledSystem & { beforeIfPresent?: readonly string[]; afterIfPresent?: readonly string[] })[];
   inspect?(): unknown;
   /** A failed native owner cannot provide a trustworthy rollback snapshot. */
   requiresRecovery?(): boolean;

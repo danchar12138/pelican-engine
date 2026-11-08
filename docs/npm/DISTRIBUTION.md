@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/danchar12138/pelican-engine/main/docs/assets/pelican-mark.svg" alt="Pelican Engine" width="110" height="110">
   <h1>Pelican Engine</h1>
   <p><strong>Build games for the web with TypeScript.</strong></p>
-  <p>Code-first · WebGPU-first · Designed for human and external AI workflows</p>
+  <p>Code-first · WebGPU-first · External AI development protocol</p>
   <p>
     <a href="https://www.npmjs.com/package/pelican-engine"><img src="https://img.shields.io/npm/v/pelican-engine?label=npm&amp;color=168b80" alt="npm version"></a>
     <img src="https://img.shields.io/badge/license-MIT-24536b" alt="MIT license">

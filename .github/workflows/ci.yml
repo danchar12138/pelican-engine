@@ -30,5 +30,17 @@ jobs:
         run: npm ci
       - name: Compile and build static dist
         run: npm run build
+      - name: Install the local browser for CPU and DOM regressions
+        run: npx --no-install playwright install chromium
+      - name: Typecheck and run regressions
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run distribution:test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile and pack npm SDK and CLI
         run: npm run distribution:pack
+      - name: Verify the isolated installed package and static deployment
+        run: npm run distribution:smoke

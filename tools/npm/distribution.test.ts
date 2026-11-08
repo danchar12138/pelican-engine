@@ -295,7 +295,7 @@ test("publish identity accepts only a matching published milestone commit", () =
     { tag: "v0.2.0-m2.0" },
     { engineVersion: "0.2.0-m2.0" },
     { sdkVersion: "0.2.0-m2.0" },
-    { milestone: "M2" },
+    { milestone: "M9" },
   ])
     assert.throws(
       () => validatePublishIdentity({ ...accepted, ...change }),
@@ -307,12 +307,12 @@ test("publish identity accepts only a matching published milestone commit", () =
   );
 });
 
-test("publish workflow uses the authorized secret only after acceptance and selects the exact Pelican tarball", async () => {
+test("main-push publishing uses OIDC, tested source and the exact explicit-version tarball", async () => {
   const workflow = await readFile(
     path.join(root, ".github/workflows/npm-publish.yml"),
     "utf8",
   );
-  assert.match(workflow, /pelican-engine-\$version\.tgz/);
+  assert.match(workflow, /'pelican-engine-'\s*\+\s*\$version\s*\+\s*'\.tgz'/);
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /--tag latest/);
   assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN|next/);

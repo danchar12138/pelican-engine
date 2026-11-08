@@ -1426,8 +1426,12 @@ test(
             '<script type="importmap">{"imports":{"three":"/vendor/build/three.webgpu.js","three/webgpu":"/vendor/build/three.webgpu.js","three/tsl":"/vendor/build/three.tsl.js","three/addons/":"/vendor/examples/jsm/","fast-png":"/npm/fast-png/lib/index.js","fflate":"/npm/fflate/esm/browser.js","iobuffer":"/npm/iobuffer/lib/iobuffer.js"}}</script>',
           );
         } else if (path === "/models.js") {
+          response.writeHead(302, { Location: "/packages/renderer/src/models.ts" }); response.end();
+        } else if ((path.startsWith("/packages/") || path.startsWith("/experiments/")) && path.endsWith(".ts")) {
+          const root = resolve("."), target = resolve(root, "." + path), within = relative(root, target);
+          if (within.startsWith("..") || resolve(root, within) !== target) { response.writeHead(403).end(); return; }
           response.setHeader("Content-Type", "text/javascript");
-          response.end(module);
+          response.end(ts.transpileModule(await readFile(target, "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext } }).outputText);
         } else if (path === "/embedded-image-pixels.ts") {
           response.setHeader("Content-Type", "text/javascript");
           response.end(embeddedModule);

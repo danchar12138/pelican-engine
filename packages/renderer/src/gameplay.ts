@@ -126,6 +126,8 @@ export async function prepareGameplay(
   const dispose = (): Promise<void> => {
     if (disposePromise) return disposePromise;
     closed = true;
+    uiInput = undefined;
+    uiEmit = undefined;
     // Assign first: concurrent or reentrant disposal callers must await the same cleanup.
     disposePromise = Promise.resolve().then(async () => {
       const failures: unknown[] = [];
@@ -585,6 +587,10 @@ export async function prepareGameplay(
           }
         }
         const size = renderer.getSize(new THREE.Vector2());
+        // DOM controls use CSS pixels while native-DPR rendering uses physical
+        // pixels. Offscreen/CPU adapters without a DOM canvas retain getSize().
+        const canvasRect = renderer.domElement?.getBoundingClientRect?.();
+        if (canvasRect && canvasRect.width > 0 && canvasRect.height > 0) size.set(canvasRect.width, canvasRect.height);
         const positions = new Map<
           string,
           { x: number; y: number; visible: boolean; occluded: boolean }

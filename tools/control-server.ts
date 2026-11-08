@@ -500,11 +500,21 @@ function attach(
           /^TC[A-Z0-9_]{1,90}$/.test(value.code)
             ? value.code
             : "TC_CONTROL_RUNTIME_FAILURE";
-        return diagnostic(
+        const output = diagnostic(
           code,
           "Runtime command reported a diagnostic. Inspect the referenced command and project source.",
           "Correct the command or project source and retry; a runtime failure envelope alone does not reset the session.",
         );
+        if (record(value)) {
+          if (Array.isArray(value.causeCodes)) output.causeCodes = [...new Set(value.causeCodes.filter((item): item is string => typeof item === "string" && /^TC_[A-Z0-9_]{1,90}$/.test(item)))].slice(0, 16);
+          if (typeof value.tick === "number" && Number.isSafeInteger(value.tick) && value.tick >= 0) output.tick = value.tick;
+          if (typeof value.partialState === "boolean") output.partialState = value.partialState;
+          for (const key of ["stage", "system", "entity", "resource"] as const) if (typeof value[key] === "string" && /^[A-Za-z0-9_$:.\-]{1,128}$/.test(value[key] as string)) output[key] = value[key] as string;
+          if (record(value.source) && typeof value.source.file === "string" && /^[A-Za-z0-9_.\-/]{1,240}$/.test(value.source.file) && !value.source.file.split("/").includes("..") && !value.source.file.startsWith("/") &&
+              typeof value.source.line === "number" && Number.isSafeInteger(value.source.line) && value.source.line > 0 && typeof value.source.column === "number" && Number.isSafeInteger(value.source.column) && value.source.column > 0)
+            output.source = { file: value.source.file, line: value.source.line, column: value.source.column };
+        }
+        return output;
       });
     const value = result(
       task.summary.taskId,

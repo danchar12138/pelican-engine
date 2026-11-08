@@ -3,9 +3,11 @@ import type {
   ComponentSchema,
   Field,
 } from "../../sdk/src/index.ts";
+import type { JsonValue } from "../../sdk/src/index.ts";
+import { cloneJsonValue } from "../../schema/src/json-value.ts";
 
 /** Numeric component values live in columns, never in per-entity objects. */
-export type Column = Float64Array | Uint8Array | string[];
+export type Column = Float64Array | Uint8Array | JsonValue[];
 type Value = ComponentData[string];
 
 export function fail(code: string, message: string): never {
@@ -37,6 +39,7 @@ export function identifier(
 
 function fieldValue(field: Field, value: unknown, label: string): Value {
   switch (field.type) {
+    case "json": return cloneJsonValue(value);
     case "number":
       if (typeof value !== "number" || !Number.isFinite(value))
         fail("VALUE", `${label} must be finite.`);
@@ -123,8 +126,8 @@ export class ComponentStorage {
     for (const [key, field] of Object.entries(this.schema)) {
       this.columns.set(
         key,
-        field.type === "string"
-          ? new Array<string>(capacity).fill("")
+        field.type === "string" || field.type === "json"
+          ? new Array<JsonValue>(capacity).fill(field.type === "string" ? "" : null)
           : field.type === "boolean"
             ? new Uint8Array(capacity)
             : new Float64Array(capacity * (field.type === "vec3" ? 3 : 1)),
@@ -142,7 +145,7 @@ export class ComponentStorage {
       if (Array.isArray(previous)) {
         this.columns.set(key, [
           ...previous,
-          ...new Array<string>(capacity - previous.length).fill(""),
+          ...new Array<JsonValue>(capacity - previous.length).fill(field.type === "string" ? "" : null),
         ]);
       } else {
         const column =
@@ -159,6 +162,7 @@ export class ComponentStorage {
     for (const [key, value] of Object.entries(data)) {
       const column = this.columns.get(key)!;
       switch (this.schema[key].type) {
+        case "json": (column as JsonValue[])[index] = cloneJsonValue(value); break;
         case "vec3":
           (column as Float64Array).set(value as readonly number[], index * 3);
           break;
@@ -181,7 +185,7 @@ export class ComponentStorage {
       Object.entries(this.schema).map(([key, field]) => {
         const column = this.columns.get(key)!;
         const value =
-          field.type === "vec3"
+          field.type === "json" ? cloneJsonValue(column[index]) : field.type === "vec3"
             ? Array.from(
                 (column as Float64Array).subarray(index * 3, index * 3 + 3),
               )
@@ -199,7 +203,7 @@ export class ComponentStorage {
       const column = this.columns.get(key)!;
       if (field.type === "vec3")
         (column as Float64Array).fill(0, index * 3, index * 3 + 3);
-      else if (field.type === "string") (column as string[])[index] = "";
+      else if (field.type === "string" || field.type === "json") (column as JsonValue[])[index] = field.type === "string" ? "" : null;
       else (column as Float64Array | Uint8Array)[index] = 0;
     }
   }
@@ -208,7 +212,7 @@ export class ComponentStorage {
     const result = new ComponentStorage(this.schema, this.presence.length);
     result.presence.set(this.presence);
     for (const [key, column] of this.columns)
-      result.columns.set(key, column.slice());
+      result.columns.set(key, this.schema[key].type === "json" ? (column as JsonValue[]).map(value => cloneJsonValue(value)) : column.slice());
     return result;
   }
 }

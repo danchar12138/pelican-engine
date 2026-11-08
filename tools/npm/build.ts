@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import ts from "typescript";
 import { generateApiIndex } from "../api-index.ts";
-import { renderRecipes } from "./recipes.ts";
+import { renderRecipes, recipeCatalog } from "./recipes.ts";
 import { SDK_VERSION } from "../../packages/sdk/src/index.ts";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -142,6 +142,7 @@ export async function buildDistribution() {
   }
 
   const sdk = path.join(root, "packages/sdk/src/index.ts");
+  await put("docs/api/recipes.json", JSON.stringify(await recipeCatalog(root), null, 2) + "\n");
   // The private native build is not a second npm package or a source-only path.
   for (const name of ["runtime.mjs", "LICENSE", "README.md", "build.json", "bootstrap-before-observations.patch"])
     await put("lib/physics/vendor/rapier3d/" + name,
@@ -281,7 +282,9 @@ export async function buildDistribution() {
     "docs/ANIMATION.md",
     "docs/CINEMATICS.md",
     "docs/tasks/V1-FINAL.md",
+    "docs/tasks/AI-FIRST-STABILIZATION.md",
     "docs/releases/1.0.0.md",
+    "docs/releases/1.1.0.md",
     "docs/PHYSICS-LIFECYCLE-ISSUE.md",
     "docs/RENDER-BACKENDS.md",
     "docs/PELICAN-MIGRATION.md",

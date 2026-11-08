@@ -1,0 +1,13 @@
+
+> pelican-engine@1.1.0 distribution:smoke
+> tsx tools/npm/smoke.ts
+
+{
+  "status": "succeeded",
+  "directory": "C:\\Users\\60459\\AppData\\Local\\Temp\\pelican npm 游戏-6FEvJE",
+  "package": "pelican-engine",
+  "version": "1.1.0",
+  "install": "offline cache only",
+  "operations": "real npm pack/install --save-dev into empty OS temp, npx pelican dev auto-scaffold, repeat dev preserves files, SDK/API, doctor/setup offline, check/cache, build/licenses, misuse/version/dependency errors, dev/status, HTTP deployment",
+  "gpu": "not requested; CPU packaging/dev/deploy validation only"
+}

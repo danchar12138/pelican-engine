@@ -92,7 +92,7 @@ test("uniform graph conversion requires explicit engine registration; unknown no
 });
 test("capture rejects unsupported lights rather than losing a light contribution", () => {
   const scene = new THREE.Scene();
-  scene.add(new THREE.SpotLight());
+  scene.add(new THREE.RectAreaLight());
   const capture = createSurfaceCapture();
   try {
     assert.throws(() => capture.capture(scene), /TC_TRACE_LIGHT/);

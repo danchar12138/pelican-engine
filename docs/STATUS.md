@@ -2,14 +2,30 @@
 
 ## Version and Release
 
-- Current source version: 1.0.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. This is the D60 three-area integration milestone; registry and GitHub publication depend on the actual release run. Runtime acceptance and historical CAP completion are not implied.
+- Current source version: 1.1.0. Package, lock file, engine manifest, SDK, compiler, and active example locks use the same version. This is the D61 AI-first stabilization batch. Publication is not implied by the local version or any local test result.
 - Historical tags `v0.4.0`, `v0.5.0`, and `v0.6.0` already exist and do not establish completion of those version lines. Those occupied historical identities are preserved.
 - A push to main attempts an npm latest release through GitHub Actions trusted publishing. Existing npm versions cannot be overwritten; the publication command reports failure rather than silently skipping. Workflow outcomes depend on the actual release run. GitHub Releases use standard version tags without pre-release suffixes.
 - The 0.9.0 GitHub Release exists, but its npm workflow and one retry failed on November 7, 2026 with transparency-log HTTP 500 errors. This is not evidence that the npm version was published.
 - The old release-event gate in `tools/npm/publish-gate.ts` is retained for historical reference only and is not a current npm publication prerequisite.
-- The active project policy permits compilation and build steps only. Tests, browsers, GPU probes, performance checks, runtime checks, and registry verification are not run unless explicitly authorized.
+- D61 restores regression, browser, GPU and distribution testing for the AI-first optimization requested on November 8, 2026. The active task is [AI-first stabilization](tasks/AI-FIRST-STABILIZATION.md). Historical compile-only statements below retain their original evidence scope.
 
-## Current Scope
+## Active AI-first stabilization
+
+Current workspace implements lifecycle history acceptance, copied native scratch
+inertia, bounded v4 checkpoint replay with legacy v3 support, ordered/exception-safe
+UI teardown, native viewport/DPR, pointer input, pure content helpers, bounded JSON
+component fields, runtime library allowlists and structured AI discovery/batches.
+The package adds recipe templates and deterministic progressive rendering. Local
+1.1.0 validation passed 1784 main tests with zero failures; the five opt-in cases
+also passed, as did 24 installed-game workflows, 53 example builds, 16 distribution
+contracts and offline smoke. Exact source identity and limitations are recorded in
+[the evidence summary](../evidence/ai-first/1.1.0-2026-11-08/summary.json).
+Publication and complete historical CAP acceptance are separate states.
+An emissive-only same-scene comparison demonstrates integrated indirect transport
+versus stock Three.js raster; arbitrary Three.js extensions and independent AI
+task completion are not covered by that comparison.
+
+## Historical 1.0 scope (D60)
 
 - Decision D60 freezes the remaining 1.0 implementation to shared-clock simulation coupling, dynamic-world lifecycle and full-body animation integration. Other historical roadmap work is not added to this release. The implementation checklist is [1.0 Final Scope](tasks/V1-FINAL.md); runtime validation remains deferred.
 

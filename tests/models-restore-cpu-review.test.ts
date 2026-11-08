@@ -3,6 +3,13 @@ import assert from "node:assert/strict";
 import * as THREE from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createModelLibrary } from "../packages/renderer/src/models.ts";
+function fixtureContainer() {
+  const json = Buffer.from('{"asset":{"version":"2.0"}}'.padEnd(28, " "));
+  const bytes = Buffer.alloc(20 + json.length);
+  bytes.writeUInt32LE(0x46546c67, 0); bytes.writeUInt32LE(2, 4); bytes.writeUInt32LE(bytes.length, 8);
+  bytes.writeUInt32LE(json.length, 12); bytes.writeUInt32LE(0x4e4f534a, 16); json.copy(bytes, 20);
+  return bytes;
+}
 
 for (const includeLive of [true, false])
   test(`CPU staged rollback preserves shared material and morph weights (live included: ${includeLive})`, async (t) => {
@@ -49,7 +56,7 @@ for (const includeLive of [true, false])
     );
     const lib = createModelLibrary(
       { hero: "hero.glb" },
-      { fetch: async () => new Response(new Uint8Array([1])) },
+      { fetch: async () => new Response(fixtureContainer()) },
     );
     t.after(() => lib.dispose());
     await lib.prepare();
@@ -104,10 +111,7 @@ for (const includeLive of [true, false])
 test(
   "CPU replacement restore applies morph and material saved pose",
   {
-    skip:
-      process.env.MODEL_RESTORE_REPRO !== "1"
-        ? "known unresolved shared-material commit failure; set MODEL_RESTORE_REPRO=1 to reproduce"
-        : false,
+    skip: false,
   },
   async (t) => {
     const geometry = new THREE.BufferGeometry();
@@ -143,7 +147,7 @@ test(
     );
     const lib = createModelLibrary(
       { hero: "hero.glb" },
-      { fetch: async () => new Response(new Uint8Array([1])) },
+      { fetch: async () => new Response(fixtureContainer()) },
     );
     t.after(() => lib.dispose());
     await lib.prepare();
@@ -261,17 +265,14 @@ async function sharedMaterialFixture(t: import("node:test").TestContext) {
   );
   const lib = createModelLibrary(
     { hero: "hero.glb" },
-    { fetch: async () => new Response(new Uint8Array([1])) },
+    { fetch: async () => new Response(fixtureContainer()) },
   );
   t.after(() => lib.dispose());
   await lib.prepare();
   return { lib, material };
 }
 const knownFailure = {
-  skip:
-    process.env.MODEL_RESTORE_REPRO !== "1"
-      ? "known shared-material mixer lifecycle defect; set MODEL_RESTORE_REPRO=1"
-      : false,
+  skip: false,
 };
 test(
   "CPU replacement last stop restores original material not pre-restore pose",

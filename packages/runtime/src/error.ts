@@ -7,16 +7,35 @@ export interface RuntimeDiagnostic {
   entity?: string;
   resource?: string;
   source?: { file: string; line: number; column: number; length?: number };
+  causeCodes?: string[];
+  tick?: number;
+  stage?: string;
+  partialState?: boolean;
+}
+export function errorMessage(error: unknown): string {
+  const seen = new Set<unknown>();
+  const visit = (item: unknown, depth: number): string => {
+    if (depth > 4 || seen.has(item)) return "";
+    seen.add(item);
+    const message = item instanceof Error ? item.message : String(item);
+    const causes = item instanceof AggregateError ? item.errors : item instanceof Error && item.cause ? [item.cause] : [];
+    return [message.slice(0, 2048), ...causes.slice(0, 8).map(cause => visit(cause, depth + 1))].filter(Boolean).join("; ");
+  };
+  return visit(error, 0).slice(0, 8192);
 }
 export function diagnosticFrom(
   error: unknown,
   context: Partial<RuntimeDiagnostic> = {},
 ): RuntimeDiagnostic {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   return {
     code: message.match(/\bTC_[A-Z0-9_]+/)?.[0] ?? "TC_RUNTIME_FAILURE",
     severity: "error",
     message,
+    causeCodes: [...new Set(message.match(/\bTC_[A-Z0-9_]+/g) ?? [])].slice(0, 16),
+    ...(message.match(/tick=(\d+)/) ? { tick: Number(message.match(/tick=(\d+)/)![1]) } : {}),
+    ...(message.match(/stage=([^,;\s]+)/) ? { stage: message.match(/stage=([^,;\s]+)/)![1] } : {}),
+    ...(message.includes("partialState=true") ? { partialState: true } : {}),
     remediation:
       "Inspect the referenced entity, system or resource; correct the source and rerun the failing operation.",
     ...context,

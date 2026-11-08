@@ -51,7 +51,8 @@ export default defineGame({id:"bus-game",assets:[audio],audioBuses:[{id:"music",
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}/__compiled_audio`);
     await page.addScriptTag({ content: "window.__name = target => target;" });
-    const result = await page.evaluate(async ({ ir, code }) => {
+    const result = await page.evaluate(async ({ serializedIR, code }) => {
+      const ir = JSON.parse(serializedIR);
       const rendererURL = "/packages/renderer/src/gameplay.ts", hostURL = "/packages/runtime/src/host.ts", threeURL = "/node_modules/three/build/three.webgpu.js";
       const { prepareGameplay } = await import(rendererURL);
       const { RuntimeHost } = await import(hostURL);
@@ -76,7 +77,7 @@ export default defineGame({id:"bus-game",assets:[audio],audioBuses:[{id:"music",
       const state = content.inspect(); host.dispose(); await content.dispose();
       GainNode.prototype.connect = connect; URL.revokeObjectURL(moduleURL);
       return { initial, quieter, paused, resumed, voices: state.audio.voices.length, closed: context!.state };
-    }, { ir: compiled.ir!, code: js });
+    }, { serializedIR: JSON.stringify(compiled.ir!), code: js });
     assert.ok(result.initial > .001, JSON.stringify(result));
     assert.ok(Math.abs(result.quieter / result.initial - .5) < .15, JSON.stringify(result));
     assert.ok(result.paused < .001, JSON.stringify(result));
@@ -191,6 +192,7 @@ test("audio pause uses real Chromium sources and fixed-tick offsets without GPU"
     const result = await page.evaluate(`(async () => {
       const { prepareGameplay } = await import('/packages/renderer/src/gameplay.ts');
       const THREE = await import('/node_modules/three/build/three.webgpu.js');
+      const sdk = await import('/packages/sdk/src/index.ts');
       const NativeContext = window.AudioContext;
       let context;
       window.AudioContext = class extends NativeContext { constructor() { super(); context = this; } };
@@ -207,7 +209,7 @@ test("audio pause uses real Chromium sources and fixed-tick offsets without GPU"
       for (let i = 0; i < samples; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * 220 * i / 8000) * 12000), true);
       const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
       const scene = { id: 's', entities: [], environment: { background: '#000', ambientIntensity: 1 }, camera: { position: [0,0,1], target: [0,0,0], fov: 50, near: .1, far: 100 }, gravity: [0,0,0] };
-      const ir = { gameId: 'audio', scene, scenes: [], prefabs: [], input: {}, ui: [], assets: [{ id: 'a', type: 'audio', path: url, metadata: { duration: 4 } }], sounds: [{ id: 's', asset: 'a', volume: 1, loop: false }] };
+      const ir = { format:'pelican.scene',version:1,engineVersion:sdk.SDK_VERSION,gameId:'audio',scene,scenes:[],components:[],systems:[],prefabs:[],materials:[],computes:[],input:{},ui:[],assets:[{id:'a',type:'audio',path:url,metadata:{duration:4}}],sounds:[{id:'s',asset:'a',volume:1,loop:false}] };
       const content = await prepareGameplay(ir, location.href, { getSize: (v) => v.set(800, 600) });
       const analyser = context.createAnalyser(); analyser.fftSize = 1024; analyser.connect(context.destination);
       const gainConnect = GainNode.prototype.connect;

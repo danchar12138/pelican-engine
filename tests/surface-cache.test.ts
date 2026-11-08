@@ -405,7 +405,7 @@ test("warm paths retain early option/NodeGraph/extension/hook diagnostics and ca
     () =>
       extractSurfaceScene(s.scene, {
         meshCache: s.meshCache,
-        materialAdapter: () => new THREE.MeshBasicMaterial(),
+        materialAdapter: () => new THREE.ShaderMaterial(),
       }),
     "SURFACE_MATERIAL_UNSUPPORTED",
   );

@@ -1,4 +1,5 @@
-import RAPIER, { createRapierInstance } from "./rapier.ts";
+import RAPIER from "./rapier.ts";
+import { isolatedNativeInstance } from "./native-instance.ts";
 import { preflightPhysicsHistory } from "./history-preflight.ts";
 import { validateParkedBody, type ParkedBodyState } from "./residency-data.ts";
 import { createInternalJoints, validateJointDefinition } from "./joints-internal.ts";
@@ -27,6 +28,8 @@ import type {
 
 const pluginId = "$engine.physics";
 const limit = 100_000;
+const checkpointInterval = 2048;
+const nativeABI = "7ba7e597918343ab015ac304c039139e77c585dc00bf4b27be47e91728074eaa";
 type BodyType = "fixed" | "dynamic" | "kinematic" | "character";
 type V = { x: number; y: number; z: number };
 export interface PhysicsRaycastOptions {
@@ -91,7 +94,7 @@ type Action =
 type Lifecycle = { kind: "lifecycle"; frame: Frame; created: Creation[]; removed: string[] };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
-  version: 3;
+  version: 3 | 4;
   scene: string;
   world: number[];
   tick: number;
@@ -109,6 +112,14 @@ interface PhysicsSnapshot {
   /** Absent in old v3 snapshots with no joint operations. */
   joints?: PhysicsJointDefinition[];
   terrains?: TerrainGeometry[];
+  checkpoint?: PhysicsCheckpoint;
+}
+interface PhysicsCheckpoint {
+  abi: string;
+  header: Omit<PhysicsSnapshot, "format" | "version" | "scene" | "history" | "bindings" | "checkpoint">;
+  definitions: EntityIR[];
+  jointHandles: { id: string; handle: number }[];
+  terrainHandles: { id: string; body: number; collider: number }[];
 }
 function fail(code: string, message: string): never {
   throw new Error(code + ": " + message);
@@ -274,9 +285,11 @@ export function createFactory(): RuntimePluginFactory {
   return factory;
 }
 
-function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
-  const RAPIER = createRapierInstance();
-  const world = new RAPIER.World(vec(gravity, "gravity"));
+function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR, checkpoint?: PhysicsCheckpoint) {
+  const RAPIER = isolatedNativeInstance();
+  // Deserialization is confined to this candidate's independent binding closure
+  // and WASM memory. Never pass checkpoint bytes into the active native owner.
+  const world = checkpoint ? RAPIER.World.restoreSnapshot(Uint8Array.from(checkpoint.header.world)) : new RAPIER.World(vec(gravity, "gravity"));
   let queue: RAPIER.EventQueue | undefined;
   const bodies = new Map<string, BodyEntry>(),
     nativeBodies = new Map<string, RAPIER.RigidBody>(),
@@ -378,13 +391,58 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   }
   try {
     queue = new RAPIER.EventQueue(true);
-    for (const e of definitions) add(e);
+    if (checkpoint) {
+      for (const e of checkpoint.definitions) {
+        const saved = checkpoint.header.entities.find(item => item.id === e.id)!;
+        const body = world.bodies.get(saved.bodyHandle), collider = world.colliders.get(saved.colliderHandle);
+        if (!body || !collider || collider.parent()?.handle !== body.handle ||
+            (saved.type === "dynamic" ? !body.isDynamic() : saved.type === "fixed" ? !body.isFixed() : !body.isKinematic()))
+          fail("TC_PHYSICS_CHECKPOINT", "Native body identity/type differs from checkpoint.");
+        if (!same(tuple(body.translation()), saved.transform.position) ||
+            (!e.character && !same(euler(body.rotation()), saved.transform.rotation)))
+          fail("TC_PHYSICS_CHECKPOINT", "Native body pose differs from checkpoint metadata.");
+        const expectedShape = e.character ? new RAPIER.Capsule((e.character.height - 2 * e.character.radius) / 2, e.character.radius) : shape(e, saved.transform, RAPIER);
+        const actualShape = collider.shape;
+        const close = (actual: number, expected: number) => Number.isFinite(actual) && Math.abs(actual - Math.fround(expected)) <= Math.max(1, Math.abs(expected)) * 1e-6;
+        if (actualShape.type !== expectedShape.type || collider.isSensor() !== (e.rigidBody?.trigger ?? false) ||
+            !close(collider.friction(), e.rigidBody?.friction ?? 0.5) || !close(collider.restitution(), e.rigidBody?.restitution ?? 0))
+          fail("TC_PHYSICS_CHECKPOINT", "Native collider definition differs from compiled game content.");
+        if (expectedShape instanceof RAPIER.Cuboid) {
+          const actual = collider.halfExtents();
+          if (!actual || !["x", "y", "z"].every(axis => close(actual[axis as keyof V], expectedShape.halfExtents[axis as keyof V]))) fail("TC_PHYSICS_CHECKPOINT", "Native box dimensions differ.");
+        } else if (expectedShape instanceof RAPIER.Ball) {
+          if (!close(collider.radius(), expectedShape.radius)) fail("TC_PHYSICS_CHECKPOINT", "Native sphere radius differs.");
+        } else if (expectedShape instanceof RAPIER.Capsule && (!close(collider.radius(), expectedShape.radius) || !close(collider.halfHeight(), expectedShape.halfHeight)))
+          fail("TC_PHYSICS_CHECKPOINT", "Native capsule dimensions differ.");
+        const offset = e.rigidBody?.collider.offset ?? [0, 0, 0], local = collider.translationWrtParent();
+        if (!local || !["x", "y", "z"].every((axis, i) => close(local[axis as keyof V], offset[i] * saved.transform.scale[i]))) fail("TC_PHYSICS_CHECKPOINT", "Native collider offset differs.");
+        vec(tuple(body.linvel()), "checkpoint linear velocity"); vec(tuple(body.angvel()), "checkpoint angular velocity");
+        const b: BodyEntry = { id: e.id, definition: e, body, collider, type: saved.type, transform: structuredClone(saved.transform) };
+        if (saved.type === "character") { b.controller = controller(e.character!); b.character = structuredClone(checkpoint.header.characters.find(c => c.entity === e.id)!); }
+        bodies.set(e.id, b); nativeBodies.set(e.id, body); byCollider.set(collider.handle, e.id);
+      }
+      for (const terrain of checkpoint.header.terrains ?? []) {
+        const handles = checkpoint.terrainHandles.find(item => item.id === terrain.id)!;
+        const body = world.bodies.get(handles.body), collider = world.colliders.get(handles.collider);
+        if (!body || !body.isFixed() || !collider || collider.parent()?.handle !== body.handle) fail("TC_PHYSICS_CHECKPOINT", "Invalid native terrain binding.");
+        terrains.set(terrain.id, { definition: terrain, body, collider }); byCollider.set(collider.handle, `$terrain/${terrain.id}`);
+      }
+      if (world.bodies.len() !== bodies.size + terrains.size || world.colliders.len() !== byCollider.size)
+        fail("TC_PHYSICS_CHECKPOINT", "Checkpoint contains unowned native bodies/colliders.");
+      joints.adopt(checkpoint.header.joints ?? [], checkpoint.jointHandles);
+      for (const [a, b] of checkpoint.header.pairs) {
+        const first = world.colliders.get(a), second = world.colliders.get(b);
+        if (!first || !second || !byCollider.has(a) || !byCollider.has(b)) fail("TC_PHYSICS_CHECKPOINT", "Invalid native contact binding.");
+        pairs.set(pairKey(a, b), { a, b, trigger: first.isSensor() || second.isSensor() });
+      }
+      tick = checkpoint.header.tick; jointHistory = checkpoint.header.joints !== undefined; terrainHistory = checkpoint.header.terrains !== undefined;
+      if (!same(Array.from(world.takeSnapshot()), checkpoint.header.world)) fail("TC_PHYSICS_CHECKPOINT", "Native checkpoint roundtrip differs.");
+    } else for (const e of definitions) add(e);
     // Build Rapier query structures without advancing physical time.
-    world.timestep = 0;
+    if (!checkpoint) world.timestep = 0;
     previousPoses.clear();
     for (const body of bodies.values()) previousPoses.set(body.id, { center: tuple(body.collider.translation()), rotation: euler(body.collider.rotation()) });
-    world.step(queue);
-    world.timestep = 1 / 60;
+    if (!checkpoint) { world.step(queue); world.timestep = 1 / 60; }
     topologyDirty = false;
   } catch (error) {
     try {
@@ -627,7 +685,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     }
     if (
       !action ||
-      !["step", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"].includes(action.kind)
+      !["step", "lifecycle", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
     if (action.kind === "teleport") {
@@ -930,6 +988,10 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     get,
     apply,
     header,
+    checkpoint(): PhysicsCheckpoint {
+      return { abi: nativeABI, header: header(), definitions: [...bodies.values()].map(b => structuredClone(b.definition)),
+        jointHandles: joints.handles(), terrainHandles: [...terrains].map(([id, item]) => ({ id, body: item.body.handle, collider: item.collider.handle })) };
+    },
     remove,
     sync,
     dispose() {
@@ -969,6 +1031,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     nativeFault = false,
     pendingBind: string[] | undefined;
   let groupingHistory = false;
+  let baseline: PhysicsCheckpoint | undefined;
   let decodedHistory = 0;
   const refs = new Map<string, EntityHandle>();
   function bindRefs(ids: Iterable<string> = state.bodies.keys()) {
@@ -1071,6 +1134,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   }
   function record(action: Action) {
     alive();
+    compactHistory();
     if (history.length >= limit + (groupingHistory ? 64 : 0))
       fail(
         "TC_PHYSICS_HISTORY_LIMIT",
@@ -1090,6 +1154,12 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     history.push(captured);
     decodedHistory++;
   }
+  function compactHistory() {
+    if (groupingHistory || history.length < checkpointInterval) return;
+    const captured = state.checkpoint();
+    // Publish a complete immutable base only after capture succeeds.
+    baseline = captured; history = []; decodedHistory = 0;
+  }
   function get(id: string) {
     alive();
     ensureRefs();
@@ -1108,8 +1178,9 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     ensureRefs();
     return {
       format: "pelican.physics-rapier3d",
-      version: 3,
+      version: baseline ? 4 : 3,
       scene,
+      ...(baseline ? { checkpoint: structuredClone(baseline) } : {}),
       history: structuredClone(history),
       bindings: [...refs]
         .filter(([, ref]) => context.world.isAlive(ref))
@@ -1125,7 +1196,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       if (
         !s ||
         s.format !== "pelican.physics-rapier3d" ||
-        s.version !== 3 ||
+        ![3, 4].includes(s.version) ||
         s.scene !== scene ||
         !Number.isSafeInteger(s.tick) ||
         s.tick < 0 ||
@@ -1148,12 +1219,32 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           "TC_PHYSICS_SNAPSHOT",
           "Malformed/incompatible snapshot header; use an intact version 3 snapshot of this scene.",
         );
-      // Both checks run on detached data before allocating any native candidate.
-      // Neither check establishes that arbitrary replay is safe.
-      preflightPhysicsHistory(definitions, catalog, s.history, s, { definition: validateDefinition, transform: checkTransform });
-      // No caller-controlled bytes ever reach World.restoreSnapshot. Reconstruct
-      // native state from checked operations, then compare native/header data.
-      candidate = simulation(definitions, gravity, catalog);
+      const base = s.version === 4 ? s.checkpoint : undefined;
+      if (s.version === 4) {
+        if (!base || base.abi !== nativeABI || !base.header || !Number.isSafeInteger(base.header.tick) || base.header.tick < 0 || base.header.tick > s.tick ||
+            !Array.isArray(base.header.world) || !base.header.world.length || base.header.world.length > 64 * 1024 * 1024 ||
+            !base.header.world.every(n => Number.isInteger(n) && n >= 0 && n <= 255) ||
+            !Array.isArray(base.definitions) || base.definitions.length > 65536 || !Array.isArray(base.header.entities) || base.definitions.length !== base.header.entities.length ||
+            !Array.isArray(base.header.characters) || !Array.isArray(base.header.pairs) || !Array.isArray(base.jointHandles) || !Array.isArray(base.terrainHandles) ||
+            (base.header.joints !== undefined && !Array.isArray(base.header.joints)) || (base.header.terrains !== undefined && !Array.isArray(base.header.terrains)))
+          fail("TC_PHYSICS_CHECKPOINT", "Malformed checkpoint or incompatible native ABI.");
+        const seen = new Set<string>();
+        for (const entity of base.definitions) {
+          const authored = resolveEntityDefinition(catalog, entity), saved = base.header.entities.find(item => item.id === entity.id);
+          if (seen.has(entity.id) || !authored || !saved || !same(entity.rigidBody, authored.rigidBody) || !same(entity.character, authored.character) ||
+              saved.type !== (entity.character ? "character" : entity.rigidBody?.type)) fail("TC_PHYSICS_CHECKPOINT", "Checkpoint body definition differs from game content.");
+          validateDefinition(entity); checkTransform(saved.transform, entity); seen.add(entity.id);
+          const character = base.header.characters.find(c => c.entity === entity.id);
+          if (!!entity.character !== !!character) fail("TC_PHYSICS_CHECKPOINT", "Checkpoint character metadata differs.");
+          if (character) validateParkedBody({ velocity: character.velocity, angularVelocity: [0, 0, 0], gravityScale: 1, sleeping: false,
+            character: { verticalVelocity: character.verticalVelocity, velocity: character.velocity, grounded: character.grounded, requested: character.requested, ...(character.target ? { target: character.target } : {}) } }, true);
+        }
+        if (new Set(base.jointHandles.map(item => item.id)).size !== base.jointHandles.length || base.jointHandles.length !== (base.header.joints?.length ?? 0) ||
+            new Set(base.terrainHandles.map(item => item.id)).size !== base.terrainHandles.length || base.terrainHandles.length !== (base.header.terrains?.length ?? 0))
+          fail("TC_PHYSICS_CHECKPOINT", "Checkpoint owner registries differ.");
+      } else if (s.checkpoint !== undefined) fail("TC_PHYSICS_CHECKPOINT", "Legacy snapshots cannot contain native checkpoints.");
+      preflightPhysicsHistory(base?.definitions ?? definitions, catalog, s.history, s, { definition: validateDefinition, transform: checkTransform }, base?.header);
+      candidate = simulation(definitions, gravity, catalog, base);
       for (const action of s.history) candidate.apply(action, () => {});
       if (s.bindings.some((id) => !candidate!.bodies.has(id)))
         fail("TC_PHYSICS_SNAPSHOT", "Binding has no reconstructed body.");
@@ -1173,7 +1264,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           "TC_PHYSICS_SNAPSHOT",
           "Native state, entity/handle mapping, character state or contact pairs differ from verified history.",
         );
-      return { candidate, history: s.history, bindings: s.bindings };
+      return { candidate, history: s.history, bindings: s.bindings, baseline: base };
     } catch (error) {
       const failures: unknown[] = [error];
       // The candidate owns a separate WASM memory, so a trap cannot corrupt
@@ -1433,6 +1524,9 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     if (b.type !== "dynamic" || b.definition.rigidBody?.collider.shape !== "sphere" || b.collider.isSensor())
       fail("TC_PHYSICS_ROPE_BODY", `Rope body '${id}' must be a live dynamic, non-trigger sphere.`);
     const inertia = b.body.effectiveWorldInvInertia();
+    // This Rapier binding returns a scratch-backed matrix. Copy before any
+    // other native query (including rotation, velocity or inverse mass).
+    const inverseInertia = [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const;
     const rotation = b.body.rotation();
     return {
       center: tuple(b.collider.translation()), radius: b.collider.radius(),
@@ -1441,7 +1535,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       bodyPosition: tuple(b.body.translation()), bodyOrientation: [rotation.x, rotation.y, rotation.z, rotation.w] as const,
       centerOfMass: tuple(b.body.worldCom()), linearVelocity: tuple(b.body.linvel()),
       angularVelocity: tuple(b.body.angvel()), inverseMass: tuple(b.body.effectiveInvMass()),
-      inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const,
+      inverseInertia,
     };
   };
   const sampleSimulationBody = (id: string, owner: "CLOTH" | "ROPE" | "PARTICLE"): ClothPhysicsBody => {
@@ -1456,6 +1550,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     if (!halfExtents || [halfExtents.x, halfExtents.y, halfExtents.z].some(value => !Number.isFinite(value) || value <= 0 || value > 1e6))
       fail(code, `${owner} body '${id}' has invalid box half-extents.`);
     const inertia = body.body.effectiveWorldInvInertia();
+    const inverseInertia = [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] as const;
     const orientation = body.body.rotation();
     return { kind: "box", center: tuple(body.collider.translation()), halfExtents: tuple(halfExtents),
       previousCenter: state.previousPoses.get(id)?.center ?? tuple(body.collider.translation()), previousRotation: state.previousPoses.get(id)?.rotation ?? euler(body.collider.rotation()),
@@ -1463,7 +1558,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       bodyPosition: tuple(body.body.translation()), bodyOrientation: [orientation.x, orientation.y, orientation.z, orientation.w],
       rotation: euler(body.collider.rotation()), centerOfMass: tuple(body.body.worldCom()),
       linearVelocity: tuple(body.body.linvel()), angularVelocity: tuple(body.body.angvel()), inverseMass: tuple(body.body.effectiveInvMass()),
-      inverseInertia: [inertia.m11, inertia.m12, inertia.m13, inertia.m22, inertia.m23, inertia.m33] };
+      inverseInertia };
   };
   const sampleClothBody = (id: string) => sampleSimulationBody(id, "CLOTH");
   const sampleRopeBody = (id: string) => sampleSimulationBody(id, "ROPE");
@@ -1539,7 +1634,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       applyParticleReactions(reactions) { applyReactions(reactions, "PARTICLE"); },
     },
     systems: [
-      { id: "$engine.physics.bind", phase: "physics", before: ["$engine.cinematics", "$engine.models", pluginId], run() { alive(); bindLifecycle(); } },
+      { id: "$engine.physics.bind", phase: "physics", before: [pluginId], beforeIfPresent: ["$engine.cinematics", "$engine.models"], run() { alive(); bindLifecycle(); } },
       {
         id: pluginId,
         phase: "physics",
@@ -1547,6 +1642,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         // grants this internal system metadata access without changing World APIs.
         writes: ["Transform"],
         run(dt) {
+          compactHistory();
           if (history.length >= limit || decodedHistory + 64 > 3200000) { nativeFault = true; fail("TC_PHYSICS_HISTORY_LIMIT", "Physics history capacity is exhausted; restore a checkpoint or start a new scene."); }
           const start = history.length;
           const advance = (index: number, count: number) => {
@@ -1615,6 +1711,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         previous = state;
       state = checked.candidate;
       history = checked.history;
+      baseline = checked.baseline;
       decodedHistory = history.reduce((count, action) => count + (action.kind === "coupled" ? action.actions.length : 1), 0);
       bindRefs(checked.bindings);
       pendingBind = checked.bindings;
@@ -1636,6 +1733,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       ensureRefs();
       return {
         tick: state.tick,
+        replay: { checkpointTick: baseline?.header.tick ?? 0, operations: history.length, decodedOperations: decodedHistory },
         bodies: [...state.bodies.values()]
           .filter((b) => {
             const ref = refs.get(b.id);
@@ -1656,6 +1754,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       disposed = true;
       state.dispose();
       history = [];
+      baseline = undefined;
       decodedHistory = 0;
       refs.clear();
     },

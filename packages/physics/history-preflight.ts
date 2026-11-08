@@ -11,6 +11,7 @@ export function preflightPhysicsHistory(
   definitions: readonly EntityIR[], catalog: SceneIR, history: readonly unknown[],
   header: { tick: number; bindings: readonly string[]; entities: readonly { id: string; type: string }[]; joints?: readonly PhysicsJointDefinition[]; terrains?: readonly TerrainGeometry[] },
   checks: { definition(entity: EntityIR): void; transform(value: Transform, entity: EntityIR): void },
+  baseline?: { tick: number; joints?: readonly PhysicsJointDefinition[]; terrains?: readonly TerrainGeometry[] },
 ): void {
   const fail = (message: string): never => {
     throw new Error(`TC_PHYSICS_SNAPSHOT_HISTORY: ${message} Use an intact checkpoint for the same scene.`);
@@ -18,15 +19,15 @@ export function preflightPhysicsHistory(
   const typeOf = (entity: EntityIR) => entity.character ? "character" : entity.rigidBody?.type;
   const active = new Map(definitions.map(entity => [entity.id, typeOf(entity)]));
   const activeDefinitions = new Map(definitions.map(entity => [entity.id, entity]));
-  const joints = new Map<string, PhysicsJointDefinition>();
-  const terrains = new Map<string, TerrainGeometry>();
+  const joints = new Map<string, PhysicsJointDefinition>((baseline?.joints ?? []).map(joint => [joint.id, validateJointDefinition(joint)]));
+  const terrains = new Map<string, TerrainGeometry>((baseline?.terrains ?? []).map(terrain => [terrain.id, terrainGeometry(terrain)]));
   const kinds = new Set(["step", "lifecycle", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport", "reactions"]);
   kinds.add("resumeBodies");
   const vector = (value: unknown) => Array.isArray(value) && value.length === 3 &&
     [0, 1, 2].every(axis => typeof value[axis] === "number" && Number.isFinite(value[axis]) && Math.abs(value[axis]) <= 1e12);
-  let steps = 0;
-  let jointOperations = false;
-  let terrainOperations = false;
+  let steps = baseline?.tick ?? 0;
+  let jointOperations = baseline?.joints !== undefined;
+  let terrainOperations = baseline?.terrains !== undefined;
   let terrainSamples = 0;
   let openSubstep: { next: number; count: number; dt: number } | undefined;
   const expanded: unknown[] = [];

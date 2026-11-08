@@ -318,7 +318,7 @@ export function createUIRenderer(
           shown: false,
           composing: false,
           authoredText: definition.text,
-          emittedText: null,
+          emittedText: definition.kind === "input" ? definition.text : null,
           pendingCommit: null,
         };
         rows.set(definition.id, row);
@@ -552,11 +552,13 @@ export function createUIRenderer(
       if (disposed) return;
       disposed = true;
       mounted = false;
-      reportFocus(null);
+      const failures: unknown[] = [];
+      const clean = (action: () => void) => { try { action(); } catch (error) { failures.push(error); } };
+      clean(() => reportFocus(null));
       for (const { type, listener } of listeners)
-        root.removeEventListener(type, listener);
+        clean(() => root.removeEventListener(type, listener));
       listeners.length = 0;
-      for (const row of rows.values()) retire(row);
+      for (const row of rows.values()) clean(() => retire(row));
       rows.clear();
       order = [];
       previousPads.clear();
@@ -566,8 +568,9 @@ export function createUIRenderer(
         index: null,
         connected: 0,
       };
-      root.remove();
+      clean(() => root.remove());
       trace("dispose");
+      if (failures.length) throw new AggregateError(failures, "TC_UI_DISPOSE: Cleanup callbacks failed; all owned nodes and listeners were released.");
     },
   };
 }

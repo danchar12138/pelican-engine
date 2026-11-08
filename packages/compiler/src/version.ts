@@ -1,4 +1,5 @@
 import path from "node:path";
+import { isBuiltin } from "node:module";
 import ts from "typescript";
 import type { Diagnostic } from "./types.ts";
 
@@ -6,6 +7,8 @@ export interface ProjectManifest {
   entry?: string;
   engineVersion?: string;
   engine?: { version?: string; path?: string };
+  /** Author-approved runtime-only npm libraries; not evaluated as static content. */
+  libraries?: string[];
 }
 
 /** Parse a project manifest while accepting an optional UTF-8 BOM. */
@@ -71,6 +74,9 @@ export function validateManifest(
     return { diagnostics };
   }
   const manifest = value as ProjectManifest;
+  if (manifest.libraries !== undefined && (!Array.isArray(manifest.libraries) || manifest.libraries.length > 64 ||
+      new Set(manifest.libraries).size !== manifest.libraries.length || manifest.libraries.some(name => typeof name !== "string" || !/^(?:@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/.test(name) ||
+        isBuiltin(name) || name === "three" || name === "pelican-engine" || name.startsWith("@dimforge/") || name.startsWith("@webgpu/")))) fail("libraries must contain at most 64 unique runtime-only package names, excluding Node/engine/GPU/physics internals.");
   for (const key of ["entry", "engineVersion"] as const)
     if (
       manifest[key] !== undefined &&
