@@ -1,4 +1,4 @@
-import type { RopePhysicsBodyState, RopePhysicsBox, RopePhysicsSphere } from "../../runtime/src/plugins.ts";
+import type { ClothPhysicsBody, RopePhysicsBodyState, RopePhysicsBox, RopePhysicsSphere } from "../../runtime/src/plugins.ts";
 import type { RopeDynamicCoupling, Vec3 } from "./rope.ts";
 
 type Matrix = [number, number, number, number, number, number];
@@ -25,9 +25,10 @@ const rotate = (q: Quaternion, value: Vec3): Vec3 => {
   return add(value, add(scale(twice, q[3]), cross(xyz, twice)));
 };
 
-/** Mutable per-host-tick approximation. Native rigid bodies remain untouched until commit. */
+/** Mutable shared-substep contact state. Native impulses are committed before the next substep. */
 class VirtualRopeBody {
   center: Vec3;
+  readonly previousCenter: Vec3;
   private centerOfMass: Vec3;
   private linearVelocity: Vec3;
   private angularVelocity: Vec3;
@@ -43,6 +44,7 @@ class VirtualRopeBody {
     this.friction = sample.friction ?? 0.5;
     if (!Number.isFinite(this.friction) || this.friction < 0) error("friction must be finite and nonnegative.");
     this.center = vector(sample.center, "collider center");
+    this.previousCenter = vector(sample.previousCenter ?? sample.center, "previous collider center");
     this.centerOfMass = vector(sample.centerOfMass, "center of mass");
     this.linearVelocity = vector(sample.linearVelocity, "linear velocity");
     this.angularVelocity = vector(sample.angularVelocity, "angular velocity");
@@ -188,10 +190,12 @@ export class VirtualRopeBox extends VirtualRopeBody {
   readonly kind = "box" as const;
   readonly halfExtents: Vec3;
   readonly rotation: Vec3;
+  readonly previousRotation: Vec3;
   constructor(sample: RopePhysicsBox) {
     super(sample);
     this.halfExtents = vector(sample.halfExtents, "box half-extents");
     this.rotation = vector(sample.rotation, "box rotation");
+    this.previousRotation = vector(sample.previousRotation ?? sample.rotation, "previous box rotation");
     if (this.halfExtents.some(value => value <= 0 || value > 1e6)) error("box half-extents must be in (0, 1e6].");
   }
   resolve(normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, surface: Vec3) {
@@ -202,14 +206,18 @@ export class VirtualRopeBox extends VirtualRopeBody {
 }
 
 export type VirtualRopeCollider = VirtualRopeSphere | VirtualRopeBox;
-export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeCollider>, attachments: ReadonlyMap<number, { body: VirtualRopeCollider; localPoint: Vec3 }> = new Map()): RopeDynamicCoupling {
+export function virtualCollider(sample: ClothPhysicsBody, reactive = true): VirtualRopeCollider {
+  const state: ClothPhysicsBody = reactive ? sample : { ...sample, inverseMass: [0, 0, 0], inverseInertia: [0, 0, 0, 0, 0, 0] };
+  return state.kind === "sphere" ? new VirtualRopeSphere(state) : new VirtualRopeBox(state);
+}
+export function createRopeBodyCoupling(bodies: ReadonlyMap<string, VirtualRopeCollider>, attachments: ReadonlyMap<number, { body: VirtualRopeCollider; localPoint: Vec3 }> = new Map(), reactive = true): RopeDynamicCoupling {
   return {
-    sphere(id) { const body = bodies.get(id); return body?.kind === "sphere" ? { center: body.center, radius: body.radius } : undefined; },
-    box(id) { const body = bodies.get(id); return body?.kind === "box" ? { center: body.center, halfExtents: body.halfExtents, rotation: body.rotation } : undefined; },
+    sphere(id) { const body = bodies.get(id); return body?.kind === "sphere" ? { center: body.center, previousCenter: body.previousCenter, radius: body.radius } : undefined; },
+    box(id) { const body = bodies.get(id); return body?.kind === "box" ? { center: body.center, previousCenter: body.previousCenter, halfExtents: body.halfExtents, rotation: body.rotation, previousRotation: body.previousRotation } : undefined; },
     resolve(id, normal, depth, position, previous, mass, dt, surface) {
       const body = bodies.get(id) ?? error(`Missing virtual body '${id}'.`);
-      if (body.kind === "box") return body.resolve(normal, depth, position, previous, mass, dt, surface ?? error(`Missing box contact point for '${id}'.`));
-      return body.resolve(normal, depth, position, previous, mass, dt);
+      const result = body.kind === "box" ? body.resolve(normal, depth, position, previous, mass, dt, surface ?? error(`Missing box contact point for '${id}'.`)) : body.resolve(normal, depth, position, previous, mass, dt);
+      return reactive ? result : { correction: result.correction, reactionImpulse: [0, 0, 0], reactionAngularImpulse: [0, 0, 0] };
     },
     attachedParticles: [...attachments.keys()].sort((a, b) => a - b),
     ignoreAttachmentContact(index, colliderId) {

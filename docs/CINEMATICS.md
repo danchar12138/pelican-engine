@@ -62,9 +62,9 @@ A transform track contains `entity`, optional `position` keys and optional
 Direct rigid-body and 2D-body trajectory control is rejected rather than silently
 teleporting a simulated body every frame.
 
-Normal character trajectory playback submits displacement to the character
-controller, preserving blocking collisions. The scripted vertical trajectory
-cancels the character's ordinary gravity contribution for that tick. A blocked
+Normal character trajectory playback submits `physics.moveCharacterTo` to the
+character controller, preserving blocking collisions. The target is distributed
+across the shared substeps and replaces ordinary movement/gravity for that tick. A blocked
 character may not reach the authored point. Explicit timeline seeks relocate a
 physical binding through `physics.teleport`, updating native queries and World
 state together. `physics.teleport(entity, patch, { resetVelocity })` is also a

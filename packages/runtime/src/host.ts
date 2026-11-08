@@ -101,6 +101,7 @@ export class RuntimeHost {
   private asyncActive = false;
   private drivingAsync = false;
   private disposing = false;
+  private coupledPhysicsDone = false;
   private readonly couplingFrame: SimulationCouplingFrame;
 
   constructor(ir: SceneIR, options: HostOptions = {}) {
@@ -168,6 +169,7 @@ export class RuntimeHost {
       this.scheduler = createdScheduler;
       for (const factory of options.plugins ?? []) {
         const plugin = factory({
+          advanceCoupledPhysics: (dt, advance, fault) => this.advanceCoupledPhysics(dt, advance, fault),
           getCinematicAnimationBridge: () => this.plugins.find(plugin => plugin.id === "$engine.models")?.cinematicAnimationBridge,
           getCameraService: () => this.services.camera,
           getAudioService: () => this.services.audio,
@@ -396,19 +398,54 @@ export class RuntimeHost {
     };
   }
 
-  private afterPhysics(): void {
-    this.couplingFrame.begin();
+  private advanceCoupledPhysics(dt: number, advance: (index: number, count: number) => void, fault: () => void): void {
+    const participants = this.plugins.filter(plugin => plugin.simulation);
+    const count = Math.max(1, ...participants.map(plugin => plugin.simulation!.substeps()));
+    if (!Number.isSafeInteger(count) || count < 1 || count > 32) throw new Error("TC_SIMULATION_CLOCK: Shared substeps must be in [1,32].");
+    const started: RuntimePlugin[] = [];
+    const invoke = (id: string, stage: string, operation: () => unknown) => {
+      const result = operation();
+      if (result && (typeof result === "object" || typeof result === "function") && "then" in result) {
+        void Promise.resolve(result).catch(() => {});
+        throw new Error(`TC_PLUGIN_ASYNC: ${stage} for ${id} must complete synchronously.`);
+      }
+    };
     try {
-    for (const plugin of this.plugins) {
+      for (const plugin of participants) { started.push(plugin); invoke(plugin.id, "begin", () => plugin.simulation!.begin(count)); }
+      for (let index = 0; index < count; index++) {
+        this.couplingFrame.begin(dt / count);
+        invoke("$engine.physics", "substep", () => advance(index, count));
+        for (const plugin of participants) invoke(plugin.id, "prepare", () => plugin.prepareSimulationSubstep?.());
+        this.couplingFrame.prepareFluids();
+        for (const plugin of participants) {
+          invoke(plugin.id, "material substep", () => plugin.afterPhysics?.());
+        }
+        this.couplingFrame.addTerrain(this.services.terrain);
+        this.couplingFrame.commit(this.plugins.find(plugin => plugin.id === "$engine.physics")?.ropePhysicsBridge);
+      }
+      for (const plugin of participants) invoke(plugin.id, "finish", () => plugin.simulation!.finish());
+      for (const plugin of participants) invoke(plugin.id, "commit", () => plugin.simulation!.commit());
+      this.coupledPhysicsDone = true;
+    } catch (error) {
+      fault();
+      let cause = error;
+      if (this.couplingFrame.active) try { this.couplingFrame.rollback(cause); } catch (failure) { cause = failure; }
+      const failures: unknown[] = [];
+      for (const plugin of [...started].reverse()) try { plugin.simulation!.abort(); } catch (failure) { failures.push(failure); }
+      throw failures.length ? new AggregateError([cause, ...failures], "TC_SIMULATION_ABORT: partialState=true; restore a known-good host checkpoint.") : cause;
+    }
+  }
+
+  private afterPhysics(): void {
+    if (!this.coupledPhysicsDone) this.advanceCoupledPhysics(this.fixedDt, () => {}, () => {});
+    this.coupledPhysicsDone = false;
+    for (const plugin of this.plugins.filter(plugin => !plugin.simulation)) {
       const result: unknown = plugin.afterPhysics?.();
       if (result && (typeof result === "object" || typeof result === "function") && "then" in result) {
         void Promise.resolve(result).catch(() => {});
         throw new Error(`TC_PLUGIN_ASYNC: afterPhysics for ${plugin.id} must complete synchronously.`);
       }
     }
-    this.couplingFrame.addTerrain(this.services.terrain);
-    this.couplingFrame.commit(this.plugins.find(plugin => plugin.id === "$engine.physics")?.ropePhysicsBridge);
-    } catch (error) { this.couplingFrame.rollback(error); }
   }
 
   private registerPlugin(plugin: RuntimePlugin): void {

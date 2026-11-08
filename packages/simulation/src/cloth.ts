@@ -1,6 +1,7 @@
 import { createBoxFrame, orientedParticleBoxContact, particleBoxContact, segmentBoxContact, type BoxFrame } from "./box-contact.ts";
 import type { RopeDynamicCoupling } from "./rope.ts";
 import { staticContactCorrection, sweepParticle } from "./continuous-contact.ts";
+import type { CoupledView } from "./coupled-schedule.ts";
 
 /** CPU position-based triangular cloth. SI units; optional host coupling is split-step. */
 export type Vec3 = [number, number, number];
@@ -186,6 +187,7 @@ export function createCloth(input: ClothOptions): ClothSolver {
   return new ClothSolver({ mass, radius, fixedDt, substeps, iterations, damping, gravity, bending, selfCollisions, surfaceCollisions, triangles, constraints }, positions, anchors);
 }
 export class ClothSolver {
+  private integrating = false;
   private tickValue = 0;
   private disposed = false;
   private velocities: Vec3[];
@@ -255,15 +257,23 @@ export class ClothSolver {
     return this.inspect();
   }
   private stepOne(coupling?: RopeDynamicCoupling): void {
-    const { fixedDt, substeps, iterations, mass, gravity, damping, constraints, radius } = this.config;
+    for (const _ of this.coupledTick(this.config.substeps, () => coupling)) { /* Manual stepping drains the same constitutive solver. */ }
+  }
+  *coupledTick(substeps: number, sample: () => RopeDynamicCoupling | undefined): Generator<CoupledView<ClothSnapshot>, void, unknown> {
+    this.alive();
+    if (this.integrating || !Number.isSafeInteger(substeps) || substeps < 1 || substeps > 32 || this.tickValue >= Number.MAX_SAFE_INTEGER) fail("CLOTH_INPUT", "Invalid or overlapping coupled tick.");
+    this.integrating = true;
+    try {
+    const { fixedDt, iterations, mass, gravity, damping, constraints, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
     const positions = this.positions.map(copy), velocities = this.velocities.map(copy), contacts = new Map<string, ClothContact>(), selfContacts = new Map<string, ClothSelfContact>(), surfaceContacts = new Map<string, ClothSurfaceContact>();
-    const boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
+    let coupling: RopeDynamicCoupling | undefined;
+    let boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
     const virtualFrames = new Map<string, { center: Vec3; frame: BoxFrame }>();
-    const activeCollider = (source: ClothCollider): { collider: ClothCollider; frame?: BoxFrame; dynamic: boolean } => {
+    const activeCollider = (source: ClothCollider): { collider: ClothCollider; frame?: BoxFrame; dynamic: boolean; previousCenter?: Vec3; previousRotation?: Vec3 } => {
       if (source.kind === "sphere") {
         const body = coupling?.sphere(source.id);
-        if (body) return { collider: { ...source, center: body.center, radius: body.radius }, dynamic: true };
+        if (body) return { collider: { ...source, center: body.center, radius: body.radius }, dynamic: true, previousCenter: body.previousCenter };
       } else if (source.kind === "box") {
         const body = coupling?.box?.(source.id);
         if (body) {
@@ -272,12 +282,14 @@ export class ClothSolver {
             cached = { center: body.center, frame: createBoxFrame(body.center, body.rotation) };
             virtualFrames.set(source.id, cached);
           }
-          return { collider: { ...source, center: body.center, halfExtents: body.halfExtents, rotation: body.rotation }, frame: cached.frame, dynamic: true };
+          return { collider: { ...source, center: body.center, halfExtents: body.halfExtents, rotation: body.rotation }, frame: cached.frame, dynamic: true, previousCenter: body.previousCenter, previousRotation: body.previousRotation };
         }
       }
       return { collider: source, frame: boxFrames.get(source.id), dynamic: false };
     };
     for (let sub = 0; sub < substeps; sub++) {
+      coupling = sample(); virtualFrames.clear();
+      boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
         const anchor = this.anchors.get(i);
@@ -298,12 +310,12 @@ export class ClothSolver {
           if (this.anchors.has(i)) continue;
           const p = positions[i];
           for (const source of this.colliders) {
-            const { collider, frame, dynamic } = activeCollider(source);
+            const { collider, frame, dynamic, previousCenter, previousRotation } = activeCollider(source);
             let depth: number, normal: Vec3;
             if (collider.kind === "plane") { normal = collider.normal; depth = collider.offset + radius - (p[0] * normal[0] + p[1] * normal[1] + p[2] * normal[2]); }
             else if (collider.kind === "box") {
               const contact = orientedParticleBoxContact(p, radius, collider.center, collider.halfExtents, frame);
-              const hit = contact ?? sweepParticle(previous[i], p, radius, collider);
+              const hit = contact ?? sweepParticle(previous[i], p, radius, collider, previousCenter, previousRotation);
               if (!hit) continue;
               normal = hit.normal; depth = hit.depth;
             } else {
@@ -311,7 +323,7 @@ export class ClothSolver {
               depth = collider.radius + radius - length; normal = length < 1e-12 ? [1, 0, 0] : [delta[0] / length, delta[1] / length, delta[2] / length];
             }
             if (depth <= 0) {
-              const hit = sweepParticle(previous[i], p, radius, collider);
+              const hit = sweepParticle(previous[i], p, radius, collider, previousCenter, previousRotation);
               if (!hit) continue;
               normal = hit.normal; depth = hit.depth;
             }
@@ -398,8 +410,11 @@ export class ClothSolver {
         for (let k = 0; k < 3; k++) velocities[i][k] = (positions[i][k] - previous[i][k]) / h;
         if (!vec(positions[i]) || !vec(velocities[i])) fail("CLOTH_NUMERIC", "solver exceeded finite state bounds");
       }
+      yield { previous, state: { format: "pelican-cloth-cpu", version: 1, tick: this.tickValue + 1, config: this.config, positions, velocities, forces: this.forces,
+        anchors: [...this.anchors].map(([index, position]) => ({ index, position })), colliders: this.colliders, contacts: [...contacts.values()], surfaceContacts: [...surfaceContacts.values()], selfContacts: [...selfContacts.values()] } };
     }
     this.positions = positions; this.velocities = velocities; this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()]; this.selfContacts = [...selfContacts.values()]; this.surfaceContacts = [...surfaceContacts.values()]; this.tickValue++;
+    } finally { this.integrating = false; }
   }
   particlePositions(): Vec3[] { this.alive(); return this.positions.map(copy); }
   inspect(): ClothState {

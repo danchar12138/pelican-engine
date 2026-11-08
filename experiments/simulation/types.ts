@@ -141,8 +141,9 @@ export interface SimulationInspection {
 }
 /** Ephemeral per-tick contact bridge; never stored in a simulation snapshot. */
 export interface SimulationBodyCoupling {
-  sphere(id: string): { center: Vec3; radius: number } | undefined;
-  box?(id: string): { center: Vec3; halfExtents: Vec3; rotation: Vec3 } | undefined;
+  fluidAcceleration?(particle: number): Vec3;
+  sphere(id: string): { center: Vec3; previousCenter?: Vec3; radius: number } | undefined;
+  box?(id: string): { center: Vec3; previousCenter?: Vec3; halfExtents: Vec3; rotation: Vec3; previousRotation?: Vec3 } | undefined;
   resolve(id: string, normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, surface?: Vec3): {
     correction: Vec3; reactionImpulse: Vec3; reactionAngularImpulse: Vec3;
   };
@@ -150,6 +151,8 @@ export interface SimulationBodyCoupling {
 export interface Simulation {
   readonly kind: SimulationKind;
   step(steps?: number, coupling?: SimulationBodyCoupling): SimulationInspection;
+  /** Private engine scheduling; a yielded state remains owned by this solver. */
+  coupledTick(substeps: number, sample: () => SimulationBodyCoupling | undefined): Generator<{ state: SimulationSnapshot; previous: Vec3[] }, void, unknown>;
   /** Updates the built-in sampled sphere body used by the CPU reference scenes. */
   setBodyState(id: string, position: Vec3, velocity: Vec3, radius?: number): void;
   /** Updates a physics-owned oriented box, without integrating it in the reference solver. */

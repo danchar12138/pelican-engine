@@ -14,6 +14,7 @@
 import { allPoints, DEFAULT_SIMULATION_CONTAINER, makeScene, resolveOptions } from "./scenes.ts";
 import { createBoxFrame, orientedParticleBoxContact, type BoxFrame } from "../../packages/simulation/src/box-contact.ts";
 import { staticContactCorrection, sweepParticle } from "../../packages/simulation/src/continuous-contact.ts";
+import { fluidField, FLUID_REST_DENSITY } from "../../packages/simulation/src/sph.ts";
 import type {
   PointState,
   Simulation,
@@ -27,10 +28,7 @@ import type {
   Vec3,
 } from "./types.ts";
 
-const REST_DENSITY = 1;
-const SMOOTHING_LENGTH = 0.34;
-const PRESSURE_STIFFNESS = 12;
-const VISCOSITY = 0.025;
+const REST_DENSITY = FLUID_REST_DENSITY;
 
 function readColliders(input: unknown): SimulationCollider[] {
   if (!Array.isArray(input) || input.length > 64)
@@ -79,6 +77,7 @@ export function createSimulation(
   };
   let adjacentParticles = excludedPairs(state);
   let disposed = false;
+  let integrating = false;
   const sampledRadii = new Map<string, number>();
   const sampledBoxes = new Map<string, { halfExtents: Vec3; rotation: Vec3; frame: BoxFrame }>();
   const isSampled = (id: string) => sampledRadii.has(id) || sampledBoxes.has(id);
@@ -102,86 +101,8 @@ export function createSimulation(
       );
   };
 
-  function fluidNeighbors(): number[][] {
-    const buckets = new Map<string, number[]>();
-    const cells = state.particles.map((particle) => {
-      const coord = particle.position.map(value => Math.floor(value / SMOOTHING_LENGTH)) as Vec3;
-      if (!coord.every(value => Number.isSafeInteger(value) && Math.abs(value) < Number.MAX_SAFE_INTEGER))
-        return fail("SIM_NONFINITE", `Fluid particle '${particle.id}' has an unrepresentable spatial cell; restore a known-good snapshot.`);
-      return coord;
-    });
-    const key = (x: number, y: number, z: number) => `${x}:${y}:${z}`;
-    for (let index = 0; index < cells.length; index++) {
-      const [x, y, z] = cells[index], id = key(x, y, z);
-      const bucket = buckets.get(id);
-      if (bucket) bucket.push(index); else buckets.set(id, [index]);
-    }
-    return cells.map(([x, y, z]) => {
-      const indices: number[] = [];
-      for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const bucket = buckets.get(key(x + dx, y + dy, z + dz));
-        if (bucket) indices.push(...bucket);
-      }
-      // Preserve the all-pairs accumulation order for candidates in neighboring cells.
-      return indices.sort((a, b) => a - b);
-    });
-  }
-
-  function fluidData(neighbors = fluidNeighbors()): { density: number[]; pressure: number[] } {
-    const h2 = SMOOTHING_LENGTH ** 2;
-    const poly6 = 315 / (64 * Math.PI * SMOOTHING_LENGTH ** 9);
-    const density = state.particles.map((p, index) => {
-      let rho = 0;
-      for (const candidate of neighbors[index]) {
-        const q = state.particles[candidate];
-        const delta = sub(p.position, q.position),
-          r2 = dot(delta, delta);
-        if (r2 < h2) rho += (1 / q.inverseMass) * poly6 * (h2 - r2) ** 3;
-      }
-      return rho;
-    });
-    // Weakly compressible SPH: compressive pressure only, free-surface tension omitted.
-    const pressure = density.map(
-      (rho) => PRESSURE_STIFFNESS * Math.max(0, rho - REST_DENSITY),
-    );
-    return { density, pressure };
-  }
-
-  function sphAccelerations(): Vec3[] {
-    const points = state.particles;
-    const neighbors = fluidNeighbors();
-    const { density, pressure } = fluidData(neighbors);
-    const forces: Vec3[] = points.map(() => [0, 0, 0]);
-    const kernel = 45 / (Math.PI * SMOOTHING_LENGTH ** 6);
-    for (let i = 0; i < points.length; i++)
-      for (const j of neighbors[i]) {
-        if (j <= i) continue;
-        const delta = sub(points[i].position, points[j].position),
-          r = length(delta);
-        if (r >= SMOOTHING_LENGTH || r < 1e-10) continue;
-        const mi = 1 / points[i].inverseMass,
-          mj = 1 / points[j].inverseMass;
-        const d = SMOOTHING_LENGTH - r;
-        const pressureForce = mul(
-          delta,
-          (mi *
-            mj *
-            (pressure[i] / density[i] ** 2 + pressure[j] / density[j] ** 2) *
-            kernel *
-            d ** 2) /
-            r,
-        );
-        const viscousForce = mul(
-          sub(points[j].velocity, points[i].velocity),
-          ((VISCOSITY * mi * mj) / (density[i] * density[j])) * kernel * d,
-        );
-        const force = add(pressureForce, viscousForce);
-        // Equal-and-opposite pair forces; total internal momentum is conserved before damping/walls.
-        accumulate(forces[i], force);
-        accumulate(forces[j], force, -1);
-      }
-    return forces.map((f, i) => mul(f, points[i].inverseMass));
-  }
+  function fluidData(): { density: number[]; pressure: number[] } { return fluidField(state.particles); }
+  function sphAccelerations(): Vec3[] { return fluidField(state.particles).acceleration; }
 
   function solveDistances(h: number, lambdas: Float64Array): void {
     for (let i = 0; i < state.distances.length; i++) {
@@ -235,21 +156,21 @@ export function createSimulation(
       for (let index = 0; index < state.particles.length; index++) {
         const p = state.particles[index];
         if (p.inverseMass === 0) continue;
-        let normal: Vec3, penetration: number, point: Vec3;
+        let normal: Vec3, penetration: number, point: Vec3, dynamic = false;
         if (box) {
           const dynamicBox = coupling && sampled ? coupling.box?.(body.id) : undefined;
-          if (coupling && sampled && !dynamicBox) fail("SIM_BODY", `Missing dynamic box '${body.id}'.`);
+          dynamic = dynamicBox !== undefined;
           const center = dynamicBox?.center ?? body.position, halfExtents = dynamicBox?.halfExtents ?? box.halfExtents;
           const hit = dynamicBox
             ? orientedParticleBoxContact(sub(p.position, center), p.radius, [0, 0, 0], halfExtents, localFrame)
             : orientedParticleBoxContact(p.position, p.radius, center, halfExtents, box.frame);
-          const contact = hit ?? sweepParticle(oldPositions[state.bodies.length + index], p.position, p.radius, { kind: "box", id: body.id, center, halfExtents, rotation: box.rotation });
+          const contact = hit ?? sweepParticle(oldPositions[state.bodies.length + index], p.position, p.radius, { kind: "box", id: body.id, center, halfExtents, rotation: box.rotation }, dynamicBox?.previousCenter, dynamicBox?.previousRotation);
           if (!contact) continue;
           normal = contact.normal; penetration = contact.depth;
           point = add(p.position, mul(normal, penetration - p.radius));
         } else {
           const dynamicSphere = coupling && sampled ? coupling.sphere(body.id) : undefined;
-          if (coupling && sampled && !dynamicSphere) fail("SIM_BODY", `Missing dynamic sphere '${body.id}'.`);
+          dynamic = dynamicSphere !== undefined;
           const center = dynamicSphere?.center ?? body.position, colliderRadius = dynamicSphere?.radius ?? sampledRadii.get(body.id) ?? body.radius;
           const delta = sub(p.position, center), r = length(delta);
           penetration = colliderRadius + p.radius - r;
@@ -257,16 +178,16 @@ export function createSimulation(
           point = add(center, mul(normal, colliderRadius));
         }
         if (penetration <= 0) {
-          const dynamic = coupling && sampled ? coupling.sphere(body.id) : undefined;
+          const sphere = coupling && sampled ? coupling.sphere(body.id) : undefined;
           const hit = sweepParticle(oldPositions[state.bodies.length + index], p.position, p.radius,
-            { kind: "sphere", id: body.id, center: dynamic?.center ?? body.position, radius: dynamic?.radius ?? sampledRadii.get(body.id) ?? body.radius });
+            { kind: "sphere", id: body.id, center: sphere?.center ?? body.position, radius: sphere?.radius ?? sampledRadii.get(body.id) ?? body.radius }, sphere?.previousCenter);
           if (!hit) continue;
           normal = hit.normal; penetration = hit.depth;
-          const center = dynamic?.center ?? body.position, radius = dynamic?.radius ?? sampledRadii.get(body.id) ?? body.radius;
+          const center = sphere?.center ?? body.position, radius = sphere?.radius ?? sampledRadii.get(body.id) ?? body.radius;
           point = add(center, mul(normal, radius));
         }
         let impulse: Vec3 | undefined, moment: Vec3 | undefined;
-        if (sampled && coupling) {
+        if (dynamic && coupling) {
           const result = coupling.resolve(body.id, normal, penetration, p.position, oldPositions[state.bodies.length + index], 1 / p.inverseMass, h, point);
           accumulate(p.position, result.correction);
           impulse = result.reactionImpulse;
@@ -369,7 +290,7 @@ export function createSimulation(
   function substep(h: number, coupling?: SimulationBodyCoupling): void {
     const points = allPoints(state),
       oldPositions = points.map((p) => [...p.position] as Vec3);
-    const fluid = kind === "fluid" ? sphAccelerations() : null;
+    const fluid = kind === "fluid" ? coupling?.fluidAcceleration ? state.particles.map((_, index) => coupling.fluidAcceleration!(index)) : sphAccelerations() : null;
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (p.inverseMass === 0) continue;
@@ -549,6 +470,21 @@ export function createSimulation(
 
   return {
     kind,
+    *coupledTick(substeps, sample) {
+      alive();
+      if (integrating || !Number.isSafeInteger(substeps) || substeps < 1 || substeps > 32 || state.tick >= Number.MAX_SAFE_INTEGER) fail("SIM_STEPS", "Invalid or overlapping coupled tick.");
+      integrating = true;
+      let wall = 0;
+      try {
+        for (let index = 0; index < substeps; index++) {
+          const coupling = sample(), previous = state.particles.map(particle => copy(particle.position)), start = performance.now();
+          substep(state.options.fixedDt / substeps, coupling); wall += performance.now() - start;
+          yield { previous, state: { ...state,
+            sampledBodies: [...sampledRadii].map(([id, radius]) => ({ id, radius })), sampledBoxes: [...sampledBoxes].map(([id, box]) => ({ id, halfExtents: box.halfExtents, rotation: box.rotation })), colliders } };
+        }
+        state.tick++; particleForces.clear(); solverWallMs += wall; measuredSteps++; maxStepMs = Math.max(maxStepMs, wall);
+      } finally { integrating = false; }
+    },
     step(steps = 1, coupling?: SimulationBodyCoupling) {
       alive();
       if (!Number.isInteger(steps) || steps < 0 || steps > 10000)

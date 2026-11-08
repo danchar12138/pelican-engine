@@ -7,9 +7,11 @@ import { createSimulation, type Simulation, type SimulationOptions, type Simulat
 import { differingSimulationOption } from "./snapshot-options.ts";
 import { nearestParticle } from "./nearest-particle.ts";
 import { stageParticleDomain } from "./coupling-adapters.ts";
+import { createCoupledSchedule } from "./coupled-schedule.ts";
+import { fluidField, FLUID_REST_DENSITY } from "./sph.ts";
 import { applyParticleForces } from "./particle-forces.ts";
 import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
-import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
+import { createRopeBodyCoupling, virtualCollider, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
 type Entry = { definition: FluidDefinition; simulation: Simulation; bodyRef?: EntityHandle };
 type Saved = { definition: FluidDefinition; state: SimulationSnapshot };
@@ -89,7 +91,16 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
   const service: FluidService = {
     create(definition) { alive(); ensureRefs(); if (!definition || !validId(definition.id)) return fail("ID", "Expected a nonempty fluid id."); if (entries.has(definition.id)) return fail("DUPLICATE", `Fluid '${definition.id}' already exists.`); if (entries.size >= 128) return fail("CAPACITY", "At most 128 fluids per host."); const entry = createEntry(definition, fixedDt, materials); try { const binding = entry.definition.bodyColliders?.[0]; if (binding) entry.bodyRef = resolveSampledBody(context, binding, "TC_FLUID_BODY_COLLIDER"); syncBinding(entry); entries.set(entry.definition.id, entry); } catch (error) { entry.simulation.dispose(); throw error; } },
     step(id, ticks) { const entry = get(id); if (entry.definition.autoStep) return fail("AUTO_STEP", `Fluid '${id}' is automatically stepped.`); const before = entry.simulation.snapshot(); try { entry.simulation.step(ticks); return inspect(entry); } catch (error) { try { entry.simulation.restore(before); } catch (rollbackError) { throw new Error(`TC_FLUID_ROLLBACK: ${String(error)}; partialState=true; rollback failure: ${String(rollbackError)}`); } throw error; } },
-    inspect(id) { return inspect(get(id)); },
+    inspect(id) {
+      const entry = get(id), result = inspect(entry);
+      if (entry.definition.autoStep) {
+        const active = [...entries.values()].filter(item => item.definition.autoStep).sort((a, b) => a.definition.id.localeCompare(b.definition.id, "en"));
+        const samples = active.map(item => item.simulation.snapshot().particles), index = active.indexOf(entry), offset = samples.slice(0, index).reduce((sum, particles) => sum + particles.length, 0);
+        const field = fluidField(samples.flat()), density = field.density.slice(offset, offset + samples[index].length), pressure = field.pressure.slice(offset, offset + samples[index].length);
+        result.fluid = { method: "WCSPH", restDensity: FLUID_REST_DENSITY, minDensity: Math.min(...density), maxDensity: Math.max(...density), maxPressure: Math.max(...pressure) };
+      }
+      return result;
+    },
     nearestParticle(id, position, maxDistance) { return nearestParticle(get(id).simulation, position, maxDistance, "TC_FLUID_INPUT"); },
     visuals() { alive(); return [...entries.values()].filter(entry => entry.definition.visual !== undefined).sort((a,b) => a.definition.id.localeCompare(b.definition.id)).map(entry => { const visual = entry.definition.visual!, state = entry.simulation.getRenderState(); return { id: entry.definition.id, material: visual.material, particles: state.particles.map(particle => ({ ...particle, radius: visual.radius ?? particle.radius })), castShadow: visual.castShadow ?? true, receiveShadow: visual.receiveShadow ?? true }; }); },
     setGravity(id, gravity) { const entry = get(id), value = vector(gravity, "gravity"); entry.simulation.setGravity([...value]); entry.definition.gravity = value; },
@@ -100,8 +111,15 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
     applyForces(id, forces) { applyParticleForces(get(id).simulation, forces, "TC_FLUID_INPUT"); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
+  const schedule = createCoupledSchedule(() => entries.values(), 6,
+    entry => entry.simulation.snapshot(), (entry, state) => entry.simulation.restore(state),
+    (entry, count, sample) => entry.simulation.coupledTick(count, sample));
   return {
-    id: "$engine.fluid", version: "1", services: { fluid: service },
+    id: "$engine.fluid", version: "1", services: { fluid: service }, simulation: schedule,
+    requiresRecovery: () => schedule.faulted,
+    prepareSimulationSubstep() {
+      for (const entry of entries.values()) if (entry.definition.autoStep) context.couplingFrame?.registerFluid(entry.definition.id, entry.simulation.snapshot().particles);
+    },
     afterPhysics() {
       alive();
       ensureRefs();
@@ -115,16 +133,19 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
           const sample = syncBinding(entry);
           const binding = entry.definition.bodyColliders?.[0];
           let coupling;
-          if (entry.definition.bodyReactions && binding && sample) {
-            let body = bodies.get(binding.entity);
+          if (binding && sample) {
+            const reactive = entry.definition.bodyReactions ?? false;
+            let body = reactive ? bodies.get(binding.entity) : undefined;
             if (!body) {
-              body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
-              bodies.set(binding.entity, body);
+              body = virtualCollider(sample, reactive);
+              if (reactive) bodies.set(binding.entity, body);
             }
-            coupling = createRopeBodyCoupling(new Map([["body:0", body]]));
+            coupling = createRopeBodyCoupling(new Map([["body:0", body]]), new Map(), reactive);
           }
-          entry.simulation.step(1, coupling);
-          stageParticleDomain(frame, entry.definition.id, entry.simulation, snapshot, coupling);
+          if (frame) coupling = { ...(coupling ?? createRopeBodyCoupling(new Map())), fluidAcceleration: (index: number) => frame.fluidAcceleration(entry.definition.id, index) };
+          const view = schedule.next(entry.definition.id, coupling);
+          if (!view) entry.simulation.step(1, coupling);
+          stageParticleDomain(frame, entry.definition.id, entry.simulation, snapshot, coupling, view);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
@@ -150,7 +171,7 @@ export const createFluidPlugin: RuntimePluginFactory = context => {
     validateSnapshot(value) { const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(staged); },
     validateWorld(value, world) { const staged = parseSnapshot(value, fixedDt, materials); try { validateSampledBodyWorld(context, world, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_FLUID_SNAPSHOT"); } finally { disposeEntries(staged); } },
     validatePeers(value, peers) { const staged = parseSnapshot(value, fixedDt, materials); try { validateSampledBodyPeers(peers, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_FLUID_SNAPSHOT"); } finally { disposeEntries(staged); } },
-    restore(value) { alive(); const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(entries); entries = staged; pendingRefs = true; },
+    restore(value) { alive(); const staged = parseSnapshot(value, fixedDt, materials); schedule.reset(); disposeEntries(entries); entries = staged; pendingRefs = true; },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },
   };
 };

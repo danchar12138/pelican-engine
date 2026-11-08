@@ -4,11 +4,14 @@ import type { Vec3 } from "./rope.ts";
 import { closestTriangle } from "./cloth.ts";
 import { closest as closestSegments } from "./rope-self-collision.ts";
 import type { VirtualRopeCollider } from "./rope-body-coupling.ts";
+import type { PointState } from "../../../experiments/simulation/types.ts";
+import { fluidField } from "./sph.ts";
 
 export interface CoupledParticle { position: Vec3; previous: Vec3; velocity: Vec3; inverseMass: number; radius: number }
 export interface CoupledDomain {
   id: string;
   friction?: number;
+  medium?: "fluid";
   particles: CoupledParticle[];
   edges: readonly (readonly [number, number])[];
   triangles: readonly (readonly [number, number, number])[];
@@ -71,11 +74,25 @@ export class SimulationCouplingFrame {
   private domains: CoupledDomain[] = [];
   private undo: (() => void)[] = [];
   private contacts = new Map<string, Contact>();
-  constructor(readonly dt: number) {}
-  begin(): void {
+  private fluids = new Map<string, readonly PointState[]>();
+  private accelerations = new Map<string, Vec3[]>();
+  constructor(public dt: number) {}
+  begin(dt = this.dt): void {
     if (this.active) fail("A coupling transaction is already active");
+    if (!Number.isFinite(dt) || dt <= 0) fail("Substep duration must be finite and positive");
+    this.dt = dt;
     this.active = true; this.bodies.clear(); this.domains = []; this.undo = []; this.contacts.clear();
+    this.fluids.clear(); this.accelerations.clear();
   }
+  registerFluid(id: string, particles: readonly PointState[]): void { if (this.fluids.has(id)) fail(`Duplicate fluid '${id}'`); this.fluids.set(id, particles); }
+  prepareFluids(): void {
+    const fields = [...this.fluids].sort(([a], [b]) => a.localeCompare(b, "en"));
+    if (!fields.length) return;
+    const field = fluidField(fields.flatMap(([, particles]) => [...particles]));
+    let offset = 0;
+    for (const [id, particles] of fields) { this.accelerations.set(id, field.acceleration.slice(offset, offset + particles.length)); offset += particles.length; }
+  }
+  fluidAcceleration(id: string, index: number): Vec3 { return this.accelerations.get(id)?.[index] ?? fail(`Missing fluid field for '${id}/${index}'`); }
   rollbackWith(action: () => void): void { if (this.active) this.undo.push(action); }
   add(domain: CoupledDomain): void {
     if (!this.active || this.domains.some(item => item.id === domain.id)) fail(`Invalid or duplicate domain '${domain.id}'`);
@@ -110,7 +127,7 @@ export class SimulationCouplingFrame {
     let candidates = 0;
     for (let i = 0; i < bounds.length; i++) for (let j = i + 1; j < bounds.length && bounds[j].min[0] <= bounds[i].max[0]; j++) {
       let first = bounds[i].primitive, second = bounds[j].primitive;
-      if (first.domain === second.domain || (!first.dynamic && !second.dynamic) || bounds[i].min[1] > bounds[j].max[1] || bounds[j].min[1] > bounds[i].max[1] || bounds[i].min[2] > bounds[j].max[2] || bounds[j].min[2] > bounds[i].max[2]) continue;
+      if (first.domain === second.domain || (first.domain.medium === "fluid" && second.domain.medium === "fluid") || (!first.dynamic && !second.dynamic) || bounds[i].min[1] > bounds[j].max[1] || bounds[j].min[1] > bounds[i].max[1] || bounds[i].min[2] > bounds[j].max[2] || bounds[j].min[2] > bounds[i].max[2]) continue;
       if (first.indices.length > second.indices.length || (first.indices.length === second.indices.length && first.key > second.key)) [first, second] = [second, first];
       if (first.indices.length === 3 || (first.indices.length === 2 && second.indices.length === 3)) continue;
       if (++candidates > 2000000) fail("More than 2000000 candidate contacts in one iteration");
@@ -162,5 +179,5 @@ export class SimulationCouplingFrame {
     if (failures.length) throw new AggregateError([cause, ...failures], "TC_SIMULATION_COUPLING_ROLLBACK: partialState=true; restore a known-good checkpoint.");
     throw cause;
   }
-  private clear(): void { this.active = false; this.bodies.clear(); this.domains = []; this.undo = []; this.contacts.clear(); }
+  private clear(): void { this.active = false; this.bodies.clear(); this.domains = []; this.undo = []; this.contacts.clear(); this.fluids.clear(); this.accelerations.clear(); }
 }

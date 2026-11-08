@@ -7,6 +7,7 @@ import { createRope, type RopeOptions, type RopeSnapshot, type RopeSolver, type 
 import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 import { stageRopeDomain } from "./coupling-adapters.ts";
+import { createCoupledSchedule } from "./coupled-schedule.ts";
 
 type Entry = { definition: RopeDefinition; solver: RopeSolver; bodyRefs: Map<string, EntityHandle>; staleBodies: Set<string>; attachmentRefs: Map<number, EntityHandle> };
 type Saved = { definition: RopeDefinition; state: RopeSnapshot; staleBodyColliders?: string[] };
@@ -255,8 +256,13 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     applyImpulses(id, impulses) { get(id).solver.applyImpulses(impulses as readonly { index: number; impulse: Vec3 }[]); },
     destroy(id) { const entry = get(id); entry.solver.dispose(); entries.delete(id); },
   };
+  const schedule = createCoupledSchedule(() => entries.values(), 4,
+    entry => ({ solver: entry.solver.snapshot(), definition: entry.definition, refs: entry.bodyRefs, stale: entry.staleBodies, attachmentRefs: entry.attachmentRefs }),
+    (entry, state) => { entry.definition = state.definition; entry.bodyRefs = state.refs; entry.staleBodies = state.stale; entry.attachmentRefs = state.attachmentRefs; entry.solver.restore(state.solver); },
+    (entry, count, sample) => entry.solver.coupledTick(count, sample));
   return {
-    id: "$engine.ropes", version: "1", services: { ropes: service },
+    id: "$engine.ropes", version: "1", services: { ropes: service }, simulation: schedule,
+    requiresRecovery: () => schedule.faulted,
     afterPhysics() {
       alive(); ensureRefs();
       const committed: { entry: Entry; snapshot: RopeSnapshot; definition: RopeDefinition; refs: Map<string, EntityHandle>; stale: Set<string>; attachmentRefs: Map<number, EntityHandle> }[] = [];
@@ -317,8 +323,9 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
           for (const attachment of liveAttachments)
             attached.set(attachment.index, { body: virtualBody(attachment.entity), localPoint: [...attachment.localPoint] as Vec3 });
           const coupling = coupled.size || attached.size ? createRopeBodyCoupling(coupled, attached) : undefined;
-          entry.solver.step(1, coupling);
-          stageRopeDomain(frame, entry.definition.id, entry.solver, snapshot, coupling);
+          const view = schedule.next(entry.definition.id, coupling);
+          if (!view) entry.solver.step(1, coupling);
+          stageRopeDomain(frame, entry.definition.id, entry.solver, snapshot, coupling, view);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
@@ -380,6 +387,7 @@ export const createRopePlugin: RuntimePluginFactory = (context) => {
     },
     restore(value) {
       alive(); const staged = parseSnapshot(value, hostDt, materials);
+      schedule.reset();
       disposeEntries(entries); entries = staged; pendingRefs = true;
     },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },

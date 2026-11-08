@@ -72,6 +72,8 @@ export interface RuntimeServices {
 export interface RopePhysicsBodyState {
   friction?: number;
   center: Vec3;
+  previousCenter?: Vec3;
+  previousRotation?: Vec3;
   /** Rigid-body origin and quaternion, provided by the physics owner for local attachments. */
   bodyPosition?: Vec3;
   bodyOrientation?: Vec4;
@@ -118,6 +120,8 @@ export interface CinematicAnimationBridge {
   abandon(entity: string, owner: string): void;
 }
 export interface RuntimePluginContext {
+  /** Execute material participants inside the native physics system's ordering boundary. */
+  advanceCoupledPhysics?(dt: number, advance: (index: number, count: number) => void, fault: () => void): void;
   getCinematicAnimationBridge?(): CinematicAnimationBridge | undefined;
   getCameraService?(): CameraService | undefined;
   getAudioService?(): AudioService | undefined;
@@ -162,6 +166,9 @@ export interface RuntimePlugin {
   restore(value: unknown): void;
   /** Synchronous engine-owned work after the physics phase and before postPhysics systems. */
   afterPhysics?(): void;
+  /** Private fixed-tick participant; yielded states are never exposed to game systems. */
+  simulation?: { substeps(): number; begin(count: number): void; finish(): void; commit(): void; abort(): void };
+  prepareSimulationSubstep?(): void;
   /** Engine-private integration surface, not a game service. */
   ropePhysicsBridge?: RopePhysicsBridge;
   physics2DBridge?: Physics2DBridge;

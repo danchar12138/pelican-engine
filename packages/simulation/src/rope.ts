@@ -1,6 +1,7 @@
 import { resolveRopeSelfCollisions } from "./rope-self-collision.ts";
 import { createBoxFrame, orientedParticleBoxContact, orientedSegmentBoxContact } from "./box-contact.ts";
 import { staticContactCorrection, sweepParticle } from "./continuous-contact.ts";
+import type { CoupledView } from "./coupled-schedule.ts";
 
 /** Internal CPU rope solver. Metres, seconds, kilograms and Newtons; Y is not privileged.
  * External colliders are immutable input samples for each tick: contacts move rope particles
@@ -13,8 +14,9 @@ export type RopeCollider =
   | { kind: "box"; id: string; center: Vec3; halfExtents: Vec3; rotation?: Vec3 };
 /** Private per-tick coupling. The caller owns and discards virtual body state on failure. */
 export interface RopeDynamicCoupling {
-  sphere(colliderId: string): { center: Vec3; radius: number } | undefined;
-  box?(colliderId: string): { center: Vec3; halfExtents: Vec3; rotation: Vec3 } | undefined;
+  fluidAcceleration?(particle: number): Vec3;
+  sphere(colliderId: string): { center: Vec3; previousCenter?: Vec3; radius: number } | undefined;
+  box?(colliderId: string): { center: Vec3; previousCenter?: Vec3; halfExtents: Vec3; rotation: Vec3; previousRotation?: Vec3 } | undefined;
   resolve(colliderId: string, normal: Vec3, depth: number, position: Vec3, previous: Vec3, mass: number, dt: number, surface?: Vec3): {
     correction: Vec3; reactionImpulse: Vec3; reactionAngularImpulse: Vec3;
   };
@@ -211,6 +213,7 @@ type Config = RopeSnapshot["config"] & { segmentCollisions: boolean; selfCollisi
 export class RopeSolver {
   private tickValue = 0;
   private disposedValue = false;
+  private integrating = false;
   private velocities: Vec3[];
   private forces: Vec3[];
   private colliders: RopeCollider[] = [];
@@ -304,17 +307,25 @@ export class RopeSolver {
     return this.inspect();
   }
   private stepOne(coupling?: RopeDynamicCoupling): void {
-    const { fixedDt, substeps, iterations, mass, gravity, damping, restLengths, radius } = this.config;
+    for (const _ of this.coupledTick(this.config.substeps, () => coupling)) { /* Manual stepping drains all substeps synchronously. */ }
+  }
+  *coupledTick(substeps: number, sample: () => RopeDynamicCoupling | undefined): Generator<CoupledView<RopeSnapshot>, void, unknown> {
+    this.alive();
+    if (this.integrating || !Number.isSafeInteger(substeps) || substeps < 1 || substeps > 32 || this.tickValue >= Number.MAX_SAFE_INTEGER) fail("ROPE_INPUT", "Invalid or overlapping coupled tick.");
+    this.integrating = true;
+    try {
+    const { fixedDt, iterations, mass, gravity, damping, restLengths, radius } = this.config;
     const h = fixedDt / substeps, decay = Math.exp(-damping * h);
     // Work on copies; numeric failures must never leave half a tick applied.
     const positions = this.positions.map(copy), velocities = this.velocities.map(copy);
     const contacts = new Map<string, RopeContact>();
     const segmentContacts = new Map<string, RopeSegmentContact>();
     const selfContacts = new Map<string, RopeSelfContact>();
-    const spheres = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "sphere" }> => collider.kind === "sphere") : [];
-    const boxes = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "box" }> => collider.kind === "box") : [];
-    const boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
     for (let sub = 0; sub < substeps; sub++) {
+      const coupling = sample();
+      const spheres = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "sphere" }> => collider.kind === "sphere") : [];
+      const boxes = this.config.segmentCollisions ? this.colliders.filter((collider): collider is Extract<RopeCollider, { kind: "box" }> => collider.kind === "box") : [];
+      const boxFrames = new Map(this.colliders.flatMap(collider => collider.kind === "box" && collider.rotation ? [[collider.id, createBoxFrame(collider.center, collider.rotation)] as const] : []));
       const previous = positions.map(copy);
       for (let i = 0; i < positions.length; i++) {
         const anchor = this.anchors.get(i);
@@ -354,7 +365,7 @@ export class RopeSolver {
               const center = dynamicBox?.center ?? c.center, extents = dynamicBox?.halfExtents ?? c.halfExtents;
               const frame = dynamicBox ? createBoxFrame(center, dynamicBox.rotation) : boxFrames.get(c.id);
               const contact = orientedParticleBoxContact(p, radius, center, extents, frame);
-              const hit = contact ?? sweepParticle(previous[i], p, radius, { ...c, center, halfExtents: extents, rotation: dynamicBox?.rotation ?? c.rotation });
+              const hit = contact ?? sweepParticle(previous[i], p, radius, { ...c, center, halfExtents: extents, rotation: dynamicBox?.rotation ?? c.rotation }, dynamicBox?.previousCenter, dynamicBox?.previousRotation);
               if (!hit) continue;
               normal = hit.normal; depth = hit.depth;
             } else {
@@ -366,7 +377,7 @@ export class RopeSolver {
             }
             if (depth <= 0) {
               const active: RopeCollider = c.kind === "sphere" && dynamicSphere ? { ...c, ...dynamicSphere } : c;
-              const hit = sweepParticle(previous[i], p, radius, active);
+              const hit = sweepParticle(previous[i], p, radius, active, dynamicSphere?.previousCenter);
               if (!hit) continue;
               normal = hit.normal; depth = hit.depth;
             }
@@ -512,10 +523,13 @@ export class RopeSolver {
         for (let k = 0; k < 3; k++) velocities[i][k] = (positions[i][k] - previous[i][k]) / h;
         if (!finiteState(positions[i]) || !finiteState(velocities[i])) fail("ROPE_NUMERIC", "solver exceeded finite state bounds");
       }
+      yield { previous, state: { format: "pelican-rope-cpu", version: 1, tick: this.tickValue + 1, config: this.config, positions, velocities, forces: this.forces,
+        anchors: [...this.anchors].map(([index, position]) => ({ index, position })), colliders: this.colliders, contacts: [...contacts.values()], segmentContacts: [...segmentContacts.values()], selfContacts: [...selfContacts.values()] } };
     }
     this.positions = positions; this.velocities = velocities;
     this.forces = positions.map(() => [0, 0, 0]); this.contacts = [...contacts.values()];
     this.segmentContacts = [...segmentContacts.values()]; this.selfContacts = [...selfContacts.values()]; this.tickValue++;
+    } finally { this.integrating = false; }
   }
   /** Detached positions for renderer synchronization without copying contact state. */
   particlePositions(): Vec3[] { this.alive(); return this.positions.map(copy); }

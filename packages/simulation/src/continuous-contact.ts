@@ -1,5 +1,6 @@
 import { createBoxFrame, orientedParticleBoxContact } from "./box-contact.ts";
 import type { RopeCollider, Vec3 } from "./rope.ts";
+import { Euler, Quaternion, Vector3 } from "three";
 
 export interface SweptContact { normal: Vec3; depth: number; time: number }
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -29,14 +30,45 @@ export function sweepSphere(start: Vec3, end: Vec3, centerStart: Vec3, centerEnd
   return depth > 0 ? { normal, depth, time } : null;
 }
 
+function movingBoxSweep(start: Vec3, end: Vec3, radius: number, box: Extract<RopeCollider, { kind: "box" }>, previousCenter: Vec3, previousRotation: Vec3): SweptContact | null {
+  const qa = new Quaternion().setFromEuler(new Euler(...previousRotation)), qb = new Quaternion().setFromEuler(new Euler(...(box.rotation ?? [0, 0, 0])));
+  const speed = Math.hypot(...sub(end, start)) + Math.hypot(...sub(box.center, previousCenter)) + qa.angleTo(qb) * Math.hypot(...box.halfExtents);
+  if (speed < 1e-12) return null;
+  const tolerance = Math.max(1e-9, radius * 1e-6);
+  let time = 0;
+  for (let iteration = 0; iteration < 128; iteration++) {
+    const q = qa.clone().slerp(qb, time), center = at(previousCenter, box.center, time), point = at(start, end, time);
+    const local = new Vector3(...sub(point, center)).applyQuaternion(q.clone().invert());
+    const closest = local.toArray().map((value, axis) => Math.max(-box.halfExtents[axis], Math.min(box.halfExtents[axis], value))) as Vec3;
+    const delta = local.clone().sub(new Vector3(...closest)), distance = delta.length();
+    if (distance <= radius + tolerance) {
+      let normal: Vector3, surface = new Vector3(...closest);
+      if (distance > 1e-12) normal = delta.multiplyScalar(1 / distance);
+      else {
+        const hit = orientedParticleBoxContact(local.toArray(), radius, [0, 0, 0], box.halfExtents);
+        if (!hit) return null;
+        normal = new Vector3(...hit.normal); surface = local.clone().addScaledVector(normal, hit.depth - radius);
+      }
+      const worldNormal = normal.clone().applyQuaternion(qb), worldSurface = surface.applyQuaternion(qb).add(new Vector3(...box.center));
+      const depth = radius - new Vector3(...end).sub(worldSurface).dot(worldNormal);
+      return depth > 0 ? { normal: worldNormal.toArray(), depth, time } : null;
+    }
+    const advance = (distance - radius) / speed;
+    if (time + advance > 1) return null;
+    time += Math.max(advance, Number.EPSILON);
+  }
+  throw new Error(`TC_SIMULATION_CCD_LIMIT: Moving box '${box.id}' did not converge; reduce motion per fixed tick.`);
+}
+
 /** Exact rounded-box distance with conservative advancement, not an inflated-AABB hit. */
-export function sweepParticle(start: Vec3, end: Vec3, radius: number, collider: RopeCollider): SweptContact | null {
-  if (collider.kind === "sphere") return sweepSphere(start, end, collider.center, collider.center, radius + collider.radius);
+export function sweepParticle(start: Vec3, end: Vec3, radius: number, collider: RopeCollider, previousCenter?: Vec3, previousRotation?: Vec3): SweptContact | null {
+  if (collider.kind === "sphere") return sweepSphere(start, end, previousCenter ?? collider.center, collider.center, radius + collider.radius);
   if (collider.kind === "plane") {
     const first = dot(start, collider.normal) - collider.offset - radius;
     const last = dot(end, collider.normal) - collider.offset - radius;
     return first > 0 && last < 0 ? { normal: [...collider.normal], depth: -last, time: first / (first - last) } : null;
   }
+  if (previousCenter && (previousCenter.some((value, axis) => value !== collider.center[axis]) || previousRotation?.some((value, axis) => value !== (collider.rotation?.[axis] ?? 0)))) return movingBoxSweep(start, end, radius, collider, previousCenter, previousRotation ?? collider.rotation ?? [0, 0, 0]);
   const frame = createBoxFrame(collider.center, collider.rotation ?? [0, 0, 0]);
   const a = frame.toLocalPoint(start), b = frame.toLocalPoint(end), travel = sub(b, a), speed = Math.hypot(...travel);
   if (speed < 1e-12) return null;

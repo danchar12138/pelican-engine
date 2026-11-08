@@ -6,8 +6,9 @@ import { cloneSerializable } from "../../runtime/src/random.ts";
 import { createCloth, type ClothCollider, type ClothOptions, type ClothSnapshot, type ClothSolver, type Vec3 } from "./cloth.ts";
 import { nearestIndexedParticle } from "./nearest-particle.ts";
 import { stageClothDomain } from "./coupling-adapters.ts";
+import { createCoupledSchedule } from "./coupled-schedule.ts";
 import { validateSampledBodyPeers } from "./sampled-body-binding.ts";
-import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
+import { createRopeBodyCoupling, virtualCollider, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
 type Entry = { definition: ClothDefinition; solver: ClothSolver; uvs: Vec2[]; bodyRefs: Map<string, EntityHandle> };
 type Saved = { definition: ClothDefinition; state: ClothSnapshot };
@@ -150,8 +151,13 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     applyImpulses(id, impulses) { get(id).solver.applyImpulses(impulses as readonly { index: number; impulse: Vec3 }[]); },
     destroy(id) { const entry = get(id); entry.solver.dispose(); entries.delete(id); },
   };
+  const schedule = createCoupledSchedule(() => entries.values(), 4,
+    entry => ({ solver: entry.solver.snapshot(), definition: entry.definition, refs: entry.bodyRefs }),
+    (entry, state) => { entry.definition = state.definition; entry.bodyRefs = state.refs; entry.solver.restore(state.solver); },
+    (entry, count, sample) => entry.solver.coupledTick(count, sample));
   return {
-    id: "$engine.cloth", version: "1", services: { cloth: service },
+    id: "$engine.cloth", version: "1", services: { cloth: service }, simulation: schedule,
+    requiresRecovery: () => schedule.faulted,
     afterPhysics() {
       alive(); ensureRefs(); const committed: { entry: Entry; solver: ClothSolver; snapshot: ClothSnapshot; definition: ClothDefinition; refs: Map<string, EntityHandle> }[] = [];
       // Stage all cloth reactions until every automatic solver has completed. A later
@@ -175,16 +181,11 @@ export const createClothPlugin: RuntimePluginFactory = context => {
               if (!ref) return fail("BODY_COLLIDER", `Missing handle for '${binding.id}'; restore a known-good checkpoint.`);
               if (!context.world.isAlive(ref)) continue;
               const sample = bridge.sampleClothBody(binding.entity);
-              let body: VirtualRopeCollider | undefined;
-              if (entry.definition.bodyReactions) {
-                body = bodies.get(binding.entity);
-                if (!body) {
-                  body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
-                  bodies.set(binding.entity, body);
-                }
-                coupled.set(binding.id, body);
-              }
-              const active = body ?? sample;
+              const reactive = entry.definition.bodyReactions ?? false;
+              let body = reactive ? bodies.get(binding.entity) : undefined;
+              if (!body) { body = virtualCollider(sample, reactive); if (reactive) bodies.set(binding.entity, body); }
+              coupled.set(binding.id, body);
+              const active = body;
               if (active.kind === "sphere") sampled.push({ kind: "sphere", id: binding.id, center: [...active.center] as Vec3, radius: active.radius });
               else sampled.push({ kind: "box", id: binding.id, center: [...active.center] as Vec3,
                 halfExtents: [...active.halfExtents] as Vec3, rotation: [...active.rotation] as Vec3 });
@@ -194,9 +195,10 @@ export const createClothPlugin: RuntimePluginFactory = context => {
             entry.bodyRefs = new Map(live.map(binding => [binding.id, entry.bodyRefs.get(binding.id)!]));
             entry.solver.setColliders([...manual, ...sampled]);
           }
-          const coupling = coupled.size ? createRopeBodyCoupling(coupled) : undefined;
-          entry.solver.step(1, coupling);
-          stageClothDomain(frame, entry.definition.id, entry.solver, snapshot, coupling);
+          const coupling = coupled.size ? createRopeBodyCoupling(coupled, new Map(), entry.definition.bodyReactions ?? false) : undefined;
+          const view = schedule.next(entry.definition.id, coupling);
+          if (!view) entry.solver.step(1, coupling);
+          stageClothDomain(frame, entry.definition.id, entry.solver, snapshot, coupling, view);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
@@ -242,6 +244,7 @@ export const createClothPlugin: RuntimePluginFactory = context => {
     },
     restore(value) {
       alive(); const staged = parseSnapshot(value, hostDt, materials);
+      schedule.reset();
       disposeEntries(entries); entries = staged; pendingRefs = true;
     },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },

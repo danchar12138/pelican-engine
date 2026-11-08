@@ -200,9 +200,7 @@ export const createCinematicPlugin: RuntimePluginFactory = context => {
           if (discontinuity) physics().teleport(track.entity, { position: position ?? pose.position, rotation });
           else {
             if (position) {
-              const gravity = entity.character.gravity ?? 9.81;
-              physics().setVelocity(track.entity, [0, gravity * (context.fixedDt ?? 1 / 60), 0]);
-              physics().moveCharacter(track.entity, [position[0] - pose.position[0], position[1] - pose.position[1], position[2] - pose.position[2]]);
+              physics().moveCharacterTo(track.entity, position);
             }
             if (angles) physics().teleport(track.entity, { rotation }, { resetVelocity: false });
           }

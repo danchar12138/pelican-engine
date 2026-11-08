@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Freeze the final 1.0 implementation scope under D60 to simulation coupling, dynamic-world lifecycle and full-body animation integration; other historical roadmap items are not added to this delivery.
+- Interleave native physics and rope/cloth/soft-body/fluid integration on a shared substep clock, with once-per-tick forces, shared WCSPH pressure, per-substep reactions, moving-obstacle sweeps and structured fixed-tick history transactions. Runtime behavior, numerical stability, rollback and historical compatibility remain unverified.
+
 ## 0.17.0 - 2026-11-08
 
 - Compile-only cinematic/audio development batch. Timeline behavior, presentation, sound output, audio/video alignment, native teleports and restoration have not been runtime-validated. Complete coupled simulation and dynamic-world scope remain unfinished; this is not 1.0.

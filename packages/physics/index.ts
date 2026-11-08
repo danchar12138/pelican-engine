@@ -51,6 +51,7 @@ interface CharacterState {
   velocity: Vec3;
   grounded: boolean;
   requested: Vec3;
+  target?: Vec3;
 }
 interface BodyEntry {
   id: string;
@@ -71,8 +72,9 @@ type Action =
       frame: Frame;
       created: Creation[];
       removed: string[];
+      substep?: { index: number; count: number };
     }
-  | { kind: "move" | "velocity" | "impulse" | "angularVelocity" | "torqueImpulse"; id: string; value: Vec3 }
+  | { kind: "move" | "characterTarget" | "velocity" | "impulse" | "angularVelocity" | "torqueImpulse"; id: string; value: Vec3 }
   | { kind: "gravity"; value: Vec3 }
   | { kind: "gravityScale"; id: string; scale: number }
   | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 }
@@ -80,7 +82,9 @@ type Action =
   | { kind: "jointDestroy"; id: string }
   | { kind: "terrainSet"; terrain: TerrainGeometry }
   | { kind: "terrainRemove"; id: string }
-  | { kind: "teleport"; id: string; transform: Transform; resetVelocity: boolean };
+  | { kind: "teleport"; id: string; transform: Transform; resetVelocity: boolean }
+  | { kind: "reactions"; values: { id: string; impulse: Vec3; torque: Vec3 }[] }
+  | { kind: "coupled"; actions: Action[] };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
   version: 3;
@@ -278,6 +282,8 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   const terrains = new Map<string, { definition: TerrainGeometry; body: RAPIER.RigidBody; collider: RAPIER.Collider }>();
   let terrainHistory = false;
   let terrainSamples = 0;
+  let openSubstep: { next: number; count: number; dt: number } | undefined;
+  const previousPoses = new Map<string, { center: Vec3; rotation: Vec3 }>();
   let jointHistory = false;
   let tick = 0,
     topologyDirty = false;
@@ -371,6 +377,8 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     for (const e of definitions) add(e);
     // Build Rapier query structures without advancing physical time.
     world.timestep = 0;
+    previousPoses.clear();
+    for (const body of bodies.values()) previousPoses.set(body.id, { center: tuple(body.collider.translation()), rotation: euler(body.collider.rotation()) });
     world.step(queue);
     world.timestep = 1 / 60;
     topologyDirty = false;
@@ -580,9 +588,28 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     action: Action,
     emit: (type: string, payload: unknown) => void,
   ) {
+    if (action?.kind === "coupled") {
+      if (openSubstep || Object.keys(action).length !== 2 || !Array.isArray(action.actions) || !action.actions.length || action.actions.length > 64 || action.actions.some(child => !child || !["step", "reactions"].includes(child.kind))) fail("TC_PHYSICS_SUBSTEP", "Invalid coupled fixed-tick transaction.");
+      for (const child of action.actions) apply(child, emit);
+      if (openSubstep) fail("TC_PHYSICS_SUBSTEP", "Coupled transaction did not finish its fixed tick.");
+      return;
+    }
+    if (action?.kind === "reactions") {
+      if (Object.keys(action).length !== 2 || !Array.isArray(action.values) || action.values.length > 10000) fail("TC_PHYSICS_REACTION", "Invalid coupled reaction batch.");
+      const seen = new Set<string>();
+      const batch = action.values.map(value => {
+        if (!value || Object.keys(value).length !== 3 || seen.has(value.id)) fail("TC_PHYSICS_REACTION", "Reaction identities must be unique.");
+        seen.add(value.id);
+        const body = get(value.id);
+        if (body.type !== "dynamic" || body.collider.isSensor()) fail("TC_PHYSICS_REACTION", "Reaction requires a live dynamic solid body.");
+        return { body, impulse: vec(value.impulse, "reaction impulse"), torque: vec(value.torque, "reaction torque") };
+      });
+      for (const { body, impulse, torque } of batch) { body.body.applyImpulse(impulse, true); body.body.applyTorqueImpulse(torque, true); }
+      return;
+    }
     if (
       !action ||
-      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"].includes(action.kind)
+      !["step", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
     if (action.kind === "teleport") {
@@ -593,7 +620,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       }
       if (action.resetVelocity) {
         if (entry.type === "dynamic") { entry.body.setLinvel({ x: 0, y: 0, z: 0 }, true); entry.body.setAngvel({ x: 0, y: 0, z: 0 }, true); }
-        if (entry.character) { entry.character.velocity = [0, 0, 0]; entry.character.requested = [0, 0, 0]; entry.character.verticalVelocity = 0; entry.character.grounded = false; }
+        if (entry.character) { entry.character.velocity = [0, 0, 0]; entry.character.requested = [0, 0, 0]; entry.character.verticalVelocity = 0; entry.character.grounded = false; delete entry.character.target; }
       }
       topologyDirty = true;
       sync([...bodies.values()].map(body => ({ id: body.id, transform: body.id === action.id ? action.transform : body.transform })), emit);
@@ -667,7 +694,10 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       const b = get(action.id),
         v = vec(action.value, action.kind);
       const point = action.kind === "impulseAtPoint" ? vec(action.point, "point") : undefined;
-      if (action.kind === "move") {
+      if (action.kind === "characterTarget") {
+        if (!b.character) fail("TC_PHYSICS_CHARACTER", `${b.id} is not a character.`);
+        b.character.target = tuple(v);
+      } else if (action.kind === "move") {
         if (!b.character)
           fail("TC_PHYSICS_CHARACTER", b.id + " is not a character.");
         const c = b.character,
@@ -703,6 +733,12 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       return;
     }
     finite(action.dt, "dt", 1e-6, 1);
+    const part = action.substep;
+    if (part) {
+      if (!Number.isSafeInteger(part.index) || !Number.isSafeInteger(part.count) || part.count < 2 || part.count > 32 || part.index < 0 || part.index >= part.count ||
+          (part.index === 0 ? openSubstep !== undefined : !openSubstep || openSubstep.next !== part.index || openSubstep.count !== part.count || openSubstep.dt !== action.dt)) fail("TC_PHYSICS_SUBSTEP", "Substep history must form an ordered complete fixed tick.");
+      if (part.index > 0 && (action.created.length || action.removed.length)) fail("TC_PHYSICS_SUBSTEP", "Lifecycle changes belong to the first substep.");
+    } else if (openSubstep) fail("TC_PHYSICS_SUBSTEP", "A whole-tick step cannot interrupt an open substep frame.");
     // Creation history contains content identity and transforms only. Never accept
     // caller-supplied collider/body definitions during isolated snapshot replay.
     if (!Array.isArray(action.created) || !Array.isArray(action.removed))
@@ -774,11 +810,18 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
         const c = b.character,
           dt = action.dt;
         // A downward probe on every falling/grounded tick keeps grounded stable.
-        c.verticalVelocity -= c.gravity * dt;
-        const desired = {
-          x: c.requested[0] + c.velocity[0] * dt,
-          y: c.requested[1] + c.verticalVelocity * dt,
-          z: c.requested[2] + c.velocity[2] * dt,
+        if (c.target) c.verticalVelocity = 0; else c.verticalVelocity -= c.gravity * dt;
+        const remaining = action.substep ? action.substep.count - action.substep.index : 1;
+        const requested: Vec3 = [c.requested[0] / remaining, c.requested[1] / remaining, c.requested[2] / remaining];
+        const origin = b.body.translation();
+        const desired = c.target ? {
+          x: (c.target[0] - origin.x) / remaining,
+          y: (c.target[1] - origin.y) / remaining,
+          z: (c.target[2] - origin.z) / remaining,
+        } : {
+          x: requested[0] + c.velocity[0] * dt,
+          y: requested[1] + c.verticalVelocity * dt,
+          z: requested[2] + c.velocity[2] * dt,
         };
         b.controller.computeColliderMovement(
           b.collider,
@@ -806,10 +849,14 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
           y: p.y + m.y,
           z: p.z + m.z,
         });
-        c.requested = [0, 0, 0];
+        c.requested = remaining === 1 ? [0, 0, 0] : [c.requested[0] - requested[0], c.requested[1] - requested[1], c.requested[2] - requested[2]];
+        if (remaining === 1) delete c.target;
       }
+    previousPoses.clear();
+    for (const body of bodies.values()) previousPoses.set(body.id, { center: tuple(body.collider.translation()), rotation: euler(body.collider.rotation()) });
     world.step(queue);
-    tick++;
+    if (!action.substep || action.substep.index === action.substep.count - 1) tick++;
+    openSubstep = part && part.index + 1 < part.count ? { next: part.index + 1, count: part.count, dt: action.dt } : undefined;
     drain(emit);
     for (const b of bodies.values())
       b.transform = {
@@ -819,6 +866,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       };
   }
   function header() {
+    if (openSubstep) fail("TC_PHYSICS_SUBSTEP", "Cannot capture an incomplete fixed tick; restore a known-good checkpoint after a fault.");
     const bytes = world.takeSnapshot();
     if (bytes.length > 64 * 1024 * 1024)
       fail(
@@ -857,6 +905,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     native: RAPIER,
     joints,
     terrains,
+    previousPoses,
     bodies,
     byCollider,
     get,
@@ -900,6 +949,8 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     disposed = false,
     nativeFault = false,
     pendingBind: string[] | undefined;
+  let groupingHistory = false;
+  let decodedHistory = 0;
   const refs = new Map<string, EntityHandle>();
   function bindRefs(ids: Iterable<string> = state.bodies.keys()) {
     refs.clear();
@@ -973,11 +1024,12 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   }
   function record(action: Action) {
     alive();
-    if (history.length >= limit)
+    if (history.length >= limit + (groupingHistory ? 64 : 0))
       fail(
         "TC_PHYSICS_HISTORY_LIMIT",
         "Physics history exceeds 100000 operations; start a new scene.",
       );
+    if (decodedHistory >= 3200000) fail("TC_PHYSICS_HISTORY_LIMIT", "Decoded physics history exceeds 3200000 operations; start a new scene.");
     // Capture plain input first: a clone failure after native mutation would
     // otherwise leave a changed world with no corresponding history entry.
     const captured = cloneSerializable(action);
@@ -989,6 +1041,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       throw new AggregateError([error], `TC_PHYSICS_OPERATION: '${captured.kind}' failed; partialState=unknown. Restore a known-good checkpoint or restart the scene.`);
     }
     history.push(captured);
+    decodedHistory++;
   }
   function get(id: string) {
     alive();
@@ -1088,6 +1141,10 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     }
   }
   const physics: PhysicsServiceWithQueries = {
+    moveCharacterTo(id, position) {
+      if (!get(id).character) fail("TC_PHYSICS_CHARACTER", `${id} is not a character.`);
+      record({ kind: "characterTarget", id, value: tuple(vec(position, "character target")) });
+    },
     teleport(id, patch, options = {}) {
       const body = get(id), input = cloneSerializable(patch), config = cloneSerializable(options);
       if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["position", "rotation", "scale"].includes(key)) ||
@@ -1332,6 +1389,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const rotation = b.body.rotation();
     return {
       center: tuple(b.collider.translation()), radius: b.collider.radius(),
+      previousCenter: state.previousPoses.get(id)?.center ?? tuple(b.collider.translation()),
       friction: b.collider.friction(),
       bodyPosition: tuple(b.body.translation()), bodyOrientation: [rotation.x, rotation.y, rotation.z, rotation.w] as const,
       centerOfMass: tuple(b.body.worldCom()), linearVelocity: tuple(b.body.linvel()),
@@ -1353,6 +1411,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     const inertia = body.body.effectiveWorldInvInertia();
     const orientation = body.body.rotation();
     return { kind: "box", center: tuple(body.collider.translation()), halfExtents: tuple(halfExtents),
+      previousCenter: state.previousPoses.get(id)?.center ?? tuple(body.collider.translation()), previousRotation: state.previousPoses.get(id)?.rotation ?? euler(body.collider.rotation()),
       friction: body.collider.friction(),
       bodyPosition: tuple(body.body.translation()), bodyOrientation: [orientation.x, orientation.y, orientation.z, orientation.w],
       rotation: euler(body.collider.rotation()), centerOfMass: tuple(body.body.worldCom()),
@@ -1365,7 +1424,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   const applyReactions = (reactions: readonly { entity: string; impulse: Vec3; moment: Vec3 }[], owner: "SPHERE" | "CLOTH" | "ROPE" | "PARTICLE") => {
     alive();
     const seen = new Set<string>();
-    const actions: Action[] = [];
+    const values: { id: string; impulse: Vec3; torque: Vec3 }[] = [];
     for (const { entity, impulse, moment } of reactions) {
       if (seen.has(entity)) fail("TC_PHYSICS_ROPE_BODY", `Duplicate reaction body '${entity}'.`);
       seen.add(entity);
@@ -1373,14 +1432,11 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       const m = tuple(vec(moment, "reaction moment")), c = sample.centerOfMass;
       const torque: Vec3 = [m[0] - (c[1] * j[2] - c[2] * j[1]), m[1] - (c[2] * j[0] - c[0] * j[2]), m[2] - (c[0] * j[1] - c[1] * j[0])];
       vec(torque, "reaction torque");
-      if (j.some(value => value !== 0)) actions.push({ kind: "impulse", id: entity, value: j });
-      if (torque.some(value => value !== 0)) actions.push({ kind: "torqueImpulse", id: entity, value: torque });
+      if ([...j, ...torque].some(value => value !== 0)) values.push({ id: entity, impulse: j, torque });
     }
-    if (history.length + actions.length > limit)
-      fail("TC_PHYSICS_HISTORY_LIMIT", "Reactions exceed physics history capacity; start a new scene.");
-    if (!actions.length) return;
+    if (!values.length) return;
     // A native failure can leave partial state. Do not replay history in this error path.
-    try { for (const action of actions) record(action); }
+    try { record({ kind: "reactions", values }); }
     catch (error) {
       nativeFault = true;
       throw new AggregateError([error], "TC_PHYSICS_REACTION: Applying reaction failed; partialState=true. Restore a known-good checkpoint or restart the scene.");
@@ -1418,11 +1474,20 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         // grants this internal system metadata access without changing World APIs.
         writes: ["Transform"],
         run(dt) {
-          const action = lifecycle(dt);
-          record(action);
-          bindRefs();
-          for (const b of state.bodies.values())
-            context.world.setTransform(refs.get(b.id)!, b.transform);
+          if (history.length >= limit || decodedHistory + 64 > 3200000) { nativeFault = true; fail("TC_PHYSICS_HISTORY_LIMIT", "Physics history capacity is exhausted; restore a checkpoint or start a new scene."); }
+          const start = history.length;
+          const advance = (index: number, count: number) => {
+            const action = lifecycle(dt / count);
+            if (count > 1) action.substep = { index, count };
+            record(action); bindRefs();
+            for (const b of state.bodies.values()) context.world.setTransform(refs.get(b.id)!, b.transform);
+          };
+          groupingHistory = true;
+          try {
+            if (context.advanceCoupledPhysics) context.advanceCoupledPhysics(dt, advance, () => { nativeFault = true; });
+            else advance(0, 1);
+            if (history.length - start > 1) history.splice(start, history.length - start, { kind: "coupled", actions: history.slice(start) });
+          } finally { groupingHistory = false; }
         },
       },
     ],
@@ -1477,6 +1542,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         previous = state;
       state = checked.candidate;
       history = checked.history;
+      decodedHistory = history.reduce((count, action) => count + (action.kind === "coupled" ? action.actions.length : 1), 0);
       bindRefs(checked.bindings);
       pendingBind = checked.bindings;
       try { previous.dispose(); }
@@ -1517,6 +1583,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       disposed = true;
       state.dispose();
       history = [];
+      decodedHistory = 0;
       refs.clear();
     },
   };

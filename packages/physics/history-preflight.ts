@@ -19,17 +19,42 @@ export function preflightPhysicsHistory(
   const activeDefinitions = new Map(definitions.map(entity => [entity.id, entity]));
   const joints = new Map<string, PhysicsJointDefinition>();
   const terrains = new Map<string, TerrainGeometry>();
-  const kinds = new Set(["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport"]);
+  const kinds = new Set(["step", "move", "characterTarget", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy", "terrainSet", "terrainRemove", "teleport", "reactions"]);
   const vector = (value: unknown) => Array.isArray(value) && value.length === 3 &&
     [0, 1, 2].every(axis => typeof value[axis] === "number" && Number.isFinite(value[axis]) && Math.abs(value[axis]) <= 1e12);
   let steps = 0;
   let jointOperations = false;
   let terrainOperations = false;
   let terrainSamples = 0;
+  let openSubstep: { next: number; count: number; dt: number } | undefined;
+  const expanded: unknown[] = [];
   for (const raw of history) {
+    const group = raw as { kind?: unknown; actions?: unknown[] };
+    if (group?.kind === "coupled") {
+      if (Object.keys(group).length !== 2 || !Array.isArray(group.actions) || !group.actions.length || group.actions.length > 64) fail("Invalid coupled transaction.");
+      const actions = group.actions ?? [];
+      const native = actions.filter((child): child is { kind: string; substep?: { index: number; count: number } } => !!child && typeof child === "object" && (child as { kind?: unknown }).kind === "step");
+      const count = native[0]?.substep?.count ?? 1;
+      if (!native.length || native.length !== count || native.some((child, index) => (child.substep?.index ?? 0) !== index || (child.substep?.count ?? 1) !== count) ||
+          actions.some(child => !child || typeof child !== "object" || !["step", "reactions"].includes((child as { kind: string }).kind))) fail("Coupled transaction omits or reorders substeps.");
+      expanded.push(...actions);
+    } else expanded.push(raw);
+    if (expanded.length > 3200000) fail("Decoded physics history exceeds 3200000 operations.");
+  }
+  for (const raw of expanded) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail("Invalid history action.");
-    const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown; terrain?: unknown; transform?: unknown; resetVelocity?: unknown };
+    const action = raw as { kind?: unknown; id?: unknown; created?: unknown; removed?: unknown; frame?: unknown; value?: unknown; point?: unknown; scale?: unknown; dt?: unknown; definition?: unknown; terrain?: unknown; transform?: unknown; resetVelocity?: unknown; substep?: { index: number; count: number }; values?: { id: string; impulse: unknown; torque: unknown }[] };
     if (typeof action.kind !== "string" || !kinds.has(action.kind)) fail("Unknown history action.");
+    if (openSubstep && !["step", "impulse", "torqueImpulse", "impulseAtPoint", "reactions"].includes(action.kind as string)) fail("Only coupled reactions may occur between native substeps.");
+    if (action.kind === "reactions") {
+      if (Object.keys(action).length !== 2 || !Array.isArray(action.values) || action.values.length > 10000) fail("Invalid reaction batch.");
+      const seen = new Set<string>();
+      for (const value of action.values ?? []) {
+        if (!value || Object.keys(value).length !== 3 || seen.has(value.id) || active.get(value.id) !== "dynamic" || activeDefinitions.get(value.id)?.rigidBody?.trigger || !vector(value.impulse) || !vector(value.torque)) fail("Invalid reaction body or vectors.");
+        seen.add(value.id);
+      }
+      continue;
+    }
     if (action.kind === "teleport") {
       if (Object.keys(action).length !== 4 || typeof action.id !== "string" || !activeDefinitions.has(action.id) || typeof action.resetVelocity !== "boolean" || !Object.hasOwn(action, "transform")) fail("Invalid teleport history fields.");
       checks.transform(action.transform as Transform, activeDefinitions.get(action.id as string)!);
@@ -77,16 +102,23 @@ export function preflightPhysicsHistory(
       } else if (!vector(action.value) || (action.kind === "impulseAtPoint" && !vector(action.point))) fail("Invalid history vector.");
       if (action.kind !== "gravity") {
         const type = active.get(action.id as string);
-        if (action.kind === "move" ? type !== "character" : action.kind === "velocity" ? type !== "character" && type !== "dynamic" : type !== "dynamic")
+        if (action.kind === "move" || action.kind === "characterTarget" ? type !== "character" : action.kind === "velocity" ? type !== "character" && type !== "dynamic" : type !== "dynamic")
           fail("History action is incompatible with its body type.");
       }
       continue;
     }
-    steps++;
-    if (Object.keys(action).length !== 5 || ["kind", "dt", "frame", "created", "removed"].some(key => !Object.hasOwn(action, key))) fail("Invalid step fields.");
+    if (Object.keys(action).length !== (action.substep === undefined ? 5 : 6) || ["kind", "dt", "frame", "created", "removed"].some(key => !Object.hasOwn(action, key))) fail("Invalid step fields.");
     if (typeof action.dt !== "number" || !Number.isFinite(action.dt) || action.dt < 1e-6 || action.dt > 1) fail("Invalid physics timestep.");
     if (!Array.isArray(action.removed) || !Array.isArray(action.created) || !Array.isArray(action.frame))
       fail("Lifecycle history is missing a body list.");
+    const part = action.substep;
+    if (part !== undefined) {
+      if (!part || typeof part !== "object" || Object.keys(part).length !== 2 || !Number.isSafeInteger(part.index) || !Number.isSafeInteger(part.count) || part.count < 2 || part.count > 32 || part.index < 0 || part.index >= part.count ||
+          (part.index === 0 ? openSubstep !== undefined : !openSubstep || openSubstep.next !== part.index || openSubstep.count !== part.count || openSubstep.dt !== action.dt)) fail("Invalid or unordered native substep.");
+      if (part.index > 0 && ((action.created as unknown[]).length || (action.removed as unknown[]).length)) fail("Substep repeats lifecycle changes.");
+      if (part.index === part.count - 1) { steps++; openSubstep = undefined; }
+      else openSubstep = { next: part.index + 1, count: part.count, dt: action.dt as number };
+    } else { if (openSubstep) fail("Whole-tick step interrupts substeps."); steps++; }
     const removed = new Set<string>();
     for (const id of action.removed as unknown[]) {
       if (typeof id !== "string" || removed.has(id) || !active.has(id)) fail("Invalid or duplicate removed body.");
@@ -119,7 +151,7 @@ export function preflightPhysicsHistory(
     }
     if (seen.size !== active.size) fail("Lifecycle frame omits an active body.");
   }
-  if (steps !== header.tick || header.entities.length !== active.size) fail("History and snapshot body count or tick differ.");
+  if (openSubstep || steps !== header.tick || header.entities.length !== active.size) fail("History has an incomplete tick or differs from snapshot bodies/tick.");
   const seen = new Set<string>();
   for (const entry of header.entities) {
     if (!entry || typeof entry.id !== "string" || seen.has(entry.id) || !active.has(entry.id) || active.get(entry.id) !== entry.type)

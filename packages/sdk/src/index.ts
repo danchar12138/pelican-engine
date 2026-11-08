@@ -356,7 +356,7 @@ export interface RopeDefinition {
   radius?: number;
   /** Defaults to the host interval; an explicit value must exactly match it. */
   fixedDt?: number;
-  /** When true, step once after each physics phase; defaults to false (manual stepping). */
+  /** Join the shared fixed-tick/substep clock; defaults to false (manual stepping). */
   autoStep?: boolean;
   /** Automatically sample and react to existing dynamic, non-trigger sphere or box bodies. Requires autoStep. */
   bodyColliders?: readonly RopeBodyCollider[];
@@ -486,7 +486,7 @@ export interface ClothDefinition {
   surfaceCollisions?: boolean;
   /** Optional live dynamic non-trigger sphere or box bindings; sampled after the physics phase. */
   bodyColliders?: readonly ClothBodyCollider[];
-  /** Enable approximate split-step, effective-mass contact and delayed reactions to bound bodies. */
+  /** Exchange effective-mass contact reactions with bound bodies within shared substeps. */
   bodyReactions?: boolean;
 }
 export interface ClothContact { tick: number; particle: number; colliderId: string; penetration: number; reactionImpulse?: Vec3; reactionAngularImpulse?: Vec3 }
@@ -543,7 +543,7 @@ export interface FluidDefinition {
   contacts?: boolean; twoWayCoupling?: boolean; gravity?: Vec3; bodyPosition?: Vec3; bodyVelocity?: Vec3;
   visual?: FluidVisualOptions;
   bodyColliders?: readonly FluidBodyCollider[];
-  /** Use approximate split-step effective-mass contacts with delayed reaction impulses; not a unified coupled solve. */
+  /** Exchange effective-mass contact reactions with bound bodies within shared substeps. */
   bodyReactions?: boolean;
 }
 export interface FluidParticle {
@@ -1026,6 +1026,8 @@ export type PhysicsJointDefinition = PhysicsJointBase & (
   | { kind: "spring"; restLength: number; stiffness: number; damping: number }
 );
 export interface PhysicsService {
+  /** Scripted collision-aware character target for the next fixed tick; overrides ordinary movement/gravity for that tick. */
+  moveCharacterTo(entity: string, position: Vec3): void;
   /** Explicit discontinuous relocation; updates native queries and World together. */
   teleport(entity: string, transform: TransformPatch, options?: { resetVelocity?: boolean }): void;
   /** Create a 3D joint between fixed/dynamic bodies, with at least one dynamic endpoint. */

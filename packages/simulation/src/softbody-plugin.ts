@@ -7,9 +7,10 @@ import { createSimulation, type Simulation, type SimulationSnapshot } from "../.
 import { differingSimulationOption } from "./snapshot-options.ts";
 import { nearestParticle } from "./nearest-particle.ts";
 import { stageParticleDomain } from "./coupling-adapters.ts";
+import { createCoupledSchedule } from "./coupled-schedule.ts";
 import { applyParticleForces } from "./particle-forces.ts";
 import { checkColliderBindings, setManualColliders } from "./manual-colliders.ts";
-import { createRopeBodyCoupling, VirtualRopeBox, VirtualRopeSphere, type VirtualRopeCollider } from "./rope-body-coupling.ts";
+import { createRopeBodyCoupling, virtualCollider, type VirtualRopeCollider } from "./rope-body-coupling.ts";
 
 type Entry = { definition: SoftBodyDefinition; simulation: Simulation; uvs: Vec2[]; bodyRef?: EntityHandle };
 type Saved = { definition: SoftBodyDefinition; state: SimulationSnapshot };
@@ -115,8 +116,12 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     applyForces(id, forces) { applyParticleForces(get(id).simulation, forces, "TC_SOFTBODY_INPUT"); },
     destroy(id) { const entry = get(id); entry.simulation.dispose(); entries.delete(id); },
   };
+  const schedule = createCoupledSchedule(() => entries.values(), 6,
+    entry => entry.simulation.snapshot(), (entry, state) => entry.simulation.restore(state),
+    (entry, count, sample) => entry.simulation.coupledTick(count, sample));
   return {
-    id: "$engine.softBodies", version: "1", services: { softBodies: service },
+    id: "$engine.softBodies", version: "1", services: { softBodies: service }, simulation: schedule,
+    requiresRecovery: () => schedule.faulted,
     afterPhysics() {
       alive();
       ensureRefs();
@@ -130,16 +135,18 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
           const sample = syncBinding(entry);
           const binding = entry.definition.bodyColliders?.[0];
           let coupling;
-          if (entry.definition.bodyReactions && binding && sample) {
-            let body = bodies.get(binding.entity);
+          if (binding && sample) {
+            const reactive = entry.definition.bodyReactions ?? false;
+            let body = reactive ? bodies.get(binding.entity) : undefined;
             if (!body) {
-              body = sample.kind === "sphere" ? new VirtualRopeSphere(sample) : new VirtualRopeBox(sample);
-              bodies.set(binding.entity, body);
+              body = virtualCollider(sample, reactive);
+              if (reactive) bodies.set(binding.entity, body);
             }
-            coupling = createRopeBodyCoupling(new Map([["body:0", body]]));
+            coupling = createRopeBodyCoupling(new Map([["body:0", body]]), new Map(), reactive);
           }
-          entry.simulation.step(1, coupling);
-          stageParticleDomain(frame, entry.definition.id, entry.simulation, snapshot, coupling);
+          const view = schedule.next(entry.definition.id, coupling);
+          if (!view) entry.simulation.step(1, coupling);
+          stageParticleDomain(frame, entry.definition.id, entry.simulation, snapshot, coupling, view);
         }
         const batch = [...bodies].map(([entity, body]) => ({ entity, ...body.reaction() }))
           .filter(item => item.impulse.some(value => value !== 0) || item.moment.some(value => value !== 0))
@@ -165,7 +172,7 @@ export const createSoftBodyPlugin: RuntimePluginFactory = context => {
     validateSnapshot(value) { const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(staged); },
     validateWorld(value, world) { const staged = parseSnapshot(value, fixedDt, materials); try { validateSampledBodyWorld(context, world, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_SOFTBODY_SNAPSHOT"); } finally { disposeEntries(staged); } },
     validatePeers(value, peers) { const staged = parseSnapshot(value, fixedDt, materials); try { validateSampledBodyPeers(peers, [...staged.values()].flatMap(entry => entry.definition.bodyColliders ?? []), "TC_SOFTBODY_SNAPSHOT"); } finally { disposeEntries(staged); } },
-    restore(value) { alive(); const staged = parseSnapshot(value, fixedDt, materials); disposeEntries(entries); entries = staged; pendingRefs = true; },
+    restore(value) { alive(); const staged = parseSnapshot(value, fixedDt, materials); schedule.reset(); disposeEntries(entries); entries = staged; pendingRefs = true; },
     dispose() { if (disposed) return; disposed = true; disposeEntries(entries); },
   };
 };
