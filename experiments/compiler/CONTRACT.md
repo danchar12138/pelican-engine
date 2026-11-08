@@ -1,11 +1,5 @@
-# Compiler compatibility entry
+# Internal compiler compatibility paths
 
-The formal implementation is [packages/compiler/src](../../packages/compiler/src/index.ts).
-All experimental TypeScript files are compatibility reexports only.
+The implementation is [packages/compiler/src](../../packages/compiler/src/index.ts). Files here are internal compatibility reexports for contributor regression inputs. They are not another game SDK or an npm authoring entry.
 
-See the [M1 compiler contract](../../packages/compiler/README.md) for system metadata,
-version/path locks, source maps and cache behavior.
-The original [M0 contract](../../packages/compiler/M0-CONTRACT.md) is retained for historical context;
-its update-only and M0-version notes are superseded by the M1 contract.
-
-`compileProject`, `SceneIR`, and the other existing exported symbols remain accessible from these old paths.
+Current design is described in [architecture](../../docs/ARCHITECTURE.md); project configuration and compiler types are defined by implementation source. Games use the installed `pelican-engine` package and `pelican` CLI.

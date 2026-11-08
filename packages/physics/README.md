@@ -1,8 +1,7 @@
 # Rapier 3D runtime plugin
 
 This document describes the 3D plugin. An opt-in independent 2D rigid-body
-service is documented in `docs/npm/GAME-AUTHOR.md`; its behavior and snapshot
-reconstruction are not runtime-validated.
+service is documented in `docs/npm/GAME-AUTHOR.md`. Focused behavior, snapshot and browser regressions exist; they do not establish every device or simulation combination.
 
 Await `createPhysicsFactory()` before constructing a `RuntimeHost`. Initialization and the returned factory are shared across concurrent and subsequent calls. `initPhysics` is an alias; synchronous `createFactory()` requires initialization to have completed. Pass the factory through Host's `plugins` option. Gameplay accesses `ctx.physics` inside scheduled systems; the plugin owns all Rapier objects.
 

@@ -42,13 +42,10 @@ const layout = { ...requestedLayout, root: engineRoot, webRoot: requestedLayout.
 const args = process.argv.slice(2);
 const activeManifest = JSON.parse(
   await readFile(path.join(engineRoot, "engine.manifest.json"), "utf8"),
-) as { milestone: string; stage: string };
+) as { stage: string };
 const defaultProject = layout.installed
   ? process.cwd()
-  : path.join(
-      engineRoot,
-      activeManifest.milestone === "M3" ? "examples/m3" : "examples/m2",
-    );
+  : path.join(engineRoot, "examples/m2");
 const command = args[0] ?? "help";
 const option = (name: string, fallback?: string) => {
   const index = args.indexOf(`--${name}`);

@@ -1,4 +1,4 @@
-# Asset inspection (M2 subset)
+# Asset inspection
 
 `src/index.ts` exports the read-only, offline entry point:
 

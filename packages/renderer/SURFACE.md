@@ -1,6 +1,6 @@
-# M3 Surface 前置实验
+# Surface extraction：内部数据与 CPU 参考
 
-状态：独立 worktree 数据契约与 CPU reference，未集成主线，不代表 M3 完成或 GPU tracing 支持。仅新增 `src/surface.ts`、本文件和 `../../tests/surface.test.ts`；不改 geometry/pathtrace、SDK、依赖、根配置或版本，不提交。后续必须等待 M2 发布后再审查集成。
+当前实现位于 `src/surface.ts`，已用于主线渲染链路。本贡献者说明描述提取数据的不变量，不另行定义产品约束；当前公开能力通过 SDK 类型和 `pelican capabilities` 查询。
 
 ## 私有 API
 

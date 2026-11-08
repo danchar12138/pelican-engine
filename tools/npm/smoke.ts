@@ -197,9 +197,12 @@ try {
       cwd: directory,
       env: offline,
       windowsHide: true,
+      // npm exec starts another Node process. Own its POSIX process group so
+      // shutting down the launcher cannot leave Vite and inherited pipes alive.
+      detached: viaNpm && process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const exited = once(child, "exit");
+    const exited = once(child, "close");
     let stdout = "",
       stderr = "";
     child.stdout.on("data", (chunk) => {
@@ -208,21 +211,25 @@ try {
     child.stderr.on("data", (chunk) => {
       stderr += String(chunk);
     });
+    const killGroup = (signal: NodeJS.Signals) => {
+      try { process.kill(-child.pid!, signal); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; }
+    };
     const stop = async () => {
-      if (child.exitCode === null && child.signalCode === null) {
-        if (viaNpm && process.platform === "win32")
-          await execute(
-            "taskkill.exe",
-            ["/PID", String(child.pid), "/T", "/F"],
-            { timeout: 15_000, windowsHide: true },
-          );
+      if (viaNpm && process.platform !== "win32") killGroup("SIGTERM");
+      else if (child.exitCode === null && child.signalCode === null) {
+        if (viaNpm)
+          await execute("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], { timeout: 15_000, windowsHide: true });
         else child.kill();
       }
-      await withAutomationDeadline(
-        () => exited,
-        15_000,
-        "Installed dev server shutdown",
-      );
+      try {
+        await withAutomationDeadline(() => exited, 15_000, "Installed dev server shutdown");
+      } catch (error) {
+        if (viaNpm && process.platform !== "win32") killGroup("SIGKILL");
+        else child.kill("SIGKILL");
+        child.stdout.destroy(); child.stderr.destroy(); child.unref();
+        throw error;
+      }
     };
     try {
       await withAutomationDeadline(
