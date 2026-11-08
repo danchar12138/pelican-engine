@@ -3,6 +3,7 @@ import path from "node:path";
 
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
+  { id: "external-adapters", anchor: "external-adapters", title: "Workers, transports and managed resources", summary: "Bridge standard module Workers and optional WebSocket messages into fixed-tick systems and versioned rendering resources." },
   { id: "runtime-lifecycle", anchor: "runtime-lifecycle", title: "Per-instance runtime and browser dependencies", summary: "Initialize a browser-only npm module, own resources and save/restore instance-local state." },
   { id: "managed-rendering", anchor: "managed-rendering", title: "Managed geometry and rendering extension", summary: "Build an indexed mesh from arrays and compose a versioned postprocess extension." },
   { id: "pointer-3d", anchor: "pointer-3d", title: "Pointer-controlled 3D game", summary: "Move, aim, spawn and remove physical props, and restart a complete game loop." },
@@ -20,7 +21,7 @@ const recipes = [
   { id: "streaming-world", anchor: "static-world-chunks", title: "Static world chunks", summary: "Load static chunks and build or remove markers." },
 ] as const;
 export const recipeIds: readonly string[] = recipes.map(recipe => recipe.id);
-const extraFiles: Readonly<Record<string, readonly string[]>> = { "runtime-lifecycle": ["browser-counter.ts"] };
+const extraFiles: Readonly<Record<string, readonly string[]>> = { "runtime-lifecycle": ["browser-counter.ts"], "external-adapters": ["palette-client.ts", "palette-worker.ts", "socket-client.ts"] };
 export async function readRecipeFiles(root: string, id: string, installed = false): Promise<Record<string, string>> {
   if (!recipeIds.includes(id)) throw new Error("TC_RECIPE_ID: Unknown recipe; query capabilities for exact IDs.");
   if (installed) {

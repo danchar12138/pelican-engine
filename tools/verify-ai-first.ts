@@ -11,6 +11,7 @@ import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import { npmCommand } from "./doctor.ts";
 import { serveDist } from "./static-server.ts";
 import { recipeIds } from "./npm/recipes.ts";
+import { decode } from "fast-png";
 
 const root = process.cwd(), execute = promisify(execFile);
 const outputIndex = process.argv.indexOf("--output");
@@ -185,6 +186,30 @@ try {
       await command({ type: "step", count: 2 }); return { backend: after.capabilities.backend, diagnostic: rejected.diagnostics[0].code };
     }, fallback));
   } finally { await fallback.close(); }
+  await record("external-worker-managed-render-update", () => game("worker-resource", "external-adapters", async (page, command) => {
+    const label = page.locator('[data-pelican-element="state"]');
+    const until = async (count: number) => {
+      for (let i = 0; i < 100; i++) {
+        await command({ type: "step", count: 1 });
+        if ((await label.innerText()).endsWith(`| ${count}`)) return;
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      throw new Error(`Worker palette did not reach ${count} messages`);
+    };
+    await until(1);
+    const before = decode(await page.locator("canvas:visible").first().screenshot());
+    const saved = await command({ type: "snapshot" });
+    await page.locator('[data-pelican-element="refresh"]').click(); await until(2);
+    const after = decode(await page.locator("canvas:visible").first().screenshot());
+    assert.equal(before.width, after.width); assert.equal(before.height, after.height); assert.equal(before.channels, after.channels);
+    let changed = 0;
+    for (let i = 0; i < before.data.length; i++) if (before.data[i] !== after.data[i]) changed++;
+    assert.ok(changed > 64, `Worker data must visibly update the managed material buffer, changed=${changed}`);
+    await command({ type: "restore", snapshot: saved }); await command({ type: "step", count: 1 });
+    assert.match(await label.innerText(), /\| 1$/);
+    const state = await command({ type: "inspect" }); assert.deepEqual(state.errors, []);
+    return { changedChannels: changed, restored: true, backend: state.backend, moduleWorker: true };
+  }));
   for (const recipe of [...recipeIds.filter(id => !["pointer-3d", "gameplay-loop"].includes(id)), "cloth-sheet", "softbody-ball", "fluid-basin", "rope-reaction"]) {
     await record(`installed-recipe-${recipe}`, () => game(recipe, recipeIds.includes(recipe) ? recipe : "minimal", async (_page, command) => {
       await command({ type: "step", count: 120 }); const snapshot = await command({ type: "snapshot" });
@@ -206,6 +231,22 @@ try {
       assert.ok(label && Math.abs(label.x - 195) < 1 && Math.abs(label.y - 422) < 1, `World UI must use CSS pixels at DPR=2: ${JSON.stringify(label)}`);
       await page.screenshot({ path: path.join(output, "production-mobile-dpr2.png") }); return { ...result, worldUI: label };
     } finally { await context.close(); await server.close(); }
+  });
+  const workerProject = path.join(workspace, "worker-resource"); await run(["build", "--project", workerProject]);
+  await record("production-module-worker-below-base-path", async () => {
+    const server = await serveDist(path.join(workerProject, "dist"), ++port, "/nested/");
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+    try {
+      await page.goto(server.url);
+      await page.waitForFunction(() => document.querySelector('[data-pelican-element="state"]')?.textContent?.endsWith("| 1"), undefined, { timeout: 30000, polling: 100 });
+      await page.locator('[data-pelican-element="refresh"]').click();
+      await page.waitForFunction(() => document.querySelector('[data-pelican-element="state"]')?.textContent?.endsWith("| 2"), undefined, { timeout: 30000, polling: 100 });
+      assert.equal(await page.evaluate(() => !!(globalThis as any).__pelican), false);
+      assert.deepEqual(errors, []);
+      await page.screenshot({ path: path.join(output, "production-worker-mobile.png") });
+      return { basePath: "/nested/", workerReplies: 2, productionControlAbsent: true, errors };
+    } finally { await page.close(); await server.close(); }
   });
 } finally { await browser.close(); }
 console.log(JSON.stringify({ output, workspace, passed: records.length }));

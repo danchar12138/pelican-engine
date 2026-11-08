@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0
+
+- 新增 `createRuntimeAdapter`：普通 Worker、WebSocket 或 npm 客户端通过自己的 send/subscribe/decode 接入，不强制通信协议或内置玩法模型。
+- 明确 owned/borrowed 端点身份、跨实例／编译 SDK 副本的所有权检查、有界消息队列、同步消费、故障诊断及提前释放。外部对象和消息不自动进入存档／确定性回放。
+- `GameRuntimeScope.own(resource, release)` 支持不带 dispose() 的原生或第三方对象；`scope.listen` 随实例管理 EventTarget 监听，支持提前注销、once 和取消。
+- 修复标准模块 Worker 编译链路：保留分包和相对 URL、独立类型检查、源映射及依赖／产物指纹，避免主模块通过但 Worker 文件丢失。
+- 新增完整 `external-adapters` npm 配方：真实 Worker 计算、可选 WebSocket、受管渲染缓冲更新和版本化作者状态，恢复时隔离旧 Worker 请求。
+- 普通 JSON 的非函数 then 字段不再被误认成异步结果；检测不会执行 then getter。
+- 能力目录、AI 起步和扩展指南补齐外部适配路径，清除后端指南中与现行测试规则冲突的历史授权说明。保留 GPU／物理／场景／保存恢复检查，不开放私有对象捷径。
+
 ## 1.4.1
 
 - 精简 README：保留鹈鹕标识，移除渲染实图、多余徽章、长代码和表格，聚焦核心优势、快速开始与 AI 起步。

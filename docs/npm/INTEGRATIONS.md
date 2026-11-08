@@ -13,6 +13,7 @@
 | 数学、压缩、数据结构、规则算法 | 在游戏 package.json 安装普通浏览器兼容 npm 包，正常 import | 游戏作者；要存档的数据放组件或 runtime hooks |
 | 顶层读取 window/document 的浏览器库 | `runtime.create` 内 `await import(...)` | 每实例 `scope.own/defer`，用 `scope.signal` 响应取消 |
 | 第三方输入、网络、音频或设备适配 | runtime 初始化连接，在同步系统中消费已准备数据 | 适配器负责断开监听、连接和释放；外部消息不自动变成确定性回放事件 |
+| Worker／WebSocket／npm 传输组件 | `createRuntimeAdapter`，显式 owned/borrowed，`decode/subscribe/send` 接原组件 | 有界队列、同步 `drain`、监听注销和所有者释放；不强制通信协议 |
 | 程序化网格与常用 PBR 贴图 | `Geometry.kind: "buffer"`、MaterialInput 的 normalMap/roughnessMap/metalnessMap/aoMap/emissiveMap | 引擎复制声明数据并释放所拥有的几何、贴图视图 |
 | 可复用材质、计算或后处理包 | npm 模块导出 `defineRenderExtension` | 版本化声明、受管资源与每实例 runtime；同一保存恢复协议 |
 | 任意 Three.js/TSL/raw GPU 插件 | 尚无通用无损接入协议；查询所需算子、资源与帧阶段的准确缺口 | 不把私有 renderer/device/world 对象当成稳定接口 |
@@ -73,6 +74,26 @@ export function createView() {
 
 清理同步、幂等，按登记逆序执行，包括初始化失败时。`own` 不重复释放同一对象；长请求应使用 signal。实例 `ready` 表示准备完成；浏览器和 `host.stepAsync` 会等待它。状态 hooks 必须成套提供，并只保存有限 JSON；独立对象、闭包、网络连接不能自动序列化。改变保存 schema 时更新 runtime.version，不冒充兼容。
 
+普通组件不必伪装成引擎类。`scope.own(worker, value => value.terminate())`、`scope.own(connection, value => value.close())` 可适配原对象的释放函数；同一资源有不同释放者或被多个实例同时拥有时会拒绝。共享对象应显式借用，而不是重复 own。
+
+`scope.listen(target, "message", listener)` 在实例释放时移除 EventTarget 监听，返回可提前、幂等注销的函数。支持 once、capture、passive 与调用方 AbortSignal；提前注销不会等到场景结束才释放监听引用。初始化失败也执行清理。
+
+## 外部消息与 Worker
+
+`createRuntimeAdapter(scope, {id, version, endpoint, ownership, decode, subscribe, send, release?})` 不要求外部组件实现引擎类，也不规定消息格式。用普通 TypeScript 回调接原来的 Worker、WebSocket、EventSource 或 npm 客户端。`endpoint` 只用于所有权身份检查，不读取其内部字段。
+
+- `owned` 必须提供同步 `release()`；借用对象选择 `borrowed`，不允许设置释放函数，但仍须注销自己安装的监听。
+- `subscribe(receive, fail)` 返回同步 unsubscribe。`decode` 验证／转换未知输入后入队，允许 TypedArray、Map 和自定义结构；它们不会因此自动成为存档数据。
+- 系统在固定 tick 调用 `drain()`，再用普通玩法代码或现有服务消费。适配器不会向异步回调注入 ECS/GPU 对象；作者仍须避免在任意外部回调中直接修改世界。
+- 默认容量 256，可设 1..65536。非法消息、传输异常或溢出进入 faulted，下一次同步操作给出稳定诊断，不静默丢弃并声称成功。容量按消息数量计，不是字节预算或恶意代码沙箱。
+- 销毁后停止接收迟到消息、清空队列、注销监听，且只释放所拥有的端点。提前 dispose 可释放本实例的 ID／所有权，允许重新建立连接。
+
+标准模块 Worker 可直接写 `new Worker(new URL("./worker.ts", import.meta.url), {type:"module"})`，放在 runtime.create 或其 browser-only 模块内。编译器包含 Worker 分包、类型检查、源映射与依赖指纹，生成 URL 相对游戏模块，不要求手写 Blob 脚本或固定部署根路径。外部托管的动态 Worker URL、Node 专用 worker_threads、浏览器 CSP 和安全上下文仍由对应环境决定。
+
+完整 npm 起步配方：`pelican create --template external-adapters`。默认只运行本地 Worker，不依赖网络；可选 `?socket=ws://...` 接作者自己的 WebSocket 服务。配方演示 Worker 结果写入受管缓冲并由版本化渲染扩展使用，不是内置多人同步框架。
+
+外部输入不会自动进入确定性回放。要可复现，应显式记录已接受的数据和消费 tick，并在恢复时取消／隔离旧请求、重新同步外部协议。配方用 epoch 丢弃恢复前的 Worker 回复；任意服务端、连接、重连和权限协议仍需作者适配，不能将网络对象或原始 GPU 对象塞进 JSON 存档。
+
 声明构造仍要能在 Node 中运行。不要在声明层按 window、当前时间、未固定随机数或网络结果生成另一套 ID/组件/系统定义；`TC_GAME_CONSTRUCTION_DRIFT` 会报告构建与运行模块的定义差异。
 
 ## 受管网格、材质与渲染包
@@ -84,6 +105,8 @@ export function createView() {
 `defineRenderExtension({ id, version, systems, materials, assets, computes, postProcesses, computeBuffers, computeTextures, create })` 定义 API v1 的可复用渲染包；通过 `defineGame({ extensions: [...] })` 使用。资源进入现有检查和所有权链路，系统有明确 phase/before/after，后处理通过声明的 frame channels 和前序 pass ID 衔接。每实例 create、清理与保存状态按上面的协议组合，重复 ID、版本冲突和恢复失败有诊断。没有公开 GPUDevice 的隐式所有权转移。
 
 无需物理的项目可显式设置 `services: { physics3d: "disabled" }`，避免载入 3D WASM；有刚体声明时会拒绝冲突。默认 auto 对未知用户 systems 保守准备物理，required 用于显式需求及旧原生 checkpoint 的恢复。
+
+动态数据可以经现有 `ctx.compute.createBuffer/writeBuffer/releaseBuffer`、纹理对应方法和 `ctx.render.buffers/textures` 绑定进入渲染模块；引用、尺寸、有限数值、后端与释放检查仍生效。任意动态网格拓扑替换、原始 GPU 对象互通和完整异步世界流送不是此适配器自动提供的能力。
 
 ## 让编码 AI 找到已有能力
 

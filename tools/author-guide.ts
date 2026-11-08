@@ -115,11 +115,11 @@ export function authorGuide(args: readonly string[]) {
       dependencies:
         "Install dependencies in the game package.json. No algorithm dependency approval list in content: typescript. Legacy static mode is optional compatibility.",
       lifecycle:
-        "Declare system IDs in game.systems. Load browser-only modules asynchronously in runtime.create; scope.own/defer release per-instance resources and scope.signal cancels initialization.",
+        "Declare system IDs in game.systems. Load browser-only modules in runtime.create; own(resource, release) adapts ordinary objects, listen scopes EventTarget subscriptions, defer handles cleanup and signal cancels initialization.",
       state:
         "Use components or versioned snapshot/validateSnapshot/restore hooks for saved state. Third-party objects and closures are not saved automatically.",
       extensions:
-        "Compose engine services with your own gameplay modules, managed geometry, PBR maps and defineRenderExtension. Built-in inventory/quest/dialogue services are optional.",
+        "Compose your own gameplay/npm modules with engine services. createRuntimeAdapter bridges Worker/WebSocket clients through bounded queues with explicit owned/borrowed endpoints. Managed geometry/PBR/buffers/textures and defineRenderExtension retain resource checks. Built-in gameplay services are optional.",
       boundary:
         "Private Three.js/GPU/WASM objects are not a stable ownership contract. Node-only dependencies belong in asset/build tooling. Synchronous system callbacks must not block or return promises.",
     },

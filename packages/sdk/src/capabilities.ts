@@ -7,6 +7,7 @@ const aliases: Readonly<Record<string, readonly string[]>> = {
   "state.json": ["json", "structured state", "结构化状态", "组件数据"],
   "runtime.ecs": ["ecs", "entities", "components", "systems", "events", "实体", "组件", "系统", "事件"],
   "runtime.lifecycle": ["runtime", "lifecycle", "runtime.create", "browser-only", "per-instance", "lazy load", "ownership", "own", "defer", "生命周期", "每实例", "懒加载", "资源所有权", "资源释放"],
+  "runtime.adapters": ["worker", "webworker", "websocket", "transport", "message queue", "external adapter", "network adapter", "Worker", "外部组件", "适配器", "网络适配", "消息队列", "第三方接入"],
   "input.pointer": ["mouse", "touch", "pen", "pointer lock", "鼠标", "触摸", "指针", "指针锁"],
   "input.actions": ["keyboard", "gamepad", "controller", "键盘", "手柄", "输入动作"],
   "render.raster": ["rasterization", "webgl2", "光栅", "渲染"],
@@ -45,6 +46,7 @@ const descriptions: Readonly<Record<string, string>> = {
   "state.json": "组件字段中的有限 JSON 状态，支持分离读写与快照。",
   "runtime.ecs": "通用实体、组件、同步系统、阶段调度和事件。",
   "runtime.lifecycle": "已实现每实例 runtime.create 异步初始化、就绪等待、own/defer 资源所有权与释放，以及显式版本的 JSON 状态钩子。",
+  "runtime.adapters": "普通 Worker、WebSocket 或 npm 组件通过有界消息适配器接入；owned/borrowed 所有权、验证、同步消费、监听和清理有明确契约，不强制外部协议。",
   "input.pointer": "鼠标、触摸、笔、多触点与画布局部指针锁输入。",
   "input.actions": "键盘动作、标准映射手柄与 UI/玩法输入分配。",
   "render.raster": "WebGPU 光栅渲染与 WebGL2 光栅回退。",
@@ -77,6 +79,7 @@ const descriptions: Readonly<Record<string, string>> = {
   "localization.messages": "作者提供的翻译、语言回退、复数和数字格式化。",
 };
 const features: readonly EngineFeature[] = [
+  { id: "runtime.adapters", implementation: "implemented", symbols: ["createRuntimeAdapter", "RuntimeAdapterInput", "RuntimeAdapterOptions", "RuntimeMessageAdapter", "GameRuntimeScope"], backends: ["cpu"], limits: ["Ordinary transports keep their own protocol; synchronous decode validates external messages before fixed-tick drain", "Explicit owned/borrowed endpoint identity; owned resources cannot be simultaneously claimed by multiple instances/adapters", "Queues are bounded by message count, not byte size or CPU time; authors must validate sizes and workload", "External objects/messages are not automatically saved or replayed; versioned runtime hooks and protocol resynchronization remain author responsibilities", "Standard new Worker(new URL('./worker.ts', import.meta.url), {type:'module'}) modules are bundled and fingerprinted; browser security and Worker support still apply", "Dynamic resource updates use managed compute buffers/textures and existing render bindings; no raw engine GPU/physics objects are exposed"], recipes: ["external-adapters"] },
   { id: "content.typescript", implementation: "implemented", symbols: ["defineGame", "defineScene", "defineSystem"], backends: ["cpu"], limits: ["New npm projects select content: typescript; existing manifests default to static", "Ordinary TypeScript, loops, classes, closures and browser-compatible npm packages", "Trusted construction executes in an owned Node process, not a security sandbox", "10s default process deadline, configurable 100..120000ms; 512MiB V8 heap", "Export finite plain declaration data with stable IDs; synchronous runtime systems", "200000 serialized values, 128 levels and 8MiB strings per extraction"], recipes: ["pointer-3d"] },
   { id: "content.libraries", implementation: "implemented", symbols: ["defineSystem", "GameRuntimeDefinition", "GameRuntimeScope"], backends: ["cpu"], limits: ["Algorithm npm packages can be reused directly when compatible with content construction in Node and browser execution", "Load browser-only dependencies inside per-instance runtime.create; content module top-level initialization still executes during Node construction", "Use scope.own/defer for instance-owned cleanup; external object state needs explicit JSON snapshot hooks", "Legacy static mode uses manifest libraries for runtime-only imports", "Private renderer/Three.js/WASM implementation objects are not a stable plugin contract"], recipes: ["runtime-lifecycle"] },
   { id: "input.pointer", implementation: "implemented", symbols: ["PointerState", "GamepadInputService"], backends: ["cpu"], limits: ["Canvas-local CSS pixels; NDC Y-up", "Pointer lock requires a trusted canvas gesture", "At most 16 active mouse/pen/touch contacts"], recipes: ["pointer-3d"] },
@@ -118,7 +121,7 @@ const normalize = (value: string) => value.normalize("NFKC").toLowerCase().trim(
 // Explicit exclusions are not advertised as implemented features. Unknown queries remain distinct.
 const unsupported = [
   { names: ["render.hardware-raytracing", "hardware ray tracing", "hardware rt", "硬件光追", "硬件光线追踪"], reason: "render.path uses compute software BVH tracing, not hardware RT. Use --feature render.path; see packages/sdk/src/capabilities.ts." },
-  { names: ["networking", "multiplayer", "netcode", "联网", "联机", "多人同步"], reason: "No built-in network synchronization framework is implemented. Browser-compatible npm libraries remain available; see docs/CAPABILITIES.md." },
+  { names: ["networking", "multiplayer", "netcode", "联网", "联机", "多人同步"], reason: "No built-in network synchronization framework is implemented. External npm transports remain available: use pelican capabilities --feature runtime.adapters and pelican recipe --id external-adapters. Adapters do not implement multiplayer synchronization or automatic replay." },
   { names: ["async asset streaming", "asynchronous asset streaming", "异步资源流送", "异步资产流送"], reason: "world.streaming manages prefab residency with globally prepared assets. Use --feature world.streaming; see packages/runtime/src/world-streaming.ts." },
 ];
 export function describeFeatures(query = ""): EngineFeature[] {

@@ -20,6 +20,8 @@ Pelican is a single npm package for TypeScript games authored by external coding
 
 Ordinary browser-compatible npm algorithms can be used directly. Load browser-only libraries inside runtime.create. Give each instance its own state; register resource cleanup with scope.own/defer and save state through versioned snapshot/validateSnapshot/restore hooks. No game-runtime language model or mandatory AI platform is required.
 
+Use scope.own(resource, release) for ordinary component objects and scope.listen for scoped EventTarget subscriptions. createRuntimeAdapter accepts an explicit owned/borrowed endpoint and send/subscribe/decode callbacks; drain its bounded queue in a fixed-tick system. The external-adapters recipe includes a real module Worker, optional WebSocket and managed rendering-buffer updates. External inputs are not automatically saved or replayed; keep engine resource checks and explicitly resynchronize external protocols on restore.
+
 Use your own functions, classes, modules, generators and rules alongside engine services. Built-in inventory, quest and dialogue services are optional. This is ordinary TypeScript, not an engine-only DSL. Node-only packages belong in build/asset tooling, not browser runtime.
 
 Use managed geometry, PBR textures, compute resources and defineRenderExtension for supported rendering integration. Arbitrary Three.js, TSL, raw GPU or physics objects are not a stable engine integration contract. Report an exact missing capability instead of silently replacing the renderer or reducing the requested game.

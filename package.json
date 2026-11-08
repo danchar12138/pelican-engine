@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -65,11 +65,13 @@
     "@gltf-transform/functions": "4.5.1",
     "@types/node": "26.6.6",
     "@types/three": "0.187.0",
+    "@types/ws": "8.18.2",
     "@webgpu/types": "0.1.74",
     "playwright": "1.64.1",
     "prettier": "3.6.2",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "vite": "8.3.5"
+    "vite": "8.3.5",
+    "ws": "8.22.2"
   }
 }

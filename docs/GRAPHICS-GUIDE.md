@@ -48,7 +48,7 @@ path/hybrid 将常驻 GPU 数据复制进原生材料表的附加 vec4 区域；
 
 ## 受控 HDR 后处理
 
-通过 `definePostProcess({ id, graph, enabled? })` 声明 vec4 输出图，并在 `defineGame({ postProcesses: [...] })` 中显式排序。系统使用 `ctx.render.effects.configure/state/setParameter/resetHistory`，无需也不能导入 Three.js、GPU 对象或着色器源码。
+通过 `definePostProcess({ id, graph, enabled? })` 声明 vec4 输出图，并在 `defineGame({ postProcesses: [...] })` 中显式排序。系统使用 `ctx.render.effects.configure/state/setParameter/resetHistory`。受管后处理不接收任意 Three.js 或原始 GPU 对象；周围的玩法与算法仍可组合普通 npm 模块。
 
 图支持 `uv`、`screenSize`、`texelSize`、固定时间和已有类型化参数/算术。`sampleFrame` 的 channel 可为 `scene.color`（未曝光/未色调映射的线性 HDR）、`scene.normal`（世界空间着色法线 RGB，命中 alpha=1）或 `scene.depth`（R 为相机到首表面的世界单位距离，未命中 0），也可为更早 pass 的 ID。`sampleHistory` 读取已声明 pass 的上一个成功提交呈现帧；不允许当前帧的前向依赖。
 

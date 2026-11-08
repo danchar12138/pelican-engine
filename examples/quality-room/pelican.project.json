@@ -1,8 +1,8 @@
 {
   "entry": "game.ts",
-  "engineVersion": "1.4.1",
+  "engineVersion": "1.5.0",
   "engine": {
     "path": "../..",
-    "version": "1.4.1"
+    "version": "1.5.0"
   }
 }

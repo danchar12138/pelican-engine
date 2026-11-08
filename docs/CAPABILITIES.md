@@ -10,6 +10,7 @@
 | 普通 TypeScript 内容 | 项目 `content: "typescript"` | 可信的跨 Node/浏览器模块初始化、有限数据、同步系统、构建截止时间 |
 | 旧静态内容 | `content: "static"` 或省略 | 非执行式语法子集与 runtime libraries 配置，仅作兼容/可选入口 |
 | 通用玩法与作者实例 | 组件、系统、runtime.create、scope.own/defer、版本化保存 hooks | 同步系统；异步初始化等待 ready；闭包和第三方对象需要显式 JSON 状态协议 |
+| 外部组件与 Worker | createRuntimeAdapter、scope.own(resource, release)、scope.listen | 有界消息与明确所有权；模块 Worker 分包；不等于内置网络同步、字节沙箱或自动回放 |
 | 图形 | 光栅、混合/路径追踪、受管几何、PBR 贴图、材质/计算/后处理图、API v1 渲染扩展 | compute 依赖 WebGPU；软件 BVH 非硬件光追；不保证所有动态组合或帧率 |
 | 刚体与交互模拟 | physics/physics2d、ropes、cloth、fluid、softBodies | 各服务有不同交互范围；不能等同成熟统一的多物理求解器 |
 | 输入与界面 | 键盘、手柄、指针、UI、音频 | 指针锁和音频解锁需要可信用户交互；实际设备支持需浏览器探测 |

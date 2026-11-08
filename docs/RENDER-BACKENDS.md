@@ -4,7 +4,7 @@
 
 ## 同一公开接口
 
-游戏仍只使用 `pelican-engine`。仓库、ZIP、外部目录和 npm 渠道共用相同声明、编译器和运行时。查询 `game.render.capabilities()` 或系统中的 `ctx.render.capabilities()`：
+游戏的引擎接口从 npm 包 `pelican-engine` 导入，普通浏览器兼容 npm 组件可自由组合，无需克隆引擎源码。系统中查询 `ctx.render.capabilities()`：
 
 ```typescript
 const capabilities = ctx.render.capabilities();
@@ -52,4 +52,4 @@ npm run probe:backends -- --webgl-only
 
 输出 `.pelican/backend-probes/<run>/report.json` 与截图，包括源码指纹、实际 ANGLE/GPU 身份、画面像素检查、三类初始化失败、不可用模式/降噪/计算错误码、两次上下文恢复、重复内容重载，以及两后端都不可用的诊断。默认还复测真实 WebGPU 三模式设备重建。
 
-这些是历史开发专项记录，不构成当前版本的完整图形或硬件验收。WebGPU 与 WebGL2 应分别记录，不用一种后端或软件渲染器代替另一种后端的证据。当前授权只允许编译和构建，历史测量不自动适用于当前源码。
+这些是历史开发专项记录，不构成当前版本的完整图形或硬件验收。WebGPU 与 WebGL2 应分别记录，不用一种后端或软件渲染器代替另一种后端的证据。按当前贡献规范执行适当的测试和实际后端检查；历史测量不自动适用于当前源码。

@@ -720,9 +720,11 @@ export class Extractor {
       const mod = this.module(entry);
       // Every project source is inspected, including imports unused by the bundler.
       for (const sf of this.program.getSourceFiles()) {
+        // A selected SDK nested in the workspace is implementation, not legacy static game content.
+        const sdkRelative = path.relative(path.dirname(this.sdkPath), sf.fileName);
         if (
           sf.isDeclarationFile ||
-          path.resolve(sf.fileName) === path.resolve(this.sdkPath)
+          (!sdkRelative.startsWith("..") && !path.isAbsolute(sdkRelative))
         )
           continue;
         const rel = path.relative(this.projectRoot, sf.fileName);

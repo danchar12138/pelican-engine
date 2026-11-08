@@ -147,6 +147,13 @@ try {
   assert.ok(Buffer.byteLength(JSON.stringify(guide.data)) < 4500);
   const npmGuide = await cli("guide", "--goal", "npm");
   assert.ok(npmGuide.data.discovery.recipes.some((recipe: { id: string }) => recipe.id === "runtime-lifecycle"));
+  const workerGuide = await cli("guide", "--goal", "worker");
+  assert.ok(workerGuide.data.discovery.recipes.some((recipe: { id: string }) => recipe.id === "external-adapters"));
+  const adapterRecipe = await cli("recipe", "--id", "external-adapters");
+  assert.ok(adapterRecipe.data.files["palette-worker.ts"]);
+  assert.ok(adapterRecipe.data.files["socket-client.ts"]);
+  assert.equal((await cli("api", "--symbol", "GameRuntimeScope.listen")).data.total, 1);
+  assert.equal((await cli("api", "--symbol", "createRuntimeAdapter")).data.total, 1);
   const compactCatalog = await cli("capabilities", "--summary", "--limit", "3");
   assert.equal(compactCatalog.data.features.length, 3);
   assert.equal(compactCatalog.data.nextOffset, 3);

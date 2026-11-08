@@ -28,6 +28,10 @@ ECS、组件、同步系统、调度顺序、结构修改、事件、时间、�
 
 `runtime.create` 负责每实例异步初始化，构建只保留版本和调度元数据。作者资源通过 own/defer 逆序释放，状态通过完整的 snapshot/validateSnapshot/restore hooks 进入 Host 的恢复和回放事务。闭包仍不会自动序列化，作者负责完整覆盖状态。浏览器模块在 create 内动态 import；声明仍需能在 Node 构建。构建与浏览器声明指纹不一致时报告 TC_GAME_CONSTRUCTION_DRIFT。
 
+外部能力通过 `createRuntimeAdapter` 接普通传输组件，显式声明端点 owned/borrowed，用 decode 验证后入有界队列，再由同步系统 drain。`own(resource, release)` 不改变第三方对象形状，listen 管理监听生命周期。端点所有权在同一 realm 的编译 SDK 副本间共享，避免场景候选模块重复拥有同一原生对象。异步数据、协议重同步和回放记录不被伪装成引擎已自动处理的内容。
+
+标准模块 Worker 交给 Vite 构建，编译器额外收集其类型程序、模块依赖和分包产物；分包 URL 相对生成的 game.js，输出参与指纹检查。Worker 计算只通过消息传回作者代码，再更新既有受管缓冲／纹理，不直接取得引擎 ECS、物理或 GPU 内部对象。
+
 受控图形计算、材质图、纹理和缓冲绑定是 GPU 扩展面。声明几何支持受管三角网格，材质支持常用 PBR 贴图输入。`defineRenderExtension` API v1 组合这些声明、系统帧阶段和版本化 runtime，资源进入现有诊断、所有权、清理和存档链路。普通 npm 算法不受 DSL 限制；任意 Three.js/TSL 插件及原始 GPU/物理对象仍没有通用接入契约。具体用法见 [INTEGRATIONS](npm/INTEGRATIONS.md)。
 
 ## 图形与物理

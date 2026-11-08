@@ -97,6 +97,7 @@ The contributor repository does not bundle node_modules or browser binaries. npm
 | @types/node | 26.6.6 | MIT | development/build/test |
 | @types/stats.js | 0.17.4 | MIT | development/build/test |
 | @types/three | 0.187.0 | MIT | development/build/test |
+| @types/ws | 8.18.2 | MIT | development/test; local WebSocket server types |
 | @dimforge/rapier3d-compat | 0.12.0 | Apache-2.0 | development/build/test |
 | @types/webxr | 0.5.24 | MIT | development/build/test |
 | @webgpu/types | 0.1.74 | BSD-3-Clause | development/build/test |
@@ -149,5 +150,6 @@ The contributor repository does not bundle node_modules or browser binaries. npm
 | undici-types | 8.9.0 | MIT | development/build/test |
 | uniq | 1.0.1 | MIT | development/build/test |
 | vite | 8.3.5 | MIT | development/build/test |
+| ws | 8.22.2 | MIT | development/test; local WebSocket adapter regression server, not a required game transport |
 
 User game code and user-provided assets retain their own licenses and are not automatically MIT.

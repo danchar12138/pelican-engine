@@ -51,6 +51,8 @@ npx --no-install pelican api --search "TerrainService sculpt" --member
 
 运行实例、browser-only 库、资源释放、状态保存、受管几何与渲染插件的完整接入见 [INTEGRATIONS](INTEGRATIONS.md)。优先查询已有能力再决定第三方实现；未知查询不等于不支持。
 
+Worker、WebSocket 或 npm 组件可查询 `pelican guide --goal worker`，完整配方为 `external-adapters`。使用 `createRuntimeAdapter` 的 owned/borrowed、消息校验和同步 drain 接入原组件；不要为了接入先改引擎源码，也不要取消 GPU、物理或存档检查。
+
 新项目的 `pelican.project.json` 包含 `content: "typescript"` 和精确 `engineVersion`。支持普通循环、类、闭包、可变局部数据、模块和浏览器兼容 npm 依赖，依赖从游戏的 `package.json`/安装目录解析，不用再填 `libraries` 白名单。
 
 构建时模块在独立 Node 进程执行，默认截止 10000ms；可设置 `contentTimeoutMs: 100..120000`。这是可信游戏构建，不是恶意代码安全沙箱。声明导出有限普通数据；实例、Map、Set 可用于构造过程，不能直接作为声明数据输出。系统 `run` 必须同步。

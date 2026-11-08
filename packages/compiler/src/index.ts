@@ -1,5 +1,6 @@
 import { mapSourcePath } from "./source-map.ts";
 import { compilerLayout } from "./distribution.ts";
+import { workerModuleEntries } from "./worker-modules.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,8 +125,19 @@ async function bundle(
   projectRoot: string,
   construction?: import("./extract.ts").ObjectValue,
   engineRoot?: string,
-): Promise<{ code: string; map: string; dependencies: string[] }> {
+): Promise<{ code: string; map: string; dependencies: string[]; files: Record<string, string | Uint8Array> }> {
   const dependencies = new Set<string>();
+  const dependencyPlugin = () => ({
+    name: "pelican-worker-inputs",
+    async load(id: string) {
+      const file = id.split("?")[0];
+      if (path.isAbsolute(file) && await fs.stat(file).then(info => info.isFile()).catch(() => false)) {
+        const relative = engineRoot ? path.relative(engineRoot, file) : "..";
+        if (relative.startsWith("..") || path.isAbsolute(relative) || relative.split(path.sep).includes("node_modules")) dependencies.add(file);
+      }
+      return null;
+    },
+  });
   // Detect declarations which branch on Node/browser globals without running runtime.create.
   // This is a drift checksum, not a security signature. Function bodies belong to the runtime bundle.
   const fingerprintSource = `function fingerprint(value) {
@@ -145,10 +157,14 @@ async function bundle(
     configFile: false,
     envFile: false,
     mode: "production",
+    base: "./",
     root: projectRoot,
     publicDir: false,
     logLevel: "silent",
     resolve: { alias: { "pelican-engine": slash(sdkPath) } },
+    worker: { format: "es", plugins: () => [dependencyPlugin()], rolldownOptions: { output: {
+      sourcemapPathTransform: (source, mapFile) => mapSourcePath(path.resolve(path.dirname(mapFile), source), projectRoot, sdkPath, path, "", engineRoot),
+    } } },
     plugins: [
       {
         name: "pelican-compiled-game",
@@ -217,7 +233,16 @@ async function bundle(
   map.sources = map.sources.map((source) =>
     mapSourcePath(source, projectRoot, sdkPath, path, sourceRoot, engineRoot),
   );
-  return { code: chunk.code, map: JSON.stringify(map), dependencies: [...dependencies] };
+  const files: Record<string, string | Uint8Array> = {};
+  for (const item of items) {
+    if (["game.js", "game.js.map"].includes(item.fileName)) continue;
+    const name = item.fileName;
+    if (!name || name.includes("\\") || name.split("/").some(part => part === ".." || part === "." || !part) || path.posix.isAbsolute(name) || name.includes(":"))
+      throw new Error("TC_CONTENT_OUTPUT_PATH: Bundled worker/resource output must stay inside the generated game directory.");
+    const data = item.type === "chunk" ? item.code : item.source;
+    if (data !== undefined) files[name] = data;
+  }
+  return { code: chunk.code, map: JSON.stringify(map), dependencies: [...dependencies], files };
 }
 /** Typecheck and normalize declarations; trusted TypeScript construction runs in an owned process. */
 export async function compileProject(
@@ -580,8 +605,16 @@ export async function compileProject(
       paths: { "pelican-engine": [slash(layout.types)] },
     };
     const program = ts.createProgram([entry], compilerOptions);
+    const workerEntries = new Set(workerModuleEntries(program));
+    let workerProgram: ts.Program | undefined;
+    while (workerEntries.size) {
+      workerProgram = ts.createProgram([...workerEntries], { ...compilerOptions, moduleDetection: ts.ModuleDetectionKind.Force, lib: ["lib.es2023.d.ts", "lib.webworker.d.ts"] });
+      const discovered = workerModuleEntries(workerProgram).filter(file => !workerEntries.has(file));
+      if (!discovered.length) break;
+      for (const file of discovered) workerEntries.add(file);
+    }
     program.getTypeChecker(); // Bind source parents before source-mapped static extraction.
-    for (const d of ts.getPreEmitDiagnostics(program)) {
+    for (const d of [...ts.getPreEmitDiagnostics(program), ...(workerProgram ? ts.getPreEmitDiagnostics(workerProgram) : [])]) {
       diagnostics.push({
         code: "TC_TS_" + d.code,
         severity:
@@ -668,8 +701,7 @@ export async function compileProject(
       diagnostics.push(...staticExtractor.diagnostics);
       extractor = staticExtractor;
     }
-    const sourceFiles = program
-      .getSourceFiles()
+    const sourceFiles = [...program.getSourceFiles(), ...(workerProgram?.getSourceFiles() ?? [])]
       .filter((sf) => path.resolve(sf.fileName) !== path.resolve(sdkPath));
     const inputMap = new Map(
       initialInputs.map((i) => [i.root + ":" + i.path, i]),
@@ -679,7 +711,7 @@ export async function compileProject(
       const engineRelative = path.relative(engineRoot, sf.fileName);
       const engineOwned = !engineRelative.startsWith("..") && !path.isAbsolute(engineRelative) && !engineRelative.split(path.sep).includes("node_modules");
       if ((!relative.startsWith("..") && !path.isAbsolute(relative)) ||
-          (manifest.content === "typescript" && !program.isSourceFileDefaultLibrary(sf) && !engineOwned)) {
+          (manifest.content === "typescript" && !program.isSourceFileDefaultLibrary(sf) && !workerProgram?.isSourceFileDefaultLibrary(sf) && !engineOwned)) {
         const input = await makeInput(sf.fileName, "project");
         inputMap.set(input.root + ":" + input.path, input);
       }
@@ -770,7 +802,14 @@ export async function compileProject(
         2,
       ),
     };
+    for (const [file, data] of Object.entries(bundled.files)) {
+      if (Object.hasOwn(artifactData, file) || ["build-report.json", ".pelican-cache.json"].includes(file))
+        throw new Error(`TC_CONTENT_OUTPUT_COLLISION: Bundled resource '${file}' conflicts with an engine artifact.`);
+      artifactData[file] = data;
+    }
     for (const asset of normalized.assetCopies as AssetCopy[]) {
+      if (Object.hasOwn(artifactData, asset.output))
+        throw new Error(`TC_CONTENT_OUTPUT_COLLISION: Asset '${asset.output}' conflicts with a bundled resource.`);
       const bytes = await fs.readFile(asset.source);
       if (hash(bytes) !== asset.expectedHash) {
         diagnostics.push({

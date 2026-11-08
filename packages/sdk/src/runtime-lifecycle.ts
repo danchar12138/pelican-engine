@@ -9,6 +9,8 @@ import type {
   SystemDefinition,
 } from "./index.ts";
 import { cloneJsonValue } from "../../schema/src/json-value.ts";
+import { createRuntimeScope } from "./runtime-scope.ts";
+import { isAsyncValue, handleNativeRejection } from "./runtime-async.ts";
 
 /** Internal implementation; public contracts live in index.ts. */
 export function createGameInstance(
@@ -19,38 +21,17 @@ export function createGameInstance(
   let failure: unknown;
   let state: GameRuntimeState = {};
   let bindings: Readonly<Record<string, SystemDefinition["run"]>> = {};
-  const controller = new AbortController();
-  const releases: (() => void)[] = [];
-  const owned = new WeakSet<object>();
+  const resources = createRuntimeScope(engine, game.id);
   const sync = (operation: () => unknown, label: string) => {
     const result = operation();
-    if (
-      result &&
-      (typeof result === "object" || typeof result === "function") &&
-      "then" in result
-    ) {
-      void Promise.resolve(result).catch(() => {});
+    if (isAsyncValue(result)) {
+      handleNativeRejection(result);
       throw new Error(
         `TC_GAME_RUNTIME_ASYNC: ${game.id}/${label} must be synchronous; await dependencies inside runtime.create.`,
       );
     }
   };
-  const cleanup = () => {
-    controller.abort();
-    const errors: unknown[] = [];
-    for (const release of releases.splice(0).reverse()) {
-      try {
-        sync(release, "dispose");
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    if (errors.length)
-      throw new AggregateError(
-        errors,
-        `TC_GAME_RUNTIME_DISPOSE: ${game.id}; inspect cleanup causes and fix the registered release.`,
-      );
-  };
+  const cleanup = () => resources.dispose();
   const assertReady = () => {
     if (status === "disposed")
       throw new Error(
@@ -84,7 +65,7 @@ export function createGameInstance(
     // A late async result still owns resources, even after dispose cancelled initialization.
     if (candidate.dispose) {
       if (status === "disposed") sync(() => candidate.dispose!(), "dispose");
-      else releases.push(() => candidate.dispose!());
+      else resources.scope.defer(() => candidate.dispose!());
     }
     if (status === "disposed")
       throw new Error(
@@ -158,32 +139,8 @@ export function createGameInstance(
       throw new Error(
         `TC_GAME_RUNTIME_CONTRACT: ${game.id}; supply a non-empty version and create(scope).`,
       );
-    const created = game.runtime?.create({
-      engine,
-      signal: controller.signal,
-      defer(release) {
-        if (typeof release !== "function")
-          throw new Error(
-            `TC_GAME_RUNTIME_DISPOSE: ${game.id}; defer expects a release function.`,
-          );
-        if (controller.signal.aborted) sync(release, "dispose");
-        else releases.push(release);
-      },
-      own(resource) {
-        if (!resource || typeof resource.dispose !== "function")
-          throw new Error(
-            `TC_GAME_RUNTIME_DISPOSE: ${game.id}; own expects a disposable resource.`,
-          );
-        if (!owned.has(resource)) {
-          owned.add(resource);
-          if (controller.signal.aborted)
-            sync(() => resource.dispose(), "dispose");
-          else releases.push(() => resource.dispose());
-        }
-        return resource;
-      },
-    });
-    if (created && "then" in created)
+    const created = game.runtime?.create(resources.scope);
+    if (isAsyncValue(created))
       ready = Promise.resolve(created).then(install).catch(failed);
     else {
       install(created);

@@ -2,6 +2,7 @@
 import { describeFeatures } from "./capabilities.ts";
 import { expandRenderExtensions } from "./render-extension.ts";
 import { createGameInstance } from "./runtime-lifecycle.ts";
+import { createMessageBridge } from "./runtime-adapter.ts";
 export interface EngineFeature {
   id: string;
   /** Discovery text and vocabulary; implementation/backend limits still apply. */
@@ -15,7 +16,7 @@ export interface EngineFeature {
 }
 /** Implementation metadata, not runtime hardware acceptance; use ctx.render.capabilities for the active device. */
 export function engineCapabilities(query = ""): EngineFeature[] { return describeFeatures(query); }
-export const SDK_VERSION = "1.4.1";
+export const SDK_VERSION = "1.5.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -1977,6 +1978,38 @@ export interface GameRuntimeScope {
   defer(release: () => void): void;
   /** Transfer ownership of a disposable resource to this instance and return it unchanged. */
   own<T extends { dispose(): void }>(resource: T): T;
+  /** Adapt an ordinary npm/browser object without changing its shape. Borrowed objects should not be owned. */
+  own<T extends object>(resource: T, release: (resource: T) => void): T;
+  /** Remove an EventTarget listener on release; the returned function permits early, idempotent removal. */
+  listen(target: EventTarget, type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): () => void;
+}
+export interface RuntimeAdapterOptions<I, O> {
+  id: string;
+  /** Identity only: the adapter never inspects private fields or serializes the endpoint. */
+  endpoint: object;
+  /** External message protocol version, reported in diagnostics; runtime.version owns save compatibility. */
+  version: string;
+  capacity?: number;
+  /** Validate/map unknown external data. Typed arrays and custom data structures are allowed; this is not a saved-state codec. */
+  decode(value: unknown): I;
+  /** No engine/renderer object is given to callbacks. Return an unsubscribe function, even for borrowed endpoints. */
+  subscribe(receive: (value: unknown) => void, fail: (reason: unknown) => void): () => void;
+  send(value: O): void;
+}
+export type RuntimeAdapterInput<I, O> = RuntimeAdapterOptions<I, O> & (
+  { ownership: "owned"; release(): void } | { ownership: "borrowed"; release?: never }
+);
+export interface RuntimeMessageAdapter<I, O> {
+  send(value: O): void;
+  /** Consume accepted messages at a fixed tick; external messages are not automatically saved or replayed. */
+  drain(limit?: number): I[];
+  clear(): void;
+  inspect(): Readonly<{ id: string; version: string; ownership: "owned" | "borrowed"; state: "active" | "faulted" | "disposed"; capacity: number; queued: number; received: number; sent: number; drained: number; error?: string }>;
+  dispose(): void;
+}
+/** Adapt Worker, WebSocket, EventSource or an ordinary npm transport without forcing a wire protocol. */
+export function createRuntimeAdapter<I, O>(scope: GameRuntimeScope, input: RuntimeAdapterInput<I, O>): RuntimeMessageAdapter<I, O> {
+  return createMessageBridge(scope, input);
 }
 export interface GameRuntimeState {
   systems?: Readonly<Record<string, SystemInput["run"]>>;
