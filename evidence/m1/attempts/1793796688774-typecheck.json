@@ -1,6 +1,0 @@
-{
-  "id": "typecheck",
-  "detail": "Error: Command failed: C:\\Program Files\\nodejs\\node.exe <engine>\\node_modules\\typescript\\bin\\tsc --noEmit\n",
-  "stdout": "tests/browser-contract.test.ts(628,54): error TS18048: 'capture' is possibly 'undefined'.\r\n",
-  "stderr": ""
-}

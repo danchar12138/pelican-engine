@@ -7,7 +7,7 @@ the music bus and `u` restores it; the other voice uses a separate effects bus.
 
 From the repository root, run the automated browser/game probe:
 
-```powershell
+```sh
 node --import tsx tools/audio-pause-game-probe.ts --exclusive-gpu --output .pelican/audio-pause-probe
 ```
 

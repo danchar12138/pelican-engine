@@ -1,8 +1,0 @@
-{
-  "command": "05-copy-existing-game",
-  "intentional": false,
-  "actualExitCode": 1,
-  "cause": "PowerShell expanded a variable in a nested command string, producing an invalid foreach statement before any copy executed.",
-  "fix": "06-copy-existing-game-fixed uses a literal nested command and explicit Copy-Item paths; returned 0.",
-  "engineModified": false
-}

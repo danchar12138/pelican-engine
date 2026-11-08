@@ -31,7 +31,7 @@ The internal physics system leaves its read list unbounded because `World.record
 
 ## Current checkpoints and legacy replay
 
-D61 introduces bounded replay with ABI-pinned v4 checkpoints. After 2048 recorded
+The runtime uses bounded replay with ABI-pinned v4 checkpoints. After 2048 recorded
 operations, capture the full native state and owner metadata as an immutable base
 and retain only the new operation tail. Compaction does not advance time, rebuild
 the active world or reset velocities, contacts, sleep, joints or character state.
@@ -64,7 +64,7 @@ The world owns character controllers. Explicit removal uses `world.removeCharact
 
 Run from the repository root:
 
-```powershell
+```sh
 npm exec -- tsx --test tests/physics.test.ts tests/runtime-host.test.ts tests/rigidbody.test.ts
 npm run typecheck
 npm exec -- prettier --check packages/physics/index.ts packages/physics/README.md tests/physics.test.ts

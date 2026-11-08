@@ -1,4 +1,4 @@
-﻿# Renderer-private resident compute results
+# Renderer-private resident compute results
 
 `createComputeExecutor(device)` implements the private runtime executor hooks and
 `ComputeResidentSource` from `src/compute-view-contract.ts`. Native `GPUBuffer`
@@ -113,9 +113,9 @@ validation, cancellation/timeouts, and cleanup. They inject readback and model
 GPU commands; they do not evaluate WGSL or establish real GPU/rendering/performance
 evidence. The existing 35 executor tests remain the compatibility baseline.
 
-Windows project-local validation command:
+Project-local validation command:
 
-```powershell
+```sh
 .\node_modules\.bin\tsx.cmd --test tests/compute-executor.test.ts tests/compute-resident.test.ts
 ```
 

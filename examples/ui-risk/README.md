@@ -2,7 +2,7 @@
 
 这是公开 SDK 编写的专项场景，验证中文组合输入、选择区间、焦点、世界 UI 投影、遮挡与交互。不是 UI 编辑器，也不是完整 M6 UI 体系。
 
-```powershell
+```sh
 npm run dev -- --project examples/ui-risk --port 4183
 ```
 

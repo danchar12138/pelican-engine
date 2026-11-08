@@ -98,16 +98,14 @@ factory 使用显式布局和 **`createComputePipelineAsync`** 编译/校验，�
 
 默认 CPU 单测，只用 recording fake GPU 验证 host 契约，不当作 WGSL 编译、GPU 正确性或性能证据：
 
-```powershell
+```sh
 node --import tsx --test tests/denoiser.test.ts
 ```
 
 真实 GPU opt-in 与导出 helper 均在同一个 `tests/denoiser.test.ts` 内：
 
-```powershell
-$env:PELICAN_DENOISER_GPU = '1'
-node --import tsx --test tests/denoiser.test.ts
-Remove-Item Env:PELICAN_DENOISER_GPU
+```sh
+node tools/run-with-env.mjs PELICAN_DENOISER_GPU=1 -- node --import tsx --test tests/denoiser.test.ts
 ```
 
 `runDenoiserGpuTest()` 使用已有 TypeScript 将实际模块转为内存中的 ES module，临时 localhost HTTP server + Playwright 加载，无主渲染路径、临时 bundle 文件、外部服务或用户点击。Node 侧 60 秒 deadline 包住初始化、browser launch、GPU probe 和执行；`finally` 关闭自有 browser/server，browser 内 finally 销毁 buffers/device。headless 创建设备失败时自动尝试 headed；两者都带 `--use-angle=d3d11`，不把 ANGLE 参数当作已测得的 WebGPU backend。无硬件时 opt-in 失败而非 skip/软件回退，检查 `isFallbackAdapter === false` 并拒绝显式软件名称。
@@ -122,7 +120,7 @@ Remove-Item Env:PELICAN_DENOISER_GPU
 
 类型与格式复验不改其他文件：
 
-```powershell
+```sh
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/denoiser.ts tests/denoiser.test.ts packages/renderer/DENOISER.md
 ```

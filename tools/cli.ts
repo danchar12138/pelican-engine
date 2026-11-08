@@ -27,7 +27,6 @@ import {
   createMinimalProject,
   prepareInstalledDevProject,
   installedDoctor,
-  writeAuthorEntry,
 } from "./npm/layout.ts";
 import type { ControlCommand } from "../packages/protocol/src/index.ts";
 import {
@@ -93,9 +92,7 @@ async function main() {
           "recipe --id <recipe-id>",
           "api [--symbol <exact-name> | --search <query>] [--limit 20]",
           "setup [--install-browser] [--offline]",
-          layout.installed
-            ? "create [--project <directory>] [--template minimal|<recipe-id>]"
-            : "create [--project <directory>] [--template minimal|<recipe-id>|m2] (m2 assets are source-only)",
+          "create [--project <directory>] [--template minimal|<recipe-id>]",
           "migrate [--project <directory>] [--apply --from <version|unlocked>]",
           "migrate [--project <directory>] --list-backups",
           "migrate [--project <directory>] --restore <backup-name> --expect-current <sha256> --expect-backup <sha256>",
@@ -359,10 +356,10 @@ async function main() {
   if (command === "create") {
     const template = option("template", "minimal");
     if (
-      !["minimal", ...recipeIds, ...(!layout.installed ? ["m2"] : [])].includes(template!)
+      !["minimal", ...recipeIds].includes(template!)
     )
       throw new Error(
-        "TC_CREATE_TEMPLATE: Use minimal or a recipe ID from capabilities; m2 assets are source-only.",
+        "TC_CREATE_TEMPLATE: Use minimal or a recipe ID from capabilities.",
       );
     if (template === "minimal" || recipeIds.includes(template!)) {
       const source = template === "minimal" ? undefined : await readRecipe(engineRoot, template!, layout.installed);
@@ -391,43 +388,6 @@ async function main() {
       );
       return;
     }
-    try {
-      await access(projectRoot);
-      throw new Error(
-        "TC_CREATE_EXISTS: Choose a new directory; existing files are never overwritten.",
-      );
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    }
-    await cp(path.join(engineRoot, "examples/m2"), projectRoot, {
-      recursive: true,
-      filter: (source) =>
-        !source.split(path.sep).includes(".pelican") &&
-        !source.split(path.sep).includes("dist"),
-    });
-    const manifestPath = path.join(projectRoot, "pelican.project.json");
-    const manifest = JSON.parse(
-      await readFile(manifestPath, "utf8").catch(() => "{}"),
-    );
-    manifest.engine = {
-      path: path.relative(projectRoot, engineRoot).split(path.sep).join("/"),
-      version: SDK_VERSION,
-    };
-    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-    await writeAuthorEntry(projectRoot, engineRoot);
-    emit(
-      envelope(
-        "succeeded",
-        {
-          project: path.basename(projectRoot),
-          engineVersion: manifest.engine.version,
-          template,
-        },
-        [],
-        ["game.ts", "pelican.project.json", "AGENTS.md"],
-      ),
-    );
-    return;
   }
   if (
     ["check", "compile", "build", "dev", "capture", "optimize"].includes(

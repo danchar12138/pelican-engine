@@ -1,4 +1,4 @@
-﻿# Render buffer CPU owner
+# Render buffer CPU owner
 
 `src/render-buffers.ts` owns material storage-buffer slots behind the public
 `render.buffers.bind(material, slot, handle)`, `unbind(material, slot)` and
@@ -125,7 +125,7 @@ and disposed failures.
 
 ## Focused verification (D49)
 
-```powershell
+```sh
 node_modules/.bin/tsx.cmd --test tests/render-buffers.test.ts tests/render-settings.test.ts tests/material-parameters.test.ts tests/postprocess-owner.test.ts
 node_modules/.bin/tsc.cmd --ignoreConfig --noEmit --strict --target ES2023 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@webgpu/types --lib ES2023,DOM,DOM.Iterable packages/runtime/src/render-buffers.ts packages/runtime/src/render-settings.ts tests/render-buffers.test.ts
 ```

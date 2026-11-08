@@ -1,4 +1,4 @@
-﻿# Asset inspection (M2 subset)
+# Asset inspection (M2 subset)
 
 `src/index.ts` exports the read-only, offline entry point:
 
@@ -189,7 +189,7 @@ returns no partial metadata. Binary inspection intentionally validates no format
 
 From the worktree root, with the existing read-only dependency junction:
 
-```powershell
+```sh
 node node_modules/prettier/bin/prettier.cjs --write packages/assets tests/assets.test.ts
 node --import tsx --test tests/assets.test.ts
 node node_modules/typescript/bin/tsc --noEmit

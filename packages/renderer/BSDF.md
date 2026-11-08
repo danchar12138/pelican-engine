@@ -179,7 +179,7 @@ L = reflect(-V, Hworld)
 
 Default, CPU only (does not require a browser or adapter):
 
-```powershell
+```sh
 node --import tsx --test tests/bsdf.test.ts
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/bsdf.ts tests/bsdf.test.ts packages/renderer/BSDF.md
@@ -198,10 +198,8 @@ conductor at roughness 1, normal view, the independent exact reference is
 
 Optional **actual hardware WebGPU** compilation and numeric readback:
 
-```powershell
-$env:PELICAN_BSDF_GPU='1'
-node --import tsx --test tests/bsdf.test.ts
-Remove-Item Env:PELICAN_BSDF_GPU
+```sh
+node tools/run-with-env.mjs PELICAN_BSDF_GPU=1 -- node --import tsx --test tests/bsdf.test.ts
 ```
 
 The test starts an independent in-memory HTTP server on a random loopback port,

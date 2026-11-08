@@ -50,7 +50,7 @@ Subsequent snapshots containing the same proven triangle may skip that vector/no
 
 Executed in the independent worktree on 2026-11-04 with Node v24.15.0 / Three 0.187.0:
 
-```powershell
+```sh
 node node_modules/typescript/bin/tsc --noEmit
 node --import tsx --test tests/surface.test.ts tests/acceleration.test.ts tests/surface-cache.test.ts tests/surface-gpu.test.ts tests/bsdf.test.ts tests/denoiser.test.ts tests/render-settings.test.ts
 node --import tsx --test tests/texture-pixels.test.ts

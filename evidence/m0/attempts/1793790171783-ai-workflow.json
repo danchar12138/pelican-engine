@@ -1,8 +1,0 @@
-{
-  "id": "ai-workflow",
-  "status": "failed",
-  "recordedAt": "2026-11-04T11:02:51.783Z",
-  "detail": "AssertionError [ERR_ASSERTION]: AI validation must refer to current executable sources and lockfiles\n+ actual - expected\n\n+ '4107b19342a5cf339fc2cbf0071b03b3232bc04b04ed058e548bb30130b2ac26'\n- '8b0632d40dc7f1f993fbecb8fee6484d0aed11462730640ea7acd8ac9652c347'\n",
-  "stdout": "",
-  "stderr": ""
-}

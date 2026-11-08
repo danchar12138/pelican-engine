@@ -10,7 +10,7 @@ export interface EngineFeature {
 }
 /** Implementation metadata, not runtime hardware acceptance; use ctx.render.capabilities for the active device. */
 export function engineCapabilities(query = ""): EngineFeature[] { return describeFeatures(query); }
-export const SDK_VERSION = "1.1.0";
+export const SDK_VERSION = "1.2.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -168,7 +168,7 @@ export interface Physics2DCharacterOptions {
   offset?: number;
   /** Optional downward snap distance; defaults to disabled. */
   snapToGround?: number;
-  /** Maximum climbable slope angle in radians; defaults to π/4. */
+  /** Maximum climbable slope angle in radians; defaults to 蟺/4. */
   maxSlope?: number;
 }
 export interface Physics2DCharacterState {
@@ -328,7 +328,7 @@ export interface TilemapService {
   setTilesAndSyncWorld(id: string, updates: readonly TilemapUpdate[], options: TilemapWorldSyncOptions): void;
   inspect(id: string): TilemapState;
   visuals(): readonly TilemapVisualState[];
-  /** Read one 32×32 presentation chunk, including its current revision. */
+  /** Read one 32脳32 presentation chunk, including its current revision. */
   readChunk(id: string, x: number, y: number): TilemapChunkState;
   destroy(id: string): void;
 }
@@ -390,7 +390,7 @@ export interface RopeDefinition {
 /** Sampled-collider contact from the most recently completed rope tick. */
 export interface RopeContact {
   tick: number; particle: number; colliderId: string; penetration: number;
-  /** Opposite of particle contact impulses, N·s; absent in older snapshots. */
+  /** Opposite of particle contact impulses, N路s; absent in older snapshots. */
   reactionImpulse?: Vec3;
   /** Angular impulse about the world origin; absent in older snapshots. */
   reactionAngularImpulse?: Vec3;
@@ -430,7 +430,7 @@ export interface RopeState {
   maxDistanceError: number;
   resources: { particles: number; constraints: number; anchors: number; colliders: number };
 }
-/** Particle-indexed impulse in N·s for rope and cloth. */
+/** Particle-indexed impulse in N路s for rope and cloth. */
 export interface IndexedParticleImpulse { index: number; impulse: Vec3 }
 /** Nearest indexed particle centre in world space. */
 export interface IndexedParticleHit { index: number; position: Vec3; distance: number }
@@ -579,7 +579,7 @@ export interface FluidState {
 export interface FluidVisualState {
   id: string; material: string; particles: FluidParticle[]; castShadow: boolean; receiveShadow: boolean;
 }
-/** A single particle impulse in N·s; particle IDs are returned by inspection. */
+/** A single particle impulse in N路s; particle IDs are returned by inspection. */
 export interface SimulationImpulse { particle: string; impulse: Vec3 }
 /** Force in newtons, applied to one particle for the next fixed tick. */
 export interface SimulationForce { particle: string; force: Vec3 }
@@ -1992,7 +1992,7 @@ export function defineSystem(input: SystemInput): SystemDefinition {
 export function defineGame(input: GameInput): GameDefinition {
   return { ...input, kind: "game" };
 }
-/** Runtime wrapper used by compiled game.js. Source declarations are never imported by the compiler. */
+/** Runtime wrapper used by compiled game.js. Construction is extracted statically or evaluated in an owned compiler process. */
 export function instantiateGame(
   game: GameDefinition,
   engine: EngineFacade,

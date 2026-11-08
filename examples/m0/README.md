@@ -4,7 +4,7 @@ This directory is a complete input project for the implemented compileProject fu
 
 From the engine root, with the root dependencies installed:
 
-```powershell
+```sh
 npx tsx -e "import {compileProject} from './experiments/compiler/index.ts'; compileProject({projectRoot:'examples/m0',outDir:'.pelican/compiled'}).then(r=>{console.log(JSON.stringify(r.report,null,2));if(!r.success)process.exitCode=1})"
 ```
 

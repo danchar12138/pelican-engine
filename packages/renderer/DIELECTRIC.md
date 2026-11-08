@@ -1,4 +1,4 @@
-﻿# Independent dielectric surface reference
+# Independent dielectric surface reference
 
 Status: isolated CPU + binding-free WGSL reference; no main renderer, SDK, path shader,
 surface, dependency, or opaque BSDF integration. Passing this module does not complete M3.
@@ -230,12 +230,11 @@ Timeout/fallback failure paths have not been fault-injected; ordinary cleanup ra
 
 Reproduce from this worktree, PowerShell (no dependency installation):
 
-```powershell
-node node_modules/typescript/bin/tsc --noEmit
-node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/dielectric.ts tests/dielectric.test.ts packages/renderer/DIELECTRIC.md
-node node_modules/tsx/dist/cli.mjs --test tests/dielectric.test.ts
-$env:PELICAN_DIELECTRIC_GPU = '1'
-node node_modules/tsx/dist/cli.mjs --test tests/dielectric.test.ts
+```sh
+node tools/run-with-env.mjs PELICAN_DIELECTRIC_GPU=1 -- node node_modules/typescript/bin/tsc --noEmit
+node tools/run-with-env.mjs PELICAN_DIELECTRIC_GPU=1 -- node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/dielectric.ts tests/dielectric.test.ts packages/renderer/DIELECTRIC.md
+node tools/run-with-env.mjs PELICAN_DIELECTRIC_GPU=1 -- node node_modules/tsx/dist/cli.mjs --test tests/dielectric.test.ts
+node tools/run-with-env.mjs PELICAN_DIELECTRIC_GPU=1 -- node node_modules/tsx/dist/cli.mjs --test tests/dielectric.test.ts
 ```
 
 Remaining integration work belongs to the mainline: medium state, surface/material

@@ -1,8 +1,0 @@
-{
-  "affected-regressions.log": "c8137ee34723f1137ceb5074a8b8811a4f3f6d0ec1f89eaff327293b7a5cbce3",
-  "character-checkpoint-before-fix.log": "b877669211fd3538c6b0bdc9ae5ed937fc78e46b805d4f13e3dbbc703722f6cf",
-  "ci-run-42468102029-failed.log": "175a17681761913c96bbc67bc0e1d9b25b737712d6628f8b1e781c0052911e33",
-  "distribution-tests.log": "913ecd74cdc14e0d7c62d2d83d623746b07375659381c2d87f7aedeeec662d72",
-  "source-fingerprint.json": "b23e2577652cbcf9caed728aa89afbe3fbe81ab00b7d6c400d4cec76b51a1bfc",
-  "summary.json": "77060c22c7a75e215a51d54369f0d541fee7b0c4ef9e529800a789f1d70e6d57"
-}

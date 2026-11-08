@@ -1,1 +1,0 @@
-TypeScript strict check passed.

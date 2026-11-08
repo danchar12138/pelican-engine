@@ -1,7 +1,0 @@
-const fs=require('node:fs'),p=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');const root=p.resolve(__dirname,'..'),src=p.join(root,'外部游戏 空格/dist'),dest=p.join(root,'deployment/arcade/fox-freight');
-fs.mkdirSync(dest,{recursive:true});fs.cpSync(src,dest,{recursive:true});
-const manifest=[];function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,e.name);if(e.isDirectory())walk(f);else{const content=fs.readFileSync(f);manifest.push({path:p.relative(dest,f).split(p.sep).join('/'),bytes:content.length,sha256:crypto.createHash('sha256').update(content).digest('hex')});}}}walk(dest);
-assert.ok(manifest.some(x=>x.path==='index.html'));assert.ok(manifest.some(x=>x.path.endsWith('.glb')));assert.ok(manifest.some(x=>x.path.startsWith('assets/')&&x.path.endsWith('.js')),'packaged runtime; embedded Rapier compat verified by browser physics');
-fs.mkdirSync(p.join(__dirname,'build-output'),{recursive:true});fs.writeFileSync(p.join(__dirname,'build-output/manifest.json'),JSON.stringify(manifest,null,2));
-for(const f of ['generated/build-report.json','generated/version.json','generated/asset-notices.json','generated/scene.ir.json','compression-manifest.json','threecat-build.json']){if(fs.existsSync(p.join(src,f)))fs.copyFileSync(p.join(src,f),p.join(__dirname,'build-output',p.basename(f)));}
-console.log(JSON.stringify({standaloneRoot:p.relative(root,dest),files:manifest.length,totalBytes:manifest.reduce((n,f)=>n+f.bytes,0)},null,2));

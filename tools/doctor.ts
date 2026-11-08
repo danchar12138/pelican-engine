@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { homedir, cpus, totalmem, type as osType, release, arch } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -489,18 +489,6 @@ export function parseNvidiaSmi(stdout: string): NvidiaGpu[] {
   });
 }
 
-const cimScript = `
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$inventory = @{
- computer = Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model,TotalPhysicalMemory
- os = Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture
- cpus = @(Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed)
- gpus = @(Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,AdapterRAM)
-}
-$inventory | ConvertTo-Json -Depth 6 -Compress
-`;
-
 async function browserInfo(
   projectRoot: string,
   diagnostics: Diagnostic[],
@@ -566,25 +554,14 @@ export async function doctor(
       return { exitCode: null, stdout: "", failure: "failed" };
     }
   };
-  if (process.platform !== "win32")
-    diagnostics.push(
-      diagnostic(
-        "TCENV_PLATFORM_UNSUPPORTED",
-        "error",
-        "The development toolchain currently supports Windows.",
-        "Run development checks on Windows; this is not a player browser restriction.",
-      ),
-    );
   const npm = npmCommand(projectRoot);
   const [cim, nvidia, npmVersion, git, dependencies, browser] =
     await Promise.all([
-      safeRun("powershell.exe", [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        cimScript,
-      ]),
+      Promise.resolve({ exitCode: 0, stdout: JSON.stringify({
+        computer: { Manufacturer: null, Model: null, TotalPhysicalMemory: totalmem() },
+        os: { Caption: osType(), Version: release(), BuildNumber: null, OSArchitecture: arch() },
+        cpus: cpus().map(cpu => ({ Name: cpu.model, MaxClockSpeed: cpu.speed })), gpus: [],
+      }) } as CommandResult),
       safeRun("nvidia-smi", [
         "--query-gpu=name,driver_version,memory.total",
         "--format=csv,noheader,nounits",
@@ -609,9 +586,9 @@ export async function doctor(
       diagnostics.push(
         diagnostic(
           "TCENV_CIM_INVALID",
-          "error",
-          "Windows returned an incomplete or invalid hardware inventory.",
-          "Retry doctor; verify the Windows CIM service is available.",
+          "warning",
+          "Optional machine inventory is incomplete.",
+          "Rendering capabilities are measured in the browser.",
         ),
       );
     }
@@ -619,9 +596,9 @@ export async function doctor(
     diagnostics.push(
       diagnostic(
         "TCENV_CIM_UNAVAILABLE",
-        "error",
-        "Windows CIM inventory could not be collected.",
-        "Retry doctor with PowerShell and the local CIM service available; no administrator installation is performed.",
+        "warning",
+        "Optional machine inventory could not be collected.",
+        "Rendering capabilities are measured in the browser.",
       ),
     );
   let nvidiaGpus: NvidiaGpu[] = [];
@@ -723,7 +700,7 @@ export async function doctor(
     },
   };
   return sanitizeReport(
-    envelope(options.taskId ?? "M0-00-environment", diagnostics, data),
+    envelope(options.taskId ?? "environment", diagnostics, data),
     projectRoot,
   );
 }
@@ -814,7 +791,7 @@ if (isDirectInvocation(import.meta.url)) {
   } catch {
     await printReport(
       envelope(
-        "M0-00-environment",
+        "environment",
         [
           diagnostic(
             "TCENV_ARGUMENT_OR_INTERNAL_ERROR",

@@ -1,2 +1,0 @@
-threecat M0 runtime uses Three.js (MIT). Copyright 2010-2026 three.js authors.
-See the Three.js source LICENSE distributed with the source release.

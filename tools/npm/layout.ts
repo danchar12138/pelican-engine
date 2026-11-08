@@ -162,13 +162,13 @@ export async function writeAuthorEntry(
     [
       "# Pelican Engine Game Author",
       "",
-      "Work only in this game project. Use named imports from pelican-engine and project-local modules.",
+      "Work in this game project. Import the public SDK from pelican-engine; organize local modules and browser-compatible npm dependencies normally.",
       `Read [game-author workflow](${docs}/npm/GAME-AUTHOR.md),`,
       `[game recipes](${docs}/npm/RECIPES.md), [API reference](${docs}/api/REFERENCE.md), and [API index](${docs}/api/index.json).`,
       "Use the engine's JSON CLI protocol for checks, builds, browser controls and capture.",
       "Start with pelican capabilities, pelican api --search <query>, and pelican recipe --id <id>. Create complete starter games with pelican create --template <recipe-id>.",
-      "Content helpers are bounded pure functions; gameplay runs in systems. Read runtime diagnostics causeCodes/tick/stage and never assume compilation establishes runtime behavior.",
-      "Do not edit engine internals or node_modules. Do not run engine milestone/evidence/release workflows.",
+      "Content uses ordinary trusted TypeScript (content: typescript); legacy static mode is opt-in. Browser-compatible dependencies use normal npm resolution. Gameplay runs in synchronous systems. Read runtime diagnostics causeCodes/tick/stage and never assume compilation establishes runtime behavior.",
+      "Install pelican-engine from npm. Modify this game project and its dependencies; engine contributors work in a separate repository.",
       "",
     ].join("\n"),
     { flag: "wx" },
@@ -194,12 +194,8 @@ export async function createMinimalProject(
       {
         entry: "game.ts",
         engineVersion: SDK_VERSION,
-        engine: {
-          version: SDK_VERSION,
-          ...(!installed
-            ? { path: path.relative(root, engineRoot).replaceAll("\\", "/") }
-            : {}),
-        },
+        content: "typescript",
+        ...(!installed ? { engine: { path: path.relative(root, engineRoot).replaceAll("\\", "/") } } : {}),
       },
       null,
       2,
@@ -229,7 +225,7 @@ export default defineGame({ id: "game", scene, systems: [spin] });
   try {
     await writeFile(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: {
       target: "ES2023", module: "ESNext", moduleResolution: "Bundler", strict: true, noEmit: true,
-      skipLibCheck: true, allowImportingTsExtensions: true, types: [], lib: ["ES2023"],
+      skipLibCheck: true, allowImportingTsExtensions: true, types: [], lib: ["ES2023", "DOM", "DOM.Iterable"],
       ...(!installed ? { paths: { "pelican-engine": [path.relative(root, path.join(engineRoot, "packages/sdk/src/index.ts")).replaceAll("\\", "/")] } } : {}),
     }, include: ["**/*.ts"], exclude: ["node_modules", "dist", ".pelican"] }, null, 2) + "\n", { flag: "wx" });
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }

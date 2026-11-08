@@ -1,6 +1,6 @@
 # Compute texture executor
 
-The frozen boundary is `docs/tasks/M3-COMPUTE-TEXTURES.md`. This executor accepts
+The frozen boundary is `docs/ARCHITECTURE.md`. This executor accepts
 named `request.textures` matching `kernel.textures`. A texture descriptor has
 `type: "vec4"`, `texture: { width, height }`, and exactly `width * height` packed
 values. Buffer and sampled texture bindings are checked separately. Texture

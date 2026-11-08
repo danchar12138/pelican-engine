@@ -1,6 +1,0 @@
-{
-  engineFilesModified: false,
-  differences: [],
-  files: 191,
-  noGit: true
-}

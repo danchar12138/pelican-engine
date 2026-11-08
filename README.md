@@ -1,79 +1,34 @@
-<div align="center">
-  <img src="docs/assets/pelican-mark.svg" alt="Pelican Engine" width="120" height="120">
-  <h1>Pelican Engine</h1>
-  <p><strong>用 TypeScript 构建面向 Web 的游戏。</strong></p>
-  <p>代码优先 · WebGPU 优先 · 外部 AI 游戏开发协议</p>
-  <p>
-    <a href="https://www.npmjs.com/package/pelican-engine"><img src="https://img.shields.io/npm/v/pelican-engine?label=npm&amp;color=168b80" alt="npm version"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24536b" alt="MIT license"></a>
-    <img src="https://img.shields.io/badge/TypeScript-SDK-3178c6" alt="TypeScript SDK">
-    <img src="https://img.shields.io/badge/rendering-WebGPU%20%7C%20WebGL2-337d82" alt="WebGPU and WebGL2 rendering">
-  </p>
-  <p><a href="#快速开始">快速开始</a> · <a href="docs/GETTING-STARTED.md">使用指南</a> · <a href="docs/api/REFERENCE.md">API 参考</a> · <a href="docs/STATUS.md">当前状态</a> · <a href="#参与开发">参与开发</a></p>
-</div>
+# Pelican Engine
 
----
-
-Pelican Engine 是一个开源、代码优先的游戏引擎。它提供 TypeScript SDK、编译器、运行时、渲染器和命令行工具，由外部 AI 通过公开代码与结构化工具协议定义场景、材质和玩法，再构建可部署的 Web 游戏。人提供需求、约束和反馈；**游戏运行时不内置大模型或 AI 智能体**。
-
-> **1.1 AI 优先稳定化**：修复生命周期、模拟耦合、长会话与存读档问题，补齐指针、内容生成、结构化状态和 AI 工具协议；当前批次的真实测试与已知边界见 [研发状态](docs/STATUS.md) 和 [1.1.0 证据](evidence/ai-first/1.1.0-2026-11-08/summary.json)。历史 1.0 曾仅完成编译与构建，版本号不代表全部能力清单已验收。
-
-## ✨ 能做什么
-
-- **以 TypeScript 定义游戏**：通过 `pelican-engine` 的公开接口组织场景、实体、材质和玩法系统。
-- **面向现代 Web 渲染**：优先使用 WebGPU；不可用时通过 Three.js 内置机制尝试 WebGL2 光栅回退。依赖计算能力的功能不可用时会返回诊断，不静默冒充支持。
-- **渲染与图形扩展**：已有光栅、混合光追和路径追踪研发实现，以及受控材质、后处理和计算接口；具体支持边界见 [能力说明](docs/CAPABILITIES.md) 和 [渲染后端](docs/RENDER-BACKENDS.md)。
-- **从游戏到静态构建**：命令行提供开发服务、构建与结构化诊断；游戏构建输出到 `dist/`，可交给普通 Web 服务器。
-- **AI 友好的代码工作流**：公开 API、错误信息和项目文档可供外部编码工具使用；不要求游戏玩家使用 AI 服务。
-
-## 🚀 快速开始
-
-准备 Node.js **24.x** 和 npm，在一个新的空目录中运行：
+这是 **Pelican Engine 的引擎研发仓库**，面向维护 SDK、运行时、渲染器、编译器和开发工具的贡献者。制作游戏请在独立目录安装 npm 包，无需下载、克隆或构建此仓库。
 
 ```sh
-mkdir my-pelican-game
-cd my-pelican-game
+mkdir my-game
+cd my-game
 npm --prefix . install --save-dev --save-exact pelican-engine
 npx pelican dev
 ```
 
-首次启动时，CLI 会在符合条件的空项目中生成 `game.ts`、`pelican.project.json` 和游戏开发说明；已有项目文件不会被覆盖。安装命令中的 `--prefix .` 用于避免 npm 意外选择父级项目。停止开发服务后，构建游戏：
+游戏开发 AI 从 [npm 游戏开发入口](docs/npm/GAME-AUTHOR.md) 开始。完整引擎构建产物由 `pelican-engine` npm 单包分发，CLI 为 `pelican`。
+
+## 维护引擎
+
+使用 Node.js 24 和 npm。开发工具面向 Windows、macOS、Linux，采用 Node API 和平台无关命令。浏览器图形能力通过运行时探测；Node 可移植性不等于每台设备都支持 WebGPU。
 
 ```sh
-npx --no-install pelican build
-```
-
-将生成的 `dist/` 内容部署到 HTTP(S) 静态网站。示例、项目结构、外部目录和部署说明见 [快速入门](docs/GETTING-STARTED.md)；完整游戏开发入口见 [Game Author 指南](docs/npm/GAME-AUTHOR.md)。
-
-> 命令采用通用 npm / Node 写法，不绑定特定 shell。**引擎开发与游戏开发目前仅以 Windows 为支持范围**；Linux 和 macOS 的开发流程尚未承诺或验证。玩家端不按操作系统或浏览器品牌设白名单，而是检测实际图形能力。详见 [后端说明](docs/RENDER-BACKENDS.md)。
-
-## 📚 文档导航
-
-| 我想…… | 从这里开始 |
-| --- | --- |
-| 安装引擎、创建游戏或使用源码开发游戏 | [快速入门](docs/GETTING-STARTED.md) |
-| 查看公开类型和接口 | [API 参考](docs/api/REFERENCE.md) · [API 索引](docs/api/index.json) |
-| 复制玩法与界面入门配方 | [游戏开发配方](docs/npm/RECIPES.md) |
-| 了解能力、限制和后续计划 | [当前状态](docs/STATUS.md) · [能力说明](docs/CAPABILITIES.md) · [研发计划](docs/ROADMAP.md) |
-| 了解后端选择和诊断 | [渲染后端](docs/RENDER-BACKENDS.md) |
-| 让外部 AI 使用引擎制作游戏 | [Game Author 指南](docs/npm/GAME-AUTHOR.md) |
-| 修改引擎或准备发布 | [参与开发](CONTRIBUTING.md) · [发布说明](docs/RELEASING.md) |
-
-仓库也保留历史使用文档、实验和证据；它们对应各自记录的旧版本，不代表当前源码已经通过同样的检查。
-
-## 🛠️ 参与开发
-
-引擎源码采用 MIT 许可证。想要研究实现、贡献修复或从源码启动示例，可克隆仓库并安装锁定依赖：
-
-```sh
-git clone https://github.com/danchar12138/pelican-engine.git
-cd pelican-engine
 npm ci
-npm run dev
+npm run typecheck
+npm test
+npm run distribution:pack
+npm run distribution:test
 ```
 
-源码方式与 npm 方式共用公开 SDK；一般制作游戏推荐先使用 npm，只有需要研究或维护引擎时才需要源码。详细的源码工作流、当前编译约束和贡献边界见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+`packages/` 是引擎源码；`tools/` 是编译、打包和维护工具；`tests/` 是功能与边界回归；`examples/` 是贡献者使用的集成夹具和 npm 配方源。源码示例不是游戏作者的安装途径。
 
-## 📄 许可证
+- [贡献指南](CONTRIBUTING.md)：开发、测试与提交。
+- [当前架构](docs/ARCHITECTURE.md)：内容构建、运行时和扩展边界。
+- [能力边界](docs/CAPABILITIES.md)：机器查询入口与缺口。
+- [发布流程](docs/RELEASING.md)：版本、跨平台 CI 与 npm OIDC。
+- [第三方来源和许可](docs/THIRD-PARTY-NOTICES.md)。项目代码采用 [MIT](LICENSE)。
 
-引擎自有代码使用 [MIT License](LICENSE)。第三方依赖和示例资产的来源与许可分别记录在 [第三方声明](docs/THIRD-PARTY-NOTICES.md) 和对应资产说明中。
+公开接口以 SDK 源码为准，API 文档随 npm 构建生成。历史报告在 Git 历史和原发布附件中追溯，当前树不保存重复验收材料。

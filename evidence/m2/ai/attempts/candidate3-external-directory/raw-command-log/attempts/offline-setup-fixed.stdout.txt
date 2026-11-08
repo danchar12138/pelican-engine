@@ -1,1 +1,0 @@
-OFFLINE setup: all Node HTTP/HTTPS/fetch/socket operations denied; npm offline; loopback dead proxy

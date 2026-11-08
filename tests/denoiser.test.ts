@@ -1,3 +1,4 @@
+import { graphicsLaunchArguments } from "../tools/browser-session.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -852,7 +853,7 @@ export async function runDenoiserGpuTest() {
             headless,
             timeout: 12_000,
             args: [
-              "--use-angle=d3d11",
+              ...graphicsLaunchArguments(),
               "--disable-background-timer-throttling",
               "--disable-renderer-backgrounding",
               "--disable-backgrounding-occluded-windows",

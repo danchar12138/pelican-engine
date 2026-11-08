@@ -12,7 +12,7 @@ The M2 Fox and WaterBottle assets are fixed to KhronosGroup/glTF-Sample-Assets c
 
 ## Source and development dependencies
 
-Source ZIPs do not bundle node_modules or browser binaries. npm downloads the exact locked packages, including their original license files. Optional platform packages below may not be installed on Windows. See each package's upstream source and distributed LICENSE/NOTICE for attribution details. Playwright-managed Chromium is downloaded separately and is not included in the pelican Release.
+The contributor repository does not bundle node_modules or browser binaries. npm downloads the exact locked packages, including their original license files. Optional platform packages below are installed only on matching systems. See each package's upstream source and distributed LICENSE/NOTICE for attribution details. Playwright-managed Chromium is downloaded separately and is not included in the pelican Release.
 
 | Package | Locked version | Declared license | Usage |
 | --- | --- | --- | --- |
@@ -150,4 +150,4 @@ Source ZIPs do not bundle node_modules or browser binaries. npm downloads the ex
 | uniq | 1.0.1 | MIT | development/build/test |
 | vite | 8.3.5 | MIT | development/build/test |
 
-The official Node.js distribution used by the optional Windows bootstrap is downloaded separately with checksum verification; it is not redistributed in the source or browser archives. User game code and user-provided assets have their own licenses and are not automatically MIT.
+User game code and user-provided assets retain their own licenses and are not automatically MIT.

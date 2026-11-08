@@ -1,15 +1,18 @@
 {
   "name": "pelican-engine",
-  "version": "1.1.0",
-  "milestone": "M8",
-  "stage": "ai-first-stabilization",
+  "version": "1.2.0",
+  "stage": "stable",
   "license": "MIT",
   "protocolVersion": "0.1.0",
   "agentEntry": "AGENTS.md",
-  "developmentPlatform": "windows",
   "renderer": "webgpu-with-webgl2-fallback",
   "publicApi": "packages/sdk/src/index.ts",
-  "workflow": "docs/AI-WORKFLOW.md",
+  "workflow": "CONTRIBUTING.md",
   "releasePolicy": "docs/RELEASING.md",
-  "releaseScope": "d61-ai-first-stabilization"
+  "releaseScope": "npm-typescript-portability",
+  "developmentPlatforms": [
+    "windows",
+    "macos",
+    "linux"
+  ]
 }

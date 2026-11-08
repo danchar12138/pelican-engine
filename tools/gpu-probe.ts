@@ -1,7 +1,8 @@
+import { graphicsLaunchArguments } from "./browser-session.ts";
 import { chromium } from "playwright";
 const browser = await chromium.launch({
   headless: false,
-  args: ["--use-angle=d3d11", "--disable-background-timer-throttling"],
+  args: [...graphicsLaunchArguments(), "--disable-background-timer-throttling"],
 });
 try {
   const page = await browser.newPage();

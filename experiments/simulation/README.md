@@ -1,4 +1,4 @@
-﻿# M0 interactive CPU simulation prototype
+# M0 interactive CPU simulation prototype
 
 This folder implements the M0 representative interaction experiment, **not** a
 complete production physics system or the final public game SDK. No Three.js,
@@ -134,11 +134,11 @@ Topology is fixed per kind/seed and validated. Input validity failures do not
 replace live state. Replay is same-runtime exact, not a cross-platform bitwise
 claim. Disposal counts show explicit release, **not** an OS/GPU leak audit.
 
-## Execute on Windows (from repository root)
+## Execute from the contributor repository root
 
 After the main workspace has installed tsx/TypeScript:
 
-```powershell
+```sh
 node --import tsx --test tests/simulation.test.ts
 node --import tsx experiments/simulation/run-probe.ts
 node node_modules/typescript/bin/tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --allowImportingTsExtensions --types node experiments/simulation/index.ts experiments/simulation/run-probe.ts tests/simulation.test.ts

@@ -64,7 +64,7 @@ test("retries temporary unpublished responses but never claims success on absenc
   assert.equal(calls, 3); assert.equal(waits, 2);
   calls = 0;
   await assert.rejects(verifyRegistryPackage({ version, tarball, fetcher: async () => { calls++; return new Response("missing", { status: 404 }); }, wait: async () => {} }), /TC_NPM_REGISTRY_UNAVAILABLE.*may already be published/);
-  assert.equal(calls, 6);
+  assert.equal(calls, 16);
 }));
 
 test("rejects oversized registry metadata before buffering without requesting a tarball", async () => fixture(async tarball => {
@@ -85,13 +85,25 @@ test("retries tarball propagation without weakening byte comparison", async () =
   downloads = 0;
   const missing: typeof fetch = async url => String(url).endsWith(".tgz") ? (downloads++, new Response("missing", { status: 404 })) : Response.json(metadata());
   await assert.rejects(verifyRegistryPackage({ version, tarball, fetcher: missing, wait: async () => {} }), /TC_NPM_REGISTRY_DOWNLOAD.*do not republish blindly/);
-  assert.equal(downloads, 6);
+  assert.equal(downloads, 16);
 }));
 
 test("workflow tests before publish, verifies registry afterwards and uses no long-lived token", async () => {
   const workflow = await readFile(path.resolve(".github/workflows/npm-publish.yml"), "utf8");
-  assert.ok(workflow.indexOf("npm test") < workflow.indexOf("npm publish"));
+  assert.match(workflow, /needs: verify/);
+  assert.match(workflow, /uses: \.\/\.github\/workflows\/ci\.yml/);
+  const ci = await readFile(path.resolve(".github/workflows/ci.yml"), "utf8");
+  assert.match(ci, /npm run verify/);
+  assert.match(ci, /ubuntu-latest, windows-latest, macos-latest/);
   assert.ok(workflow.indexOf("npm publish") < workflow.indexOf("distribution:verify-registry"));
   assert.equal((workflow.match(/NODE_AUTH_TOKEN:/g) ?? []).length, 0);
   assert.match(workflow, /id-token: write/);
 });
+
+test("registry propagation may take more than 100 seconds without requiring a second publication", async () => fixture(async tarball => {
+  let elapsed = 0;
+  const slow: typeof fetch = async url => String(url).endsWith(".tgz") ? new Response(bytes) : elapsed < 100000 ? new Response("processing", { status: 404 }) : Response.json(metadata());
+  const result = await verifyRegistryPackage({ version, tarball, fetcher: slow, wait: async ms => { elapsed += ms; } });
+  assert.equal(result.status, "verified");
+  assert.ok(elapsed >= 100000 && elapsed <= 361000);
+}));

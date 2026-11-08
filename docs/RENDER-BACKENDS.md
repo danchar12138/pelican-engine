@@ -40,9 +40,9 @@ const capabilities = ctx.render.capabilities();
 
 ## 历史实测入口
 
-以下是历史开发命令；当前 D50 禁止测试、浏览器、GPU 和其他验证，恢复授权前不要运行。
+以下为引擎贡献者使用的开发探针，输出应留在忽略目录。
 
-在 Windows、已安装依赖与 Playwright Chromium、真实硬件加速环境中：
+在已安装依赖与 Playwright Chromium、实际硬件加速可用的环境中：
 
 ```sh
 npm run probe:backends

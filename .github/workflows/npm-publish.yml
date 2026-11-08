@@ -13,10 +13,12 @@ concurrency:
   queue: max
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   publish:
-    if: github.event_name == 'push'
-    runs-on: windows-latest
-    timeout-minutes: 20
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,25 +27,11 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
-      - run: npx --no-install playwright install chromium
-      - run: npm run build
-      - run: npm run distribution:pack
-      - run: npm run distribution:smoke -- --online-install
-      - name: Typecheck and run regressions before publication
-        shell: pwsh
-        run: |
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run distribution:test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Install npm with trusted publishing support
-        run: npm install --global npm@11.21.2
-      - name: Publish to latest using OIDC
-        shell: pwsh
-        run: |
-          $version = (Get-Content .pelican/npm/package/package.json -Raw | ConvertFrom-Json).version
-          npm publish (Join-Path .pelican/npm/artifacts ('pelican-engine-' + $version + '.tgz')) --access public --tag latest
-      - name: Verify the public registry after publication
-        run: npm run distribution:verify-registry
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-package-Linux
+          path: .pelican/npm/artifacts
+      - run: npm install --global npm@11.21.2
+      - name: npm publish exact tarball using OIDC (--tag latest)
+        run: npm run release:publish
+      - run: npm run distribution:verify-registry

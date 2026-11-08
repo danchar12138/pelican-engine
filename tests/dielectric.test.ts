@@ -1,4 +1,5 @@
-﻿import assert from "node:assert/strict";
+import { graphicsLaunchArguments } from "../tools/browser-session.ts";
+import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -672,7 +673,7 @@ test(
             headless,
             channel: "chromium",
             timeout: 12000,
-            args: ["--use-angle=d3d11"],
+            args: graphicsLaunchArguments(),
           });
           browser = await chromium.connect(browserServer.wsEndpoint(), {
             timeout: 5000,

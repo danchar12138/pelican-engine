@@ -8,6 +8,7 @@ import ts from "typescript";
 import { build, version as viteVersion } from "vite";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
 import { Extractor } from "./extract.ts";
+import { typescriptContent, ContentError } from "./typescript-content.ts";
 import { hash, normalize } from "./normalize.ts";
 import {
   readSDKVersion,
@@ -201,7 +202,7 @@ async function bundle(
   );
   return { code: chunk.code, map: JSON.stringify(map), dependencies: [...dependencies] };
 }
-/** Parse, typecheck and statically extract declarations; NEVER import a game source module. */
+/** Typecheck and normalize declarations; trusted TypeScript construction runs in an owned process. */
 export async function compileProject(
   options: CompileOptions,
 ): Promise<CompileResult> {
@@ -241,10 +242,10 @@ export async function compileProject(
     },
     modules: [],
     limitations: [
-      "Bounded pure content subset: local const/return helpers and collection transforms; no arbitrary source-module execution or I/O.",
+      "Content mode is selected by the project manifest: trusted TypeScript construction or legacy nonexecuting static extraction.",
       "Graph IR validation is implemented; GPU lowering and dispatch belong to the renderer.",
       "Hot-reload policy is reported; live state migration is not implemented by this compiler.",
-      "Declaration imports are conservatively included; full module tree-shaking analysis is not an M0 claim.",
+      "Construction and runtime modules must use stable IDs; arbitrary external side effects do not participate in incremental fingerprints.",
     ],
     durationMs: 0,
   };
@@ -422,22 +423,12 @@ export async function compileProject(
       makeInput(entry, "project"),
     ]);
     try {
-      initialInputs.push(
-        await makeInput(
-          path.join(engineRoot, "packages/compiler/package.json"),
-          "engine",
-        ),
-      );
-    } catch {
-      // External engine copies may predate package-level metadata.
-    }
-    try {
       await fs.access(manifestPath);
       initialInputs.push(await makeInput(manifestPath, "project"));
     } catch {
       /* optional manifest */
     }
-    if (manifest.libraries?.length) {
+    if (manifest.libraries?.length && manifest.content !== "typescript") {
       for (const library of manifest.libraries) {
         const directory = path.join(projectRoot, "node_modules", library);
         const resolved = await fs.realpath(directory).catch(() => undefined);
@@ -448,6 +439,12 @@ export async function compileProject(
         }
       }
       for (const file of ["package.json", "package-lock.json", ...manifest.libraries.map(name => `node_modules/${name}/package.json`)]) {
+        const filename = path.join(projectRoot, file);
+        if (await fs.stat(filename).then(value => value.isFile()).catch(() => false)) initialInputs.push(await makeInput(filename, "project"));
+      }
+    }
+    if (manifest.content === "typescript") {
+      for (const file of ["package.json", "package-lock.json"]) {
         const filename = path.join(projectRoot, file);
         if (await fs.stat(filename).then(value => value.isFile()).catch(() => false)) initialInputs.push(await makeInput(filename, "project"));
       }
@@ -561,14 +558,11 @@ export async function compileProject(
       skipLibCheck: true,
       allowImportingTsExtensions: true,
       types: [],
-      lib: ["lib.es2023.d.ts"],
+      lib: ["lib.es2023.d.ts", ...(manifest.content === "typescript" ? ["lib.dom.d.ts", "lib.dom.iterable.d.ts"] : [])],
       paths: { "pelican-engine": [slash(layout.types)] },
     };
     const program = ts.createProgram([entry], compilerOptions);
     program.getTypeChecker(); // Bind source parents before source-mapped static extraction.
-    const extractor = new Extractor(program, projectRoot, layout.types, new Set(manifest.libraries ?? []));
-    const game = extractor.extract(entry);
-    diagnostics.push(...extractor.diagnostics);
     for (const d of ts.getPreEmitDiagnostics(program)) {
       diagnostics.push({
         code: "TC_TS_" + d.code,
@@ -583,6 +577,50 @@ export async function compileProject(
             : undefined,
       });
     }
+    let extractor: Pick<Extractor, "source" | "definitions">;
+    let game: import("./extract.ts").ObjectValue | undefined;
+    const contentDependencies: string[] = [];
+    if (manifest.content === "typescript") {
+      const checker = program.getTypeChecker();
+      const inspectSystems = (node: ts.Node): void => {
+        if (ts.isCallExpression(node)) {
+          const declaration = checker.getResolvedSignature(node)?.declaration;
+          if (declaration && ts.isFunctionDeclaration(declaration) && declaration.name?.text === "defineSystem" &&
+              path.resolve(declaration.getSourceFile().fileName) === path.resolve(layout.types) && node.arguments[0]) {
+            const argument = node.arguments[0];
+            const run = checker.getTypeAtLocation(argument).getProperty("run");
+            const callable = run && checker.getTypeOfSymbolAtLocation(run, argument);
+            for (const signature of callable?.getCallSignatures() ?? []) {
+              const result = checker.getReturnTypeOfSignature(signature);
+              if ((result.isUnion() ? result.types : [result]).some(type => type.getProperty("then")))
+                diagnostics.push({ code: "TC_SYSTEM_ASYNC", severity: "error", message: "System run cannot return a Promise/thenable.",
+                  suggestion: "Prepare asynchronous data separately; apply it synchronously during a system tick.",
+                  source: projectLocation(projectRoot, node.getSourceFile(), node.getStart(), node.getWidth()) });
+            }
+          }
+        }
+        ts.forEachChild(node, inspectSystems);
+      };
+      for (const source of program.getSourceFiles()) if (!source.isDeclarationFile) inspectSystems(source);
+      if (diagnostics.some(d => d.severity === "error")) return await fail();
+      try {
+        const content = await typescriptContent({ entry, sdk: sdkPath, projectRoot, timeoutMs: manifest.contentTimeoutMs ?? 10000, build: productionBuild });
+        extractor = content;
+        game = content.game;
+        contentDependencies.push(...content.dependencies);
+      } catch (error) {
+        diagnostics.push({ code: error instanceof ContentError ? error.code : "TC_CONTENT_BUILD", severity: "error",
+          message: error instanceof Error ? error.message : String(error),
+          suggestion: "Correct trusted TypeScript construction; use content: static for nonexecuting declarations.",
+          source: { file: slash(path.relative(projectRoot, entry)), line: 1, column: 1, length: 1 } });
+        return await fail();
+      }
+    } else {
+      const staticExtractor = new Extractor(program, projectRoot, layout.types, new Set(manifest.libraries ?? []));
+      game = staticExtractor.extract(entry);
+      diagnostics.push(...staticExtractor.diagnostics);
+      extractor = staticExtractor;
+    }
     const sourceFiles = program
       .getSourceFiles()
       .filter((sf) => path.resolve(sf.fileName) !== path.resolve(sdkPath));
@@ -591,10 +629,17 @@ export async function compileProject(
     );
     for (const sf of sourceFiles) {
       const relative = path.relative(projectRoot, sf.fileName);
-      if (!relative.startsWith("..") && !path.isAbsolute(relative)) {
+      const engineRelative = path.relative(engineRoot, sf.fileName);
+      const engineOwned = !engineRelative.startsWith("..") && !path.isAbsolute(engineRelative) && !engineRelative.split(path.sep).includes("node_modules");
+      if ((!relative.startsWith("..") && !path.isAbsolute(relative)) ||
+          (manifest.content === "typescript" && !program.isSourceFileDefaultLibrary(sf) && !engineOwned)) {
         const input = await makeInput(sf.fileName, "project");
         inputMap.set(input.root + ":" + input.path, input);
       }
+    }
+    for (const file of contentDependencies) {
+      const input = await makeInput(file, "project");
+      inputMap.set(input.root + ":" + input.path, input);
     }
     report.inputs = [...inputMap.values()].sort((a, b) =>
       (a.root + a.path).localeCompare(b.root + b.path),

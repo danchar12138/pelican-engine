@@ -1,8 +1,0 @@
-{
-  "id": "ai-workflow",
-  "status": "failed",
-  "recordedAt": "2026-11-04T10:12:29.938Z",
-  "detail": "Error: ENOENT: no such file or directory, open '<engine>\\evidence\\m0\\ai-workflow.json'",
-  "stdout": "",
-  "stderr": ""
-}

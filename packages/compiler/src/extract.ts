@@ -100,7 +100,8 @@ export class Extractor {
     throw new ExtractionFailure(message);
   }
   private key(file: string) {
-    return path.resolve(file).toLowerCase();
+    const resolved = path.resolve(file);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
   }
   private module(file: string): Module {
     const key = this.key(file);

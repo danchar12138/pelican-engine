@@ -2,7 +2,7 @@
 
 The independent ZIP workflow found that a character could become stuck after contacting a kinematic gate. This public-SDK scene retains the original character/floor/gate setup and keeps the gate kinematic.
 
-```powershell
+```sh
 npm run dev -- --project examples/physics-risk --port 4184
 ```
 

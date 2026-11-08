@@ -149,16 +149,14 @@ unknownResources 是当前仍有解码诊断的纹理数量，具体身份和原
 
 无需安装依赖，默认运行共享缓存中的 Chromium headless（随机端口，真实图片/GLB parse）：
 
-```powershell
+```sh
 node node_modules/tsx/dist/cli.mjs --test tests/texture-pixels.test.ts tests/surface.test.ts
 ```
 
 纯 Node 路径，不启动浏览器：
 
-```powershell
-$env:PELICAN_TEXTURE_BROWSER = "0"
-node node_modules/tsx/dist/cli.mjs --test tests/texture-pixels.test.ts tests/surface.test.ts
-Remove-Item Env:PELICAN_TEXTURE_BROWSER
+```sh
+node tools/run-with-env.mjs PELICAN_TEXTURE_BROWSER=0 -- node node_modules/tsx/dist/cli.mjs --test tests/texture-pixels.test.ts tests/surface.test.ts
 ```
 
 浏览器测试只读取当前 worktree 的 examples/m2/assets/Fox.glb、WaterBottle.glb 及共享

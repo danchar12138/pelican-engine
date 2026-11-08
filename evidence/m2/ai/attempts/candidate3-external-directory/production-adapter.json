@@ -1,6 +1,0 @@
-{
-  "fallback": false,
-  "vendor": "nvidia",
-  "architecture": "blackwell",
-  "webgpu": true
-}

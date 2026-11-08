@@ -163,7 +163,7 @@ An additional 120 seeded analytic box pairs check overlap/nesting/disjointness.
 
 Commands (from this worktree; do not install or modify dependencies):
 
-```powershell
+```sh
 node node_modules/typescript/bin/tsc --noEmit --pretty false
 node node_modules/tsx/dist/cli.mjs --test tests/medium.test.ts
 node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/medium.ts tests/medium.test.ts packages/renderer/MEDIUM.md

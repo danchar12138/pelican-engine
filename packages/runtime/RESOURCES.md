@@ -135,7 +135,7 @@ Descriptor 必须为有限、无环、无访问器的普通 JSON 数据。拒绝
 
 ## 实测与测试
 
-```powershell
+```sh
 node --import tsx --test tests/runtime-resources.test.ts
 node node_modules/typescript/bin/tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --allowImportingTsExtensions --skipLibCheck --types node packages/runtime/src/resources.ts tests/runtime-resources.test.ts
 ```

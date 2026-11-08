@@ -20,16 +20,20 @@ function timeoutValue(timeoutMs: number): number {
   return timeoutMs;
 }
 
-export function automationLaunchOptions(timeoutMs = 30_000): LaunchOptions {
+export function graphicsLaunchArguments(platform: NodeJS.Platform = process.platform): string[] {
+  return platform === "win32" ? ["--use-angle=d3d11"] : [];
+}
+
+export function automationLaunchOptions(timeoutMs = 30_000, platform: NodeJS.Platform = process.platform): LaunchOptions {
   return {
     headless: false,
     timeout: timeoutValue(timeoutMs),
     args: [
-      "--use-angle=d3d11",
+      ...graphicsLaunchArguments(platform),
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows",
-      "--disable-features=CalculateNativeWinOcclusion",
+      ...(platform === "win32" ? ["--disable-features=CalculateNativeWinOcclusion"] : []),
     ],
   };
 }

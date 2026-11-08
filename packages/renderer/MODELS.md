@@ -240,11 +240,9 @@ modules from memory on `127.0.0.1` port 0, has launch/evaluation deadlines,
 and closes its own browser/server in `finally`. It needs an existing local
 Playwright Chromium installation and never starts the main development server.
 
-```powershell
+```sh
 # Include the independent embedded-texture browser probe.
-$env:PELICAN_MODEL_BROWSER = "1"
-node --import tsx --test tests/models.test.ts
-Remove-Item Env:PELICAN_MODEL_BROWSER
-node node_modules/typescript/bin/tsc --noEmit
-node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/models.ts packages/renderer/MODELS.md tests/models.test.ts
+node tools/run-with-env.mjs PELICAN_MODEL_BROWSER=1 -- node --import tsx --test tests/models.test.ts
+node tools/run-with-env.mjs PELICAN_MODEL_BROWSER=1 -- node node_modules/typescript/bin/tsc --noEmit
+node tools/run-with-env.mjs PELICAN_MODEL_BROWSER=1 -- node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/models.ts packages/renderer/MODELS.md tests/models.test.ts
 ```

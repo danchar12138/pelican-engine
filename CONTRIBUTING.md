@@ -1,35 +1,29 @@
-# 参与开发
+# 参与引擎开发
 
-感谢关注 Pelican Engine！本项目使用 MIT 许可证。游戏作者可以只安装 npm 包；本指南面向需要阅读、修改或维护引擎源码的贡献者。
+本仓库用于引擎研发；游戏开发只使用 npm 的 `pelican-engine`。先阅读 [架构](docs/ARCHITECTURE.md)，按 [AGENTS](AGENTS.md) 的维护规则工作。
 
-## 开发前
+## 环境和命令
 
-请先阅读 [当前研发状态](docs/STATUS.md)、[架构](docs/ARCHITECTURE.md) 和与你的改动有关的文档。确认改动范围、现有工作区状态和已知限制，不覆盖他人的未提交文件。公开 API 由 SDK 源码定义；改动接口时应同时维护相关类型、文档和示例。
-
-当前支持的引擎开发环境为 Windows，使用 Node.js 24.x 和 npm。以下是通用 Node/npm 命令的写法，不代表其他开发系统已经受支持。玩家端按实际浏览器与图形能力判断，不设置平台白名单。
-
-## 从源码运行
+Node.js 24.x、npm，Windows、macOS、Linux。使用项目依赖，不要求特定 shell 或系统级安装。首次联网安装锁定依赖：
 
 ```sh
-git clone https://github.com/danchar12138/pelican-engine.git
-cd pelican-engine
 npm ci
-npm run dev
+npm run typecheck
+npm test
+npm run distribution:pack
+npm run distribution:test
 ```
 
-`npm run dev` 使用仓库当前默认示例；`npm run build` 将示例静态构建输出到根目录 `dist/`。源码 ZIP 和已有目录也可以使用这些命令，不依赖 Git 元数据。若只是创建游戏，请优先阅读 [快速入门](docs/GETTING-STARTED.md)。
+浏览器集成需要 Playwright Chromium，按需执行 `npx --no-install playwright install chromium`；Linux CI 使用 `--with-deps` 安装运行库。CPU、DOM、真实 GPU 是不同检查层次，不用软件 GPU 结果冒充硬件结果。
 
-## 单线、单主题提交
+`npm run distribution:smoke -- --online-install` 在临时独立游戏目录安装实际 tarball，执行 CLI、类型检查、构建和静态部署。`npm run verify:ai -- --output .pelican/verification/ai` 执行 npm 游戏开发与浏览器功能组合。后者需要本机可用的图形环境。
 
-- 在 `main` 主工作树按依赖串行工作，不建立额外工作树或开发分支。
-- 一次提交围绕一个功能、修复或版本；不要把无关工作和历史证据混在一起。提交消息使用中文 Conventional Commits，例如 `fix(renderer): 修复资源释放`。
-- 需要发布时在仓库中显式维护统一的标准版本号。推送 `main` 会触发 npm OIDC 发布；版本已存在时不会覆盖。GitHub Release 用于标记里程碑。详见 [发布说明](docs/RELEASING.md)。
-- 用户要求当前只允许编译和构建；不要运行测试、浏览器、GPU、性能、smoke 或其他验证，也不要声称未执行的步骤通过。以前的测试文件和证据保留其历史属性。
-- 不要为整理目录而删除未经确认的用户数据、历史报告或未合并候选；不能递归跟随目录链接或 junction。
+可选图形回归通过 `PELICAN_BSDF_GPU`、`PELICAN_DIELECTRIC_GPU`、`PELICAN_DENOISER_GPU`、`PELICAN_ENVIRONMENT_GPU`、`PELICAN_MODEL_BROWSER` 环境变量开启（值 `1`），应串行执行并记录实际后端。普通测试中的 opt-in 跳过不能记为通过。
 
-## 提交问题或改动
+## 文件与接口
 
-描述目标、涉及的公开接口、实际运行的编译或构建命令、结果与已知缺口。运行或硬件行为未经验证时明确说明。涉及第三方代码或资产时记录来源与许可证；不要提交凭据、开发缓存或构建输出。
+公开 API 修改从 SDK 源码开始；机器能力在 SDK 的 capabilities 中维护，API 索引与声明自动生成。新增行为维护有意义的回归。测试和必要夹具是开发项目的一部分；输出日志、截图、压缩包、生成文档存 `.pelican/`，CI 上传 artifacts，不提交当前树。历史证据可从旧提交及发布附件复现。
 
-- [问题反馈](https://github.com/danchar12138/pelican-engine/issues)
-- [公开 API](docs/api/REFERENCE.md) · [能力说明](docs/CAPABILITIES.md) · [开发状态](docs/STATUS.md)
+游戏内容默认新建为普通 TypeScript 构建模式；旧项目保留静态解释模式。实现新玩法优先使用通用 ECS、系统、组件、事件和已有服务，避免为每种游戏再设计一套语法。
+
+按功能或修复提交，使用中文 Conventional Commits。不要创建并行工作树或覆盖他人的工作。发布步骤见 [RELEASING](docs/RELEASING.md)。

@@ -21,7 +21,6 @@ import {
   prepareInstalledDevProject,
 } from "./layout.ts";
 import { compilerLayout } from "../../packages/compiler/src/distribution.ts";
-import { validatePublishIdentity } from "./publish-gate.ts";
 import { SDK_VERSION } from "../../packages/sdk/src/index.ts";
 import { playwrightCli } from "./browser-cli.ts";
 import { diagnosticCode } from "../diagnostic-code.ts";
@@ -111,7 +110,8 @@ test("repo and npm minimal templates have identical game source and normalized m
     const manifest = JSON.parse(
       await readFile(path.join(source, "pelican.project.json"), "utf8"),
     );
-    delete manifest.engine.path;
+    assert.equal(typeof manifest.engine.path, "string");
+    delete manifest.engine;
     assert.deepEqual(
       manifest,
       JSON.parse(
@@ -122,7 +122,7 @@ test("repo and npm minimal templates have identical game source and normalized m
       const agents = await readFile(path.join(project, "AGENTS.md"), "utf8");
       assert.match(agents, /GAME-AUTHOR\.md/);
       assert.match(agents, /api\/index\.json/);
-      assert.match(agents, /Do not run engine milestone/);
+      assert.match(agents, /Install pelican-engine from npm/);
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -255,64 +255,12 @@ test("first installed dev scaffolds only an empty npm workspace and never overwr
   }
 });
 
-const accepted = {
-  eventName: "release",
-  action: "published",
-  draft: false,
-  publishedAt: "2026-11-04T00:00:00Z",
-  tag: "v0.3.32",
-  milestone: "M3",
-  version: "0.3.32",
-  engineVersion: "0.3.32",
-  sdkVersion: "0.3.32",
-  head: "a".repeat(40),
-  tagCommit: "a".repeat(40),
-  eventCommit: "a".repeat(40),
-};
-test("publish identity accepts only a matching published milestone commit", () => {
-  assert.doesNotThrow(() => validatePublishIdentity(accepted));
-  assert.doesNotThrow(() =>
-    validatePublishIdentity({
-      ...accepted,
-      tag: "v1.0.0",
-      version: "1.0.0",
-      engineVersion: "1.0.0",
-      sdkVersion: "1.0.0",
-      milestone: "M8",
-    }),
-  );
-  for (const change of [
-    { eventName: "push" },
-    { action: "created" },
-    { draft: true },
-    { publishedAt: undefined },
-  ])
-    assert.throws(
-      () => validatePublishIdentity({ ...accepted, ...change }),
-      /TC_NPM_RELEASE_EVENT/,
-    );
-  for (const change of [
-    { tag: "v0.2.0-m2.0" },
-    { engineVersion: "0.2.0-m2.0" },
-    { sdkVersion: "0.2.0-m2.0" },
-    { milestone: "M9" },
-  ])
-    assert.throws(
-      () => validatePublishIdentity({ ...accepted, ...change }),
-      /TC_NPM_RELEASE_VERSION/,
-    );
-  assert.throws(
-    () => validatePublishIdentity({ ...accepted, tagCommit: "b".repeat(40) }),
-    /TC_NPM_RELEASE_COMMIT/,
-  );
-});
-
 test("main-push publishing uses OIDC, tested source and the exact explicit-version tarball", async () => {
   const workflow = await readFile(
     path.join(root, ".github/workflows/npm-publish.yml"),
     "utf8",
   );
-  assert.match(workflow, /'pelican-engine-'\s*\+\s*\$version\s*\+\s*'\.tgz'/);
+  assert.match(workflow, /release:publish/);
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /--tag latest/);
   assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN|next/);

@@ -94,7 +94,6 @@ const cim = JSON.stringify({
   ],
 });
 const environmentRunner: CommandRunner = async (file, args) => {
-  if (file === "powershell.exe") return { exitCode: 0, stdout: cim };
   if (file === "nvidia-smi")
     return {
       exitCode: 0,
@@ -210,7 +209,7 @@ test("a missing required transitive cannot masquerade as a reusable dependency c
   );
 });
 
-test("ZIP-mode doctor tolerates absent Git; exact vendor VRAM is attached to the matching adapter", async () => {
+test("doctor needs neither Git nor a platform shell and records vendor inventory separately", async () => {
   const root = await fixture(true);
   const result = await doctor({
     projectRoot: root,
@@ -219,11 +218,9 @@ test("ZIP-mode doctor tolerates absent Git; exact vendor VRAM is attached to the
   assert.equal(result.protocolVersion, "0.1.0");
   assert.equal(result.data.git.available, false);
   assert.equal(result.data.git.checkout, false);
-  assert.equal(result.data.machine?.gpus[0]?.dedicatedMemoryBytes, 12820938752);
-  assert.equal(
-    result.data.machine?.gpus[0]?.dedicatedMemorySource,
-    "nvidia-smi",
-  );
+  assert.ok(result.data.machine!.ramBytes! > 0);
+  assert.ok(result.data.machine!.cpus.length > 0);
+  assert.equal(result.data.nvidia[0]?.memoryBytes, 12820938752);
   assert.equal(
     result.diagnostics.find((d) => d.code === "TCENV_GIT_OPTIONAL")?.severity,
     "info",
@@ -249,10 +246,10 @@ test("missing tools produce stable actionable diagnostics without leaking stderr
     }),
   });
   const codes = new Set(result.diagnostics.map((d) => d.code));
-  assert.ok(codes.has("TCENV_CIM_UNAVAILABLE"));
+  assert.ok(!codes.has("TCENV_PLATFORM_UNSUPPORTED"));
   assert.ok(codes.has("TCENV_NPM_UNAVAILABLE"));
   assert.ok(codes.has("TCENV_NVIDIA_UNAVAILABLE"));
-  assert.equal(result.data.machine, null);
+  assert.ok(result.data.machine!.ramBytes! > 0);
   assert.equal(result.data.nvidia.length, 0);
   assert.ok(result.diagnostics.every((d) => d.code && d.remediation));
   assert.doesNotMatch(
@@ -261,17 +258,14 @@ test("missing tools produce stable actionable diagnostics without leaking stderr
   );
 });
 
-test("malformed successful CIM output is a failure, not fabricated hardware", async () => {
+test("doctor never invokes a platform shell for machine inventory", async () => {
   const root = await fixture(true);
-  const result = await doctor({
-    projectRoot: root,
-    runCommand: async (file, args, options) =>
-      file === "powershell.exe"
-        ? { exitCode: 0, stdout: "{broken" }
-        : environmentRunner(file, args, options),
-  });
-  assert.equal(result.data.machine, null);
-  assert.ok(result.diagnostics.some((d) => d.code === "TCENV_CIM_INVALID"));
+  const calls: string[] = [];
+  const result = await doctor({ projectRoot: root, runCommand: async (file, args, options) => {
+    calls.push(file); return environmentRunner(file, args, options);
+  } });
+  assert.ok(!calls.some(file => /powershell|cmd\.exe|\/bin\/sh/.test(file)));
+  assert.ok(result.data.machine!.ramBytes! > 0);
 });
 
 test("setup reuses a verified installation without invoking npm ci or installing browsers", async () => {
@@ -433,8 +427,8 @@ test("invalid NVIDIA measurements leave exact VRAM unknown instead of falling ba
         ? { exitCode: 0, stdout: "GPU, 621.01, N/A" }
         : environmentRunner(file, args, options),
   });
-  assert.equal(result.data.machine?.gpus[0]?.dedicatedMemoryBytes, null);
-  assert.equal(result.data.machine?.gpus[0]?.dedicatedMemorySource, null);
+  assert.deepEqual(result.data.machine?.gpus, []);
+  assert.deepEqual(result.data.nvidia, []);
   assert.ok(
     result.diagnostics.some(
       (d) => d.code === "TCENV_NVIDIA_INVALID" && d.severity === "warning",

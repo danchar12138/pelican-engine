@@ -66,7 +66,7 @@ dispatches, activity and terminal state. It is not SDK API or performance eviden
 
 ## Focused Verification
 
-```powershell
+```sh
 npx tsx --test tests/compute-executor.test.ts
 npm run typecheck
 ```
@@ -78,7 +78,7 @@ promise behavior across abort, timeout, release, disposal and loss.
 
 Only after the main agent grants the exclusive hardware slot:
 
-```powershell
+```sh
 npx tsx tools/managed-compute-gpu-probe.ts --exclusive-gpu --output .pelican/probes/managed-compute-gpu
 ```
 

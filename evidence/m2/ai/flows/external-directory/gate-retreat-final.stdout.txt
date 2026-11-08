@@ -1,1 +1,0 @@
-PASS actual keyboard: closed kinematic gate contact, immediate reverse and repeated contact/retreat without state injection

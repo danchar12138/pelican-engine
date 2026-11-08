@@ -1,1 +1,0 @@
-Closed own servers and verified both listening ports closed. PIDs: 45652 12080 26720 46048 38588

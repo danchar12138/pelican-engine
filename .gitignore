@@ -12,3 +12,8 @@ test-results/
 .env.*
 !.env.example
 public/generated/
+
+# Generated references and local verification output.
+docs/api/
+evidence/
+docs/npm/RECIPES.md

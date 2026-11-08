@@ -17,7 +17,7 @@ prototypes. Report types are exported from `index.ts`.
 
 Run from the repository directory:
 
-```powershell
+```sh
 node --import tsx experiments/rigidbody/run-probe.ts
 node --import tsx --test tests/rigidbody.test.ts
 ```

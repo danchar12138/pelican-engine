@@ -5,6 +5,10 @@ import type { Diagnostic } from "./types.ts";
 
 export interface ProjectManifest {
   entry?: string;
+  /** Ordinary trusted TypeScript construction, or the legacy nonexecuting subset. */
+  content?: "typescript" | "static";
+  /** Deadline for the isolated content process; default 10000, maximum 120000 ms. */
+  contentTimeoutMs?: number;
   engineVersion?: string;
   engine?: { version?: string; path?: string };
   /** Author-approved runtime-only npm libraries; not evaluated as static content. */
@@ -74,7 +78,11 @@ export function validateManifest(
     return { diagnostics };
   }
   const manifest = value as ProjectManifest;
-  if (manifest.libraries !== undefined && (!Array.isArray(manifest.libraries) || manifest.libraries.length > 64 ||
+  if (manifest.content !== undefined && !["typescript", "static"].includes(manifest.content))
+    fail("content must be typescript or static.");
+  if (manifest.contentTimeoutMs !== undefined && (!Number.isSafeInteger(manifest.contentTimeoutMs) || manifest.contentTimeoutMs < 100 || manifest.contentTimeoutMs > 120000))
+    fail("contentTimeoutMs must be an integer in [100,120000].");
+  if (manifest.content !== "typescript" && manifest.libraries !== undefined && (!Array.isArray(manifest.libraries) || manifest.libraries.length > 64 ||
       new Set(manifest.libraries).size !== manifest.libraries.length || manifest.libraries.some(name => typeof name !== "string" || !/^(?:@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*$/.test(name) ||
         isBuiltin(name) || name === "three" || name === "pelican-engine" || name.startsWith("@dimforge/") || name.startsWith("@webgpu/")))) fail("libraries must contain at most 64 unique runtime-only package names, excluding Node/engine/GPU/physics internals.");
   for (const key of ["entry", "engineVersion"] as const)
@@ -120,7 +128,7 @@ export function validateManifest(
           sdkVersion +
           ", then explicitly update " +
           key +
-          ". M0 0.0.1 projects require migration; no implicit upgrade is performed.",
+          ". No implicit upgrade is performed.",
       });
   }
   if (

@@ -1,8 +1,0 @@
-{
-  "command": "node report/static-server.cjs",
-  "exitCode": 0,
-  "cwd": "C:\\Users\\60459\\AppData\\Local\\Temp\\threecat M2 ZIP 中文 FQNfsC\\flow-zip\\candidate5",
-  "stdout": "static-server.stdout.txt",
-  "stderr": "static-server.stderr.txt",
-  "shutdown": "IPC after static browser test completed; no HTTP control endpoints"
-}

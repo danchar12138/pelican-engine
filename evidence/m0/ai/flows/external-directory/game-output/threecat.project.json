@@ -1,8 +1,0 @@
-{
-  "entry": "game.ts",
-  "engineVersion": "0.0.1-m0.0",
-  "engine": {
-    "path": "../../source/threecat",
-    "version": "0.0.1-m0.0"
-  }
-}

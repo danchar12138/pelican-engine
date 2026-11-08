@@ -45,7 +45,7 @@ function hasCode(code: string) {
 }
 
 test("launch options keep headed D3D11 with only the requested background safeguards", () => {
-  const options = automationLaunchOptions();
+  const options = automationLaunchOptions(30_000, "win32");
   assert.equal(options.headless, false);
   assert.equal(options.timeout, 30_000);
   assert.deepEqual(options.args, [
@@ -277,5 +277,13 @@ test("invalid deadlines reject before launching or probing", async () => {
       hasCode("TC_AUTOMATION_TIMEOUT_RANGE"),
     );
     assert.equal(f.calls.length, 0);
+  }
+});
+
+ test("non-Windows automation leaves the graphics backend to Chromium", () => {
+  for (const platform of ["linux", "darwin"] as const) {
+    const args = automationLaunchOptions(30000, platform).args!;
+    assert.ok(!args.some(arg => /d3d|WinOcclusion/.test(arg)));
+    assert.ok(!args.some(arg => /swiftshader|disable-gpu/.test(arg)));
   }
 });

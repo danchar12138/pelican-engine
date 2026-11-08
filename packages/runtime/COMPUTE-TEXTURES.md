@@ -38,4 +38,4 @@ but cannot resurrect old GPU texture versions. Restore/disposal and late results
 follow the existing dependency epoch rules.
 
 Focused owner tests inject an executor and establish CPU ownership only. The real
-hardware chain and scope are recorded in `docs/tasks/M3-COMPUTE-TEXTURES.md`.
+hardware chain and scope are recorded in `docs/ARCHITECTURE.md`.

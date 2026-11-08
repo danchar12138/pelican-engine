@@ -42,20 +42,9 @@ export async function setup(
   const data: SetupData = { actions: [], environment: null };
   const finish = () =>
     sanitizeReport(
-      envelope(options.taskId ?? "M0-00-setup", diagnostics, data),
+      envelope(options.taskId ?? "setup", diagnostics, data),
       projectRoot,
     );
-  if (process.platform !== "win32") {
-    diagnostics.push(
-      diagnostic(
-        "TCSETUP_PLATFORM_UNSUPPORTED",
-        "error",
-        "Development preparation currently supports Windows.",
-        "Run setup on Windows.",
-      ),
-    );
-    return finish();
-  }
   const runner = options.runCommand ?? runCommand;
   const invoke = async (
     file: string,
@@ -162,7 +151,7 @@ export async function setup(
   data.environment = await doctor({
     ...options,
     projectRoot,
-    taskId: "M0-00-environment",
+    taskId: "environment",
   });
   if (options.installBrowser && !data.environment.data.browser.installed) {
     if (options.offline) {
@@ -204,7 +193,7 @@ export async function setup(
     data.environment = await doctor({
       ...options,
       projectRoot,
-      taskId: "M0-00-environment",
+      taskId: "environment",
     });
     data.actions.push({
       action: "browser",
@@ -238,7 +227,7 @@ if (isDirectInvocation(import.meta.url)) {
   } catch {
     await printReport(
       envelope(
-        "M0-00-setup",
+        "setup",
         [
           diagnostic(
             "TCSETUP_ARGUMENT_OR_INTERNAL_ERROR",

@@ -113,7 +113,7 @@ cover every SDK operation constant, special nodes, vector widths, typed bindings
 memoization/order, malformed graphs/context, arithmetic safety, generated names,
 and a 20,000-operation chain. Run from the isolated worktree:
 
-```powershell
+```sh
 .\node_modules\.bin\tsx.cmd --test tests/graph-expressions.test.ts
 .\node_modules\.bin\tsc.cmd --ignoreConfig --noEmit --target ES2023 --module ESNext --moduleResolution Bundler --strict --allowImportingTsExtensions --skipLibCheck --types node packages/renderer/src/graph-expressions.ts tests/graph-expressions.test.ts
 ```

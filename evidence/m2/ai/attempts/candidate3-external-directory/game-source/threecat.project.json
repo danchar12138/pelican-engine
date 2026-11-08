@@ -1,7 +1,0 @@
-{
-  "entry": "game.ts",
-  "engine": {
-    "path": "../candidate3/threecat",
-    "version": "0.2.0-m2.0"
-  }
-}

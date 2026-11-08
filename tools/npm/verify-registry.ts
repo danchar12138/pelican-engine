@@ -11,7 +11,7 @@ const digest = (algorithm: "sha1" | "sha256" | "sha512", bytes: Uint8Array, enco
 
 /** Verify that npm installed the exact public registry archive, not a cache alias or local file. */
 export function verifyRegistryInstallLock(lock: unknown, version: string, localTarball: Uint8Array): void {
-  if (!versionPattern.test(version)) throw new Error("TC_NPM_REGISTRY_VERSION: Expected the exact milestone version.");
+  if (!versionPattern.test(version)) throw new Error("TC_NPM_REGISTRY_VERSION: Expected the exact package version.");
   const entry = (lock as any)?.packages?.["node_modules/pelican-engine"];
   const integrity = `sha512-${digest("sha512", localTarball, "base64")}`;
   if (entry?.version !== version || entry?.integrity !== integrity ||
@@ -27,7 +27,7 @@ export async function verifyRegistryPackage(options: {
   wait?: (ms: number) => Promise<void>;
 }) {
   const { version, tarball } = options;
-  if (!versionPattern.test(version)) throw new Error("TC_NPM_REGISTRY_VERSION: Expected the exact milestone version.");
+  if (!versionPattern.test(version)) throw new Error("TC_NPM_REGISTRY_VERSION: Expected the exact package version.");
   const info = await stat(tarball);
   if (!info.isFile() || info.size < 1 || info.size > limit) throw new Error("TC_NPM_REGISTRY_PACKAGE: Expected a bounded local tarball.");
   const local = await readFile(tarball);
@@ -36,17 +36,18 @@ export async function verifyRegistryPackage(options: {
   const request = options.fetcher ?? fetch;
   const wait = options.wait ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)));
   let metadata: Response | undefined;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 16; attempt++) {
     try {
       metadata = await request(`${registry}/pelican-engine/${encodeURIComponent(version)}`, { signal: AbortSignal.timeout(15000), redirect: "error" });
       if (metadata.ok) break;
+      await metadata.body?.cancel().catch(() => {});
       if (![404, 408, 429].includes(metadata.status) && metadata.status < 500)
         throw new Error(`TC_NPM_REGISTRY_HTTP: Registry returned ${metadata.status}.`);
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("TC_NPM_REGISTRY_HTTP")) throw error;
       metadata = undefined;
     }
-    if (attempt < 5) await wait(Math.min(1000 * 2 ** attempt, 8000));
+    if (attempt < 15) await wait(Math.min(1000 * 2 ** attempt, 30000));
   }
   if (!metadata?.ok) throw new Error("TC_NPM_REGISTRY_UNAVAILABLE: Published version is not available yet; it may already be published. Verify it before retrying publication.");
   if (!metadata.body) throw new Error("TC_NPM_REGISTRY_METADATA: Missing registry metadata body.");
@@ -76,7 +77,7 @@ export async function verifyRegistryPackage(options: {
       url.pathname !== `/pelican-engine/-/pelican-engine-${version}.tgz`)
     throw new Error("TC_NPM_REGISTRY_METADATA: Unexpected registry tarball location.");
   let response: Response | undefined;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 16; attempt++) {
     try {
       response = await request(url.href, { signal: AbortSignal.timeout(30000), redirect: "error" });
       if (response.ok && response.body) break;
@@ -88,7 +89,7 @@ export async function verifyRegistryPackage(options: {
       if (error instanceof Error && error.message.startsWith("TC_NPM_REGISTRY_DOWNLOAD")) throw error;
       response = undefined;
     }
-    if (attempt < 5) await wait(Math.min(1000 * 2 ** attempt, 8000));
+    if (attempt < 15) await wait(Math.min(1000 * 2 ** attempt, 30000));
   }
   if (!response?.ok || !response.body) throw new Error("TC_NPM_REGISTRY_DOWNLOAD: Unable to download the published tarball; do not republish blindly.");
   const reader = response.body.getReader(), remote512 = createHash("sha512"), remote256 = createHash("sha256");
@@ -116,7 +117,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const root = fileURLToPath(new URL("../../", import.meta.url));
     const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
     if (pkg.name !== "pelican-engine" || typeof pkg.version !== "string" || !versionPattern.test(pkg.version))
-      throw new Error("TC_NPM_REGISTRY_VERSION: Package name and milestone version must match.");
+      throw new Error("TC_NPM_REGISTRY_VERSION: Package name and package version must match.");
     const result = await verifyRegistryPackage({ version: pkg.version, tarball: path.join(root, ".pelican/npm/artifacts", `pelican-engine-${pkg.version}.tgz`) });
     console.log(JSON.stringify(result, null, 2));
   } catch (error) { console.error(String(error)); process.exitCode = 1; }

@@ -1,3 +1,4 @@
+import { graphicsLaunchArguments } from "../tools/browser-session.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
@@ -453,7 +454,7 @@ test(
           headless: true,
           channel: "chromium",
           timeout: 20000,
-          args: ["--use-angle=d3d11"],
+          args: graphicsLaunchArguments(),
         });
       } catch (error) {
         t.skip(

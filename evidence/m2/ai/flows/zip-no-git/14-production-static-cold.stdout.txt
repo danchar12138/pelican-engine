@@ -1,1 +1,0 @@
-{"passed":true,"staticServerClosed":true,"browsersClosed":true,"stdout":"static-server.stdout.txt","requests":"static-verification.json"}

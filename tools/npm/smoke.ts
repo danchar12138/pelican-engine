@@ -1,3 +1,4 @@
+import { generateApiIndex } from "../api-index.ts";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import {
@@ -75,6 +76,7 @@ try {
   assert.equal(packed.name, "pelican-engine");
   assert.equal(packed.filename, `pelican-engine-${SDK_VERSION}.tgz`);
   for (const item of packed.files) {
+    assert.ok(!/^(?:CONTRIBUTING\.md$|docs\/(?:tasks|releases|reviews|adr)\/|docs\/(?:DECISIONS|ROADMAP|STATUS|ARCHITECTURE|AI-WORKFLOW)\.md$)/.test(item.path), item.path);
     assert.ok(
       !/\.map$|(^|\/)(?:evidence|examples)\//.test(item.path),
       item.path,
@@ -293,9 +295,7 @@ try {
   const installedAPI = JSON.parse(
     await readFile(path.join(installed, "docs/api/index.json"), "utf8"),
   );
-  const sourceAPI = JSON.parse(
-    await readFile(path.join(root, "docs/api/index.json"), "utf8"),
-  );
+  const sourceAPI = await generateApiIndex(root);
   assert.deepEqual(installedAPI.symbols, sourceAPI.symbols);
   assert.equal(installedAPI.installedDeclarations, "lib/sdk/index.d.ts");
   assert.equal((await cli("doctor")).status, "succeeded");
@@ -347,6 +347,22 @@ try {
       JSON.stringify(report),
     );
   };
+  // New npm projects can use ordinary TypeScript and project-owned dependencies.
+  const helper = path.join(directory, ".pelican/fixtures/game-tools");
+  await mkdir(helper, { recursive: true });
+  await writeFile(path.join(helper, "package.json"), JSON.stringify({ name: "pelican-game-tools-fixture", version: "1.0.0", type: "module", exports: { types: "./index.d.ts", import: "./index.js" } }));
+  await writeFile(path.join(helper, "index.js"), "export const shift = n => n * 3;");
+  await writeFile(path.join(helper, "index.d.ts"), "export function shift(n: number): number;");
+  await npmRun(["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--save-exact", helper]);
+  await writeFile(path.join(directory, "game.ts"), `import { shift } from "pelican-game-tools-fixture";
+    class Grid { build() { const values: {id:string,transform:{position:[number,number,number]}}[]=[];
+      for(let i=0;i<3;i++) values.push({id:"generated-"+i,transform:{position:[shift(i),0,0]}}); return values; } }
+    ` + gameSource.replace("entities: [", "entities: [...new Grid().build(),"));
+  assert.equal((await cli("check")).status, "succeeded");
+  const procedural = JSON.parse(await readFile(path.join(directory, ".pelican/public/generated/scene.ir.json"), "utf8"));
+  assert.deepEqual(procedural.scene.entities.filter((entity: { id: string }) => entity.id.startsWith("generated-")).map((entity: any) => entity.transform.position[0]), [0, 3, 6]);
+  await writeFile(path.join(directory, "pelican.project.json"), JSON.stringify({ ...JSON.parse(manifestSource), content: "static" }));
+  // Legacy static mode retains its explicitly nonexecuting import policy.
   for (const specifier of [
     "three",
     "three/tsl",
@@ -679,7 +695,7 @@ try {
       ? "network allowed for initial dependencies only"
       : "offline cache only",
     operations:
-      "real npm pack/install --save-dev into empty OS temp, npx pelican dev auto-scaffold, repeat dev preserves files, SDK/API, doctor/setup offline, check/cache, build/licenses, misuse/version/dependency errors, dev/status, HTTP deployment",
+      "real npm pack/install --save-dev into empty OS temp, npx pelican dev auto-scaffold, repeat dev preserves files, SDK/API, ordinary TypeScript + local npm package, doctor/setup offline, check/cache, build/licenses, legacy-static/version/dependency errors, dev/status, HTTP deployment",
     gpu,
   };
   await writeFile(

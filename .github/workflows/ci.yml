@@ -1,46 +1,48 @@
-name: Build and pack
+name: Engine CI
 
-# Main pushes already build and pack in npm-publish.yml. Keep this workflow
-# for pull requests and manual builds to avoid a duplicate CI job per release.
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
-concurrency:
-  group: cpu-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  cpu:
-    name: Windows / Node 24 / build and pack
-    runs-on: windows-latest
-    timeout-minutes: 20
+  verify:
+    name: ${{ matrix.os }} / Node 24
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Node 24
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: '24'
           cache: npm
-      - name: Install pinned dependencies
-        run: npm ci
-      - name: Compile and build static dist
-        run: npm run build
-      - name: Install the local browser for CPU and DOM regressions
-        run: npx --no-install playwright install chromium
-      - name: Compile and pack npm SDK and CLI
-        run: npm run distribution:pack
-      - name: Verify the isolated installed package and static deployment
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run distribution:pack
+      - name: Typecheck and regressions (Linux display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run verify
+      - name: Typecheck and regressions
+        if: runner.os != 'Linux'
+        run: npm run verify
+      - name: Independent npm installation and browser deployment (Linux display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run distribution:smoke -- --online-install
+      - name: Independent npm installation and browser deployment
+        if: runner.os != 'Linux'
         run: npm run distribution:smoke -- --online-install
-      - name: Typecheck and run regressions
-        run: |
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run distribution:test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve the tested npm tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-${{ runner.os }}
+          path: .pelican/npm/artifacts/*.tgz
+          if-no-files-found: error
+          retention-days: 14

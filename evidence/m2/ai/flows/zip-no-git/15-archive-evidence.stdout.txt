@@ -1,7 +1,0 @@
-{
-  "gameSourceCopied": true,
-  "assetsNotDuplicated": true,
-  "buildOutputManifestFiles": 40,
-  "deployedHashesMatch": true,
-  "coldGameplayRecordsExactlyEqual": true
-}

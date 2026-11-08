@@ -1,3 +1,4 @@
+import { graphicsLaunchArguments } from "./browser-session.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -11,7 +12,7 @@ const output = path.resolve(index >= 0 ? process.argv[index + 1] : `.pelican/qua
 await mkdir(output, { recursive: true });
 const child = spawn(process.execPath, ["--import", "tsx", "tools/cli.ts", "dev", "--project", "examples/quality-room", "--port", "43930"], { cwd: root, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; child.stdout.on("data", bytes => log += bytes); child.stderr.on("data", bytes => log += bytes);
-const browser = await chromium.launch({ headless: true, channel: "chromium", args: ["--use-angle=d3d11"] });
+const browser = await chromium.launch({ headless: true, channel: "chromium", args: graphicsLaunchArguments() });
 const result: Record<string, unknown> = { scope: "Emissive-only Cornell-style scene: integrated path transport versus stock Three.js raster. Not a ceiling comparison against arbitrary Three.js extensions.", width: 480, height: 270, samples: [1, 32, 256], reference: "256-sample Pelican estimate, not independent ground truth" };
 try {
   for (let i = 0; i < 150; i++) { try { await fetch("http://127.0.0.1:43930/", { signal: AbortSignal.timeout(500) }); break; } catch { if (child.exitCode !== null) throw Error(log); await new Promise(resolve => setTimeout(resolve, 100)); } }

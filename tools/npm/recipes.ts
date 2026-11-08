@@ -41,7 +41,7 @@ export async function renderRecipes(root: string): Promise<string> {
     "Each recipe is a complete asset-free `game.ts` using only `pelican-engine`.",
     "In a new installed game directory, create a minimal project with `npx --no-install pelican create --template minimal`, then replace its generated `game.ts` with one recipe. Back up any existing game work before replacing it. Use `npx --no-install pelican dev` or `npx --no-install pelican build` afterward.",
     "",
-    "For a source checkout or ZIP, use the same code and the engine CLI with the project directory; the corresponding editable originals are under `examples/`. The npm package includes this documentation, not those example directories or game assets.",
+    "Game development uses the installed npm package. No engine checkout or source ZIP is required.",
     "",
     "Recipes are independent; use one at a time and adapt IDs, input, UI and rules to the game. Their feature limitations remain in `docs/npm/GAME-AUTHOR.md`.",
     "",
@@ -53,7 +53,7 @@ export async function renderRecipes(root: string): Promise<string> {
   for (const item of recipes) {
     const source = (await readFile(path.join(root, "examples", item.id, "game.ts"), "utf8")).replace(/\r\n/g, "\n").trimEnd();
     lines.push(`## ${item.title}`, "", item.summary, "",
-      `Source checkout: \`examples/${item.id}/game.ts\`.`, "", "````ts", source, "````", "");
+      `Contributor fixture: \`examples/${item.id}/game.ts\`.`, "", "````ts", source, "````", "");
   }
   return lines.join("\n");
 }

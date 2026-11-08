@@ -74,7 +74,7 @@ let { width, height } = viewport;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errors: string[] = [];
 const startup = startupPolicy(import.meta.env.DEV, location.search);
-const diagnosticsVisible = import.meta.env.DEV || new URLSearchParams(location.search).get("diagnostics") === "1";
+const diagnosticsVisible = new URLSearchParams(location.search).get("diagnostics") === "1";
 status.hidden = !diagnosticsVisible;
 let adapterInfo:
   | {

@@ -67,7 +67,7 @@ it does not exercise browser image decoding.
 
 Run the affected CPU suites:
 
-```powershell
+```sh
 node --import tsx --test tests/model-material.test.ts tests/models.test.ts
 ```
 

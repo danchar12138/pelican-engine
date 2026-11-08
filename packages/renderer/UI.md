@@ -82,7 +82,7 @@ UI 导航仅在已 mount、页面聚焦且 `gamepadNavigation` 开启的 present
 
 在独立 worktree 使用已有依赖，不安装浏览器或 npm 包。默认 `npm test` 的 `tests/*.test.ts` 已包括此测试，无需修改根配置。专项命令：
 
-```powershell
+```sh
 node node_modules/tsx/dist/cli.mjs --test tests/ui.test.ts
 npm run typecheck
 ```

@@ -4,7 +4,7 @@ This development probe compiles `examples/m3-dynamic-sdk`, a copy of the public 
 
 With the GPU reserved exclusively, run from the worktree root:
 
-```powershell
+```sh
 npx tsx tools/m3-dynamic-sdk-game-probe.ts --exclusive-gpu --output .pelican/dynamic-sdk/manual
 ```
 
@@ -12,7 +12,7 @@ The probe requires a non-fallback WebGPU adapter. Each operation writes before/a
 
 CPU checks, no GPU:
 
-```powershell
+```sh
 npx tsx --test tests/m3-dynamic-sdk-game-probe.test.ts
 npm run typecheck
 ```

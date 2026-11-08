@@ -63,16 +63,13 @@ export async function buildDistribution() {
   const engine = JSON.parse(
     await readFile(path.join(root, "engine.manifest.json"), "utf8"),
   );
-  const compiler = JSON.parse(
-    await readFile(path.join(root, "packages/compiler/package.json"), "utf8"),
-  );
   if (
-    [pkg.version, engine.version, compiler.version].some(
+    [pkg.version, engine.version].some(
       (v) => v !== SDK_VERSION,
     )
   )
     throw new Error(
-      "TC_ENGINE_SDK_VERSION: Package, compiler, engine and SDK versions must match.",
+      "TC_ENGINE_SDK_VERSION: Package, engine and SDK versions must match.",
     );
 
   // Follow the actual CLI/browser/SDK graph, never copy source directories.
@@ -230,7 +227,6 @@ export async function buildDistribution() {
           "docs",
           "licenses",
           "AGENTS.md",
-          "CONTRIBUTING.md",
           "README.md",
           "LICENSE",
           "engine.manifest.json",
@@ -251,7 +247,7 @@ export async function buildDistribution() {
         name: "pelican-engine",
         publicApi: "lib/sdk/index.d.ts",
         workflow: "docs/npm/GAME-AUTHOR.md",
-        releasePolicy: "docs/npm/DISTRIBUTION.md",
+        releasePolicy: "README.md",
       },
       null,
       2,
@@ -266,30 +262,16 @@ export async function buildDistribution() {
     ),
   );
   await cp(path.join(root, "LICENSE"), path.join(staging, "LICENSE"));
-  await cp(path.join(root, "CONTRIBUTING.md"), path.join(staging, "CONTRIBUTING.md"));
   for (const name of [
-    "docs/GETTING-STARTED.md",
     "docs/assets/pelican-mark.svg",
-    "docs/AI-WORKFLOW.md",
     "docs/CAPABILITIES.md",
-    "docs/ARCHITECTURE.md",
-    "docs/DECISIONS.md",
-    "docs/ROADMAP.md",
-    "docs/STATUS.md",
     "docs/GRAPHICS-GUIDE.md",
     "docs/SIMULATION-COUPLING.md",
     "docs/TERRAIN.md",
     "docs/ANIMATION.md",
     "docs/CINEMATICS.md",
-    "docs/tasks/V1-FINAL.md",
-    "docs/tasks/AI-FIRST-STABILIZATION.md",
-    "docs/releases/1.0.0.md",
-    "docs/releases/1.1.0.md",
-    "docs/PHYSICS-LIFECYCLE-ISSUE.md",
     "docs/RENDER-BACKENDS.md",
-    "docs/PELICAN-MIGRATION.md",
     "docs/THIRD-PARTY-NOTICES.md",
-    "docs/npm/DISTRIBUTION.md",
     "docs/npm/GAME-AUTHOR.md",
   ])
     await put(name, await readFile(path.join(root, name), "utf8"));
@@ -297,7 +279,7 @@ export async function buildDistribution() {
   await put("docs/npm/RECIPES.md", await renderRecipes(root));
   await put(
     "AGENTS.md",
-    await readFile(path.join(root, "docs/npm/GAME-AUTHOR.md"), "utf8"),
+    "# Pelican Engine game author\n\nUse the installed npm package in this game workspace. Read [the author contract](docs/npm/GAME-AUTHOR.md). Query `pelican capabilities`, `pelican api --search <query>` and `pelican recipe --id <id>`. Do not clone the contributor repository to make games.\n",
   );
   await put(
     "README.md",
@@ -335,7 +317,7 @@ export async function buildDistribution() {
     "docs/api/REFERENCE.md",
     reference.replace(
       /^(# [^\n]+\n)/,
-      "$1\nInstalled declarations: `lib/sdk/index.d.ts` (relative to the package root).\nThe signatures below come from the same public SDK source as repository games.\nSource-file paths and line numbers are build-time provenance only; TypeScript source is not shipped.\n",
+      "$1\nInstalled declarations: `lib/sdk/index.d.ts` (relative to the package root).\nThe signatures below come from the same public SDK source as the installed SDK.\nSource-file paths and line numbers are build-time provenance only; TypeScript source is not shipped.\n",
     ),
   );
   await rm(apiRoot, { recursive: true, force: true });

@@ -87,7 +87,7 @@ Terrain surfaces participate as immovable zero-radius triangle domains. The
 native rigid world consumes the same f32 vertices through its terrain bridge.
 
 The implementation is a CPU, operator-split, interleaved integration with finite
-constraint iterations, not an exact monolithic implicit solve. D60 also connects
+constraint iterations, not an exact monolithic implicit solve. The implementation also connects
 world residency and full-body animation. A material solver whose live native
 bindings belong wholly to an unloaded chunk is parked with its definition,
 queued forces and particle state, then released. Cross-chunk solver dependencies

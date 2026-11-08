@@ -1,9 +1,0 @@
-{
-  "passed": true,
-  "onlyGameSourceChange": "exit-gate rigidBody.type fixed -> kinematic",
-  "originalSHA256": "1a518d7dd34ad4aac5fe3b0725f1a170f33417efa77c80a8bbdd9aaf3af3b3dd",
-  "currentSHA256": "32ccf42288f5999743d7962ef9738ab1e8a253c11b56bdf94eef538891b7dc0e",
-  "assetsDefinitionUnchanged": true,
-  "projectEnginePath": "../..",
-  "noEngineImports": true
-}

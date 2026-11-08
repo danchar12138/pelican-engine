@@ -133,7 +133,7 @@ builder really evaluates all three axes rather than only the widest one.
 
 ## Verification And Handoff
 
-```powershell
+```sh
 node node_modules/typescript/bin/tsc --noEmit
 node --import tsx --test tests/acceleration.test.ts tests/acceleration-sah.test.ts tests/surface-cache.test.ts
 node node_modules/prettier/bin/prettier.cjs --check packages/renderer/src/acceleration.ts tests/acceleration-sah.test.ts packages/renderer/SAH.md

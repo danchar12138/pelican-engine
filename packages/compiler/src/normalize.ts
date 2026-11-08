@@ -43,7 +43,7 @@ export interface AssetCopy {
 }
 export async function normalize(
   game: ObjectValue,
-  extractor: Extractor,
+  extractor: Pick<Extractor, "source" | "definitions">,
   projectRoot: string,
 ): Promise<{
   ir?: SceneIR;

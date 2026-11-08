@@ -1,5 +1,0 @@
-{
-  "status": "failed",
-  "error": "AssertionError [ERR_ASSERTION]: false == true",
-  "browserClosed": true
-}

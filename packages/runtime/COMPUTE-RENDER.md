@@ -95,9 +95,9 @@ observe the cleanup failure through the counter. A later flush attempts
 collection again. Cleanup failures cannot replace result validation or commit
 failure diagnostics. The counter is cumulative for the driver's lifetime.
 
-Focused Windows CPU verification:
+Focused CPU verification:
 
-```powershell
+```sh
 node_modules/.bin/tsx.cmd --test tests/compute-render-owner.test.ts tests/compute-service.test.ts
 ```
 

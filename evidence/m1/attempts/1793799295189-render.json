@@ -1,6 +1,0 @@
-{
-  "id": "render",
-  "detail": "AutomationError: TC_AUTOMATION_READY_PROTOCOL: The readiness probe returned an invalid result.",
-  "stdout": "",
-  "stderr": ""
-}

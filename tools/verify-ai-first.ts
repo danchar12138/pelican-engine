@@ -1,3 +1,4 @@
+import { graphicsLaunchArguments } from "./browser-session.ts";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
@@ -36,13 +37,13 @@ await record("install-current-tarball", async () => {
 });
 await record("machine-discovery", async () => {
   const features = await run(["capabilities", "--feature", "pointer"]);
-  assert.equal(features.data.features[0].id, "input.pointer");
+  assert.ok(features.data.features.some((feature: { id: string }) => feature.id === "input.pointer"));
   const api = await run(["api", "--search", "PointerState"]);
   assert.ok(api.data.symbols.some((symbol: { name: string }) => symbol.name === "PointerState"));
   const recipe = await run(["recipe", "--id", "pointer-3d"]); assert.match(recipe.data.source, /pointer\(\)/);
   return { features: features.data, symbols: api.data.symbols.map((symbol: { name: string }) => symbol.name) };
 });
-const browser = await chromium.launch({ headless: true, channel: "chromium", args: ["--use-angle=d3d11"] });
+const browser = await chromium.launch({ headless: true, channel: "chromium", args: graphicsLaunchArguments() });
 let port = 43900;
 async function game(name: string, template: string, action: (page: Page, command: (input: unknown) => Promise<any>) => Promise<unknown>, selectedBrowser = browser) {
   const project = path.join(workspace, name);
@@ -104,10 +105,14 @@ try {
     return { roots: 1, tick: state.tick, errors: state.errors };
   }));
   await record("native-viewport-resize", () => game("viewport", "minimal", async (page, command) => {
+    assert.equal(await page.locator("#status").isHidden(), true);
     await page.setViewportSize({ width: 390, height: 844 }); await command({ type: "step", count: 1 });
     const state = await command({ type: "inspect" }); assert.equal(state.width, 390); assert.equal(state.height, 844);
     const canvas = await page.locator("canvas").first().boundingBox(); assert.equal(canvas!.width, 390); assert.equal(canvas!.height, 844);
-    return { viewport: state.viewport, canvas };
+    await page.goto(page.url() + "&diagnostics=1");
+    await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true");
+    assert.equal(await page.locator("#status").isVisible(), true);
+    return { viewport: state.viewport, canvas, diagnosticsOptIn: true };
   }));
   await record("progressive-quality-render", () => game("quality", "minimal", async (page, command) => {
     const before = await command({ type: "inspect" });

@@ -1,7 +1,0 @@
-
-{
-  "status": "failed",
-  "directory": "C:\\Users\\60459\\AppData\\Local\\Temp\\PE6EFB~1\\pelican npm 游戏-uyUsib",
-  "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n403 !== 200\n",
-  "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n403 !== 200\n\n    at <anonymous> (C:\\Users\\60459\\Desktop\\AI Project\\threecat\\tools\\npm\\smoke.ts:429:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
-}

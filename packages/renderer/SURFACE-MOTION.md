@@ -85,7 +85,7 @@ or a performance claim.
 
 ## CPU Verification
 
-```powershell
+```sh
 node_modules/.bin/tsx.cmd --test tests/surface-motion.test.ts
 npm.cmd run typecheck
 ```

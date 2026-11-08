@@ -1,4 +1,4 @@
-﻿# M0-06 finite world streaming / edit / recovery sidecar
+# M0-06 finite world streaming / edit / recovery sidecar
 
 This is an executable CPU prototype, not a complete terrain engine, navigation
 library, rigid-body system or public production SDK. It has no dependency on
@@ -170,7 +170,7 @@ precision already lost by a caller that provided global Float32 coordinates.
 
 From the repository root, using the main workspace's installed tools:
 
-```powershell
+```sh
 node --import tsx --test tests/world.test.ts
 node --import tsx experiments/world/run-probe.ts
 node node_modules/typescript/bin/tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --allowImportingTsExtensions --types node experiments/world/index.ts experiments/world/run-probe.ts tests/world.test.ts

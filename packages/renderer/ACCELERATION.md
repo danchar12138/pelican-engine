@@ -199,7 +199,7 @@ deformations can reduce traversal quality because partitions remain fixed.
 
 Reproduce using existing dependencies:
 
-```powershell
+```sh
 npx tsc --noEmit
 npx tsx --test tests/acceleration.test.ts tests/render.test.ts tests/surface.test.ts
 npx prettier --check packages/renderer/src/acceleration.ts tests/acceleration.test.ts packages/renderer/ACCELERATION.md
