@@ -472,7 +472,7 @@ async function main() {
         await cp(path.join(engineRoot, "LICENSE"), path.join(stagingOutput, "LICENSE"));
         await writeFile(
           path.join(stagingOutput, "THIRDPARTY-NOTICES.txt"),
-          "pelican runtime uses Three.js 0.187.0, fast-png 8.0.0, fflate 0.8.3, iobuffer 6.0.1 and ngraph.path 1.6.1 (MIT), and @dimforge/rapier3d-compat / @dimforge/rapier2d-compat 0.21.0 (Apache-2.0). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
+          "pelican runtime uses Three.js 0.187.0, fast-png 8.0.0, fflate 0.8.3, iobuffer 6.0.1 and ngraph.path 1.6.1 (MIT), a modified Rapier 3D 0.21.0 build (persistent-island bootstrap patch), and @dimforge/rapier2d-compat 0.21.0 (Apache-2.0). Full dependency licenses are distributed beside this notice. User asset declarations follow in generated/asset-notices.json.\n" +
             JSON.stringify(result.ir?.assetNotices ?? [], null, 2) +
             "\n",
         );

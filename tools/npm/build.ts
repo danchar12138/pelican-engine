@@ -142,6 +142,10 @@ export async function buildDistribution() {
   }
 
   const sdk = path.join(root, "packages/sdk/src/index.ts");
+  // The private native build is not a second npm package or a source-only path.
+  for (const name of ["runtime.mjs", "LICENSE", "README.md", "build.json", "bootstrap-before-observations.patch"])
+    await put("lib/physics/vendor/rapier3d/" + name,
+      await readFile(path.join(root, "packages/physics/vendor/rapier3d", name)));
   const program = ts.createProgram([sdk], {
     target: ts.ScriptTarget.ES2023,
     module: ts.ModuleKind.ESNext,

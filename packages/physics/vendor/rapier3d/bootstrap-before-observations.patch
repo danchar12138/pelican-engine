@@ -1,0 +1,61 @@
+diff --git a/src/dynamics/island_manager/manager.rs b/src/dynamics/island_manager/manager.rs
+index c80e1b4..c0870fe 100644
+--- a/src/dynamics/island_manager/manager.rs
++++ b/src/dynamics/island_manager/manager.rs
+@@ -387,15 +387,14 @@ impl IslandManager {
+         );
+     }
+ 
+-    pub(crate) fn update_islands(
++    pub(crate) fn bootstrap_if_needed(
+         &mut self,
+         bodies: &mut RigidBodySet,
+         colliders: &ColliderSet,
+-        narrow_phase: &mut NarrowPhase,
++        narrow_phase: &NarrowPhase,
+         impulse_joints: &ImpulseJointSet,
+         multibody_joints: &MultibodyJointSet,
+         soft_bodies: &SoftBodySet,
+-        sleep_observations: &[(u32, bool)],
+     ) {
+         // First update after construction or deserialization: rebuild the persistent islands
+         // from the current graphs, and wake any sleeping body stranded in a mixed island
+@@ -423,6 +422,18 @@ impl IslandManager {
+             }
+         }
+ 
++    }
++
++    pub(crate) fn update_islands(
++        &mut self,
++        bodies: &mut RigidBodySet,
++        colliders: &ColliderSet,
++        narrow_phase: &mut NarrowPhase,
++        impulse_joints: &ImpulseJointSet,
++        multibody_joints: &MultibodyJointSet,
++        soft_bodies: &SoftBodySet,
++        sleep_observations: &[(u32, bool)],
++    ) {
+         // Whole-island sleep decision: an island sleeps once *every* body has been
+         // sleep-eligible long enough; one that lost constraints must split first (unless
+         // single-body). Observations come from the pipeline's fused active-bodies traversal, so this never touches the body arena.
+diff --git a/src/pipeline/physics_pipeline/solve.rs b/src/pipeline/physics_pipeline/solve.rs
+index 7ba3202..ca5049e 100644
+--- a/src/pipeline/physics_pipeline/solve.rs
++++ b/src/pipeline/physics_pipeline/solve.rs
+@@ -177,6 +177,15 @@ impl PhysicsPipeline {
+         // connectivity — common case, island never marked dirty — or peels the detached side at its cost);
+         // the rest falls to the deferred union-find split (one island/step), run before the fused traversal so split bids see the post-split state.
+         self.counters.stages.island_construction_time.resume();
++        // Bootstrap replaces persistent island IDs used by bids and observations.
++        islands.bootstrap_if_needed(
++            bodies,
++            colliders,
++            narrow_phase,
++            impulse_joints,
++            multibody_joints,
++            soft_bodies,
++        );
+         islands.persistent.resolve_removals(
+             bodies,
+             colliders,

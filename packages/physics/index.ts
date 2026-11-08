@@ -1,5 +1,5 @@
-import RAPIER from "@dimforge/rapier3d-compat";
-import { preflightPhysicsHistory, rejectKnownUnsafeInitialRemoval } from "./history-preflight.ts";
+import RAPIER from "./rapier.ts";
+import { preflightPhysicsHistory } from "./history-preflight.ts";
 import type {
   CharacterDefinition,
   EntityHandle,
@@ -949,7 +949,6 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       // Both checks run on detached data before allocating any native candidate.
       // Neither check establishes that arbitrary replay is safe.
       preflightPhysicsHistory(definitions, catalog, s.history, s);
-      rejectKnownUnsafeInitialRemoval(definitions, s.history);
       // No caller-controlled bytes ever reach World.restoreSnapshot. Reconstruct
       // native state from checked operations, then compare native/header data.
       candidate = simulation(definitions, gravity, catalog);
@@ -1257,16 +1256,6 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         writes: ["Transform"],
         run(dt) {
           const action = lifecycle(dt);
-          // Conservatively reject the known unsafe initial deletion path before
-          // invoking native physics. This does not protect historical replay.
-          if (state.tick === 0) {
-            const blocked = action.removed.filter(id => state.bodies.get(id)?.type !== "fixed");
-            if (blocked.length > 0)
-              fail(
-                "TC_PHYSICS_FIRST_STEP_REMOVAL",
-                `Cannot remove moving physics bodies before the first physics step: ${blocked.join(", ")}. Keep them alive until a physics step completes.`,
-              );
-          }
           record(action);
           bindRefs();
           for (const b of state.bodies.values())

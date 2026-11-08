@@ -1,0 +1,11 @@
+{
+  "upstream": "https://github.com/dimforge/rapier",
+  "revision": "b716d375efc0201003f0cd9ef7168eee0b62c177",
+  "patchSha256": "15976cd187d8a9e76fd49564dca4a0224125623823602b0f74f9418c841ae57d",
+  "wasmSha256": "7ba7e597918343ab015ac304c039139e77c585dc00bf4b27be47e91728074eaa",
+  "wasmBytes": 3910550,
+  "runtimeSha256": "d322ec713988a1e76fcd542006d18f1d575f5f89819aafd4ced5e77875b00c2f",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "bindgen": "wasm-bindgen 0.2.130",
+  "validation": "not-run; compile-only build"
+}

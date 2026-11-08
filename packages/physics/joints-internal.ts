@@ -1,4 +1,4 @@
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "./rapier.ts";
 
 // Internal-only: anchors, axes, and frames are local to their respective bodies.
 type Vec3 = readonly [number, number, number];

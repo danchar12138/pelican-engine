@@ -45,15 +45,13 @@ physics snapshot history. Fixed, kinematic and character bodies are rejected.
 The value does not affect other simulation services. Behavior and snapshot
 replay are unverified; existing history-replay risks remain open.
 
-One known hazardous legacy 3D history shape is now rejected before native
-replay with `TC_PHYSICS_SNAPSHOT_UNSAFE_HISTORY` inside the snapshot diagnostic.
-This can also reject a matching old checkpoint that would otherwise restore;
-use another known-good checkpoint or restart the scene. The guard covers only
-two initially separated dynamic boxes with a specific first-step deletion order.
-An additional structural preflight rejects inconsistent lifecycle identities,
-body types and tick counts before native replay. These checks do not authenticate
-snapshots, make arbitrary histories safe or fix first-step body deletion.
-Legacy compatibility and failure behavior have not been runtime-validated.
+The 3D adapter now uses a private full Rapier build with a native
+persistent-island bootstrap-order patch. It no longer rejects initial body
+removal based on deletion order or requires waiting for a positive-time step.
+Structural preflight still rejects inconsistent lifecycle identities, body types
+and tick counts before candidate reconstruction. These checks do not authenticate
+snapshots or prove arbitrary histories safe. Native first-step behavior, legacy
+compatibility and failure recovery have not been runtime-validated for this build.
 
 `ctx.physics.overlapSphere(center, radius, options)` finds live physics entities
 overlapping a world-space sphere. Results are sorted entity IDs; triggers are

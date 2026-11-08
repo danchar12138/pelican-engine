@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Integrate a full pinned Rapier 3D release build with a persistent-island bootstrap patch, replacing deletion-order rejection guards. Native behavior and old snapshot compatibility are unverified.
+
 - Support sparse glTF MAT2/MAT3 column padding during normalization and GLB inspection; asset behavior remains unverified.
 
 - Preflight 3D physics snapshot lifecycle identities and tick counts before native history reconstruction; replay safety remains incomplete and unverified.

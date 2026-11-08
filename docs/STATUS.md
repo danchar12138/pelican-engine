@@ -11,11 +11,13 @@
 
 ## Current Scope
 
+- Local 3D physics now uses a full release WASM/JS build from pinned Rapier source with persistent-island bootstrap moved before sleep observations. Source and npm share the private artifact; deletion-order rejection guards are removed. This is a bottom-layer implementation change, not verified proof that first-step removal, v3 compatibility or arbitrary history recovery is correct. The build and patch are retained under packages/physics/vendor/rapier3d.
+
 - Local asset development expands sparse glTF MAT2/MAT3 accessors with column padding into tightly packed accessors before the Three loader, and the GLB inspection path decodes padded matrix columns. Asset loading and numeric compatibility remain unverified.
 
 - Local 3D physics development checks snapshot lifecycle identity, entity types, bindings and tick counts against recorded history before allocating a native replay candidate. This rejects structurally inconsistent histories but is not authentication or isolation; structurally consistent malicious histories may still trigger the open native replay defect. Behavior and legacy compatibility remain unverified.
 
-- Local 3D physics development rejects one known unsafe legacy replay shape before allocating a native candidate: the first of two definitely separated dynamic boxes removed before the first step. This is a limited fail-closed guard, not a repair or proof that other histories are safe. Legacy compatibility and rejection behavior have not been runtime-validated.
+- The earlier two-box deletion-order rejection was superseded by the patched native build. Structural preflight remains; arbitrary replay safety and legacy compatibility still require validation.
 
 - Local rope development connects particles to dynamic sphere/box bodies at body-local points, with split-step bilateral impulse reactions, attachment contact filtering, runtime attach/detach and snapshot bindings. It is not continuous collision or a unified solver; force transfer, stability, native failure handling and restoration remain unverified.
 
