@@ -1,4 +1,4 @@
 {
   "entry": "game.ts",
-  "engine": { "path": "../..", "version": "0.12.0" }
+  "engine": { "path": "../..", "version": "0.13.0" }
 }
