@@ -183,3 +183,18 @@ test("component JSON Schema follows the SDK declaration defaults without aliasin
   (schema.properties.position.default as number[])[0] = 99;
   assert.deepEqual(component.schema.position.default, [1, 2, 3]);
 });
+
+
+test("public API signatures and machine index are independent of source checkout line endings", async () => {
+  const folder = await mkdtemp(path.join(tmpdir(), "pelican-api-newlines-"));
+  try {
+    const directory = path.join(folder, "packages/sdk/src");
+    await mkdir(directory, {recursive:true});
+    const source = (await readFile("packages/sdk/src/index.ts", "utf8")).replace(/\r\n?/g, "\n");
+    await writeFile(path.join(directory, "index.ts"), source);
+    const lf = await generateApiIndex(folder);
+    await writeFile(path.join(directory, "index.ts"), source.replace(/\n/g, "\r\n"));
+    const crlf = await generateApiIndex(folder);
+    assert.deepEqual(crlf, lf);
+  } finally { await rm(folder, {recursive:true, force:true}); }
+});

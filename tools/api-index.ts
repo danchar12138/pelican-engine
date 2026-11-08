@@ -78,7 +78,7 @@ export function queryApi(index: { symbols: ApiSymbol[]; members?: ApiSymbol[] },
 /** Public SDK source is the sole signature source; this file does not maintain duplicate API declarations. */
 export async function generateApiIndex(engineRoot = root) {
   const filename = path.join(engineRoot, "packages/sdk/src/index.ts");
-  const source = await readFile(filename, "utf8");
+  const source = (await readFile(filename, "utf8")).replace(/\r\n?/g, "\n");
   const sf = ts.createSourceFile(
     filename,
     source,

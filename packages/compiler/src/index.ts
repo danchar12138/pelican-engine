@@ -123,6 +123,7 @@ async function bundle(
   sdkPath: string,
   projectRoot: string,
   construction?: import("./extract.ts").ObjectValue,
+  engineRoot?: string,
 ): Promise<{ code: string; map: string; dependencies: string[] }> {
   const dependencies = new Set<string>();
   // Detect declarations which branch on Node/browser globals without running runtime.create.
@@ -214,7 +215,7 @@ async function bundle(
   map.sourceRoot = "";
   // Rollup/Vite map paths are relative to its virtual output at projectRoot/dist.
   map.sources = map.sources.map((source) =>
-    mapSourcePath(source, projectRoot, sdkPath, path, sourceRoot),
+    mapSourcePath(source, projectRoot, sdkPath, path, sourceRoot, engineRoot),
   );
   return { code: chunk.code, map: JSON.stringify(map), dependencies: [...dependencies] };
 }
@@ -734,7 +735,7 @@ export async function compileProject(
             : "Compatible schema; runtime may patch logic/content at a safe boundary.",
       };
     }
-    const bundled = await bundle(entry, sdkPath, projectRoot, manifest.content === "typescript" ? game : undefined);
+    const bundled = await bundle(entry, sdkPath, projectRoot, manifest.content === "typescript" ? game : undefined, engineRoot);
     for (const input of report.inputs) inputMap.set(input.root + ":" + input.path, input);
     for (const file of bundled.dependencies) {
       if (file === path.join(projectRoot, "__pelican_m0_game_entry__.js")) continue;

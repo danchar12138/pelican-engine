@@ -95,3 +95,16 @@ test("engine lock paths support relative, absolute cross-drive and UNC Windows d
     "\\\\server\\share\\pelican",
   );
 });
+
+
+test("cross-drive source maps include selected engine shared runtime dependencies without exposing unrelated paths", () => {
+  const win = path.win32, project = "C:/Temp/game", engine = "D:/a/pelican-engine", sdk = engine + "/packages/sdk/src/index.ts";
+  assert.equal(mapSourcePath(engine + "/packages/schema/src/json-value.ts", project, sdk, win, "", engine), "pelican-engine/packages/schema/src/json-value.ts");
+  assert.equal(mapSourcePath("d:/A/PELICAN-ENGINE/packages/schema/src/json-value.ts", project, sdk, win, "", engine), "pelican-engine/packages/schema/src/json-value.ts");
+  assert.equal(mapSourcePath(engine + "/packages/sdk/src/runtime-lifecycle.ts", project, sdk, win, "", engine), "pelican-sdk/runtime-lifecycle.ts");
+  assert.equal(mapSourcePath("C:/Temp/game/game.ts", project, sdk, win, "", engine), "game.ts");
+  assert.equal(mapSourcePath(engine + "/lib/schema/json-value.js", project, engine + "/lib/sdk/index.js", win, "", engine), "pelican-engine/lib/schema/json-value.js");
+  assert.equal(mapSourcePath(engine + "/examples/demo/game.ts", engine + "/examples/demo", sdk, win, "", engine), "game.ts");
+  for (const external of ["E:/private/file.ts", "D:/a/pelican-engine-other/file.ts", "D:/a/private/file.ts"])
+    assert.throws(() => mapSourcePath(external, project, sdk, win, "", engine), /TC_SOURCE_MAP_EXTERNAL/);
+});
