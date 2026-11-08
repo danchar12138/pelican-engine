@@ -1,5 +1,7 @@
 # M4 内部关节切片
 
+> 2026-11-08 当前实现：生产 physics 插件新增 createJoint/destroyJoint/inspectJoint/listJoints，包含 fixed、ball、revolute、prismatic、rope、spring。关节操作写入历史，绑定体删除时清理；新 v3 快照使用可选 joints 字段，旧无关节快照布局保留。底层使用补丁原生构建，每个世界/候选使用独立 WASM 内存，不采用历史候选跳过 free 的共享陷阱策略。按用户最新要求只编译/构建，未运行关节、回放、旧 v3 兼容或释放验证。下文是原始历史记录，不代表当前实现验收。
+
 状态：内部实现与 CPU 验证，非公开 API、非 M4 验收。`packages/physics/joints-internal.ts` 基于 Rapier 构建 fixed、revolute 和 ball 约束，验证固定/动态及动态/动态刚体对、局部锚点/轴/框架、定义快照重建和非法输入，并支持查询、按 ID 删除与按实体清理。`tests/physics-joints-internal.test.ts` 12 项通过，旧 v3 夹具 2 项通过；类型检查通过。批量清理先检查所有关联关节，但底层原生删除异常时不保证事务原子性。
 
 当前没有将该注册器接入现有 physics 插件、公开 SDK、固定 tick 生命周期、游戏资源或 v3 快照。其内部快照只包含关节定义且只支持空注册器恢复，不保存刚体状态，不代表旧快照兼容或可被游戏使用。首步删除和不可信 history 缺陷仍独立开放；接入时必须设计具版本边界的完整状态与删除/恢复语义，再验证真实游戏。

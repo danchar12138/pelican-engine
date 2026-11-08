@@ -16,6 +16,12 @@ and matching release WASM, not the historical instrumented test adapter.
 `build.json` records the pinned input and resulting artifact digests. Normal
 engine and npm builds use the same checked-in artifact and need no Rust tools.
 
+Each production physics world and replay candidate gets a fresh JS binding
+closure and WebAssembly memory. Only the immutable compiled module is cached.
+Shapes, rays, event queues and joint descriptors are created by their owning
+world's binding, never transferred between native instances. This requires no
+Worker, SharedArrayBuffer, COOP/COEP headers or new player environment setting.
+
 ## Rebuild
 
 Maintainers need the pinned source checkout, its locked build dependencies,
@@ -36,6 +42,9 @@ compiles and bundles only; it does not run physics scenes or tests.
 
 This is a compile-only integration. Native behavior, old v3 byte compatibility,
 malicious history handling, long-running memory use and browser integration have
-not been validated for this build. Structural preflight and candidate-only
-reconstruction are not a security sandbox or a proof of arbitrary replay safety.
+not been validated for this build. Separate native memory isolates a candidate's
+Rust allocator/borrow state from the live world, but is not a security sandbox:
+history still runs synchronously with bounded input counts and can consume time
+and memory. Failed native frees are reported; collection of an abandoned instance
+is controlled by the JS/WebAssembly host and is not a measured leak-free guarantee.
 Do not treat the historical lab results as acceptance of this artifact.

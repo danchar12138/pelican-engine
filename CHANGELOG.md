@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add production 3D joint creation, inspection and deletion for fixed, ball, revolute, prismatic, rope and spring constraints, with snapshot history and endpoint cleanup. Behavior is unverified.
+- Isolate every 3D physics world and replay candidate in separate WASM memory, sharing compiled code only; recovery and memory behavior are unverified.
+
 - Integrate a full pinned Rapier 3D release build with a persistent-island bootstrap patch, replacing deletion-order rejection guards. Native behavior and old snapshot compatibility are unverified.
 
 - Support sparse glTF MAT2/MAT3 column padding during normalization and GLB inspection; asset behavior remains unverified.

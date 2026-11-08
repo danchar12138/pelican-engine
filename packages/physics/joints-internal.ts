@@ -1,19 +1,10 @@
 import RAPIER from "./rapier.ts";
+import type { PhysicsJointDefinition } from "../sdk/src/index.ts";
 
 // Internal-only: anchors, axes, and frames are local to their respective bodies.
 type Vec3 = readonly [number, number, number];
 type Quaternion = readonly [number, number, number, number];
-type Base = {
-  id: string;
-  body1: string;
-  body2: string;
-  anchor1: Vec3;
-  anchor2: Vec3;
-};
-export type InternalJoint =
-  | (Base & { kind: "ball" })
-  | (Base & { kind: "revolute"; axis1: Vec3; axis2: Vec3 })
-  | (Base & { kind: "fixed"; frame1: Quaternion; frame2: Quaternion });
+export type InternalJoint = PhysicsJointDefinition;
 export type InternalJointSnapshot = {
   format: "pelican.physics-joints-internal";
   version: 1;
@@ -67,11 +58,11 @@ function unit(value: unknown, length: number, label: string): number[] {
     fail("TC_PHYSICS_JOINT_DEFINITION", `${label} must be normalized.`);
   return result;
 }
-function validate(value: unknown): InternalJoint {
+export function validateJointDefinition(value: unknown): InternalJoint {
   if (!object(value))
     fail("TC_PHYSICS_JOINT_DEFINITION", "Expected a plain joint object.");
   const kind = value.kind;
-  if (kind !== "fixed" && kind !== "revolute" && kind !== "ball")
+  if (!["fixed", "revolute", "ball", "prismatic", "rope", "spring"].includes(kind as string))
     fail("TC_PHYSICS_JOINT_DEFINITION", "Unsupported joint kind.");
   const fields = [
     "id",
@@ -84,17 +75,19 @@ function validate(value: unknown): InternalJoint {
       ? ["frame1", "frame2"]
       : kind === "revolute"
         ? ["axis1", "axis2"]
-        : []),
+        : kind === "prismatic" ? ["axis"]
+        : kind === "rope" ? ["length"]
+        : kind === "spring" ? ["restLength", "stiffness", "damping"] : []),
   ];
   if (
-    Object.keys(value).length !== fields.length ||
+    Object.keys(value).some(key => ![...fields, "contactsEnabled", ...(["revolute", "prismatic"].includes(kind as string) ? ["limits"] : [])].includes(key)) ||
     fields.some((key) => !Object.hasOwn(value, key))
   )
     fail("TC_PHYSICS_JOINT_DEFINITION", "Invalid joint fields.");
   for (const key of ["id", "body1", "body2"])
     if (
       typeof value[key] !== "string" ||
-      !(value[key] as string).length ||
+      !(value[key] as string).trim().length ||
       (value[key] as string).length > 256
     )
       fail("TC_PHYSICS_JOINT_DEFINITION", `Invalid ${key}.`);
@@ -106,18 +99,37 @@ function validate(value: unknown): InternalJoint {
     body2: value.body2 as string,
     anchor1: vector(value.anchor1, 3, "anchor1") as unknown as Vec3,
     anchor2: vector(value.anchor2, 3, "anchor2") as unknown as Vec3,
+    ...(value.contactsEnabled === undefined ? {} : { contactsEnabled: value.contactsEnabled as boolean }),
+  };
+  if (value.contactsEnabled !== undefined && typeof value.contactsEnabled !== "boolean")
+    fail("TC_PHYSICS_JOINT_DEFINITION", "contactsEnabled must be boolean.");
+  let limits: readonly [number, number] | undefined;
+  if (value.limits !== undefined) {
+    const range = vector(value.limits, 2, "limits");
+    if (range[0] > range[1]) fail("TC_PHYSICS_JOINT_DEFINITION", "Joint limits must be ordered.");
+    limits = [range[0], range[1]];
+  }
+  const scalar = (key: string, positive: boolean): number => {
+    const n = value[key];
+    if (typeof n !== "number" || !Number.isFinite(n) || n < 0 || (positive && n === 0) || n > 1e6 || (n !== 0 && Math.fround(n) === 0))
+      fail("TC_PHYSICS_JOINT_DEFINITION", `${key} must be finite, representable and ${positive ? "positive" : "nonnegative"}, at most 1e6.`);
+    return n as number;
   };
   if (kind === "ball") return { ...base, kind };
+  if (kind === "rope") return { ...base, kind, length: scalar("length", true) };
+  if (kind === "spring") return { ...base, kind, restLength: scalar("restLength", false), stiffness: scalar("stiffness", true), damping: scalar("damping", false) };
+  if (kind === "prismatic") return { ...base, kind, axis: unit(value.axis, 3, "axis") as unknown as Vec3, ...(limits ? { limits } : {}) };
   if (kind === "revolute")
     return {
       ...base,
       kind,
       axis1: unit(value.axis1, 3, "axis1") as unknown as Vec3,
       axis2: unit(value.axis2, 3, "axis2") as unknown as Vec3,
+      ...(limits ? { limits } : {}),
     };
   return {
     ...base,
-    kind,
+    kind: "fixed",
     frame1: unit(value.frame1, 4, "frame1") as unknown as Quaternion,
     frame2: unit(value.frame2, 4, "frame2") as unknown as Quaternion,
   };
@@ -129,13 +141,14 @@ const q = (a: Quaternion) => ({ x: a[0], y: a[1], z: a[2], w: a[3] });
 export function createInternalJoints(
   world: RAPIER.World,
   bodies: ReadonlyMap<string, RAPIER.RigidBody>,
+  native: typeof RAPIER = RAPIER,
 ) {
   const entries = new Map<
     string,
     { definition: InternalJoint; joint: RAPIER.ImpulseJoint }
   >();
   function checked(input: unknown) {
-    const definition = validate(input),
+    const definition = validateJointDefinition(input),
       a = bodies.get(definition.body1),
       b = bodies.get(definition.body2);
     if (
@@ -171,21 +184,33 @@ export function createInternalJoints(
       fail("TC_PHYSICS_JOINT_LIMIT", "Joint limit exceeded.");
     const data =
       d.kind === "ball"
-        ? RAPIER.JointData.spherical(v(d.anchor1), v(d.anchor2))
+        ? native.JointData.spherical(v(d.anchor1), v(d.anchor2))
         : d.kind === "fixed"
-          ? RAPIER.JointData.fixed(
+          ? native.JointData.fixed(
               v(d.anchor1),
               q(d.frame1),
               v(d.anchor2),
               q(d.frame2),
             )
-          : RAPIER.JointData.revoluteWithAxes(
+          : d.kind === "revolute" ? native.JointData.revoluteWithAxes(
               v(d.anchor1),
               v(d.anchor2),
               v(d.axis1),
               v(d.axis2),
-            );
+            )
+          : d.kind === "prismatic" ? native.JointData.prismatic(v(d.anchor1), v(d.anchor2), v(d.axis))
+          : d.kind === "rope" ? native.JointData.rope(d.length, v(d.anchor1), v(d.anchor2))
+          : native.JointData.spring(d.restLength, d.stiffness, d.damping, v(d.anchor1), v(d.anchor2));
     const joint = world.createImpulseJoint(data, a, b, true);
+    try {
+      joint.setContactsEnabled(d.contactsEnabled ?? false);
+      if ((d.kind === "prismatic" || d.kind === "revolute") && d.limits)
+        (joint as RAPIER.UnitImpulseJoint).setLimits(d.limits[0], d.limits[1]);
+    } catch (error) {
+      const failures = [error];
+      try { world.removeImpulseJoint(joint, true); } catch (cleanup) { failures.push(cleanup); }
+      throw new AggregateError(failures, "TC_PHYSICS_JOINT_NATIVE: Native configuration failed; partialState=true. Restore a checkpoint or restart.");
+    }
     entries.set(d.id, { definition: d, joint });
   }
   function entry(id: string) {
@@ -201,7 +226,8 @@ export function createInternalJoints(
   }
   function remove(id: string) {
     const found = entry(id);
-    world.removeImpulseJoint(found.joint, true);
+    try { world.removeImpulseJoint(found.joint, true); }
+    catch (error) { throw new AggregateError([error], "TC_PHYSICS_JOINT_NATIVE: Native removal failed; partialState=true. Restore a checkpoint or restart."); }
     entries.delete(id);
   }
   function removeForBody(id: string) {

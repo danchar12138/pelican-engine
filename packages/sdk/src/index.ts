@@ -970,7 +970,31 @@ export type PhysicsSweepShape =
   | { shape: "box"; halfExtents: Vec3 }
   | { shape: "capsule"; halfHeight: number; radius: number };
 export interface PhysicsSweepHit { entity: string; fraction: number; distance: number; point: Vec3; normal: Vec3 }
+/** Anchors and axes are in each rigid body's local frame, in metres/radians. */
+export interface PhysicsJointBase {
+  id: string;
+  body1: string;
+  body2: string;
+  anchor1: Vec3;
+  anchor2: Vec3;
+  /** Connected bodies do not collide by default. */
+  contactsEnabled?: boolean;
+}
+export type PhysicsJointDefinition = PhysicsJointBase & (
+  | { kind: "ball" }
+  | { kind: "fixed"; frame1: Vec4; frame2: Vec4 }
+  | { kind: "revolute"; axis1: Vec3; axis2: Vec3; limits?: readonly [number, number] }
+  | { kind: "prismatic"; axis: Vec3; limits?: readonly [number, number] }
+  | { kind: "rope"; length: number }
+  | { kind: "spring"; restLength: number; stiffness: number; damping: number }
+);
 export interface PhysicsService {
+  /** Create a 3D joint between fixed/dynamic bodies, with at least one dynamic endpoint. */
+  createJoint(definition: PhysicsJointDefinition): void;
+  /** Remove a joint; removing an endpoint body also removes its connected joints. */
+  destroyJoint(id: string): void;
+  inspectJoint(id: string): PhysicsJointDefinition;
+  listJoints(): readonly PhysicsJointDefinition[];
   /** Set 3D rigid-body world gravity; wakes dynamic bodies. Character controllers keep their own gravity. */
   setGravity(gravity: Vec3): void;
   /** Current 3D rigid-body world gravity in world units per second squared. */

@@ -1,9 +1,11 @@
-import RAPIER from "./rapier.ts";
+import RAPIER, { createRapierInstance } from "./rapier.ts";
 import { preflightPhysicsHistory } from "./history-preflight.ts";
+import { createInternalJoints, validateJointDefinition } from "./joints-internal.ts";
 import type {
   CharacterDefinition,
   EntityHandle,
   PhysicsService,
+  PhysicsJointDefinition,
   PhysicsSweepShape,
   RigidBodyDefinition,
   Transform,
@@ -71,7 +73,9 @@ type Action =
   | { kind: "move" | "velocity" | "impulse" | "angularVelocity" | "torqueImpulse"; id: string; value: Vec3 }
   | { kind: "gravity"; value: Vec3 }
   | { kind: "gravityScale"; id: string; scale: number }
-  | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 };
+  | { kind: "impulseAtPoint"; id: string; value: Vec3; point: Vec3 }
+  | { kind: "jointCreate"; definition: PhysicsJointDefinition }
+  | { kind: "jointDestroy"; id: string };
 interface PhysicsSnapshot {
   format: "pelican.physics-rapier3d";
   version: 3;
@@ -89,6 +93,8 @@ interface PhysicsSnapshot {
   }[];
   characters: CharacterState[];
   pairs: [number, number][];
+  /** Absent in old v3 snapshots with no joint operations. */
+  joints?: PhysicsJointDefinition[];
 }
 function fail(code: string, message: string): never {
   throw new Error(code + ": " + message);
@@ -221,17 +227,17 @@ function validateDefinition(e: EntityIR) {
   if (e.character) validateCharacter(e.character);
   checkTransform(e.transform, e);
 }
-function shape(e: EntityIR, t: Transform): RAPIER.Shape {
+function shape(e: EntityIR, t: Transform, native: typeof RAPIER = RAPIER): RAPIER.Shape {
   const d = e.rigidBody!.collider,
     s = t.scale;
   if (d.shape === "box")
-    return new RAPIER.Cuboid(
+    return new native.Cuboid(
       (d.size![0] * s[0]) / 2,
       (d.size![1] * s[1]) / 2,
       (d.size![2] * s[2]) / 2,
     );
-  if (d.shape === "sphere") return new RAPIER.Ball(d.radius! * s[0]);
-  return new RAPIER.Capsule(d.halfHeight! * s[1], d.radius! * s[0]);
+  if (d.shape === "sphere") return new native.Ball(d.radius! * s[0]);
+  return new native.Capsule(d.halfHeight! * s[1], d.radius! * s[0]);
 }
 let initialization: Promise<RuntimePluginFactory> | undefined;
 let initialized = false;
@@ -241,7 +247,7 @@ export async function createPhysicsFactory(): Promise<RuntimePluginFactory> {
   return (initialization ??= RAPIER.init().then(() => {
     initialized = true;
     return factory;
-  }));
+  }).catch(error => { initialization = undefined; throw error; }));
 }
 export const initPhysics = createPhysicsFactory;
 /** Synchronous factory for callers that already awaited createPhysicsFactory. */
@@ -255,11 +261,15 @@ export function createFactory(): RuntimePluginFactory {
 }
 
 function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
+  const RAPIER = createRapierInstance();
   const world = new RAPIER.World(vec(gravity, "gravity"));
   let queue: RAPIER.EventQueue | undefined;
   const bodies = new Map<string, BodyEntry>(),
+    nativeBodies = new Map<string, RAPIER.RigidBody>(),
     byCollider = new Map<number, string>(),
     pairs = new Map<string, { a: number; b: number; trigger: boolean }>();
+  const joints = createInternalJoints(world, nativeBodies, RAPIER);
+  let jointHistory = false;
   let tick = 0,
     topologyDirty = false;
   const pairKey = (a: number, b: number) => (a < b ? a + ":" + b : b + ":" + a);
@@ -294,7 +304,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       else {
         const d = e.rigidBody!,
           o = d.collider.offset ?? [0, 0, 0];
-        cd = new RAPIER.ColliderDesc(shape(e, e.transform));
+        cd = new RAPIER.ColliderDesc(shape(e, e.transform, RAPIER));
         cd.setTranslation(
           o[0] * e.transform.scale[0],
           o[1] * e.transform.scale[1],
@@ -319,6 +329,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       };
       topologyDirty = true;
       bodies.set(e.id, b);
+      nativeBodies.set(e.id, body);
       byCollider.set(collider.handle, e.id);
       if (e.character) {
         const d = e.character;
@@ -341,6 +352,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       const entry = bodies.get(e.id);
       if (entry) byCollider.delete(entry.collider.handle);
       bodies.delete(e.id);
+      nativeBodies.delete(e.id);
       world.removeRigidBody(body);
       throw error;
     }
@@ -384,6 +396,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   }
   function remove(id: string, emit: (type: string, payload: unknown) => void) {
     const b = get(id);
+    joints.removeForBody(id);
     for (const [key, p] of pairs)
       if (p.a === b.collider.handle || p.b === b.collider.handle) {
         emitPair(p, false, emit);
@@ -393,6 +406,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
     byCollider.delete(b.collider.handle);
     world.removeRigidBody(b.body);
     bodies.delete(id);
+    nativeBodies.delete(id);
     topologyDirty = true;
   }
   function drain(emit: (type: string, payload: unknown) => void) {
@@ -438,7 +452,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
         old = b.transform;
       if (!same(t, old)) dirty = true;
       if (!same(t.scale, old.scale)) {
-        b.collider.setShape(shape(b.definition, t));
+        b.collider.setShape(shape(b.definition, t, RAPIER));
         const o = b.definition.rigidBody!.collider.offset ?? [0, 0, 0];
         b.collider.setTranslationWrtParent({
           x: o[0] * t.scale[0],
@@ -559,9 +573,18 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
   ) {
     if (
       !action ||
-      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale"].includes(action.kind)
+      !["step", "move", "velocity", "impulse", "angularVelocity", "torqueImpulse", "impulseAtPoint", "gravity", "gravityScale", "jointCreate", "jointDestroy"].includes(action.kind)
     )
       fail("TC_PHYSICS_SNAPSHOT", "Invalid history action.");
+    if (action.kind === "jointCreate" || action.kind === "jointDestroy") {
+      const field = action.kind === "jointCreate" ? "definition" : "id";
+      if (Object.keys(action).length !== 2 || !Object.hasOwn(action, field))
+        fail("TC_PHYSICS_SNAPSHOT", "Invalid joint history fields.");
+      if (action.kind === "jointCreate") joints.create(action.definition);
+      else joints.remove(action.id);
+      jointHistory = true;
+      return;
+    }
     if (action.kind === "gravity") {
       if (Object.keys(action).length !== 2 || !Object.hasOwn(action, "value"))
         fail("TC_PHYSICS_SNAPSHOT", "Invalid gravity history action fields.");
@@ -763,6 +786,7 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
       pairs: [...pairs.values()].map((p) =>
         p.a < p.b ? [p.a, p.b] : [p.b, p.a],
       ) as [number, number][],
+      ...(jointHistory ? { joints: joints.snapshot().joints } : {}),
     };
   }
   return {
@@ -774,6 +798,8 @@ function simulation(definitions: EntityIR[], gravity: Vec3, catalog: SceneIR) {
         .length;
     },
     world,
+    native: RAPIER,
+    joints,
     bodies,
     byCollider,
     get,
@@ -815,6 +841,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   let state = simulation(definitions, gravity, catalog),
     history: Action[] = [],
     disposed = false,
+    nativeFault = false,
     pendingBind: string[] | undefined;
   const refs = new Map<string, EntityHandle>();
   function bindRefs(ids: Iterable<string> = state.bodies.keys()) {
@@ -832,12 +859,14 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
   const emit = (type: string, payload: unknown) => {
     context.emit(type, payload);
   };
-  function alive() {
+  function alive(recovering = false) {
     if (disposed)
       fail(
         "TC_PHYSICS_DISPOSED",
         "Physics plugin disposed; create a new host.",
       );
+    if (nativeFault && !recovering)
+      fail("TC_PHYSICS_RECOVERY_REQUIRED", "A native physics operation failed; restore a known-good checkpoint or restart the scene before further access.");
   }
   function overlapShape(position: V, orientation: RAPIER.Rotation, shape: RAPIER.Shape, options?: PhysicsRaycastOptions): string[] {
     if (options !== undefined && (!options || typeof options !== "object" || Array.isArray(options) ||
@@ -892,8 +921,15 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         "TC_PHYSICS_HISTORY_LIMIT",
         "Physics history exceeds 100000 operations; start a new scene.",
       );
-    state.apply(action, emit);
-    history.push(structuredClone(action));
+    // Capture plain input first: a clone failure after native mutation would
+    // otherwise leave a changed world with no corresponding history entry.
+    const captured = cloneSerializable(action);
+    try { state.apply(captured, emit); }
+    catch (error) {
+      if (error instanceof AggregateError || !(error instanceof Error) || !error.message.startsWith("TC_")) nativeFault = true;
+      throw error;
+    }
+    history.push(captured);
   }
   function get(id: string) {
     alive();
@@ -918,7 +954,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     };
   }
   function validate(input: unknown) {
-    alive();
+    alive(true);
     let candidate: ReturnType<typeof simulation> | undefined;
     try {
       const s = cloneSerializable(input) as PhysicsSnapshot;
@@ -940,7 +976,8 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         new Set(s.bindings).size !== s.bindings.length ||
         !Array.isArray(s.entities) ||
         !Array.isArray(s.characters) ||
-        !Array.isArray(s.pairs)
+        !Array.isArray(s.pairs) ||
+        (s.joints !== undefined && !Array.isArray(s.joints))
       )
         fail(
           "TC_PHYSICS_SNAPSHOT",
@@ -948,7 +985,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         );
       // Both checks run on detached data before allocating any native candidate.
       // Neither check establishes that arbitrary replay is safe.
-      preflightPhysicsHistory(definitions, catalog, s.history, s);
+      preflightPhysicsHistory(definitions, catalog, s.history, s, { definition: validateDefinition, transform: checkTransform });
       // No caller-controlled bytes ever reach World.restoreSnapshot. Reconstruct
       // native state from checked operations, then compare native/header data.
       candidate = simulation(definitions, gravity, catalog);
@@ -963,6 +1000,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           entities: s.entities,
           characters: s.characters,
           pairs: s.pairs,
+          ...(s.joints === undefined ? {} : { joints: s.joints }),
         })
       )
         fail(
@@ -971,7 +1009,12 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
         );
       return { candidate, history: s.history, bindings: s.bindings };
     } catch (error) {
-      candidate?.dispose();
+      const failures: unknown[] = [error];
+      // The candidate owns a separate WASM memory, so a trap cannot corrupt
+      // the active world's native allocator or Rust borrow state.
+      try { candidate?.dispose(); } catch (cleanup) { failures.push(cleanup); }
+      if (failures.length > 1)
+        throw new AggregateError(failures, "TC_PHYSICS_SNAPSHOT: Isolated candidate replay and cleanup failed; active physics was not replaced. Use an intact checkpoint.");
       fail(
         "TC_PHYSICS_SNAPSHOT",
         "Snapshot rejected atomically: " + String(error),
@@ -979,6 +1022,30 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     }
   }
   const physics: PhysicsServiceWithQueries = {
+    createJoint(input) {
+      const definition = validateJointDefinition(cloneSerializable(input));
+      get(definition.body1); get(definition.body2);
+      record({ kind: "jointCreate", definition });
+    },
+    destroyJoint(id) {
+      alive(); ensureRefs();
+      const definition = state.joints.joint(id);
+      get(definition.body1); get(definition.body2);
+      record({ kind: "jointDestroy", id });
+    },
+    inspectJoint(id) {
+      alive(); ensureRefs();
+      const definition = state.joints.joint(id);
+      get(definition.body1); get(definition.body2);
+      return definition;
+    },
+    listJoints() {
+      alive(); ensureRefs();
+      return state.joints.snapshot().joints.filter(definition => {
+        const a = refs.get(definition.body1), b = refs.get(definition.body2);
+        return !!a && !!b && context.world.isAlive(a) && context.world.isAlive(b);
+      }).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    },
     setGravity(value) {
       alive();
       record({ kind: "gravity", value: tuple(vec(value, "gravity")) });
@@ -1077,7 +1144,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           "Ray options require exclude string IDs and includeTriggers boolean.",
         );
       const excluded = new Set(options?.exclude ?? []),
-        ray = new RAPIER.Ray(o, { x: d.x / l, y: d.y / l, z: d.z / l });
+        ray = new state.native.Ray(o, { x: d.x / l, y: d.y / l, z: d.z / l });
       const hit = state.world.castRayAndGetNormal(
         ray,
         maxDistance,
@@ -1114,16 +1181,16 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       let shape: RAPIER.Shape;
       const validRadius = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 1e6 && Math.fround(value) > 0;
       if (input.shape === "sphere" && Object.keys(input).every(key => ["shape", "radius"].includes(key)) && validRadius(input.radius)) {
-        shape = new RAPIER.Ball(input.radius);
+        shape = new state.native.Ball(input.radius);
       } else if (input.shape === "box" && Object.keys(input).every(key => ["shape", "halfExtents"].includes(key))) {
         const size = vec(input.halfExtents, "sweep box halfExtents");
         if ([size.x, size.y, size.z].some(value => value <= 0 || value > 1e6 || Math.fround(value) === 0))
           fail("TC_PHYSICS_SWEEP", "Box half-extents must be positive, float32-representable and at most 1e6.");
-        shape = new RAPIER.Cuboid(size.x, size.y, size.z);
+        shape = new state.native.Cuboid(size.x, size.y, size.z);
       } else if (input.shape === "capsule" && Object.keys(input).every(key => ["shape", "radius", "halfHeight"].includes(key)) && validRadius(input.radius) &&
           typeof input.halfHeight === "number" && Number.isFinite(input.halfHeight) && input.halfHeight >= 0 && input.halfHeight <= 1e6 &&
           (input.halfHeight === 0 || Math.fround(input.halfHeight) > 0)) {
-        shape = new RAPIER.Capsule(input.halfHeight, input.radius);
+        shape = new state.native.Capsule(input.halfHeight, input.radius);
       } else return fail("TC_PHYSICS_SWEEP", "Invalid sweep shape or dimensions; use positive float32-representable dimensions up to 1e6.");
       const position = vec(center, "sweep center"), travel = vec(displacement, "sweep displacement");
       vec(angles, "sweep rotation");
@@ -1151,7 +1218,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       const position = vec(center, "sphere center");
       if (typeof radius !== "number" || !Number.isFinite(radius) || radius <= 0 || radius > 1e6 || Math.fround(radius) === 0)
         fail("TC_PHYSICS_OVERLAP", "Radius must be positive, float32-representable, and at most 1e6.");
-      return overlapShape(position, { x: 0, y: 0, z: 0, w: 1 }, new RAPIER.Ball(radius), options);
+      return overlapShape(position, { x: 0, y: 0, z: 0, w: 1 }, new state.native.Ball(radius), options);
     },
     overlapBox(center, halfExtents, angles = [0, 0, 0], options) {
       alive();
@@ -1160,7 +1227,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       if ([size.x, size.y, size.z].some(value => value <= 0 || value > 1e6 || Math.fround(value) === 0))
         fail("TC_PHYSICS_OVERLAP", "Each half-extent must be positive, float32-representable, and at most 1e6.");
       vec(angles, "box rotation");
-      return overlapShape(position, rotation(angles), new RAPIER.Cuboid(size.x, size.y, size.z), options);
+      return overlapShape(position, rotation(angles), new state.native.Cuboid(size.x, size.y, size.z), options);
     },
     overlapCapsule(center, halfHeight, radius, angles = [0, 0, 0], options) {
       alive();
@@ -1171,7 +1238,7 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
           radius <= 0 || radius > 1e6 || Math.fround(radius) === 0)
         fail("TC_PHYSICS_OVERLAP", "Half-height must be nonnegative and radius positive; both must be float32-representable and at most 1e6.");
       vec(angles, "capsule rotation");
-      return overlapShape(position, rotation(angles), new RAPIER.Capsule(halfHeight, radius), options);
+      return overlapShape(position, rotation(angles), new state.native.Capsule(halfHeight, radius), options);
     },
   };
   const sampleRopeSphere = (id: string) => {
@@ -1230,12 +1297,14 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
     // A native failure can leave partial state. Do not replay history in this error path.
     try { for (const action of actions) record(action); }
     catch (error) {
+      nativeFault = true;
       throw new AggregateError([error], "TC_PHYSICS_REACTION: Applying reaction failed; partialState=true. Restore a known-good checkpoint or restart the scene.");
     }
   };
   return {
     id: pluginId,
     version: "3",
+    requiresRecovery: () => nativeFault,
     services: { physics },
     ropePhysicsBridge: {
       sampleSphere: sampleRopeSphere,
@@ -1316,7 +1385,12 @@ function createPlugin(context: RuntimePluginContext): RuntimePlugin & {
       history = checked.history;
       bindRefs(checked.bindings);
       pendingBind = checked.bindings;
-      previous.dispose();
+      try { previous.dispose(); }
+      catch (error) {
+        nativeFault = true;
+        throw new AggregateError([error], "TC_PHYSICS_RESTORE_CLEANUP: Previous native state could not be released; partialState=true. Restart the scene.");
+      }
+      nativeFault = false;
       // RuntimeHost restores World before plugin state. A direct plugin context
       // may restore physics alone, so synchronize its live entity transforms too.
       for (const b of state.bodies.values()) {

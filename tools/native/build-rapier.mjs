@@ -50,12 +50,9 @@ const bundle = await rollup({ input: path.join(sourceDir, "rapier.ts"), plugins:
   },
   load(id) {
     if (id === "\0raw") return `export * from ${JSON.stringify(glue)};`;
-    if (id === "\0init") return `import wasmInit from ${JSON.stringify(glue)};
-      const encoded=${JSON.stringify(wasm.toString("base64"))};
-      let pending; export function init(){return pending ??= Promise.resolve().then(()=>{
-        const bytes=Uint8Array.from(atob(encoded), c=>c.charCodeAt(0));
-        return wasmInit({module_or_path:bytes});
-      }).catch(error=>{pending=undefined;throw error;});}`;
+    if (id === "\0init") return `import {initSync} from ${JSON.stringify(glue)};
+      export function initNative(module){initSync({module});}
+      export function init(){throw new Error("TC_PHYSICS_INIT: Initialize the engine-owned native factory.");}`;
     return null;
   },
   async transform(_code, id) {
@@ -65,7 +62,29 @@ const bundle = await rollup({ input: path.join(sourceDir, "rapier.ts"), plugins:
   },
 }] });
 await mkdir(output, { recursive: true });
-try { await bundle.write({ file: path.join(output, "runtime.mjs"), format: "es", sourcemap: false }); }
+try {
+  const generated = await bundle.generate({ format: "iife", name: "bindings", exports: "named", sourcemap: false });
+  const code = generated.output.find(item => item.type === "chunk").code;
+  // Every call creates a fresh JS binding closure and a fresh WASM memory.
+  // Only immutable compiled code is shared; no eval, workers or shared memory.
+  await writeFile(path.join(output, "runtime.mjs"), `// Modified Rapier build. Apache-2.0; see LICENSE and build.json.\n
+function createBindings(){\n${code}\nreturn bindings;}
+const base=createBindings();
+let compiledModule, pending;
+async function initialize(){
+ if(!pending) pending=(async()=>{
+   const bytes=Uint8Array.from(atob(${JSON.stringify(wasm.toString("base64"))}), c=>c.charCodeAt(0));
+   compiledModule=await WebAssembly.compile(bytes);
+   base.initNative(compiledModule);
+ })().catch(error=>{pending=undefined;compiledModule=undefined;throw error;});
+ await pending;
+}
+export function createRapierInstance(){
+ if(!compiledModule) throw new Error("TC_PHYSICS_INIT: Await createPhysicsFactory before creating native worlds.");
+ const instance=createBindings();instance.initNative(compiledModule);return instance.default;
+}
+export default {...base.default,init:initialize};\n`);
+}
 finally { await bundle.close(); }
 await copyFile(path.join(source, "LICENSE"), path.join(output, "LICENSE"));
 const digest = value => createHash("sha256").update(value).digest("hex");
@@ -75,6 +94,7 @@ await writeFile(path.join(output, "build.json"), JSON.stringify({
   runtimeSha256: digest(await readFile(path.join(output, "runtime.mjs"))),
   rustc: execFileSync("rustc", ["--version"], { encoding: "utf8", windowsHide: true }).trim(),
   bindgen: execFileSync(bindgen, ["--version"], { encoding: "utf8", windowsHide: true }).trim(),
+  instancePolicy: "one JS binding closure and WebAssembly memory per physics world; compiled module shared",
   validation: "not-run; compile-only build",
 }, null, 2) + "\n");
 console.log(`Built full patched Rapier 3D bindings in ${path.relative(root, output)}`);

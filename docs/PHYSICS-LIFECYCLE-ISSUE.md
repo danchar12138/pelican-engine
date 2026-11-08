@@ -21,8 +21,11 @@ the engine and npm package. It is not the instrumented historical lab adapter.
 Live initial-removal and deletion-order replay guards have been removed.
 
 This implements the identified native initialization-order correction but does
-not prove all history safe. Candidate reconstruction still shares the owner's
-WASM module; arbitrary trap isolation and native resource recovery remain open.
+not prove all history safe. Each world and replay candidate now has its own
+JS bindings and WASM memory; a rejected candidate is never replayed in the live
+owner. Compiled module code alone is shared. Faulted live owners reject further
+access until recovery or restart. Runtime isolation, cleanup, memory costs and
+complete recovery safety remain unverified, not accepted as complete.
 The old v3 fixtures are unchanged. Historical reports do not validate this build.
 
 Project policy currently permits compilation/build only and prohibits runtime, browser, GPU, test, performance, and other verification. Therefore this issue remains open until implementation and the required verification are authorized and completed.

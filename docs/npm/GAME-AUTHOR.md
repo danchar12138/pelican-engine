@@ -53,6 +53,55 @@ and tick counts before candidate reconstruction. These checks do not authenticat
 snapshots or prove arbitrary histories safe. Native first-step behavior, legacy
 compatibility and failure recovery have not been runtime-validated for this build.
 
+3D replay candidates now run in a separate WASM memory from the live world.
+Only compiled code is shared; raw snapshot bytes are never passed to native
+deserialization. A candidate is committed only after its reconstructed state
+matches the supplied snapshot. If a live native operation fails, further access
+reports `TC_PHYSICS_RECOVERY_REQUIRED` until a known-good host checkpoint is
+restored or the scene is restarted. This implementation is not runtime-validated
+or a security sandbox; synchronous replay can still cost CPU time and memory.
+
+### 3D Joints
+
+Create constraints between existing 3D rigid-body entities:
+
+```ts
+ctx.physics.createJoint({
+  id: "hinge",
+  kind: "revolute",
+  body1: "support",
+  body2: "door",
+  anchor1: [0, 0, 0],
+  anchor2: [-0.5, 0, 0],
+  axis1: [0, 1, 0],
+  axis2: [0, 1, 0],
+  limits: [-1.5, 1.5],
+});
+const definition = ctx.physics.inspectJoint("hinge");
+const joints = ctx.physics.listJoints();
+ctx.physics.destroyJoint("hinge");
+```
+
+Endpoints must be fixed or dynamic rigid bodies with at least one dynamic body;
+characters and kinematic bodies are not accepted. Bodies must already have
+entered physics at a fixed-step boundary. Anchors are body-local metres, axes
+are normalized local vectors and limits are ordered. Entity scale is not applied
+again. Connected-body contacts default to disabled; set `contactsEnabled: true`
+to enable them. Removing an endpoint automatically removes its connected joints
+when physics processes the removal. Public reads reject stale entity generations.
+
+Supported kinds are `ball`, `fixed`, `revolute`, `prismatic`, `rope` and `spring`.
+Fixed joints use normalized `[x,y,z,w]` quaternions in `frame1` and `frame2`.
+Prismatic joints use `axis` in each body's local frame and optional metre limits;
+revolute joints have separate `axis1` and `axis2` and optional radian limits.
+Rope joints use a positive maximum `length`. Spring joints use nonnegative
+`restLength`, positive `stiffness` and nonnegative `damping`. At most 10000 joints
+can exist in a physics world. Creation, destruction and endpoint cleanup are
+recorded in host snapshot history; old snapshots without joint history have no
+joint registry field. This does not yet provide motors, automatic force-based
+breakage or vehicles. Physics response, old snapshot compatibility, failures and
+resource lifetime remain unverified.
+
 `ctx.physics.overlapSphere(center, radius, options)` finds live physics entities
 overlapping a world-space sphere. Results are sorted entity IDs; triggers are
 excluded unless `includeTriggers: true` is specified. This query uses the current
