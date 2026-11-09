@@ -1,8 +1,14 @@
+import {engineTasks} from "../../packages/sdk/src/index.ts";
+import { createHash } from "node:crypto";
+import { lstat, mkdir, writeFile } from "node:fs/promises";
+import { recipeAcceptance } from "../recipe-acceptance.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-/** Curated, asset-free source games; documentation and installed copies derive from these files. */
+/** Curated source games with bounded licensed assets; documentation and installed copies derive from these files. */
 const recipes = [
+  {id:"model-animation",anchor:"model-animation",title:"Model slots and animated assets",summary:"Import a licensed local GLB, bind exact material slots and run its named animation clip."},
+  {id:"audio-interaction",anchor:"audio-interaction",title:"Audio with real interaction unlock",summary:"Play and stop a licensed local tone through a real browser button; verify the audio device and logical voices."},
   { id: "npm-geometry", anchor: "npm-geometry", title: "Third-party geometry without replacing the renderer", summary: "Use an ordinary npm mesh generator, keep indexed positions/normals/UVs and transfer plain data into managed geometry." },
   { id: "startup-feedback", anchor: "startup-feedback", title: "Loading events and custom npm UI", summary: "Observe startup outside runtime setup, keep engine ownership intact and clean up external UI with an AbortSignal." },
   { id: "render-quality", anchor: "render-quality", title: "High/path default, quality switching and preparation", summary: "Select path/hybrid/raster tiers through public services, prepare tracing before switching and inspect readiness without reloading gameplay." },
@@ -54,7 +60,7 @@ export async function readRecipe(root: string, id: string, installed = false): P
   return readFile(path.join(root, "examples", id, "game.ts"), "utf8");
 }
 export async function recipeCatalog(root: string) {
-  return { format: "pelican.recipes", version: 1, recipes: await Promise.all(recipes.map(async recipe => ({ ...recipe, entry: "game.ts", source: await readRecipe(root, recipe.id), files: await readRecipeFiles(root, recipe.id), dependencies: recipeDependencies(recipe.id) }))) };
+  return { format: "pelican.recipes", version: 1, recipes: await Promise.all(recipes.map(async recipe => ({ ...recipe, entry: "game.ts", source: await readRecipe(root, recipe.id), files: await readRecipeFiles(root, recipe.id), dependencies: recipeDependencies(recipe.id), assets: await readRecipeAssets(root,recipe.id), verification: recipeVerification(recipe.id) }))) };
 }
 
 export async function renderRecipes(root: string): Promise<string> {
@@ -63,7 +69,7 @@ export async function renderRecipes(root: string): Promise<string> {
     "",
     "> Implementation recipes, not blanket runtime acceptance. Query `pelican recipe --id <id>` for machine-readable source or create a project with `pelican create --template <id>`.",
     "",
-    "Recipes return complete game source plus any required helper files and explicit npm dependencies. Rendering uses pelican-engine; algorithm packages are ordinary game dependencies.",
+    "Recipes return complete game source, integrity-checked licensed small assets, helper files and explicit npm dependencies. Rendering uses pelican-engine; algorithm packages are ordinary game dependencies.",
     "In a new installed game directory, create a minimal project with `npx --no-install pelican create --template minimal`, then replace its generated `game.ts` with one recipe. Back up any existing game work before replacing it. Use `npx --no-install pelican dev` or `npx --no-install pelican build` afterward.",
     "",
     "Game development uses the installed npm package. No engine checkout or source ZIP is required.",
@@ -81,9 +87,49 @@ export async function renderRecipes(root: string): Promise<string> {
       `Contributor fixture: \`examples/${item.id}/game.ts\`.`, "", "````ts", source, "````", "");
     for (const [file, text] of Object.entries(await readRecipeFiles(root, item.id)))
       lines.push(`Helper: \`${file}\``, "", "````ts", text.trimEnd(), "````", "");
+    const verification = recipeVerification(item.id);
+    lines.push("Edit: " + verification.edit, "", "Boundary: " + verification.boundary, "", "Verification: " + verification.command + " ? " + verification.acceptance, "");
+    for(const asset of await readRecipeAssets(root,item.id)) lines.push("Asset: " + asset.path + " (" + asset.bytes + " bytes, " + asset.license + "; SHA-256 " + asset.sha256 + "). Copied by create; base64 bytes returned by recipe.", "");
     const dependencies = recipeDependencies(item.id);
     if (Object.keys(dependencies).length)
       lines.push("Install in the game workspace:", "", "```sh", "npm install --save-exact " + Object.entries(dependencies).map(([name, version]) => `${name}@${version}`).join(" "), "```", "");
   }
   return lines.join("\n");
+}
+
+export interface RecipeAsset { path:string;base64:string;bytes:number;sha256:string;license:string }
+const assetFiles: Readonly<Record<string, readonly string[]>> = {"model-animation":["panel.glb","LICENSE.txt"],"audio-interaction":["tone.wav","LICENSE.txt"]};
+export function validateRecipeAssets(assets: readonly RecipeAsset[]) {
+  if(assets.length>8 || new Set(assets.map(a=>a.path)).size!==assets.length)throw new Error("TC_RECIPE_ASSET: Duplicate or excessive assets.");
+  let total=0;
+  return assets.map(asset=>{
+    if(!/^assets\/[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(asset.path) || !asset.license || asset.base64.length>350000)throw new Error("TC_RECIPE_ASSET_PATH: Expected a licensed flat assets/ file.");
+    const data=Buffer.from(asset.base64,"base64");total+=data.length;
+    if(data.length>262144 || total>524288 || data.length!==asset.bytes || createHash("sha256").update(data).digest("hex")!==asset.sha256)throw new Error("TC_RECIPE_ASSET_INTEGRITY: Size or SHA-256 mismatch.");
+    return {path:asset.path,data};
+  });
+}
+export async function readRecipeAssets(root:string,id:string,installed=false):Promise<RecipeAsset[]> {
+  if(!recipeIds.includes(id))throw new Error("TC_RECIPE_ID: Unknown recipe.");
+  const assets:RecipeAsset[]=installed ? JSON.parse(await readFile(path.join(root,"docs/api/recipes.json"),"utf8")).recipes.find((r:{id:string})=>r.id===id)?.assets ?? [] : await Promise.all((assetFiles[id]??[]).map(async file=>{
+    const bytes=await readFile(path.join(root,"examples",id,"assets",file));
+    return {path:"assets/"+file,base64:bytes.toString("base64"),bytes:bytes.length,sha256:createHash("sha256").update(bytes).digest("hex"),license:"CC0-1.0"};
+  }));
+  if(assets.length!==(assetFiles[id]??[]).length || assets.some(asset=>!(assetFiles[id]??[]).includes(path.basename(asset.path))))throw new Error("TC_RECIPE_ASSET_INTEGRITY: Required recipe assets are missing or unexpected; reinstall the complete package.");
+  validateRecipeAssets(assets);return assets;
+}
+export async function prepareRecipeAssetCopy(root:string, assets:readonly RecipeAsset[]) {
+  const files=validateRecipeAssets(assets);
+  if(!files.length)return async()=>{};
+  const directory=path.join(root,"assets");const stat=await lstat(directory).catch((error:NodeJS.ErrnoException)=>{if(error.code!=="ENOENT")throw error;return undefined;});
+  if(stat && (!stat.isDirectory() || stat.isSymbolicLink()))throw new Error("TC_RECIPE_ASSET_PATH: assets must be a real project-local directory.");
+  for(const file of files)if(await lstat(path.join(root,file.path)).catch((error:NodeJS.ErrnoException)=>{if(error.code!=="ENOENT")throw error;return undefined;}))throw new Error("TC_CREATE_EXISTS: Recipe asset already exists; no files were overwritten.");
+  return async()=>{await mkdir(directory,{recursive:true});const current=await lstat(directory);if(!current.isDirectory()||current.isSymbolicLink())throw new Error("TC_RECIPE_ASSET_PATH: Asset directory changed.");for(const file of files)await writeFile(path.join(root,file.path),file.data,{flag:"wx"});};
+}
+export function recipeVerification(id:string) {
+ const related=engineTasks().filter(t=>t.recipes.includes(id));
+ return {goal:recipes.find(r=>r.id===id)?.summary??null,taskLimits:[...new Set(related.flatMap(t=>t.limits))],scope:recipeAcceptance(id)?"recipe-acceptance":"project-smoke",command:recipeAcceptance(id)?"pelican verify --recipe "+id:"pelican verify",
+   edit:"Change IDs, controls, data URLs and material/asset names in the returned complete files; install listed dependencies in this game project.",
+   boundary:"Browser-compatible npm only at runtime. WebGPU required for tracing, managed compute/buffer graphs. Explicit ownership, cancellation and checkpoint hooks govern external resources.",
+   acceptance:recipeAcceptance(id)?"Executes the shared contributor/author assertions for this original recipe; modified game specifications require author assertions.":"Three fixed ticks, ready state and no runtime errors only. This recipe has no dedicated gameplay acceptance yet."};
 }

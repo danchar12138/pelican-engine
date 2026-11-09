@@ -1,3 +1,4 @@
+import { captureFacts } from "./capture-facts.ts";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ViteDevServer } from "vite";
@@ -12,6 +13,7 @@ import {
 import {
   parseCommand,
   PROTOCOL_VERSION,
+  CONTROL_HTTP,
   result,
   type ControlCommand,
   type Envelope,
@@ -19,13 +21,13 @@ import {
   type TaskStatus,
 } from "../packages/protocol/src/index.ts";
 
-const BODY_LIMIT = 1024 * 1024;
+const BODY_LIMIT = CONTROL_HTTP.bodyLimit;
 // Base64 plus the envelope must fit the unchanged client's 8 MiB response cap.
 const CAPTURE_LIMIT = 6 * BODY_LIMIT - 3 * 1024;
 const HISTORY_LIMIT = 256;
 const QUEUE_LIMIT = 64;
 const DEFAULT_TIMEOUT = 30_000;
-const MAX_TIMEOUT = 120_000;
+const MAX_TIMEOUT = CONTROL_HTTP.timeoutMaxMs;
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,96}$/;
 const attached = new WeakSet<ViteDevServer>();
 
@@ -206,6 +208,7 @@ function readJSON(req: IncomingMessage, timeoutMs: number): Promise<unknown> {
 export async function captureControlPage(
   page: Pick<Page, "screenshot" | "viewportSize">,
   timeoutMs: number,
+  observation?: unknown,
 ): Promise<Envelope> {
   const viewport = page.viewportSize();
   if (!viewport || viewport.width <= 0 || viewport.height <= 0)
@@ -231,6 +234,7 @@ export async function captureControlPage(
     width: viewport.width,
     height: viewport.height,
     bytes: png.byteLength,
+    ...(observation === undefined ? {} : {facts:captureFacts(png, observation)}),
   });
 }
 
@@ -277,7 +281,10 @@ const physicalPageFactory: ControlPageFactory = async ({
       isClosed: () => page.isClosed() || !ownedBrowser.isConnected(),
       dispatch: (command) =>
         command.type === "capture"
-          ? captureControlPage(page, timeoutMs)
+          ? (async () => {
+              const observation = command.facts ? await page.evaluate(async () => (window as any).__pelican.command({type:"inspect",summary:true})) : undefined;
+              return captureControlPage(page, timeoutMs, observation);
+            })()
           : page.evaluate(async (value) => {
               const api = (
                 window as unknown as {
@@ -657,8 +664,11 @@ function attach(
     const id = requestId(req);
     try {
       assertLocal(req);
+      const requestedVersion = req.headers[CONTROL_HTTP.versionHeader];
+      if (requestedVersion !== undefined && requestedVersion !== PROTOCOL_VERSION)
+        throw new BridgeError("TC_PROTOCOL_VERSION_UNSUPPORTED", 409);
       if (closed) throw new BridgeError("TC_CONTROL_CLOSED", 503);
-      if (route === "/__pelican/status") {
+      if (route === CONTROL_HTTP.routes.status.path) {
         if (req.method !== "GET")
           throw new BridgeError("TC_CONTROL_METHOD", 405);
         const data: ControlStatus = {
@@ -687,7 +697,7 @@ function attach(
       const body = await readJSON(req, timeoutMs);
       if (closed || res.destroyed)
         throw new BridgeError("TC_CONTROL_CLOSED", 503);
-      if (route === "/__pelican/cancel") {
+      if (route === CONTROL_HTTP.routes.cancel.path) {
         if (
           !record(body) ||
           Object.keys(body).length !== 1 ||
@@ -728,7 +738,7 @@ function attach(
         );
         return;
       }
-      if (route === "/__pelican/session") {
+      if (route === CONTROL_HTTP.routes.session.path) {
         if (
           !record(body) ||
           Object.keys(body).length !== 1 ||
@@ -857,12 +867,12 @@ function attach(
   ) => {
     const route = req.url?.split("?", 1)[0];
     if (
-      ![
-        "/__pelican/control",
-        "/__pelican/status",
-        "/__pelican/cancel",
-        "/__pelican/session",
-      ].includes(route ?? "")
+      !([
+        CONTROL_HTTP.routes.command.path,
+        CONTROL_HTTP.routes.status.path,
+        CONTROL_HTTP.routes.cancel.path,
+        CONTROL_HTTP.routes.session.path,
+      ] as readonly string[]).includes(route ?? "")
     ) {
       next();
       return;

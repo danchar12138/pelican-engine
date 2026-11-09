@@ -31,6 +31,8 @@ import type {
 } from "./plugins.ts";
 
 export interface HostOptions {
+  /** Internal development telemetry only; not a saved game setting. */
+  traceLimit?:number;
   fixedDt?: number;
   seed?: number;
   plugins?: readonly RuntimePluginFactory[];
@@ -122,6 +124,7 @@ export class RuntimeHost {
     this.seed = options.seed ?? 12345;
     this.scene = structuredClone(ir);
     const world = createWorld({
+      traceLimit: options.traceLimit,
       components: ir.components.map((component) => ({
         id: component.id,
         schema: component.schema,

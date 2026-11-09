@@ -1,3 +1,4 @@
+import { recipeAcceptance } from "./recipe-acceptance.ts";
 import { graphicsLaunchArguments } from "./browser-session.ts";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
@@ -10,7 +11,7 @@ import { chromium, type Page } from "playwright";
 import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import { npmCommand } from "./doctor.ts";
 import { serveDist } from "./static-server.ts";
-import { recipeIds } from "./npm/recipes.ts";
+import { recipeIds, recipeDependencies } from "./npm/recipes.ts";
 import { decode } from "fast-png";
 
 const root = process.cwd(), execute = promisify(execFile);
@@ -33,7 +34,7 @@ const run = async (args: string[], cwd = workspace) => {
   catch (error) { throw new Error(`CLI ${args.join(" ")}: ${(error as { stdout?: string }).stdout ?? String(error)}`); }
 };
 await record("install-current-tarball", async () => {
-  await execute(npm.file, [...npm.prefix, "--prefix", workspace, "install", "--save-dev", "--save-exact", path.join(root, `.pelican/npm/artifacts/pelican-engine-${SDK_VERSION}.tgz`), "--offline", "--no-audit", "--no-fund"], { cwd: workspace, timeout: 120000, maxBuffer: 2000000 });
+  await execute(npm.file, [...npm.prefix, "--prefix", workspace, "install", "--save-dev", "--save-exact", path.join(root, `.pelican/npm/artifacts/pelican-engine-${SDK_VERSION}.tgz`), ...Object.entries(Object.assign({}, ...recipeIds.map(id=>recipeDependencies(id)))).map(([name,version])=>`${name}@${version}`), "--offline", "--no-audit", "--no-fund"], { cwd: workspace, timeout: 120000, maxBuffer: 2000000 });
   return { workspace, engineVersion: SDK_VERSION };
 });
 await record("machine-discovery", async () => {
@@ -62,17 +63,7 @@ let port = 43900;
 async function game(name: string, template: string, action: (page: Page, command: (input: unknown) => Promise<any>) => Promise<unknown>, selectedBrowser = browser) {
   const project = path.join(workspace, name);
   await run(["create", "--project", project, "--template", template]);
-  if (name === "fallback") {
-    const source = await readFile(path.join(project, "game.ts"), "utf8");
-    await writeFile(path.join(project, "game.ts"), source.replace('id: "game",', 'id: "game", render: {mode:"raster",denoise:false},'));
-  }
   if (["cloth-sheet", "softbody-ball", "fluid-basin", "rope-reaction"].includes(name)) await writeFile(path.join(project, "game.ts"), await readFile(path.join(root, "examples", name, "game.ts"), "utf8"));
-  if (name === "unattended") {
-    const source = await readFile(path.join(project, "game.ts"), "utf8");
-    await writeFile(path.join(project, "game.ts"), source
-      .replace('id: "runtime-lifecycle",', 'id: "runtime-lifecycle", ui: [{id:"save",kind:"button",text:"Save",x:8,y:8},{id:"load",kind:"button",text:"Load",x:120,y:8}],')
-      .replace("ticks++;", 'ticks++; for(const event of ctx.events("ui.activate")){const id=(event.payload as {id:string}).id; if(id==="save")ctx.storage.save("counter"); if(id==="load")ctx.storage.load("counter");}'));
-  }
   if (name === "floating-geometry") await writeFile(path.join(project, "game.ts"), `
 import {defineGame,defineScene,defineMaterial} from 'pelican-engine';
 const positions:number[]=[],uv:number[]=[],indices:number[]=[];
@@ -119,37 +110,17 @@ export default defineGame({id:'floating-geometry',services:{physics3d:'disabled'
   }
 }
 try {
-  await record("quality-tiers-preparation-and-cache-lifetime", () => game("quality-options", "render-quality", async (page, command) => {
-    assert.equal((await command({ type: "inspect" })).mode, "path");
-    const highStartup = await command({ type: "snapshot" });
-    await page.goto(page.url() + "&quality=low");
-    await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true", undefined, { timeout: 60000, polling: 100 });
-    const low = await command({ type: "snapshot" });
-    const initial = await command({ type: "inspect" }); assert.equal(initial.mode, "raster"); assert.equal(initial.rendering.surface, undefined);
-    await command({ type: "restore", snapshot: highStartup });
-    assert.equal((await command({ type: "inspect" })).mode, "path");
-    await command({ type: "restore", snapshot: low });
-    assert.equal((await command({ type: "inspect" })).mode, "raster");
-    const prepared = await command({ type: "prepareRender", mode: "path" });
-    assert.equal(prepared.mode, "raster"); assert.equal(prepared.tick, initial.tick);
-    assert.equal(prepared.rendering.preparation.find((item: any) => item.mode === "path").status, "ready");
-    assert.deepEqual((await command({ type: "snapshot" })).runtime, low.runtime);
-    const click = async (id: string) => { await page.locator(`[data-pelican-element="${id}"]`).click(); return command({ type: "step", count: 1 }); };
-    const high = await click("high"); assert.equal(high.mode, "path"); assert.equal(high.rendering.settings.denoise, true);
-    const bytes = high.rendering.surface.ownedBytes;
-    for (let i = 0; i < 3; i++) {
-      const medium = await click("medium"); assert.equal(medium.mode, "hybrid");
-      assert.equal((await click("low")).rendering.settings.denoise, false);
-      const state = await click("high"); assert.equal(state.rendering.surface.ownedBytes, bytes);
-    }
-    await command({ type: "restore", snapshot: low });
-    assert.equal((await command({ type: "inspect" })).mode, "raster");
-    await page.setViewportSize({ width: 640, height: 360 }); await command({ type: "step", count: 1 });
-    assert.equal((await command({ type: "inspect" })).rendering.preparation.find((item: any) => item.mode === "path").status, "idle");
-    await command({ type: "prepareRender", mode: "path" });
-    assert.deepEqual((await command({ type: "inspect" })).errors, []);
-    return { defaultMode: "path", explicitLow: true, preparedWithoutTick: true, repeatedSwitches: 9, tracingStorageBytes: bytes, resizeInvalidates: true };
+  await record("raster-indirect-occlusion-same-camera",()=>game("raster-contact","third-person",async(page,command)=>{
+    await command({type:"step",count:90});
+    await page.evaluate(()=>(window as any).__pelican.configureRendering({rasterAmbientOcclusion:false}));
+    const standard=decode(await page.locator("canvas:visible").first().screenshot());
+    await page.evaluate(()=>(window as any).__pelican.configureRendering({rasterAmbientOcclusion:true}));
+    const enhanced=decode(await page.locator("canvas:visible").first().screenshot());
+    let darker=0,changed=0;for(let p=0;p<standard.width*standard.height;p++){let delta=0;for(let c=0;c<3;c++){const i=p*standard.channels+c;delta+=Number(standard.data[i])-Number(enhanced.data[i]);}if(delta>6)darker++;if(Math.abs(delta)>6)changed++;}
+    const state=await command({type:"inspect"});assert.equal(state.tick,90);assert.equal(state.rendering.rasterPresentation.kind,"full-resolution-gtao");assert.equal(state.rendering.rasterPresentation.resolutionScale,1);assert.ok(darker>64&&changed>64);
+    return {darker,changed,backend:state.backend,adapter:state.adapter,viewport:state.viewport,scope:"Controlled contact occlusion, not universal visual-quality or FPS acceptance"};
   }));
+  await record("quality-tiers-preparation-and-cache-lifetime", () => game("quality-options", "render-quality", recipeAcceptance("render-quality")!.run));
   await record("unquantized-procedural-math-and-boot-causes", () => game("floating-geometry", "minimal", async (page, command) => {
     await command({ type: "step", count: 1 });
     const state = await command({ type: "inspect" }); assert.deepEqual(state.errors, []);
@@ -165,65 +136,9 @@ try {
     await run(["reset-session", "--port", String(port)]);
     return { unquantizedVertices: 425, startup: true, deliberateDriftRejected: true, causeCodes: failure.diagnostics[0].causeCodes };
   }));
-  await record("typed-instance-context-npm-and-save", () => game("typed-context", "npm-component", async (page, command) => {
-    await command({ type: "step", count: 3 });
-    const label = page.locator("[data-pelican-npm-counter]");
-    assert.match(await label.innerText(), /^3 ticks \| \d+ compressed bytes$/);
-    await page.locator('[data-pelican-element="save"]').click(); await command({ type: "step", count: 1 });
-    await command({ type: "step", count: 3 }); assert.match(await label.innerText(), /^7 ticks/);
-    await page.locator('[data-pelican-element="load"]').click(); await command({ type: "step", count: 1 });
-    await command({ type: "step", count: 1 });
-    assert.equal(await label.count(), 1); assert.match(await label.innerText(), /^5 ticks/);
-    await page.setViewportSize({ width: 390, height: 844 });
-    assert.equal(await label.evaluate(element => (element as HTMLElement).style.maxWidth), "358px");
-    return { npmRoundTrip: true, instanceContext: true, savedTicks: 4, resumedTicks: 5, ownedMarkers: 1 };
-  }));
-  await record("binary-npm-codec-managed-texture", () => game("dynamic-image", "dynamic-texture", async (page, command) => {
-    await command({ type: "step", count: 1 });
-    const first = await command({ type: "snapshot" });
-    const label = page.locator('[data-pelican-element="state"]');
-    assert.match(await label.innerText(), /^2 x 2 \| managed image$/);
-    const image = decode(await page.locator("canvas:visible").first().screenshot());
-    const colors = new Set<string>();
-    for (let y = 160; y < 380; y += 20) for (let x = 360; x < 600; x += 20) {
-      const i = (y * image.width + x) * image.channels;
-      colors.add(`${image.data[i]},${image.data[i + 1]},${image.data[i + 2]}`);
-    }
-    assert.ok(colors.size >= 4, `Decoded PNG must produce multiple real colors, got ${colors.size}`);
-    await command({ type: "step", count: 2 }); await command({ type: "restore", snapshot: first });
-    await command({ type: "step", count: 1 });
-    assert.deepEqual((await command({ type: "inspect" })).errors, []);
-    await page.evaluate(() => { (globalThis as any).__imageDocument = "same"; });
-    await command({ type: "reload" });
-    await command({ type: "step", count: 1 });
-    assert.equal(await page.evaluate(() => (globalThis as any).__imageDocument), "same");
-    assert.match(await label.innerText(), /^2 x 2/);
-    return { decodedSize: [2, 2], visibleColors: colors.size, managedCheckpoint: true, compatibleReload: true };
-  }));
-  await record("third-person-jump-follow-and-save", () => game("third-person-flow", "third-person", async (page, command) => {
-    await command({ type: "step", count: 90 });
-    const base = await command({ type: "snapshot" });
-    const before = await command({ type: "inspect" });
-    const position = (state: any) => state.game.transforms.player.position as number[];
-    await command({ type: "input", key: " ", pressed: true });
-    await command({ type: "step", count: 12 });
-    const airborne = await command({ type: "inspect" });
-    assert.ok(position(airborne)[1] > position(before)[1] + 0.2, JSON.stringify({ before: position(before), after: position(airborne) }));
-    assert.match(await page.locator('[data-pelican-element="state"]').innerText(), /Jumps 1/);
-    await command({ type: "step", count: 90 });
-    assert.match(await page.locator('[data-pelican-element="state"]').innerText(), /Jumps 1/);
-    await command({ type: "input", key: " ", pressed: false });
-    await command({ type: "restore", snapshot: base });
-    await command({ type: "step", count: 1 });
-    assert.match(await page.locator('[data-pelican-element="state"]').innerText(), /Jumps 0/);
-    await page.locator('[data-pelican-element="save"]').click(); await command({ type: "step", count: 1 });
-    await command({ type: "input", key: "d", pressed: true }); await command({ type: "step", count: 20 }); await command({ type: "input", key: "d", pressed: false });
-    await page.locator('[data-pelican-element="load"]').click(); await command({ type: "step", count: 1 });
-    const loaded = await command({ type: "inspect" });
-    assert.ok(Math.abs(position(loaded)[0] - position(before)[0]) < 0.05);
-    assert.equal(await page.locator("[data-pelican-ui]").count(), 1);
-    return { groundedJump: true, heldJumpCount: 1, savedWorldAndInstance: true, before: position(before), airborne: position(airborne), camera: loaded.gameplay.camera };
-  }));
+  await record("typed-instance-context-npm-and-save", () => game("typed-context", "npm-component", recipeAcceptance("npm-component")!.run));
+  await record("binary-npm-codec-managed-texture", () => game("dynamic-image", "dynamic-texture", recipeAcceptance("dynamic-texture")!.run));
+  await record("third-person-jump-follow-and-save", () => game("third-person-flow", "third-person", recipeAcceptance("third-person")!.run));
   await record("logic-edit-preserves-state-and-rejects-incompatible-content", () => game("iteration", "third-person", async (page, command) => {
     await command({ type: "step", count: 90 });
     const project = path.join(workspace, "iteration"), file = path.join(project, "game.ts"), source = await readFile(file, "utf8");
@@ -252,42 +167,8 @@ try {
     const restarted = await command({ type: "inspect" }); assert.equal(restarted.tick, 0);
     return { preservedTick: rejected.tick, rejection: rejected.iteration.error, explicitRestartTick: restarted.tick, releasedDuringLoad: true };
   }));
-  await record("no-focus-no-raf-runtime-initialization", () => game("unattended", "runtime-lifecycle", async (page, command) => {
-    const initial = await command({ type: "inspect" }); assert.equal(initial.tick, 0);
-    assert.equal(await page.locator("[data-pelican-counter]").count(), 1);
-    await command({ type: "step", count: 3 });
-    const after = await command({ type: "inspect" }); assert.equal(after.tick, 3);
-    assert.match(await page.locator("[data-pelican-counter]").innerText(), /3 ticks/);
-    assert.equal(await page.evaluate(() => document.hasFocus()), false);
-    await page.locator('[data-pelican-element="save"]').click();
-    await command({ type: "step", count: 1 });
-    const checkpoint = await page.locator("[data-pelican-counter]").innerText();
-    assert.match(checkpoint, /4 ticks/);
-    await command({ type: "step", count: 3 });
-    assert.match(await page.locator("[data-pelican-counter]").innerText(), /7 ticks/);
-    await page.locator('[data-pelican-element="load"]').click();
-    await command({ type: "step", count: 1 });
-    assert.equal(await page.locator("[data-pelican-counter]").count(), 1);
-    assert.equal(await page.locator("[data-pelican-counter]").innerText(), checkpoint);
-    const restored = await command({ type: "inspect" });
-    assert.deepEqual(restored.errors, []);
-    await command({ type: "step", count: 1 });
-    assert.match(await page.locator("[data-pelican-counter]").innerText(), /5 ticks/);
-    return { initialTick: 0, finalTick: after.tick, focus: false, rafDisabled: true, nativeInputRequired: false, asyncRuntimeSaveLoad: true, ownedMarkers: 1 };
-  }));
-  await record("pointer-game-lifecycle", () => game("pointer", "pointer-3d", async (page, command) => {
-    await command({ type: "step", count: 1 });
-    await command({ type: "input", key: "e", pressed: true }); await command({ type: "step", count: 1 }); await command({ type: "input", key: "e", pressed: false });
-    let state = await command({ type: "inspect" }); assert.ok(state.runtime.records.some((entity: { id: string }) => entity.id === "prop-0"));
-    await page.mouse.move(400, 250); await page.mouse.wheel(0, 100); await command({ type: "step", count: 1 });
-    state = await command({ type: "inspect" }); assert.equal(state.gameplay.input.pointer.wheel[1], 100);
-    const batch = await command({ type: "batch", commands: [{ type: "pointer", x: 120, y: 80, buttons: 1, delta: [2, 3] }, { type: "step", count: 1 }, { type: "inspect", entity: "player" }] });
-    assert.equal(batch.completed, 3); assert.equal(batch.results[2].data.gameplay.input.pointer.buttons, 1);
-    assert.deepEqual(batch.results[2].data.gameplay.input.pointer.position, [120, 80]);
-    await command({ type: "step", count: 300 }); state = await command({ type: "inspect" }); assert.ok(!state.runtime.records.some((entity: { id: string }) => entity.id === "prop-0"));
-    const saved = await command({ type: "snapshot" }); await command({ type: "step", count: 3 }); await command({ type: "restore", snapshot: saved });
-    return { tick: state.tick, adapter: state.adapter, backend: state.backend };
-  }));
+  await record("no-focus-no-raf-runtime-initialization", () => game("unattended", "runtime-lifecycle", recipeAcceptance("runtime-lifecycle")!.run));
+  await record("pointer-game-lifecycle", () => game("pointer", "pointer-3d", recipeAcceptance("pointer-3d")!.run));
   await record("button-save-load-cleanup", () => game("storage", "gameplay-loop", async (page, command) => {
     const step = () => command({ type: "step", count: 1 }); await step();
     const click = async (id: string) => { await page.locator(`[data-pelican-element="${id}"]`).click(); await step(); };
@@ -336,31 +217,10 @@ try {
       await command({ type: "step", count: 2 }); return { backend: after.capabilities.backend, diagnostic: rejected.diagnostics[0].code };
     }, fallback));
   } finally { await fallback.close(); }
-  await record("external-worker-managed-render-update", () => game("worker-resource", "external-adapters", async (page, command) => {
-    const label = page.locator('[data-pelican-element="state"]');
-    const until = async (count: number) => {
-      for (let i = 0; i < 100; i++) {
-        await command({ type: "step", count: 1 });
-        if ((await label.innerText()).endsWith(`| ${count}`)) return;
-        await new Promise(resolve => setTimeout(resolve, 20));
-      }
-      throw new Error(`Worker palette did not reach ${count} messages`);
-    };
-    await until(1);
-    const before = decode(await page.locator("canvas:visible").first().screenshot());
-    const saved = await command({ type: "snapshot" });
-    await page.locator('[data-pelican-element="refresh"]').click(); await until(2);
-    const after = decode(await page.locator("canvas:visible").first().screenshot());
-    assert.equal(before.width, after.width); assert.equal(before.height, after.height); assert.equal(before.channels, after.channels);
-    let changed = 0;
-    for (let i = 0; i < before.data.length; i++) if (before.data[i] !== after.data[i]) changed++;
-    assert.ok(changed > 64, `Worker data must visibly update the managed material buffer, changed=${changed}`);
-    await command({ type: "restore", snapshot: saved }); await command({ type: "step", count: 1 });
-    assert.match(await label.innerText(), /\| 1$/);
-    const state = await command({ type: "inspect" }); assert.deepEqual(state.errors, []);
-    return { changedChannels: changed, restored: true, backend: state.backend, moduleWorker: true };
-  }));
-  for (const recipe of [...recipeIds.filter(id => !["pointer-3d", "gameplay-loop"].includes(id)), "cloth-sheet", "softbody-ball", "fluid-basin", "rope-reaction"]) {
+  await record("external-worker-managed-render-update", () => game("worker-resource", "external-adapters", recipeAcceptance("external-adapters")!.run));
+  for(const id of ["managed-rendering","dynamic-resources","dynamic-ui","startup-feedback","model-animation","audio-interaction"])
+    await record(`shared-recipe-${id}`,()=>game(`shared-${id}`,id,recipeAcceptance(id)!.run));
+  for (const recipe of [...recipeIds.filter(id => !recipeAcceptance(id) && !["pointer-3d", "gameplay-loop"].includes(id)), "cloth-sheet", "softbody-ball", "fluid-basin", "rope-reaction"]) {
     await record(`installed-recipe-${recipe}`, () => game(recipe, recipeIds.includes(recipe) ? recipe : "minimal", async (_page, command) => {
       await command({ type: "step", count: 120 }); const snapshot = await command({ type: "snapshot" });
       await command({ type: "step", count: 2 }); await command({ type: "restore", snapshot });

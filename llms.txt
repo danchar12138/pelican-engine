@@ -4,7 +4,7 @@ Pelican is a single npm package for TypeScript games authored by external coding
 
 ## Discover before choosing an implementation
 
-- Run `npx pelican guide` first, or `guide --goal "让角色跳跃并保存游戏"`, for ranked tasks, exact methods, complete recipes and verification steps. Unrecognized tasks return labelled navigation candidates, not invented support.
+- Run `npx pelican guide --compact` first, or `guide --goal "让角色跳跃并保存游戏"`, for ranked tasks, exact methods, complete recipes and verification steps. Unrecognized tasks return labelled navigation candidates, not invented support.
 - Run `npx pelican capabilities --summary --limit 8` to browse; follow total/truncated/nextOffset. Use `--feature <goal>` for the full limits before implementation.
 - Run `npx pelican api --symbol <Type.member>` for an exact method contract.
 - Run `npx pelican api --search <goal> --member --limit 8` for compact ranked methods.
@@ -28,6 +28,8 @@ Complete tasks: third-person (movement, grounded jump, follow, save/load), runti
 
 Use defineGameRuntime<State, Dependencies> when setup returns instance-local browser/npm objects; synchronous systems receive the typed dependency context as their fifth argument. It is not serialized or implicitly disposed. The npm-component recipe demonstrates this without globals. loadRuntimeBytes uses the same bounded cancellable transport for npm codecs; dynamic-texture demonstrates PNG-to-managed-texture publication. Validate decoded dimensions before allocating; encoded-byte budgets are not decoded-memory budgets.
 
-Development preserves full state for compatible logic-only edits. Changed declarations/assets require explicit restart; a failed candidate keeps the old instance. Inspect iteration diagnostics. Default high/realtime is path, medium/preview is hybrid, low is raster; capture is unfiltered path. High/medium require WebGPU; explicit quality=low URL or renderQuality("low") enables WebGL2, with no silent downgrade. prepare/preparation prewarms at frame boundaries without switching mode or advancing simulation; retained caches consume memory. Query render-quality recipe. No fixed FPS or universal tier performance ordering is guaranteed.
+Development preserves full state for compatible logic-only edits. Changed declarations/assets require explicit restart; a failed candidate keeps the old instance. Inspect iteration diagnostics. Default/low/realtime is raster; explicit high is path, medium/preview is hybrid; capture is unfiltered path. Tracing requires WebGPU. WebGL2 can run default raster. Built-in WebGPU raster adds full-resolution indirect AO; custom postprocess owns presentation. prepare/preparation prewarms at frame boundaries without switching mode or advancing simulation; retained caches consume memory. Query render-quality recipe. No fixed FPS or universal tier performance ordering is guaranteed.
 
 Use managed geometry, PBR textures, compute resources and defineRenderExtension for supported rendering integration. Arbitrary Three.js, TSL, raw GPU or physics objects are not a stable engine integration contract. Report an exact missing capability instead of silently replacing the renderer or reducing the requested game.
+
+Bounded inspect: pelican inspect --summary or --fields summary,rendering. Capture --facts measures final display pixels with evidence, not author intent. pelican verify is a smoke check; --recipe <id> runs shared acceptance for the original template. HTTP reference: docs/npm/HTTP-PROTOCOL.md. Host-accounted tokens are null when unavailable; external AI task success is distinct from prewritten regression.

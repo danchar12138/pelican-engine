@@ -1,3 +1,4 @@
+import {evaluateFaultFacts} from "../tools/author-evaluation-report.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
@@ -80,3 +81,14 @@ test("author report rejects malformed logs instead of hiding failures or inventi
     /TC_AUTHOR_EVALUATION/,
   );
 });
+
+test("complete host acceptance is distinct from first check and tokens stay null without host accounting",()=>{
+ const commands=[record(["check","--project","game"])];
+ const regression=summarizeAuthorCommands(".",["game"],commands);assert.equal(regression.tokenUsage,null);assert.equal(regression.firstFullAcceptance.rate,null);
+ const host=summarizeAuthorCommands(".",["game"],commands,{kind:"external-ai",tokenUsage:1234,tasks:[{id:"game",attempts:[{passed:true,state:true,interaction:false,visual:true,evidence:["capture.png"]},{passed:true,state:true,interaction:true,visual:true,evidence:["capture.png"]}]}]});
+ assert.equal(host.tokenUsage,1234);assert.equal(host.tasks[0].firstFullAcceptance,false);assert.equal(host.tasks[0].acceptanceRetries,1);
+});
+
+test("fixed fault facts and healthy cases distinguish regression coverage from external AI performance",()=>{const report=evaluateFaultFacts();assert.equal(report.coverage,1);assert.equal(report.healthyFalsePositives,0);assert.equal(report.externalAiFaultCoverage,null);assert.equal(report.cases.length,10);});
+
+test("unknown batch operation counts are not silently reported as zero",()=>{const command=record(["batch","--project","game"]);assert.equal(summarizeAuthorCommands(".",["game"],[command]).tasks[0].batchOperations,null);const known={...command,batchOperations:5,batchCompletedOperations:3};const report=summarizeAuthorCommands(".",["game"],[known]);assert.equal(report.tasks[0].batchOperations,5);assert.equal(report.tasks[0].batchCompletedOperations,3);});

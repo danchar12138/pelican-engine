@@ -1,3 +1,4 @@
+import { projectInspection } from "../packages/renderer/src/checkpoint.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -95,6 +96,10 @@ function harness(names: string[], context: Record<string, unknown>) {
     renderBufferBridge: undefined,
     renderTextureBridge: undefined,
     postComposer: undefined,
+    rasterPresentation: undefined,
+    rasterPresentationCamera: undefined,
+    projectInspection,
+    frameSerial: 0,
     vertexBounds: undefined,
     surfaceTracer: undefined,
     presentedTraceOwner: undefined,
@@ -146,6 +151,7 @@ function harness(names: string[], context: Record<string, unknown>) {
     onResize() {},
     resolveEntityDefinition,
     URL,
+    URLSearchParams,
     location: { search: "" },
     document: { baseURI: "http://localhost/", removeEventListener() {} },
     ...context,

@@ -12,6 +12,8 @@ export interface ProtocolDiagnostic {
   severity: "error" | "warning" | "info";
   message: string;
   remediation: string;
+  /** Legacy compiler alias, retained during 1.x normalization. */
+  suggestion?: string;
   /** Optional discovery recovery; navigation choices are not implementation claims. */
   candidates?: readonly { kind: "task"; id: string; query: string; matchedIntent: boolean }[];
   source?: { file: string; line: number; column: number };
@@ -48,20 +50,22 @@ export function result<T>(
     protocolVersion: PROTOCOL_VERSION,
     taskId,
     status,
-    diagnostics,
+    diagnostics: diagnostics.map(normalizeDiagnostic),
     artifacts,
     data,
   };
 }
+export const INSPECT_FIELDS = ["summary", "assets", "compiledIR", "rendering", "metrics", "runtime", "game", "resources", "gameplay", "capabilities", "errors", "iteration", "viewport", "adapter", "frameClock"] as const;
+export type InspectField = typeof INSPECT_FIELDS[number];
 export type ControlCommand =
-  | { type: "inspect"; entity?: string; offset?: number; limit?: number }
+  | { type: "inspect"; entity?: string; offset?: number; limit?: number; summary?: boolean; fields?: readonly InspectField[] }
   | { type: "step"; count: number }
   | { type: "pause" }
   | { type: "resume" }
   | { type: "reload"; restart?: boolean }
   | { type: "prepareRender"; mode: "raster" | "hybrid" | "path" }
   | { type: "snapshot" }
-  | { type: "capture" }
+  | { type: "capture"; facts?: boolean }
   | { type: "render"; samples: number; mode: "hybrid" | "path"; denoise?: boolean }
   | { type: "pointer"; x: number; y: number; buttons: number; delta?: readonly [number, number]; wheel?: readonly [number, number] }
   | { type: "batch"; commands: readonly ControlCommand[] }
@@ -100,7 +104,9 @@ export function parseCommand(value: unknown): ControlCommand {
         throw new Error("TC_PROTOCOL_RELOAD: restart must be boolean.");
       break;
     case "inspect":
-      requireKeys(["entity", "offset", "limit"]);
+      requireKeys(["entity", "offset", "limit", "summary", "fields"]);
+      if (v.summary !== undefined && typeof v.summary !== "boolean") throw new Error("TC_PROTOCOL_INSPECT: summary must be boolean.");
+      if (v.fields !== undefined && (!Array.isArray(v.fields) || !v.fields.length || v.fields.length > INSPECT_FIELDS.length || new Set(v.fields).size !== v.fields.length || v.fields.some(f => !INSPECT_FIELDS.includes(f)))) throw new Error("TC_PROTOCOL_INSPECT: fields must be unique known inspect fields.");
       if (
         v.entity !== undefined &&
         (typeof v.entity !== "string" ||
@@ -124,11 +130,14 @@ export function parseCommand(value: unknown): ControlCommand {
     case "pause":
     case "resume":
     case "snapshot":
-    case "capture":
     case "recordStart":
     case "recordStop":
     case "recordCancel":
       requireKeys([]);
+      break;
+    case "capture":
+      requireKeys(["facts"]);
+      if (v.facts !== undefined && typeof v.facts !== "boolean") throw new Error("TC_PROTOCOL_CAPTURE: facts must be boolean.");
       break;
     case "replay":
       requireKeys(["trace"]);
@@ -199,4 +208,36 @@ export function parseCommand(value: unknown): ControlCommand {
       throw new Error(`TC_PROTOCOL_COMMAND: Unknown command ${v.type}.`);
   }
   return v as ControlCommand;
+}
+
+/** One diagnostic vocabulary while retaining all compiler/runtime context and legacy aliases. */
+export function normalizeDiagnostic(value: unknown): ProtocolDiagnostic {
+  const d = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const code = typeof d.code === "string" ? d.code : "TC_UNKNOWN";
+  return { ...d, code, severity: ["error","warning","info"].includes(String(d.severity)) ? d.severity as ProtocolDiagnostic["severity"] : "error",
+    message: String(d.message ?? value), remediation: String(d.remediation ?? d.suggestion ?? remediationFor(code)) };
+}
+export const EXIT_CODES = { success: 0, usage: 1, check: 2, environment: 3 } as const;
+/** Cancellation and transport timeout leave state uncertain: environment (3), not assertion failure. */
+export function exitCodeFor(envelope: Pick<Envelope, "status" | "diagnostics">): number {
+  if (["succeeded","queued","running"].includes(envelope.status)) return EXIT_CODES.success;
+  if (["cancelled","timed_out"].includes(envelope.status)) return EXIT_CODES.environment;
+  const codes = envelope.diagnostics.map(d => d.code);
+  if (codes.some(c => /^TCENV_|^TCSETUP_|^TC_ENVIRONMENT_(?:ENOENT|EACCES|EPERM|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ENOSPC)$|^TC_CLI_FAILURE$|TIMEOUT|OFFLINE|UNAVAILABLE|DEPENDENCY_MISSING|BROWSER_(?:MISSING|LAUNCH|OFFLINE)|NETWORK|ECONN|ENOENT|CONTROL_(FETCH|REQUEST|SESSION|CLOSED|CLEANUP)/.test(c))) return EXIT_CODES.environment;
+  if (codes.some(c => /PROTOCOL_|CLI_|QUERY|RECIPE_ID|TASK_UNKNOWN|CAPABILITY_|COMMAND_INVALID|COMMAND_UNKNOWN|CREATE_|API_|RECIPE_|USAGE/.test(c))) return EXIT_CODES.usage;
+  return EXIT_CODES.check;
+}
+/** Shared server limits and documentation inputs. Commands themselves remain ControlCommand. */
+export const CONTROL_HTTP = { bodyLimit: 1048576, timeoutMinMs: 10, timeoutMaxMs: 120000,
+  versionHeader: "x-pelican-protocol-version", routes: {
+    command: {method:"POST",path:"/__pelican/control"}, status:{method:"GET",path:"/__pelican/status"},
+    cancel:{method:"POST",path:"/__pelican/cancel"}, session:{method:"POST",path:"/__pelican/session"}
+  } } as const;
+
+export function remediationFor(code:string):string {
+ if(/CONTROL_.*(TIMEOUT|CANCEL|SESSION|UNAVAILABLE)/.test(code))return "Run pelican status --port <port>; confirm the task ID and sessionNeedsReset, then pelican reset-session --port <port> before retrying discarded work.";
+ if(/RECIPE|CREATE/.test(code))return "Run pelican guide --compact --goal <task>; query recipe --id <id>, then create in an empty game directory. Preserve existing files.";
+ if(/RENDER|GPU/.test(code))return "Run pelican inspect --summary and pelican diagnose; query pelican capabilities --feature render.quality for actual backend and limits. Select raster explicitly when tracing is unavailable.";
+ if(/TYPESCRIPT|TS_|TYPE/.test(code))return "Fix the referenced file/line using pelican api --symbol Type.member, then rerun pelican check. A type fix is not runtime acceptance.";
+ return "Inspect the referenced source and query pelican guide --compact; use pelican api --symbol Type.member for the exact contract.";
 }

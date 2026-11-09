@@ -1,3 +1,4 @@
+import type { InspectField } from "../../protocol/src/index.ts";
 import { SDK_VERSION } from "../../sdk/src/index.ts";
 import type { HostSnapshot } from "../../runtime/src/host.ts";
 import type { ResourceSnapshot } from "../../runtime/src/resources.ts";
@@ -77,6 +78,8 @@ export function validateBrowserCheckpoint(
 }
 
 export interface InspectPage {
+  summary?: boolean;
+  fields?: readonly InspectField[];
   entity?: string;
   offset?: number;
   limit?: number;
@@ -145,4 +148,29 @@ export function selectInspectRecords<T extends { id: string }>(
       returned: Math.min(limit, Math.max(0, filtered.length - offset)),
     },
   };
+}
+
+/** Projection distinguishes unavailable data from a paginated list. No total VRAM claim. */
+export function projectInspection(full: Record<string, any>, options?: InspectPage) {
+  const summary = {
+    ready: full.ready, playback: full.playback, backend: full.backend, mode: full.mode, tick: full.tick, frame: full.frame,
+    viewport: full.viewport,
+    camera: full.objects?.cameraPose ?? null,
+    faults: { count: full.errors?.length ?? 0, recent: (full.errors ?? []).slice(-3), truncated:(full.errors?.length??0)>3, query:"pelican inspect --fields errors" },
+    statistics: { triangles: full.triangleCount, nodes: full.nodeCount, entities: full.paging?.total ?? full.runtime?.records?.length ?? null,
+      samples: full.rendering?.surface?.samples ?? null },
+    memory: { totalGpuBytes: {status:"unavailable", reason:"No portable browser total VRAM measurement"},
+      managed: full.resources?.bytes ?? {status:"unavailable"},
+      tracing: full.rendering?.surface?.ownedBytes !== undefined ? {status:"known",bytes:full.rendering.surface.ownedBytes,scope:"Tracing owner allocations only; not total VRAM"} : {status:"unavailable"} },
+  };
+  if (!options?.summary && !options?.fields) return full;
+  const fields = options.fields ?? ["summary"];
+  const selected: Record<string, unknown> = {}, availability: Record<string, string> = {};
+  for (const field of fields) {
+    const value = field === "summary" ? summary : field === "assets" ? full.compiledIR?.assets?.map((asset: {id:string;hash?:string})=>({id:asset.id,hash:asset.hash})) : full[field];
+    availability[field] = value == null ? "unavailable" : "available";
+    selected[field] = value ?? null;
+  }
+  return { backend: full.backend, mode: full.mode, tick: full.tick, ...selected, selection: { fields, availability, truncated: !!full.paging && full.paging.offset + full.paging.returned < full.paging.total,
+    ...(full.paging ? {paging:full.paging, next: full.paging.offset + full.paging.returned < full.paging.total ? "pelican inspect --fields " + fields.join(",") + " --limit " + full.paging.limit + " --offset " + (full.paging.offset + full.paging.returned) : null} : {}) } };
 }

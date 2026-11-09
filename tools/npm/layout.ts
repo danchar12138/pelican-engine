@@ -1,3 +1,4 @@
+import { engineTasks } from "../../packages/sdk/src/index.ts";
 import { existsSync } from "node:fs";
 import { readFile, mkdir, writeFile, lstat, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -166,11 +167,11 @@ export async function writeAuthorEntry(
       `Read [game-author workflow](${docs}/npm/GAME-AUTHOR.md),`,
       `[game recipes](${docs}/npm/RECIPES.md), [API reference](${docs}/api/REFERENCE.md), and [API index](${docs}/api/index.json).`,
       "Use the engine's JSON CLI protocol for checks, builds, browser controls and capture.",
-      "Start with npx --no-install pelican guide, then guide --goal <English/中文 task>. Follow ranked tasks, exact methods, recipe dependencies and verification steps. Unknown tasks return labelled candidates, not proof of unsupported behavior. Use capabilities --summary for a catalog, --feature <id> for limits and api --symbol Type.member for exact contracts.",
+      "Start with npx --no-install pelican guide --compact, then guide --goal <English/中文 task>. Follow ranked tasks, exact methods, recipe dependencies and verification steps. Unknown tasks return labelled candidates, not proof of unsupported behavior. Use capabilities --summary for a catalog, --feature <id> for limits and api --symbol Type.member for exact contracts.",
       "Create complete starter games with pelican create --template <recipe-id>. recipe --id <id> returns all helper files and required npm dependencies; install those dependencies in this game project.",
       `Read [dependencies and custom extensions](${docs}/npm/INTEGRATIONS.md). This is ordinary TypeScript, not an engine-only DSL. Combine your own modules and npm libraries with engine services. Built-in gameplay services are optional.`,
       "Prefer defineGameRuntime for systems declared once, per-instance validated JSON state and automatic save hooks. Browser-only dependencies initialize in setup/runtime.create; scope.signal and scope.own/listen/cleanup/defer own lifetime. Manual runtime hooks remain supported. Private renderer/GPU/WASM objects are not a stable plugin contract.",
-      "Tasks: third-person covers jumping/follow/save; npm-component passes typed instance dependencies from setup to systems without globals; external-adapters uses Worker/WebSocket; dynamic-resources loads JSON and dynamic-texture connects bounded bytes/npm PNG decoding to managed textures. Validate decoded-size budgets. Compatible dev edits retain state; incompatible declarations require explicit restart.",
+      ...engineTasks().map(task => `- ${task.title}: npx --no-install pelican guide --compact --goal ${task.id}`),
       "Content uses ordinary trusted TypeScript (content: typescript); legacy static mode is opt-in. Browser-compatible dependencies use normal npm resolution. Gameplay runs in synchronous systems. Read runtime diagnostics causeCodes/tick/stage and never assume compilation establishes runtime behavior.",
       "Install pelican-engine from npm. Modify this game project and its dependencies; engine contributors work in a separate repository.",
       "",

@@ -1238,3 +1238,11 @@ test("disconnecting during an unfinished body does not leak an unhandled request
   assert.equal((await f.client.status()).status, "succeeded");
   assert.equal(f.launches, 0);
 });
+
+test("explicit incompatible HTTP version rejects before launch while omitted version stays compatible", async t=>{
+ const f=await fixture(t);
+ const bad=await fetch(f.url+"/__pelican/control",{method:"POST",headers:{"Content-Type":"application/json","x-pelican-protocol-version":"999.0.0"},body:JSON.stringify({type:"inspect"})});
+ assert.equal(bad.status,409);assert.equal((await bad.json()).diagnostics[0].code,"TC_PROTOCOL_VERSION_UNSUPPORTED");assert.equal(f.launches,0);
+ const old=await fetch(f.url+"/__pelican/control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"inspect"})});
+ assert.equal((await old.json()).status,"succeeded");assert.equal(f.launches,1);
+});

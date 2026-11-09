@@ -106,3 +106,5 @@ test("actual CLI provides cold-start context and compact targeted discovery", ()
     assert.equal(output.data.engineVersion, SDK_VERSION);
   }
 });
+
+test("task catalog pages expose every metadata route with an exact continuation",()=>{let ids:string[]=[];let offset=0;while(true){const page=authorGuide(["--tasks","--limit","7","--offset",String(offset)]);ids.push(...page.discovery.tasks.map(t=>t.id));if(!page.discovery.paging?.truncated)break;assert.match(page.discovery.paging.next!,/pelican guide --tasks --limit 7 --offset/);offset+=7;}assert.ok(ids.length>20);assert.equal(new Set(ids).size,ids.length);});

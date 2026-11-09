@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   parseCommand,
   PROTOCOL_VERSION,
+  CONTROL_HTTP,
   result,
   type ControlCommand,
   type Envelope,
@@ -121,6 +122,7 @@ export function createControlClient(
         headers: {
           "Content-Type": "application/json",
           "X-Pelican-Task-Id": taskId,
+          "X-Pelican-Protocol-Version": PROTOCOL_VERSION,
         },
         body: serialized,
         signal: abort.signal,
@@ -197,13 +199,13 @@ export function createControlClient(
           "TC_CONTROL_COMMAND_INVALID",
         );
       }
-      return request("/__pelican/control", command, sendOptions);
+      return request(CONTROL_HTTP.routes.command.path, command, sendOptions);
     },
     status: () =>
-      request("/__pelican/status", undefined) as Promise<
+      request(CONTROL_HTTP.routes.status.path, undefined) as Promise<
         Envelope<ControlStatus>
       >,
-    cancel: (taskId) => request("/__pelican/cancel", { taskId }),
-    reset: () => request("/__pelican/session", { action: "reset" }),
+    cancel: (taskId) => request(CONTROL_HTTP.routes.cancel.path, { taskId }),
+    reset: () => request(CONTROL_HTTP.routes.session.path, { action: "reset" }),
   };
 }

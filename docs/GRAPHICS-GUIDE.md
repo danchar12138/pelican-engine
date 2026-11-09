@@ -4,11 +4,11 @@
 
 ## 高质量默认值
 
-默认高档为 `path`，启用时域历史与空间降噪，4 samples/frame、8 bounces；原生 DPR、默认 studio IBL 与作者曝光保留。IBL 可用 `lighting: "none"` 关闭，提供 lightingTexture 时使用作者纹理。阴影图 4096 与各向异性过滤服务于光栅路径，不是路径追踪采样参数。
+默认是 `raster`；显式高档 `path` 启用时域历史与空间降噪，4 samples/frame、8 bounces；原生 DPR、默认 studio IBL 与作者曝光保留。IBL 可用 `lighting: "none"` 关闭，提供 lightingTexture 时使用作者纹理。阴影图 4096 与各向异性过滤服务于光栅路径，不是路径追踪采样参数。
 
-`renderQuality()` / `"high"` / `"realtime"` 选择默认高档 path；`"medium"` / `"preview"` 为 hybrid、2 samples/frame、4 bounces 与降噪；`"low"` 为 raster、关闭追踪降噪；`"capture"` 为 path、4 samples/frame、12 bounces、不做降噪。HYBRID 使用光栅首命中和完整首命中直接光技术评估，降低多灯随机选择的方差，间接传输使用独立预算。作者可覆盖参数；不自动降低分辨率、削减模型或以模糊掩盖噪点。高/中/低不保证所有场景的耗时排序。路径与混合必须实际支持 WebGPU，软件 BVH 不调用硬件 RT。
+`renderQuality()` / `"low"` / `"realtime"` 选择默认光栅；显式 `"high"` 选择 path；`"medium"` / `"preview"` 为 hybrid、2 samples/frame、4 bounces 与降噪；`"low"` 为 raster、关闭追踪降噪；`"capture"` 为 path、4 samples/frame、12 bounces、不做降噪。HYBRID 使用光栅首命中和完整首命中直接光技术评估，降低多灯随机选择的方差，间接传输使用独立预算。作者可覆盖参数；不自动降低分辨率、削减模型或以模糊掩盖噪点。高/中/低不保证所有场景的耗时排序。路径与混合必须实际支持 WebGPU，软件 BVH 不调用硬件 RT。
 
-玩家可在启动前显式选择 `?quality=high|medium|low`，仅覆盖质量参数，保留曝光与光照开关。没有该参数时尊重游戏 render 声明，省略 render 才使用默认 path。WebGL2 上默认 path 明确失败并给出低档入口，不静默降级。游戏内通过 `ctx.render.configure(renderQuality("medium"))` 切完整档；单独 `configure({mode:"raster"})` 会在未指定 denoise 时将其关闭。
+玩家可在启动前显式选择 `?quality=high|medium|low`，仅覆盖质量参数，保留曝光与光照开关。没有该参数时尊重游戏 render 声明，省略 render 使用默认 raster，WebGL2 可直接运行。显式 path/hybrid 不支持时报告诊断，不静默降级。游戏内通过 `ctx.render.configure(renderQuality("medium"))` 切完整档；单独 `configure({mode:"raster"})` 会在未指定 denoise 时将其关闭。
 
 首次显示一个追踪档位时，在作者分辨率下先累积至少 64 样本，再替换当前画面；显示进度且不推进游戏仿真。它减少首次出现的粗噪声，不保证任意场景已完全收敛，低性能设备也会等待更久。开发 automation 明确跳过这个展示阶段，使逐样本测试与捕获预算保持可控。动态照明使用重投影、邻域裁剪和有界历史；纹理、材质结构与模式变化仍清除不兼容历史。不要通过减少分辨率或抹平材质细节冒充更高画质。
 
@@ -207,3 +207,9 @@ npm run build
 构建仍为 `dist/`，可在普通静态服务器子路径部署；默认生产不暴露开发控制 hook。`tools/m3-static-probe.ts` 使用真实按键测试模式切换和冷启动。直接浏览器自动化是外部测试职责，游戏源码不得调用内部开发 hook。
 
 当前公开图语言仍是有限子集。后处理、多通道、变形和计算接口的完整表达矩阵、完整物理材质图像矩阵、时域重建、性能及独立使用验收仍有缺口。普通版本发布不代表这些能力已验证或完整首发已完成。
+
+## 光栅环境遮蔽
+
+WebGPU 内置光栅使用全分辨率法线/深度预通道、32 样本 GTAO 与深度/法线约束过滤，只调制间接光，避免把直接光和高光一起乘黑。固定空间采样不积累运动历史；它增加预通道与像素开销，需要按场景实测。`ctx.render.configure({rasterAmbientOcclusion:false})` 可关闭，保留高质量标准 PBR 光栅。
+
+WebGL2 使用标准光栅；作者声明自定义后处理时，自行负责呈现，内置 GTAO 不叠加。`inspect.rendering.rasterPresentation` 报告实际路径。屏幕空间遮蔽不提供离屏全局光照、真实反射或硬件 RT；高模资产、灯光、阴影范围和纹理决定最终质量，不能据此宣称所有场景达到 AAA。

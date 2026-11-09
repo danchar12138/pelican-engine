@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { SDK_VERSION, engineCapabilities, engineTasks } from "../packages/sdk/src/index.ts";
 import { recipeIds, recipeDependencies } from "./npm/recipes.ts";
 
@@ -70,9 +72,10 @@ export function queryCapabilities(args: readonly string[]) {
       : {}),
     ...(parsed.has("--summary") ? { detail: "summary" } : {}),
     features: parsed.has("--summary")
-      ? page.map(({ id, description, implementation, backends, recipes }) => ({
+      ? page.map(({ id, description, aliases, implementation, backends, recipes }) => ({
           id,
           description,
+          aliases,
           implementation,
           backends,
           recipes,
@@ -88,9 +91,13 @@ export function queryCapabilities(args: readonly string[]) {
 
 /** Small, installed-package-only starting context. Exact contracts stay in SDK/API metadata. */
 export function authorGuide(args: readonly string[]) {
-  const parsed = options(args, ["--goal"], [], "TC_GUIDE_QUERY");
+  const parsed = options(args, ["--goal", "--limit", "--offset"], ["--tasks"], "TC_GUIDE_QUERY");
   const goal = String(parsed.get("--goal") ?? "");
-  const tasks = goal ? engineTasks(goal) : [];
+  let tasks = goal ? engineTasks(goal) : parsed.has("--tasks") ? engineTasks() : [];
+  const offset=Number(parsed.get("--offset")??0),limit=Number(parsed.get("--limit")??8);
+  if(!Number.isSafeInteger(offset)||offset<0||offset>100000||!Number.isInteger(limit)||limit<1||limit>100)throw new Error("TC_GUIDE_QUERY: Use --limit 1..100 and --offset 0..100000.");
+  const totalTasks=tasks.length;
+  if(parsed.has("--tasks"))tasks=tasks.slice(offset,offset+limit);
   let features: ReturnType<typeof engineCapabilities> = [];
   let failure: { code: string; message: string } | undefined;
   if (goal) {
@@ -140,14 +147,18 @@ export function authorGuide(args: readonly string[]) {
     discovery: {
       status: failure ? "unrecognized" : goal ? "matched" : "catalog",
       ...(failure ? { failure } : {}),
-      tasks: tasks.map(({ aliases: _aliases, ...task }) => task),
+      tasks,
+      ...(parsed.has("--tasks") ? {paging:{offset,limit,total:totalTasks,truncated:offset+tasks.length<totalTasks,next:offset+tasks.length<totalTasks?`pelican guide --tasks --limit ${limit} --offset ${offset+tasks.length}`:null}}:{}),
       ...(!goal || failure ? {
         candidates: taskCatalog.slice(0, 8).map(({ id, title }) => ({ id, title, query: `pelican guide --goal ${id}` })),
-        catalog: { total: taskCatalog.length, truncated: taskCatalog.length > 8, query: "pelican capabilities --summary" },
+        catalog: { total: taskCatalog.length, truncated: taskCatalog.length > 8, query: "pelican guide --tasks --limit 8 --offset 0" },
       } : {}),
-      features: features.map(({ id, implementation, symbols, limits }) => ({
+      features: features.map(({ id, description, aliases, implementation, backends, symbols, limits }) => ({
         id,
+        description,
+        aliases,
         implementation,
+        backends,
         symbols,
         limits,
       })),
@@ -179,5 +190,42 @@ export function authorGuide(args: readonly string[]) {
       "lib/sdk/index.d.ts",
       "llms.txt",
     ],
+  };
+}
+
+/** Only reads two bounded project manifests; never compiles or walks source. */
+export async function compactAuthorGuide(args: readonly string[], projectRoot: string) {
+  const goalIndex=args.indexOf("--goal");
+  if(goalIndex>=0 && Buffer.byteLength(args[goalIndex+1]??"")>160)throw new Error("TC_GUIDE_QUERY: Compact goals must fit 160 UTF-8 bytes; use a short task ID or full guide.");
+  const full = authorGuide(args);
+  if (full.goal && Buffer.byteLength(full.goal) > 160) throw new Error("TC_GUIDE_QUERY: Compact goals must fit 160 UTF-8 bytes; use a short task ID or full guide.");
+  const read = async (name: string) => {
+    try { const bytes = await readFile(path.join(projectRoot, name));
+      if (bytes.length > 65536) return { status: "unavailable", reason: "manifest exceeds 64 KiB" };
+      return { status: "available", value: JSON.parse(bytes.toString("utf8")) };
+    } catch (error) { return { status: (error as NodeJS.ErrnoException).code === "ENOENT" ? "missing" : "unavailable" }; }
+  };
+  const [project, pkg] = await Promise.all([read("pelican.project.json"), read("package.json")]);
+  const task = full.discovery.tasks[0];
+  const feature = full.discovery.features[0];
+  const entry=project.value?.entry;
+  const requirement=pkg.value?.dependencies?.["pelican-engine"]??pkg.value?.devDependencies?.["pelican-engine"];
+  return {
+    format: full.format, detail: "compact", engineVersion: SDK_VERSION,
+    project: { manifest: project.status, package: pkg.status, entry: typeof entry === "string" && Buffer.byteLength(entry)<=120 ? entry : null,
+      entryStatus:typeof entry!=="string"?"unavailable":Buffer.byteLength(entry)>120?"truncated; read pelican.project.json":"available",
+      engine:typeof requirement==="string"&&Buffer.byteLength(requirement)<=80?requirement:null,
+      engineStatus:typeof requirement!=="string"?"unavailable":Buffer.byteLength(requirement)>80?"truncated; read package.json":"available" },
+    discovery: { status: full.discovery.status,
+      tasks: full.discovery.tasks.slice(0,1).map(t => ({ id:t.id, description:t.title, aliases:t.aliases?.slice(0,2) })),
+      capabilities: full.discovery.features.slice(0,2).map(f => ({ id:f.id, implementation:f.implementation, query:"pelican capabilities --feature "+f.id })),
+      recipes: full.discovery.recipes.slice(0,1).map(r => ({id:r.id, query:r.query})),
+      ...(full.discovery.status === "unrecognized" || !task ? { candidates: engineTasks().slice(0,2).map(t => ({kind:"navigation",id:t.id,query:"pelican guide --compact --goal "+t.id})) } : {}),
+    },
+    next: task?.methods[0] ? "pelican api --symbol " + task.methods[0] : feature?.symbols[0] ? "pelican api --symbol "+feature.symbols[0] : "pelican capabilities --summary --limit 5",
+    truncated: true,
+    continuation: "pelican guide" + (full.goal ? " --goal " + JSON.stringify(full.goal) : ""),
+    continuationArgs:full.goal?["guide","--goal",full.goal]:["guide"],
+    limits: "Compact navigation omits full task/feature constraints. Read continuation and capability limits before implementation. Unknown queries are not unsupported. Use ordinary TS/npm; own external resources. check/build are not runtime acceptance.",
   };
 }

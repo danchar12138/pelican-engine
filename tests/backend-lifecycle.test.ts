@@ -1,3 +1,4 @@
+import { projectInspection } from "../packages/renderer/src/checkpoint.ts";
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -89,6 +90,10 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     renderBufferBridge: undefined,
     renderTextureBridge: undefined,
     postComposer: undefined,
+    rasterPresentation: undefined,
+    rasterPresentationCamera: undefined,
+    projectInspection,
+    frameSerial: 0,
     vertexBounds: undefined,
     legacyTracerDisposed: true,
     backendKind: "webgpu",
@@ -123,6 +128,7 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     drawTail: Promise.resolve(),
     viewport: { width: 16, height: 8, cssWidth: 16, cssHeight: 8, pixelRatio: 1, fixed: true },
     resizeViewport: () => false,
+    createRasterPresentation: (renderer: {render(scene:unknown,camera:unknown):void},scene:unknown,camera:unknown) => ({render:()=>renderer.render(scene,camera),dispose(){}}),
     pointerInput: { drain() {}, dispose() {} },
     runtime: undefined,
     gameplay: undefined,

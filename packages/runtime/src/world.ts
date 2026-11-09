@@ -4,6 +4,7 @@ import type {
   Transform,
 } from "../../sdk/src/index.ts";
 import type {
+  DevelopmentTraceEntry,
   EntityHandle,
   EntityRecord,
   EntityRef,
@@ -254,6 +255,10 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
     disposed = false;
   let active: WorldAccess | undefined;
   let running = false;
+  const traceLimit=options.traceLimit??0;
+  if(!Number.isSafeInteger(traceLimit)||traceLimit<0||traceLimit>1024)fail("TRACE_LIMIT","Development trace limit must be 0..1024.");
+  const developmentTrace:DevelopmentTraceEntry[]=[];let traceSequence=0,dropped=0;let activeSystem:string|null=null;
+  const trace=(entry:Omit<DevelopmentTraceEntry,"sequence"|"system">)=>{if(!traceLimit)return;developmentTrace.push({sequence:++traceSequence,system:activeSystem,...entry});if(developmentTrace.length>traceLimit){developmentTrace.shift();dropped++;}};
   let pending: Queued[] = [];
   const freshGeneration = () => {
     if (generation >= Number.MAX_SAFE_INTEGER)
@@ -507,6 +512,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
       const index = lookup(state, entity);
       const data = values(TRANSFORM, patch as ComponentData, false);
       state.transforms.write(index, data);
+      if(traceLimit)trace({kind:"managed-write",component:"Transform",entity:state.ids[index]});
       revision++;
     },
     getComponent(entity, component) {
@@ -527,6 +533,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
         fail("MISSING_COMPONENT", `Entity does not have ${component}.`);
       const data = values(storage.schema, patch, false);
       storage.write(index, data);
+      if(traceLimit)trace({kind:"managed-write",component,entity:state.ids[index]});
       revision++;
     },
     addComponent(entity, component, data = {}) {
@@ -673,6 +680,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
         writes: access.writes && [...access.writes],
       };
       running = true;
+      activeSystem=id;if(traceLimit)trace({kind:"system-start"});
       try {
         const result = operation();
         if (
@@ -686,7 +694,11 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
           fail("SYSTEM_ASYNC", "Systems cannot return asynchronous work.");
         }
         return result;
+      } catch(error) {
+        if(traceLimit)trace({kind:"fault",code:String(error).match(/TC_[A-Z0-9_]+/)?.[0]??"TC_RUNTIME_SYSTEM"});
+        throw error;
       } finally {
+        if(traceLimit)trace({kind:"system-end"});activeSystem=null;
         running = false;
         active = undefined;
       }
@@ -727,6 +739,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
         pendingCommands: pending.length,
         revision,
         disposed,
+        ...(traceLimit?{developmentTrace:{limit:traceLimit,dropped,entries:developmentTrace.map(e=>({...e}))}}:{}),
       };
     },
     dispose() {
@@ -735,6 +748,7 @@ export function createWorld(options: WorldOptions = {}): RuntimeWorld {
       state = empty(0);
       pending = [];
       disposed = true;
+      developmentTrace.length=0;
       revision++;
     },
   };

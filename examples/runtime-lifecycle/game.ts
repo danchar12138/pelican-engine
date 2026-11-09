@@ -4,6 +4,7 @@ import { defineGame, defineScene, defineSystem } from "pelican-engine";
 // set content: "typescript" in pelican.project.json, then pelican build.
 export default defineGame({
   id: "runtime-lifecycle",
+  ui: [{id:"save",kind:"button",text:"Save",x:16,y:16,width:100},{id:"load",kind:"button",text:"Load",x:132,y:16,width:100}],
   scene: defineScene({ id: "main", entities: [{ id: "counter" }] }),
   systems: [defineSystem({ id: "counter", writes: ["Transform"], structural: false })],
   runtime: {
@@ -24,6 +25,7 @@ export default defineGame({
         systems: {
           counter(ctx) {
             ticks++;
+            for(const event of ctx.events("ui.activate")){const id=(event.payload as {id:string}).id;if(id==="save")ctx.storage.save("counter");if(id==="load")ctx.storage.load("counter");}
             ctx.setTransform("counter", { position: [ticks / 60, 0, 0] });
             view.show(ticks);
           },

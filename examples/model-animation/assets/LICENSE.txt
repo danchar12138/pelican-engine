@@ -1,0 +1,3 @@
+SPDX-License-Identifier: CC0-1.0
+Procedural Pelican recipe asset, dedicated to the public domain under CC0 1.0.
+Generated specifically for this project; no third-party asset source.

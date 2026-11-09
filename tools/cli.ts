@@ -1,3 +1,5 @@
+import { runProjectVerification } from "./verify-project.ts";
+import { captureFacts } from "./capture-facts.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -7,13 +9,14 @@ import {
   cp,
   access,
   realpath,
+  lstat,
 } from "node:fs/promises";
 import { build as viteBuild, createServer } from "vite";
 import { compileProject } from "../packages/compiler/src/index.ts";
 import { SDK_VERSION } from "../packages/sdk/src/index.ts";
-import { readRecipe, readRecipeFiles, recipeDependencies, recipeIds } from "./npm/recipes.ts";
+import { readRecipe, readRecipeFiles, readRecipeAssets, prepareRecipeAssetCopy, recipeVerification, recipeDependencies, recipeIds } from "./npm/recipes.ts";
 import { generateApiIndex, queryApi } from "./api-index.ts";
-import { authorGuide, queryCapabilities } from "./author-guide.ts";
+import { authorGuide, compactAuthorGuide, queryCapabilities } from "./author-guide.ts";
 import { diagnoseRendering, type RenderDiagnosticInput } from "../packages/sdk/src/index.ts";
 import { queryAssets } from "./asset-query.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
@@ -32,7 +35,7 @@ import {
   prepareInstalledDevProject,
   installedDoctor,
 } from "./npm/layout.ts";
-import type { ControlCommand } from "../packages/protocol/src/index.ts";
+import { result as protocolResult, normalizeDiagnostic, exitCodeFor, type InspectField, type TaskStatus, type ControlCommand } from "../packages/protocol/src/index.ts";
 import {
   automationLaunchOptions,
   automationURL,
@@ -43,7 +46,8 @@ import {
 const requestedLayout = cliLayout(import.meta.url);
 const engineRoot = await realpath(requestedLayout.root);
 const layout = { ...requestedLayout, root: engineRoot, webRoot: requestedLayout.installed ? path.join(engineRoot, "web") : engineRoot };
-const args = process.argv.slice(2);
+// --json is a compatibility no-op: every command already emits JSON.
+const args = process.argv.slice(2).filter(arg => arg !== "--json");
 const activeManifest = JSON.parse(
   await readFile(path.join(engineRoot, "engine.manifest.json"), "utf8"),
 ) as { stage: string };
@@ -61,24 +65,13 @@ const requestedProjectRoot = path.resolve(
 );
 const projectRoot = await realpath(requestedProjectRoot).catch(() => requestedProjectRoot);
 const taskId = `${command}-${Date.now()}`;
-const envelope = (
-  status: string,
-  data: unknown,
-  diagnostics: unknown[] = [],
-  artifacts: string[] = [],
-) => ({
-  protocolVersion: "0.1.0",
-  taskId,
-  status,
-  diagnostics,
-  artifacts: artifacts.map((path) => ({
-    type: "file",
-    path: path.replaceAll("\\", "/"),
-  })),
-  data,
-});
-const emit = (result: unknown) =>
-  process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+const envelope = (status: TaskStatus, data: unknown, diagnostics: unknown[] = [], artifacts: string[] = []) => protocolResult(taskId, status, data, diagnostics.map(normalizeDiagnostic), artifacts.map(file => ({type:"file",path:file.replaceAll("\\","/")})));
+const emit = (value: unknown) => {
+  const response = value as ReturnType<typeof protocolResult>;
+  if (Array.isArray(response.diagnostics)) response.diagnostics = response.diagnostics.map(normalizeDiagnostic);
+  process.stdout.write(JSON.stringify(value, null, args.includes("--compact") || command === "dev" ? undefined : 2) + "\n");
+  process.exitCode = exitCodeFor(response);
+};
 const target = path.join(projectRoot, ".pelican/public/generated");
 async function compile() {
   await mkdir(target, { recursive: true });
@@ -91,7 +84,7 @@ async function main() {
       envelope("succeeded", {
         commands: [
           "doctor",
-          "guide [--goal <English/中文-query>] (compact npm game-author starting context)",
+          "guide [--compact] [--goal <task-or-query>] [--tasks --limit 8 --offset 0] (project summary, discovery and continuation)",
           "capabilities [--feature <id-or-English/中文-query>] [--summary] [--limit 20 --offset 0]",
           "diagnose [--port 4173] (bounded live render observations with causes and repair queries; not FPS)",
           "assets [--id <declared-id>] [--limit 20 --offset 0] (validated asset costs and real model material slots)",
@@ -107,11 +100,12 @@ async function main() {
           "dev --project <directory> [--port 4173]",
           "build --project <directory> [--base <path>]",
           "optimize --project <directory> --asset <id> [--output <new-project-relative.glb>]",
-          "capture [--mode raster|hybrid|path] [--output file.png]",
+          "capture [--live] [--facts] [--mode raster|hybrid|path] [--output file.png]",
+          "verify [--recipe <id>] [--baseline .pelican/baseline.png [--write-baseline]] [--port 4173] (owned headless smoke, or explicit recipe acceptance; writes .pelican/verify)",
           "render --samples <1..4096> [--mode path|hybrid] [--denoise true|false] [--port <dev-port>]",
           "pointer --x <css-x> --y <css-y> [--buttons <mask>] [--dx <px>] [--dy <px>] [--wheel-x <px>] [--wheel-y <px>]",
           "batch --file <commands.json> [--port <dev-port>] (preflighted; completed operations are not rolled back)",
-          "inspect | step --count <n> | pause | resume [--port <dev-port>]",
+          "inspect [--summary | --fields summary,rendering,...] [--limit 20 --offset 0] | step --count <n> | pause | resume [--port <dev-port>]",
           "reload [--restart] [--port <dev-port>] (preserve compatible state; restart explicitly discards it)",
           "prepare-render --mode path|hybrid|raster [--port <dev-port>] (prepare resources without switching mode)",
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
@@ -143,7 +137,6 @@ async function main() {
       ? await installedDoctor(engineRoot, taskId)
       : await doctor({ projectRoot: engineRoot, taskId });
     emit(report);
-    if (report.status !== "succeeded") process.exitCode = 1;
     return;
   }
   if (command === "api") {
@@ -167,12 +160,13 @@ async function main() {
     return;
   }
   if (command === "guide") {
-    emit(envelope("succeeded", authorGuide(args.slice(1))));
+    const query = args.slice(1).filter(arg => arg !== "--compact" && arg !== "--project" && arg !== option("project"));
+    emit(envelope("succeeded", args.includes("--compact") ? await compactAuthorGuide(query, projectRoot) : authorGuide(query)));
     return;
   }
   if (command === "assets") {
     const result = await compile();
-    if (!result.success || !result.ir) { emit(envelope("failed", null, result.diagnostics)); process.exitCode = 1; return; }
+    if (!result.success || !result.ir) { emit(envelope("failed", null, result.diagnostics)); return; }
     emit(envelope("succeeded", queryAssets(result.ir, option("id"), Number(option("limit", "20")), Number(option("offset", "0"))), result.diagnostics));
     return;
   }
@@ -183,7 +177,7 @@ async function main() {
   if (command === "recipe") {
     const id = option("id");
     if (!id) throw new Error("TC_RECIPE_ID: Supply --id; capabilities lists available recipes.");
-    emit(envelope("succeeded", { id, source: await readRecipe(engineRoot, id, layout.installed), files: await readRecipeFiles(engineRoot, id, layout.installed), dependencies: recipeDependencies(id), entry: "game.ts", create: `pelican create --template ${id}` }));
+    emit(envelope("succeeded", { id, source: await readRecipe(engineRoot, id, layout.installed), files: await readRecipeFiles(engineRoot, id, layout.installed), dependencies: recipeDependencies(id), assets: await readRecipeAssets(engineRoot,id,layout.installed), verification:recipeVerification(id), entry: "game.ts", create: `pelican create --template ${id}` }));
     return;
   }
   if (
@@ -221,7 +215,7 @@ async function main() {
     } else if (command === "reset-session") response = await client.reset();
     else {
       let operation: ControlCommand;
-      if (command === "capture") operation = { type: "capture" };
+      if (command === "capture") operation = { type: "capture", ...(args.includes("--facts") ? {facts:true} : {}) };
       else if (command === "prepare-render") operation = { type: "prepareRender", mode: option("mode", "path") as "path" | "hybrid" | "raster" };
       else if (command === "reload") operation = { type: "reload", restart: args.includes("--restart") };
       else if (command === "pointer") operation = { type: "pointer", x: Number(option("x")), y: Number(option("y")), buttons: Number(option("buttons", "0")),
@@ -238,7 +232,9 @@ async function main() {
       else if (command === "inspect" || command === "diagnose")
         operation = {
           type: "inspect",
-          ...(command === "diagnose" ? { limit: 1 } : {}),
+          ...(command === "diagnose" ? { fields: ["assets", "rendering", "metrics", "viewport"] as InspectField[], limit: 1 } : {}),
+          ...(command === "inspect" && args.includes("--summary") ? { summary: true } : {}),
+          ...(command === "inspect" && option("fields") ? { fields: option("fields")!.split(",") as InspectField[] } : {}),
           ...(option("entity") ? { entity: option("entity") } : {}),
           ...(option("offset") ? { offset: Number(option("offset")) } : {}),
           ...(option("limit") ? { limit: Number(option("limit")) } : {}),
@@ -285,7 +281,10 @@ async function main() {
         option("task") ? { taskId: option("task") } : {},
       );
     }
-    if (command === "diagnose" && response.status === "succeeded") response.data = diagnoseRendering(response.data as RenderDiagnosticInput);
+    if (command === "diagnose" && response.status === "succeeded") {
+      const observed = response.data as RenderDiagnosticInput & { summary?: { mode?: string } };
+      response.data = diagnoseRendering(observed);
+    }
     if (command === "capture" && response.status === "succeeded") {
       const data = response.data as {
         format: string;
@@ -293,6 +292,7 @@ async function main() {
         width: number;
         height: number;
         bytes: number;
+        facts?: unknown;
       };
       const buffer = Buffer.from(data.base64, "base64");
       if (
@@ -315,6 +315,7 @@ async function main() {
         width: data.width,
         height: data.height,
         bytes: data.bytes,
+        ...(data.facts ? {facts:data.facts} : {}),
       };
       response.artifacts.push({ type: "image", path: output });
     } else if (option("output") && response.status === "succeeded") {
@@ -324,8 +325,6 @@ async function main() {
       response.artifacts.push({ type: "file", path: output });
     }
     emit(response);
-    if (!["succeeded", "running", "queued"].includes(response.status))
-      process.exitCode = 1;
     return;
   }
   if (command === "setup") {
@@ -354,8 +353,7 @@ async function main() {
       }
       const report = await installedDoctor(engineRoot, taskId);
       emit(report);
-      if (report.status !== "succeeded") process.exitCode = 1;
-      return;
+        return;
     }
     const result = await setup({
       projectRoot: engineRoot,
@@ -364,7 +362,6 @@ async function main() {
       installBrowser: args.includes("--install-browser"),
     });
     emit(result);
-    if (result.status !== "succeeded") process.exitCode = 1;
     return;
   }
   if (command === "create") {
@@ -380,9 +377,10 @@ async function main() {
       const files = template === "minimal" ? {} : await readRecipeFiles(engineRoot, template!, layout.installed);
       for (const filename of Object.keys(files)) if (path.basename(filename) !== filename || !filename.endsWith(".ts"))
         throw new Error("TC_RECIPE_PATH: Recipe helper must be a project-local TypeScript filename.");
+      const copyAssets = await prepareRecipeAssetCopy(projectRoot, template === "minimal" ? [] : await readRecipeAssets(engineRoot,template!,layout.installed));
       for (const filename of ["game.ts", "pelican.project.json", "AGENTS.md", ...Object.keys(files)])
         try {
-          await access(path.join(projectRoot, filename));
+          await lstat(path.join(projectRoot, filename));
           throw new Error(
             "TC_CREATE_EXISTS: Project files already exist; no files were overwritten.",
           );
@@ -390,6 +388,7 @@ async function main() {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
       await createMinimalProject(projectRoot, engineRoot, layout.installed);
+      await copyAssets();
       if (source !== undefined) await writeFile(path.join(projectRoot, "game.ts"), source, "utf8");
       for (const [file, text] of Object.entries(files)) await writeFile(path.join(projectRoot, file), text, { encoding: "utf8", flag: "wx" });
       emit(
@@ -409,7 +408,7 @@ async function main() {
     }
   }
   if (
-    ["check", "compile", "build", "dev", "capture", "optimize"].includes(
+    ["check", "compile", "build", "dev", "capture", "verify", "optimize"].includes(
       command,
     )
   ) {
@@ -424,7 +423,6 @@ async function main() {
           path.relative(projectRoot, path.join(target, "build-report.json")),
         ]),
       );
-      process.exitCode = 1;
       return;
     }
     if (command === "optimize") {
@@ -612,7 +610,7 @@ async function main() {
     });
     const controls = command === "dev" ? attachControl(server) : undefined;
     await server.listen();
-    if (command === "capture") {
+    if (command === "capture" || command === "verify") {
       let browser: import("playwright").Browser | undefined;
       try {
         const { chromium } = await import("playwright");
@@ -627,27 +625,35 @@ async function main() {
           }),
         );
         await waitForEngine(page);
-        await withAutomationDeadline(() =>
-          page.evaluate(
-            async (mode) => {
-              await (window as any).__pelican.mode(mode);
-              if (mode !== "raster")
-                await (window as any).__pelican.accumulate(8);
-            },
-            option("mode", "path"),
-          ),
+        if (command === "verify") {
+          if(args.includes("--write-baseline") && !option("baseline"))throw new Error("TC_CLI_BASELINE: --write-baseline requires --baseline .pelican/<file.png>.");
+          if(option("baseline")) {
+            const relative=path.relative(path.join(projectRoot,".pelican"),path.resolve(projectRoot,option("baseline")!));
+            if(relative.startsWith("..")||path.isAbsolute(relative)||path.extname(relative)!==".png")throw new Error("TC_CLI_BASELINE: Baselines belong under the project's .pelican/ directory and must use .png.");
+          }
+          const report = await runProjectVerification(page, {recipe:option("recipe"), output:path.join(projectRoot,".pelican/verify"), ...(option("baseline")?{baseline:path.resolve(projectRoot,option("baseline")!),writeBaseline:args.includes("--write-baseline")}:{})});
+          emit(envelope(report.passed ? "succeeded" : "failed", report, report.passed ? [] : [{code:"TC_VERIFY_ASSERTION",severity:"error",message:report.failure,remediation:"Inspect report and screenshot. Recipe acceptance applies to the selected original recipe; general verify is smoke only."}], report.artifacts));
+          return;
+        }
+        const captureMode = await withAutomationDeadline(() =>
+          page.evaluate(async (requested) => {
+            const api=(window as any).__pelican;
+            if(requested !== undefined)await api.mode(requested);
+            const active=api.inspect().mode;
+            if(active !== "raster")await api.accumulate(8);
+            return active as string;
+          }, option("mode")),
         );
         const output = path.resolve(
           option("output", path.join(projectRoot, ".pelican/capture.png"))!,
         );
         await mkdir(path.dirname(output), { recursive: true });
-        await withAutomationDeadline(() =>
-          page.screenshot({ path: output, timeout: 30_000 }),
-        );
+        const observation = args.includes("--facts") ? await page.evaluate(async () => (window as any).__pelican.command({type:"inspect",summary:true})) : undefined;
+        const captured = await withAutomationDeadline(() => page.screenshot({ path: output, timeout: 30_000 }));
         emit(
           envelope(
             "succeeded",
-            { mode: option("mode", "path") },
+            { mode: captureMode, ...(args.includes("--facts") ? {facts:captureFacts(captured, observation)} : {}) },
             [],
             [output],
           ),
@@ -726,11 +732,9 @@ main().catch((error) => {
         code: diagnosticCode(error),
         severity: "error",
         message: String(error),
-        remediation:
-          "Inspect the referenced source or run doctor; preserve failure output before retrying.",
+
         ...discoveryRecovery(error, process.argv.slice(2)),
       },
     ]),
   );
-  process.exitCode = 1;
 });

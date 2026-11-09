@@ -32,7 +32,10 @@ export function resolveRenderSettings(
   for (const key of Object.keys(patch))
     if (!Object.hasOwn(DEFAULT_RENDER_SETTINGS, key))
       fail("Unknown setting " + key);
-  const result = { ...base, ...patch } as RenderSettings;
+  const requested = (patch as Partial<RenderSettings>).mode;
+  const traceDefaults = base.mode === "raster" && requested && requested !== "raster" ? qualitySettings(requested === "path" ? "high" : "medium") : undefined;
+  if ((patch as Partial<RenderSettings>).rasterAmbientOcclusion !== undefined && typeof (patch as Partial<RenderSettings>).rasterAmbientOcclusion !== "boolean") fail("rasterAmbientOcclusion must be boolean.");
+  const result = { ...base, ...(traceDefaults ? {samplesPerFrame:traceDefaults.samplesPerFrame,maxBounces:traceDefaults.maxBounces,denoise:traceDefaults.denoise} : {}), ...patch } as RenderSettings;
   // A mode-only raster selection must disable tracing-only filtering. Explicit denoise:true still diagnoses unsupported use.
   if ((patch as Partial<RenderSettings>).mode === "raster" && !Object.hasOwn(patch, "denoise")) result.denoise = false;
   if (!["raster", "hybrid", "path"].includes(result.mode))
@@ -149,6 +152,10 @@ export function createRenderSettingsDriver(
   };
   const preflight = (value: unknown) => {
     active();
+    // Optional AO was absent in older 1.x snapshots. Normalize only this additive field;
+    // changed authored defaults still reject rather than silently migrating a game.
+    if(snapshotRecord(value) && snapshotRecord(value.defaults) && snapshotRecord(value.settings) && !Object.hasOwn(value.defaults,"rasterAmbientOcclusion") && !Object.hasOwn(value.settings,"rasterAmbientOcclusion"))
+      value={...value,defaults:{rasterAmbientOcclusion:true,...value.defaults},settings:{rasterAmbientOcclusion:true,...value.settings}};
     if (
       !snapshotRecord(value) ||
       Object.keys(value).some(key => !["version", "defaults", "settings", "parameters", "surfaces", "postProcesses", "bufferBindings", "effectBufferBindings", "textureBindings", "effectTextureBindings"].includes(key)) ||

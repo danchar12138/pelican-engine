@@ -50,7 +50,7 @@ npx pelican diagnose --port 4173
 
 `npm install <package>`，把自己的算法、组件和内容接进游戏。浏览器依赖通过 `runtime.create` 初始化，渲染模块通过 `defineRenderExtension` 组合。内置玩法服务可选，不替你规定规则。[接入指南](docs/npm/INTEGRATIONS.md)。
 
-默认高档 path 需要 WebGPU；中档 hybrid、低档 raster 可选，WebGL2 需显式选择低档。路径追踪使用软件 BVH，实际画质与性能需按场景验证。[能力说明](docs/CAPABILITIES.md)。
+默认光栅，原生分辨率、studio IBL、4096 阴影与各向异性过滤；WebGPU 环境遮蔽增强接触层次。hybrid、path 可在游戏内开启，需要 WebGPU。路径追踪使用软件 BVH，实际画质与性能需按场景验证。[能力说明](docs/CAPABILITIES.md)。
 
 ## 接下来
 

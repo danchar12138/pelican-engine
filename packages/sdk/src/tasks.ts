@@ -6,7 +6,7 @@ const tasks: readonly EngineTask[] = [
   {
     id: "asset-inspection", title: "Inspect assets and bind real model slots / 资产查询与模型材质绑定",
     aliases: ["asset inspection", "asset query", "GLB", "material slots", "资产", "材质槽", "模型绑定", "资产减重"],
-    features: ["content.assets"], methods: ["AssetDefinition", "ModelDefinition.materialSlots"], recipes: ["npm-geometry"],
+    features: ["content.assets"], methods: ["AssetDefinition", "ModelDefinition.materialSlots"], recipes: ["model-animation"],
     verify: ["Run pelican assets, then pelican assets --id <asset> --limit 20. Follow nextOffset for remaining slots. Bind exact material names and verify raster/path output; a declaration is not an automatic binding."],
     limits: ["Runs current trusted compilation. Metadata describes costs and slots, not live resource residency or frame rate."],
   },
@@ -248,7 +248,7 @@ const tasks: readonly EngineTask[] = [
       "Compare the same assets, camera, resolution and time/sample budget; inspect backend and capture unclipped materials and shadows.",
     ],
     limits: [
-      "Default high is path with temporal/spatial filtering; medium is hybrid, low is raster. WebGL2 requires explicit low selection (renderQuality('low') or ?quality=low), never silent downgrade. Preparation is cached but not a frame-rate guarantee.",
+      "Default/realtime/low is raster. Explicit high is path with temporal/spatial filtering; medium is hybrid. Tracing requires WebGPU, never silent downgrade. Preparation is cached but not a frame-rate guarantee.",
     ],
   },
   {
@@ -265,6 +265,8 @@ const tasks: readonly EngineTask[] = [
       "Compatible logic changes use transactional content replacement; incompatible declarations are not silently migrated.",
     ],
   },
+  {id:"model-animation",title:"Import models, material slots and animation / 模型材质槽动画",aliases:["model","animation","模型","动画","材质槽接入"],features:["content.assets","animation.playback"],methods:["ModelDefinition.materialSlots","ModelDefinition.animation"],recipes:["model-animation"],verify:["pelican assets --id panel; pelican verify --recipe model-animation"],limits:["Exact asset material and clip names; not arbitrary runtime model streaming. Small CC0 asset included with integrity and license metadata."]},
+  {id:"audio-interaction",title:"Audio playback and real browser unlock / 音频真实交互解锁",aliases:["audio","sound","音频","声音","音频解锁"],features:["audio.playback"],methods:["AudioService.play","AudioService.stop"],recipes:["audio-interaction"],verify:["pelican verify --recipe audio-interaction; test actual listening separately"],limits:["DOM click/tap can unlock browser audio; synthetic engine input alone cannot. Device running and logical voices do not prove physical audibility."]},
 ];
 const normalize = (text: string) =>
   text

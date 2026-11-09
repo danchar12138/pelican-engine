@@ -29,8 +29,8 @@ test("render settings resolve once, isolate returned values and reject unknown o
       /TC_RENDER_SETTINGS/,
     );
   assert.deepEqual(driver.service.state(), before);
-  assert.equal(DEFAULT_RENDER_SETTINGS.mode, "path");
-  assert.equal(DEFAULT_RENDER_SETTINGS.denoise, true);
+  assert.equal(DEFAULT_RENDER_SETTINGS.mode, "raster");
+  assert.equal(DEFAULT_RENDER_SETTINGS.denoise, false);
   assert.equal(resolveRenderSettings({ mode: "raster" }).denoise, false);
   driver.dispose();
   assert.throws(() => driver.service.state(), /TC_RENDER_DISPOSED/);
@@ -52,3 +52,5 @@ test("render snapshot binds initial settings and validates current values before
   assert.throws(() => other.restore(saved), /TC_RENDER_SNAPSHOT/);
   plugin.dispose();
 });
+
+test("additive raster AO accepts legacy snapshots with otherwise matching authored defaults",()=>{const driver=createRenderSettingsDriver({mode:"path"}),plugin=driver.factory({} as never);const saved=plugin.snapshot() as any;delete saved.defaults.rasterAmbientOcclusion;delete saved.settings.rasterAmbientOcclusion;assert.doesNotThrow(()=>plugin.restore(saved));assert.equal(driver.service.state().rasterAmbientOcclusion,true);plugin.dispose();});

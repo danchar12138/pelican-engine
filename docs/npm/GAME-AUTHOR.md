@@ -93,7 +93,7 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 
 优先 WebGPU，WebGL2 只回退光栅。compute、混合和路径追踪不在 WebGL2 上伪装支持。路径追踪使用软件 BVH，不是硬件 RT。材质图、计算图、纹理与缓冲绑定是公开扩展入口；任意 Three.js/TSL 插件没有现成的引擎接入协议。
 
-默认高档为 path：4 samples/frame、8 bounces，时域与空间降噪开启，原生 DPR 与 studio IBL。`renderQuality()` / `"high"` 选择 path，`"medium"` 选择 hybrid、2 samples/frame、4 bounces，`"low"` 选择 raster 并关闭追踪降噪；`"realtime"` 别名高档，`"preview"` 别名中档，`"capture"` 为4采样/12反弹、不滤波的 path。完整切档用 `ctx.render.configure(renderQuality("medium"))`；不是只改模式却忘记滤波预算。
+默认光栅：`renderQuality()` / `"low"` / `"realtime"` 选择 raster；原生 DPR、studio IBL、4096 阴影与各向异性过滤保留。显式 `"high"` 选择 path，4 samples/frame、8 bounces，时域与空间降噪开启；`"medium"` 选择 hybrid、2 samples/frame、4 bounces，`"low"` 选择 raster 并关闭追踪降噪；`"preview"` 别名中档，`"capture"` 为4采样/12反弹、不滤波的 path。完整切档用 `ctx.render.configure(renderQuality("medium"))`；不是只改模式却忘记滤波预算。
 
 path/hybrid 需要实际 WebGPU，不支持时明确诊断，不自动冒充低档；启动 URL 的 `?quality=low` 是玩家显式选择，也可在游戏声明里配置 low。默认并不保证所有设备帧率，高模、分辨率、动态光照和降噪应实测。`lighting:"none"` 关闭 IBL，环境贴图与曝光仍尊重作者设置。光栅保留4096阴影图与设备各向异性过滤。
 
@@ -144,3 +144,23 @@ export default defineGame({
 <!-- standalone-render-recipe:end -->
 
 完整配方由 `pelican recipe` 返回，npm 包同时包含由配方源生成的 `docs/npm/RECIPES.md`。图形边界见 [GRAPHICS-GUIDE](../GRAPHICS-GUIDE.md)，动画见 [ANIMATION](../ANIMATION.md)，模拟见 [SIMULATION-COUPLING](../SIMULATION-COUPLING.md)。能力元数据见 `pelican capabilities`；缺失能力应明确反馈，不能通过修改引擎内部文件掩盖。
+
+## 紧凑发现与可执行验收
+
+`pelican guide --compact --goal <任务>` 只读取项目 manifest，完整 JSON 信封目标不超过 2 KiB；截断提供完整查询命令，实施前需续查限制。普通 guide 保留完整输出。游戏 AGENTS 的任务导航由同一任务元数据生成；未知查询返回导航候选，不等于能力不支持。
+
+`pelican inspect --summary` 返回实际后端、播放状态、tick、帧、关键故障及内存已知量；`--fields summary,rendering` 选择数据，selection 区分不可用与分页截断。status 只查控制会话，diagnose 分析观测，分页不再丢失显式请求的资产依赖。
+
+`pelican capture --facts` 或 capture --live --facts 输出 PNG 亮度直方图、暗像素/上端饱和比例与显示动态范围，附阈值、帧、采样、后端和证据哈希。最终显示像素不是线性 HDR 辐亮度；暗画面本身不是错误。
+
+`pelican verify` 在独立 headless 浏览器做三固定 tick、就绪和运行时错误冒烟，不猜玩法。`pelican verify --recipe third-person` 等执行原配方的共享专属验收，涵盖对应交互、保存恢复和必要像素检查；仅有验收定义的配方接受此选项。测试会推进/恢复独立实例，证据写入 .pelican/verify/。修改后的游戏规格由作者维护，模板断言不能代替任意游戏验收。
+
+小型模型/音频资产随配方返回许可、大小、SHA-256 和 base64；create 安全复制并拒绝覆盖、越界或链接目录。模型动画与音频解锁查询 model-animation、audio-interaction；其余 examples 可是专项夹具，不自动成为公开模板。
+
+CLI 默认 JSON，--json 为兼容参数；用法错误退出 1，检查/断言失败 2，环境/取消/超时 3。旧脚本若只接受失败码 1 需调整。[本地 HTTP 协议](HTTP-PROTOCOL.md) 从命令类型生成，保留原始请求体，解释文件输入、版本和会话重置。
+
+开发态显式使用 `?trace=128`（0 关闭，最多 1024 条），`inspect --fields runtime` 的 world.developmentTrace 返回实际系统顺序、最近故障码及受管 Transform/组件写入来源。它不追踪任意 JavaScript 赋值、外部网络或全部 GPU 更新，不进入保存/回放，生产忽略参数。
+
+受控截图用 `pelican verify --baseline .pelican/baseline.png --write-baseline` 创建，再以同命令去掉 --write-baseline 比较。固定独立新会话、三 tick、960×540、DPR=1，校验相机、档位、实际采样序列/历史初态，记录浏览器/后端/设备，使用明示像素容差；不保证跨设备逐像素一致。与 recipe 验收互斥，普通 verify 不强加画面阈值。采样已由像素与帧序列确定，本次不新增 seed。
+
+兼容说明：显式 high/path、medium/hybrid 仍可使用；省略画质和 realtime 现为 raster。切换默认值会改变初始渲染契约，旧的默认 path 存档不会被悄悄改成光栅存档。其他设置完全匹配且仅缺新增 AO 字段的 1.x 快照可以恢复；不兼容时保留当前世界并报告诊断。

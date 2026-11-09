@@ -5,7 +5,8 @@ import { createRenderSettingsDriver } from "../packages/runtime/src/render-setti
 import { runtimeStatus } from "../packages/renderer/src/startup.ts";
 
 test("WebGL2 rejects compute modes and denoising transactionally with remediation", () => {
-  assert.throws(() => createRenderSettingsDriver({}, [], () => renderCapabilities("webgl2")), /TC_RENDER_MODE_UNAVAILABLE/);
+  const defaults = createRenderSettingsDriver({}, [], () => renderCapabilities("webgl2"));
+  assert.equal(defaults.service.state().mode,"raster");defaults.dispose();
   const driver = createRenderSettingsDriver({ mode: "raster" }, [], () => renderCapabilities("webgl2"));
   const before = driver.service.state();
   for (const mode of ["path", "hybrid"] as const)

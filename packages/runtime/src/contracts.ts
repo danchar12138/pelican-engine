@@ -40,7 +40,10 @@ export interface WorldAccess {
   writes?: readonly string[];
   structural?: boolean;
 }
+export interface DevelopmentTraceEntry { sequence:number; kind:"system-start"|"system-end"|"fault"|"managed-write"; system:string|null; component?:string; entity?:string; code?:string }
 export interface WorldOptions {
+  /** Internal opt-in development telemetry, never saved or replayed. 0 disables. */
+  traceLimit?:number;
   components?: readonly RuntimeComponentDefinition[];
   entities?: readonly RuntimeEntityInput[];
   initialCapacity?: number;
@@ -82,6 +85,7 @@ export interface RuntimeWorld {
     pendingCommands: number;
     revision: number;
     disposed: boolean;
+    developmentTrace?: {limit:number;dropped:number;entries:DevelopmentTraceEntry[]};
   };
   dispose(): void;
 }

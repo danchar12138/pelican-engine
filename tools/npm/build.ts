@@ -1,3 +1,4 @@
+import { renderProtocolReference } from "../protocol-reference.ts";
 import {
   cp,
   lstat,
@@ -284,9 +285,10 @@ export async function buildDistribution() {
     await put(name, await readFile(path.join(root, name), "utf8"));
   // Documentation contains copyable asset-free recipes, not source example projects.
   await put("docs/npm/RECIPES.md", await renderRecipes(root));
+  await put("docs/npm/HTTP-PROTOCOL.md", await renderProtocolReference(root));
   await put(
     "AGENTS.md",
-    "# Pelican Engine game author\n\nUse the installed npm package in this game workspace. Start with `pelican guide` or `pelican guide --goal <short goal>`. Ordinary TypeScript, local modules and browser-compatible npm dependencies are supported; built-in gameplay services are optional. Read [the author workflow](docs/npm/GAME-AUTHOR.md) and [custom integrations](docs/npm/INTEGRATIONS.md). Discover with `pelican capabilities --summary`, exact `pelican api --symbol Type.member` and complete `pelican recipe --id <id>`. Use runtime.create plus own/defer and versioned state hooks for browser dependencies. Do not clone the contributor repository to make games.\n",
+    "# Pelican Engine game author\n\nUse the installed npm package in this game workspace. Start with `pelican guide --compact` or `pelican guide --goal <short goal>`. Ordinary TypeScript, local modules and browser-compatible npm dependencies are supported; built-in gameplay services are optional. Read [the author workflow](docs/npm/GAME-AUTHOR.md) and [custom integrations](docs/npm/INTEGRATIONS.md). Discover with `pelican capabilities --summary`, exact `pelican api --symbol Type.member` and complete `pelican recipe --id <id>`. Use runtime.create plus own/defer and versioned state hooks for browser dependencies. Do not clone the contributor repository to make games.\n",
   );
   await put(
     "README.md",

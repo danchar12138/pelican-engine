@@ -58,7 +58,7 @@ export function inspectRenderHealth(
       "The pixel storage exceeds 128 MiB, a common single-binding budget; the actual device limit may differ.",
       "Query the actual adapter limit before preparation. Preserve authored resolution; report unsupported budgets instead of silently reducing it.",
     );
-  const assets = input.compiledIR?.assets ?? [];
+  const assets = input.assets ?? input.compiledIR?.assets ?? [];
   const hashes = new Map<string, string[]>();
   for (const asset of assets)
     if (asset.hash)
@@ -80,11 +80,12 @@ export function inspectRenderHealth(
     },
     findings,
     queries: [
+      "pelican check --project <game-directory>",
       "pelican guide --goal render-diagnostics",
       "pelican api --symbol onEngineStartup",
       "pelican api --symbol ModelDefinition.materialSlots",
     ],
     scope:
-      "Heuristics from bounded observations, not physical correctness, sustained FPS, mobile acceptance or a recommendation to reduce resolution.",
+      "Heuristics from bounded observations, not physical correctness, sustained FPS, mobile acceptance or a recommendation to reduce resolution. Static compile diagnostics come from check; this report analyzes the running revision.",
   };
 }

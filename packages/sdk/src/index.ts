@@ -15,6 +15,8 @@ export interface RenderDiagnosticInput {
   viewport?: { width: number; height: number };
   metrics?: readonly { wallMs: number }[];
   compiledIR?: { assets: readonly { id: string; hash?: string }[] };
+  /** Compact inspect asset identities; equivalent to compiledIR.assets for duplicate detection. */
+  assets?: readonly {id:string;hash?:string}[];
   rendering?: { surface?: { samples?: number; captureMs?: number; uploadMs?: number; uploadBytes?: number; temporal?: { lastReset?: boolean; resetReasons?: readonly string[] } } };
 }
 export interface RenderDiagnosticReport {
@@ -894,6 +896,8 @@ export interface RenderCapabilities {
   modeLimitation?: string;
 }
 export interface RenderSettings {
+  /** Full-resolution indirect occlusion in the built-in WebGPU raster presentation. Custom postprocess owns presentation; WebGL2 uses standard raster. Default true. */
+  rasterAmbientOcclusion?: boolean;
   mode: RenderMode;
   samplesPerFrame: number;
   maxBounces: number;
@@ -904,8 +908,8 @@ export interface RenderSettings {
   indirectLighting: boolean;
   debug: "beauty" | "albedo" | "normal" | "depth" | "samples";
 }
-/** High/path by default. medium/preview is hybrid, low is raster, realtime aliases high; capture is unfiltered path. No implicit capability downgrade. */
-export function renderQuality(preset: "high" | "medium" | "low" | "realtime" | "preview" | "capture" = "high"): RenderSettings { return qualitySettings(preset); }
+/** Raster by default (low/realtime). Explicit high is path, medium/preview is hybrid; capture is unfiltered path. Tracing requires WebGPU; no implicit downgrade. */
+export function renderQuality(preset: "high" | "medium" | "low" | "realtime" | "preview" | "capture" = "low"): RenderSettings { return qualitySettings(preset); }
 export interface RenderPreparation {
   mode: RenderMode;
   status: "idle" | "queued" | "preparing" | "ready" | "failed";

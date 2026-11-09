@@ -32,7 +32,7 @@ export default defineGame({
   id: "render-quality",
   services: { physics3d: "disabled" },
   systems: [quality],
-  // Omitted render selects high/path with temporal + spatial filtering. Choose renderQuality("low") explicitly for WebGL2.
+  // Omitted render starts in high-quality raster. The buttons explicitly select tracing.
   ui: [
     {
       id: "high",
@@ -46,27 +46,27 @@ export default defineGame({
       id: "medium",
       kind: "button",
       text: "Medium / Hybrid",
-      x: 144,
-      y: 16,
+      x: 16,
+      y: 60,
       width: 155,
     },
     {
       id: "low",
       kind: "button",
       text: "Low / Raster",
-      x: 307,
-      y: 16,
+      x: 16,
+      y: 104,
       width: 135,
     },
     {
       id: "prepare",
       kind: "button",
       text: "Prepare Path",
-      x: 450,
-      y: 16,
+      x: 16,
+      y: 148,
       width: 135,
     },
-    { id: "status", kind: "text", text: "path", x: 16, y: 64 },
+    { id: "status", kind: "text", text: "raster", x: 16, y: 196 },
   ],
   scene: defineScene({
     id: "main",

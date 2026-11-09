@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { startupRenderSettings } from "../packages/renderer/src/startup-quality.ts";
 import { resolveRenderSettings } from "../packages/runtime/src/render-settings.ts";
-test("omitted quality selects default path while an explicit player tier preserves authored exposure and lighting", () => {
+test("omitted quality selects default raster while an explicit player tier preserves authored exposure and lighting", () => {
   assert.equal(
     resolveRenderSettings(startupRenderSettings({}, "")).mode,
-    "path",
+    "raster",
   );
   assert.equal(startupRenderSettings({ mode: "hybrid" }, "").mode, "hybrid");
   const low = startupRenderSettings(

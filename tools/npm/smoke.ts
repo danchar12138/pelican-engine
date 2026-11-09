@@ -141,6 +141,11 @@ try {
   for (const args of [["--help"], ["-h"], ["api", "--help"]])
     assert.ok((await cli(...args)).data.commands.some((command: string) => command.startsWith("api ")));
   assert.equal((await cli("--version")).data.version, SDK_VERSION);
+  const compactGuide=await cli("guide","--compact","--json");
+  assert.ok(Buffer.byteLength(JSON.stringify(compactGuide))+1<=2048);
+  assert.equal(compactGuide.data.truncated,true);
+  assert.match(compactGuide.data.continuation,/pelican guide/);
+  assert.match(await readFile(path.join(installed,"docs/npm/HTTP-PROTOCOL.md"),"utf8"),/TC_PROTOCOL_VERSION_UNSUPPORTED/);
   const guide = await cli("guide");
   assert.equal(guide.data.engineVersion, SDK_VERSION);
   assert.match(guide.data.authoring.language, /Not a mandatory engine DSL/);
@@ -149,6 +154,13 @@ try {
   assert.ok(npmGuide.data.discovery.recipes.some((recipe: { id: string }) => recipe.id === "runtime-lifecycle"));
   const workerGuide = await cli("guide", "--goal", "worker");
   assert.ok(workerGuide.data.discovery.recipes.some((recipe: { id: string }) => recipe.id === "external-adapters"));
+  for(const id of ["model-animation","audio-interaction"]){
+    const recipe=await cli("recipe","--id",id);const target=path.join(directory,".pelican",id);
+    await cli("create","--project",target,"--template",id);
+    for(const asset of recipe.data.assets)assert.equal((await readFile(path.join(target,asset.path))).toString("base64"),asset.base64);
+    assert.equal(recipe.data.verification.scope,"recipe-acceptance");
+    await cli("check","--project",target);
+  }
   const adapterRecipe = await cli("recipe", "--id", "external-adapters");
   assert.ok(adapterRecipe.data.files["palette-worker.ts"]);
   assert.ok(adapterRecipe.data.files["socket-client.ts"]);
@@ -625,12 +637,22 @@ try {
         const capture = await cli(
           "capture",
           "--live",
+          "--facts",
           "--port",
           String(port),
           "--output",
           artifact("capture.png"),
         );
         assert.equal(capture.status, "succeeded");
+        assert.equal(capture.data.facts.evidence.bytes,capture.data.bytes);
+        const compact=await cli("inspect","--summary","--port",String(port));assert.equal(compact.data.summary.ready,true);
+        const smokeProject=path.join(directory,".pelican/model-animation");
+        const verified=await cli("verify","--project",smokeProject,"--recipe","model-animation","--port",String(port+1));assert.equal(verified.data.passed,true);
+        const pathSource=await readFile(path.join(smokeProject,"game.ts"),"utf8");
+        assert.ok(pathSource.includes("defineGame({"));
+        await writeFile(path.join(smokeProject,"game.ts"),pathSource.replace("defineGame({",'defineGame({render:{mode:"path"},'));
+        const authoredPath=await cli("capture","--project",smokeProject,"--facts","--port",String(port+1));
+        assert.equal(authoredPath.data.mode,"path");assert.equal(authoredPath.data.facts.observation.data.mode,"path");
         assert.ok((await readFile(artifact("capture.png"))).length > 1000);
         const fallback = await browser.newContext({
           viewport: { width: 960, height: 540 },
@@ -646,8 +668,9 @@ try {
           await fallbackPage.goto(url + "?automation=1", {
             waitUntil: "domcontentloaded",
           });
-          await assert.rejects(waitForEngine(fallbackPage), /TC_RENDER_MODE_UNAVAILABLE/);
-          // The author explicitly selects the low tier; default path must not silently downgrade on WebGL2.
+          await waitForEngine(fallbackPage);
+          assert.equal((await fallbackPage.evaluate(() => (window as any).__pelican.inspect())).mode,"raster");
+          // Default raster also works on WebGL2; an explicit tracing selection must never silently downgrade.
           await fallbackPage.goto(url + "?automation=1&quality=low", { waitUntil: "domcontentloaded" });
           await waitForEngine(fallbackPage);
           const fallbackState = await fallbackPage.evaluate(() =>

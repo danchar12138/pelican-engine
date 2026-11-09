@@ -1,3 +1,5 @@
+import { createRasterPresentation } from "./raster-presentation.ts";
+import { projectInspection } from "./checkpoint.ts";
 import * as THREE from "three/webgpu";
 import { contentIterationCompatibility } from "../../schema/src/content-iteration.ts";
 import { startupRenderSettings } from "./startup-quality.ts";
@@ -224,6 +226,8 @@ let computeControl: ReturnType<typeof createComputeDriver> | undefined;
 let computeExecutor: ReturnType<typeof createComputeExecutor> | undefined;
 let renderBufferBridge: ReturnType<typeof createRenderBufferBridge> | undefined;
 let renderTextureBridge: ReturnType<typeof createRenderTextureBridge> | undefined;
+let rasterPresentation: ReturnType<typeof createRasterPresentation> | undefined;
+let rasterPresentationCamera: THREE.Camera | undefined;
 let postComposer: ReturnType<typeof createPostProcessComposer> | undefined;
 let vertexBounds: ReturnType<typeof createVertexBoundsOwner> | undefined;
 let legacyTracerDisposed = false;
@@ -873,6 +877,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, i
     if (usesRenderTextures(ir))
       nextRenderTextureBridge = createRenderTextureBridge(renderer, () => computeExecutor, id => textureResources(nextRender!, id));
     candidate = new RuntimeHost(ir, {
+      ...(import.meta.env.DEV ? {traceLimit: Number(new URLSearchParams(location.search).get("trace") ?? 0)} : {}),
       plugins: [nextRender.factory, nextCompute.factory, ...(nextGameplay?.plugins ?? [])],
     });
     const gameURL = new URL(
@@ -1020,6 +1025,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, i
       for (const [id, material] of previousMaterials) await cleanup(`previous material ${id}`, () => material.dispose());
       await cleanup("previous resource scope", () => previousScope?.release());
     };
+    rasterPresentation?.dispose();rasterPresentation=undefined;rasterPresentationCamera=undefined;
     compiledIR = ir;
     runtime = candidate;
     renderControl = nextRender;
@@ -1398,6 +1404,9 @@ async function drawFrame(accumulate = false, changed = true) {
     if (effects) {
       effects.captureRaster(scene, camera);
       effects.present(renderControl!.postProcesses, tick / 60, settings);
+    } else if (mode === "raster" && backendKind === "webgpu" && settings.rasterAmbientOcclusion !== false) {
+      if(!rasterPresentation || rasterPresentationCamera !== camera){rasterPresentation?.dispose();rasterPresentation=createRasterPresentation(renderer,scene,camera);rasterPresentationCamera=camera;}
+      rasterPresentation.render();
     } else renderer.render(scene, camera);
   }
   if (mode !== "raster") submitMs = tracer.renderFrame(cameraFrame(), mode, accumulate);
@@ -1628,7 +1637,7 @@ function inspect(options?: InspectPage) {
   const selected = bounded
     ? selectInspectRecords(runtimeState?.records ?? [], options)
     : undefined;
-  return {
+  return projectInspection({
     ready: !disposed && !terminalFault && !recoveringGpu,
     ...(import.meta.env.DEV ? { iteration: { ...contentIteration } } : {}),
     playback: {
@@ -1643,6 +1652,7 @@ function inspect(options?: InspectPage) {
     rendering: {
       preparation: renderControl && ["path", "hybrid", "raster"].map(value => renderControl!.service.preparation(value as "path" | "hybrid" | "raster")),
       cameraProjection: camera instanceof THREE.OrthographicCamera ? "orthographic" : "perspective",
+      rasterPresentation: mode === "raster" && backendKind === "webgpu" && (!postComposer || !renderControl?.postProcesses?.states().some(effect => effect.enabled)) && renderControl?.service.state().rasterAmbientOcclusion !== false ? rasterPresentation?.inspect() : {kind:"standard",reason:postComposer?"author-postprocess":backendKind==="webgl2"?"webgl2":"disabled-or-tracing"},
       postProcesses: postComposer?.inspect(),
       vertex: vertexBounds?.inspect(),
       bufferBindings: renderBufferBridge?.inspect(),
@@ -1660,6 +1670,7 @@ function inspect(options?: InspectPage) {
       },
     },
     tick,
+    frame: frameSerial,
     width,
     height,
     inputLog: [...inputLog],
@@ -1672,9 +1683,10 @@ function inspect(options?: InspectPage) {
       morph: morphMesh.morphTargetInfluences![0],
       bone: tip.rotation.z,
       camera: camera.position.toArray(),
+      cameraPose: {position:camera.position.toArray(),quaternion:camera.quaternion?.toArray(),projection:camera.projectionMatrix?.toArray()},
     },
     errors: [...errors],
-    ...(bounded ? {} : { compiledIR }),
+    ...(!bounded || (options?.fields?.includes("compiledIR") || options?.fields?.includes("assets")) ? { compiledIR } : {}),
     runtime: runtimeState && {
       ...runtimeState,
       records: selected?.records ?? runtimeState.records,
@@ -1707,7 +1719,7 @@ function inspect(options?: InspectPage) {
       ...renderCapabilities(backendKind),
       ...inspectTraceCapabilities({ backend: backendKind, legacyProbe: probeEnabled, surfaceInitialized: !!surfaceTracer, gameplay: !!gameplay, maxBounces: renderControl?.service.state().maxBounces ?? 8 }),
     },
-  };
+  }, options);
 }
 async function disposeBrowser() {
   if (disposal) return disposal;
@@ -1738,6 +1750,7 @@ async function disposeBrowser() {
   clean(() => gameplay?.dispose());
   clean(() => runtime?.dispose());
   clean(() => computeControl?.dispose());
+  clean(() => rasterPresentation?.dispose());
   clean(() => postComposer?.dispose());
   clean(() => vertexBounds?.dispose());
   clean(() => renderBufferBridge?.dispose());
@@ -1779,6 +1792,7 @@ async function disposeBrowser() {
   runtime = undefined;
   renderControl = undefined;
   computeControl = undefined;
+  rasterPresentation=undefined;rasterPresentationCamera=undefined;
   postComposer = undefined;
   vertexBounds = undefined;
   computeExecutor = undefined;
@@ -1808,6 +1822,7 @@ async function initializeGpu() {
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.onDeviceLost = (info) => {
     if (disposed || renderer !== candidate) return;
@@ -1900,6 +1915,7 @@ async function recoverGpu(info: Pick<GPUDeviceLostInfo, "reason" | "message">) {
     renderTextureBridge?.dispose();
     renderTextureBridge = undefined;
     computeControl?.replaceExecutor(undefined);
+    rasterPresentation?.dispose();rasterPresentation=undefined;rasterPresentationCamera=undefined;
     postComposer?.dispose();
     postComposer = undefined;
     surfaceTracer?.dispose();
@@ -1986,6 +2002,7 @@ async function boot() {
         await loadGame(saved?.sceneId, saved, undefined, !restart);
         contentIteration = { status: "applied", applied: contentIteration.applied + 1 };
         await draw(false, true);
+        loadingStage("ready", "Ready");
         return inspect();
       } catch (error) {
         contentIteration = { status: "rejected", applied: contentIteration.applied, error: String(error) };

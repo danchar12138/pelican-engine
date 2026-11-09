@@ -100,9 +100,9 @@ test("natural-language goals compose tasks and unknown goals return honest actio
 });
 test("quality presets are detached, high fidelity and retain explicit backend checks", () => {
   assert.deepEqual(resolveRenderSettings({}), renderQuality());
-  assert.equal(renderQuality().mode, "path");
-  assert.equal(renderQuality().denoise, true);
-  assert.deepEqual(renderQuality("realtime"), renderQuality("high"));
+  assert.equal(renderQuality().mode, "raster");
+  assert.equal(renderQuality().denoise, false);
+  assert.deepEqual(renderQuality("realtime"), renderQuality("low"));
   assert.equal(renderQuality("medium").mode, "hybrid");
   assert.equal(renderQuality("low").mode, "raster");
   assert.equal(renderQuality("low").denoise, false);

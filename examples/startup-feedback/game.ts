@@ -11,6 +11,7 @@ import {
 if (typeof document !== "undefined") {
   const owner = new AbortController();
   const label = document.createElement("output");
+  label.dataset.pelicanStartupFeedback = "";
   label.style.cssText =
     "position:fixed;left:16px;bottom:16px;z-index:101;color:white;font:14px system-ui";
   document.body.append(label);

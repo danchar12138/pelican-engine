@@ -7,7 +7,7 @@ export function qualitySettings(
     | "low"
     | "realtime"
     | "preview"
-    | "capture" = "high",
+    | "capture" = "low",
 ): RenderSettings {
   if (
     !["high", "medium", "low", "realtime", "preview", "capture"].includes(
@@ -18,15 +18,16 @@ export function qualitySettings(
       "TC_RENDER_QUALITY: Choose high (path), medium (hybrid), low (raster), or realtime/preview/capture; path and hybrid require WebGPU.",
     );
   return {
+    rasterAmbientOcclusion: true,
     mode:
-      preset === "low"
+      ["low", "realtime"].includes(preset)
         ? "raster"
         : ["medium", "preview"].includes(preset)
           ? "hybrid"
           : "path",
-    samplesPerFrame: preset === "low" ? 1 : ["medium", "preview"].includes(preset) ? 2 : 4,
+    samplesPerFrame: ["low","realtime"].includes(preset) ? 1 : ["medium", "preview"].includes(preset) ? 2 : 4,
     maxBounces: preset === "capture" ? 12 : ["medium", "preview"].includes(preset) ? 4 : 8,
-    denoise: preset !== "capture" && preset !== "low",
+    denoise: !["capture", "low", "realtime"].includes(preset),
     denoiseIterations: 3,
     exposure: 1,
     directLighting: true,
