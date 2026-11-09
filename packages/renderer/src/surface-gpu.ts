@@ -49,14 +49,21 @@ export function validateSurfaceTextureCoordinates(
 ): void {
   const materials = indexMap(snapshot.materials),
     textures = new Map(snapshot.textures.map((texture) => [texture.uuid, texture]));
-  for (const triangle of ordered) {
-    const material = snapshot.materials[reference(materials, triangle.materialUuid)];
+  const channels = snapshot.materials.map(material => {
+    const result = new Set<number>();
     for (const textureId of Object.values(material.maps)) {
       const texture = textures.get(textureId!);
       if (!texture) fail("TC_SURFACE_GPU_REFERENCE", "Missing material texture " + textureId);
+      result.add(texture!.channel);
+    }
+    return [...result];
+  });
+  for (const triangle of ordered) {
+    const required = channels[reference(materials, triangle.materialUuid)];
+    for (const channel of required) {
       for (const vertex of triangle.vertices)
-        if ((texture!.channel === 0 ? vertex.uv0 : vertex.uv1) === undefined)
-          fail("TC_SURFACE_GPU_UV", `Triangle ${triangle.objectUuid} is missing texture channel ${texture!.channel} for ${textureId}.`);
+        if ((channel === 0 ? vertex.uv0 : vertex.uv1) === undefined)
+          fail("TC_SURFACE_GPU_UV", `Triangle ${triangle.objectUuid} is missing texture channel ${channel}.`);
     }
   }
 }
@@ -76,7 +83,7 @@ export function packSurfaceGeometry(
       materialIndex = reference(materials, triangle.materialUuid),
       offset = index * SURFACE_TRIANGLE_FLOATS;
     const material = snapshot.materials[materialIndex];
-    const volumeKey = JSON.stringify([triangle.objectUuid, triangle.instanceId]);
+    const volumeKey = volumeIds.size || volumeWindings.size ? JSON.stringify([triangle.objectUuid, triangle.instanceId]) : "";
     const volumeId = volumeIds.get(volumeKey) ?? 0;
     const cacheKey = `${materialIndex}:${material.vertexColors}:${volumeId}:${volumeWindings.get(volumeKey) ?? 0}`;
     const cached = cache?.get(triangle);

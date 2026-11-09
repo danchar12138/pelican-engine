@@ -62,6 +62,10 @@ let port = 43900;
 async function game(name: string, template: string, action: (page: Page, command: (input: unknown) => Promise<any>) => Promise<unknown>, selectedBrowser = browser) {
   const project = path.join(workspace, name);
   await run(["create", "--project", project, "--template", template]);
+  if (name === "fallback") {
+    const source = await readFile(path.join(project, "game.ts"), "utf8");
+    await writeFile(path.join(project, "game.ts"), source.replace('id: "game",', 'id: "game", render: {mode:"raster",denoise:false},'));
+  }
   if (["cloth-sheet", "softbody-ball", "fluid-basin", "rope-reaction"].includes(name)) await writeFile(path.join(project, "game.ts"), await readFile(path.join(root, "examples", name, "game.ts"), "utf8"));
   if (name === "unattended") {
     const source = await readFile(path.join(project, "game.ts"), "utf8");
@@ -115,6 +119,32 @@ export default defineGame({id:'floating-geometry',services:{physics3d:'disabled'
   }
 }
 try {
+  await record("quality-tiers-preparation-and-cache-lifetime", () => game("quality-options", "render-quality", async (page, command) => {
+    assert.equal((await command({ type: "inspect" })).mode, "path");
+    await page.goto(page.url() + "&quality=low");
+    await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true", undefined, { timeout: 60000, polling: 100 });
+    const low = await command({ type: "snapshot" });
+    const initial = await command({ type: "inspect" }); assert.equal(initial.mode, "raster"); assert.equal(initial.rendering.surface, undefined);
+    const prepared = await command({ type: "prepareRender", mode: "path" });
+    assert.equal(prepared.mode, "raster"); assert.equal(prepared.tick, initial.tick);
+    assert.equal(prepared.rendering.preparation.find((item: any) => item.mode === "path").status, "ready");
+    assert.deepEqual((await command({ type: "snapshot" })).runtime, low.runtime);
+    const click = async (id: string) => { await page.locator(`[data-pelican-element="${id}"]`).click(); return command({ type: "step", count: 1 }); };
+    const high = await click("high"); assert.equal(high.mode, "path"); assert.equal(high.rendering.settings.denoise, true);
+    const bytes = high.rendering.surface.ownedBytes;
+    for (let i = 0; i < 3; i++) {
+      const medium = await click("medium"); assert.equal(medium.mode, "hybrid");
+      assert.equal((await click("low")).rendering.settings.denoise, false);
+      const state = await click("high"); assert.equal(state.rendering.surface.ownedBytes, bytes);
+    }
+    await command({ type: "restore", snapshot: low });
+    assert.equal((await command({ type: "inspect" })).mode, "raster");
+    await page.setViewportSize({ width: 640, height: 360 }); await command({ type: "step", count: 1 });
+    assert.equal((await command({ type: "inspect" })).rendering.preparation.find((item: any) => item.mode === "path").status, "idle");
+    await command({ type: "prepareRender", mode: "path" });
+    assert.deepEqual((await command({ type: "inspect" })).errors, []);
+    return { defaultMode: "path", explicitLow: true, preparedWithoutTick: true, repeatedSwitches: 9, tracingStorageBytes: bytes, resizeInvalidates: true };
+  }));
   await record("unquantized-procedural-math-and-boot-causes", () => game("floating-geometry", "minimal", async (page, command) => {
     await command({ type: "step", count: 1 });
     const state = await command({ type: "inspect" }); assert.deepEqual(state.errors, []);
@@ -267,7 +297,7 @@ try {
     assert.equal(await page.locator("#status").isHidden(), true);
     await page.setViewportSize({ width: 390, height: 844 }); await command({ type: "step", count: 1 });
     const state = await command({ type: "inspect" }); assert.equal(state.width, 390); assert.equal(state.height, 844);
-    const canvas = await page.locator("canvas").first().boundingBox(); assert.equal(canvas!.width, 390); assert.equal(canvas!.height, 844);
+    const canvas = await page.locator("canvas:visible").first().boundingBox(); assert.equal(canvas!.width, 390); assert.equal(canvas!.height, 844);
     await page.goto(page.url() + "&diagnostics=1");
     await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true");
     assert.equal(await page.locator("#status").isVisible(), true);

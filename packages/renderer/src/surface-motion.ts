@@ -1,6 +1,15 @@
 import type { SurfaceScene, SurfaceTriangle } from "./surface.ts";
-import { isCapturedTriangle } from "./surface.ts";
+import { isCapturedTriangle, hasCapturedGeometry } from "./surface.ts";
 const identities = new WeakMap<SurfaceTriangle, string>();
+const capturedIndices = new WeakMap<
+  readonly SurfaceTriangle[],
+  { index: ReadonlyMap<string, SurfaceTriangle>; positions: boolean }
+>();
+const capturedOrders = new WeakMap<
+  readonly SurfaceTriangle[],
+  ReadonlyMap<string, number>
+>();
+const validPositions = new WeakSet<SurfaceTriangle>();
 
 const MAX_FLOAT = 3.4028234663852886e38;
 
@@ -56,6 +65,9 @@ function index(scene: SurfaceScene, label: string, positions: boolean) {
     !Array.isArray(scene.diagnostics)
   )
     fail("INVALID_SNAPSHOT", label);
+  const captured = hasCapturedGeometry(scene);
+  const cached = captured && capturedIndices.get(scene.triangles);
+  if (cached && (!positions || cached.positions)) return cached.index;
   const triangles = new Map<string, SurfaceTriangle>();
   for (const [i, t] of scene.triangles.entries()) {
     const location = label + ".triangles[" + i + "]";
@@ -81,6 +93,13 @@ function index(scene: SurfaceScene, label: string, positions: boolean) {
     }
     triangles.set(key, t);
   }
+  if (captured) {
+    capturedIndices.set(scene.triangles, { index: triangles, positions });
+    capturedOrders.set(
+      scene.triangles,
+      new Map([...triangles.keys()].map((key, i) => [key, i])),
+    );
+  }
   return triangles;
 }
 
@@ -90,17 +109,71 @@ export function packPreviousSurfacePositions(
   current: SurfaceScene,
   ordered: readonly SurfaceTriangle[] = current?.triangles,
 ): { data: Float32Array; matched: number; missing: number } {
-  const remaining = index(current, "current", false);
+  if (
+    previous?.version === 1 &&
+    current?.version === 1 &&
+    Array.isArray(previous.triangles) &&
+    Array.isArray(current.triangles) &&
+    Array.isArray(previous.materials) &&
+    Array.isArray(previous.textures) &&
+    Array.isArray(previous.diagnostics) &&
+    Array.isArray(current.materials) &&
+    Array.isArray(current.textures) &&
+    Array.isArray(current.diagnostics) &&
+    Array.isArray(ordered) &&
+    ordered.length === current.triangles.length &&
+    hasCapturedGeometry(previous) &&
+    hasCapturedGeometry(current) &&
+    capturedOrders.has(previous.triangles) &&
+    previous.triangles.length === current.triangles.length &&
+    current.triangles.every(
+      (triangle, index) =>
+        triangle === previous.triangles[index] ||
+        identity(triangle, "current") ===
+          identity(previous.triangles[index], "previous"),
+    )
+  ) {
+    const sourceOrder = capturedOrders.get(previous.triangles)!;
+    const seen = new Uint8Array(ordered.length);
+    const data = new Float32Array(ordered.length * 12);
+    for (let i = 0; i < ordered.length; i++) {
+      const source = sourceOrder.get(
+        identity(ordered[i], "ordered[" + i + "]"),
+      );
+      if (source === undefined || seen[source])
+        fail("INVALID_ORDER", "ordered[" + i + "] is unknown or repeated");
+      seen[source] = 1;
+      const old = previous.triangles[source],
+        checked = validPositions.has(old);
+      for (let vertex = 0; vertex < 3; vertex++)
+        for (let axis = 0; axis < 3; axis++) {
+          const value = old.vertices[vertex].position[axis];
+          if (
+            !checked &&
+            (!Number.isFinite(value) || Math.abs(value) > MAX_FLOAT)
+          )
+            fail("INVALID_POSITION", "previous captured position");
+          data[i * 12 + vertex * 4 + axis] = value;
+        }
+      if (!checked) validPositions.add(old);
+      data[i * 12 + 3] = 1;
+    }
+    capturedOrders.set(current.triangles, sourceOrder);
+    return { data, matched: ordered.length, missing: 0 };
+  }
+  const currentIndex = index(current, "current", false);
+  const seen = new Set<string>();
   const history =
     previous === undefined ? undefined : index(previous, "previous", true);
-  if (!Array.isArray(ordered) || ordered.length !== remaining.size)
+  if (!Array.isArray(ordered) || ordered.length !== currentIndex.size)
     fail("INVALID_ORDER", "ordered must include every current triangle once");
   const data = new Float32Array(ordered.length * 12);
   let matched = 0;
   for (const [i, t] of ordered.entries()) {
     const key = identity(t, "ordered[" + i + "]");
-    if (!remaining.delete(key))
+    if (!currentIndex.has(key) || seen.has(key))
       fail("INVALID_ORDER", "ordered[" + i + "] is unknown or repeated");
+    seen.add(key);
     const old = history?.get(key);
     if (!old) continue;
     for (let j = 0; j < 3; j++)

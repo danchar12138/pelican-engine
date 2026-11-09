@@ -22,7 +22,7 @@ import {
 import { createSimulation } from "../experiments/simulation/index.ts";
 import { createWorldProbe } from "../experiments/world/index.ts";
 import { runtimeStatus, inspectTraceCapabilities } from "../packages/renderer/src/startup.ts";
-import { createRenderSettingsDriver } from "../packages/runtime/src/render-settings.ts";
+import { createRenderSettingsDriver, resolveRenderSettings } from "../packages/runtime/src/render-settings.ts";
 import { createComputeDriver } from "../packages/runtime/src/compute-service.ts";
 import { createComputeTextureAssets } from "../packages/renderer/src/compute-texture-assets.ts";
 import { renderCapabilities, validateRenderCapabilities } from "../packages/runtime/src/render-capabilities.ts";
@@ -32,6 +32,7 @@ import { createModelLibrary } from "../packages/renderer/src/models.ts";
 import { prepareGameplay } from "../packages/renderer/src/gameplay.ts";
 import { createManagedGeometry } from "../packages/renderer/src/managed-geometry.ts";
 import { setupPBRMaterial } from "../packages/renderer/src/pbr-material.ts";
+import { startupRenderSettings } from "../packages/renderer/src/startup-quality.ts";
 import { createLightPlugin } from "../packages/gameplay/src/lights.ts";
 import { createCinematicOverlay } from "../packages/renderer/src/cinematic-overlay.ts";
 import { createRopeVisualOwner } from "../packages/renderer/src/rope-visuals.ts";
@@ -86,6 +87,7 @@ function harness(names: string[], context: Record<string, unknown>) {
     structuredClone,
     createManagedGeometry,
     setupPBRMaterial,
+    startupRenderSettings,
     gameplay: undefined,
     renderControl: undefined,
     computeControl: undefined,
@@ -102,6 +104,7 @@ function harness(names: string[], context: Record<string, unknown>) {
     contentIteration: { status: "idle", applied: 0 },
     contentReleasedKeys: new Set<string>(),
     createRenderSettingsDriver,
+    resolveRenderSettings,
     createComputeDriver,
     createComputeTextureAssets,
     renderCapabilities,
@@ -141,6 +144,7 @@ function harness(names: string[], context: Record<string, unknown>) {
     onResize() {},
     resolveEntityDefinition,
     URL,
+    location: { search: "" },
     document: { baseURI: "http://localhost/", removeEventListener() {} },
     ...context,
   });

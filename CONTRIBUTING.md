@@ -36,6 +36,8 @@ README 同时是 npm 首页的来源，不单独维护第二份产品介绍；np
 
 `npm run benchmark:render -- --tarball <candidate.tgz> --baseline pelican-engine@1.2.0` 使用实际 npm 安装、同资产和相机对比。需真实 WebGPU 环境，报告 GPU 时间、CPU 更新与上传量、显示图误差；不把协议耗时称为 FPS。
 
+`npm run probe:path-quality -- --output .pelican/path-quality` 对实际 npm 包执行高模、动画、移动镜头、原生1080p、预热及画质切换检查。报告首次准备耗时、命令/CPU耗时和内存范围，不把有限序列通过等同于30/60FPS或完整画质验收。默认 path 的 WebGL2 失败与显式低档成功应分别验证。
+
 `npm run evaluate:author -- --package <candidate.tgz> --label candidate` 准备独立游戏 AI 的相同任务和 CLI 记录器。评测 AI 只读安装包公开入口，不读取引擎源码；保留首次检查、修复和查询记录。成功率是实际样本结果，不能推广为所有模型的训练熟练度。
 
 完成后执行 `npm run evaluate:author:report -- --workspace <评测目录>`，从 commands.jsonl 派生首次 check、重检次数、查询字节和命令耗时。不把重检数当成已证明的代码修复数，不把首次 check 当成首次任务完成率；模型编写/思考耗时、浏览器验收与基础设施失败另按实际时间线记录。报告留生成目录，不提交评测游戏和运行证据。

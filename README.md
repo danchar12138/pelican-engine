@@ -17,7 +17,7 @@ Pelican Engine 是面向 AI 编码工具的开源游戏引擎。**一个 npm 包
 ## 为什么选择 Pelican
 
 - **玩法自由组合。** 普通 TypeScript、自定义模块与 npm 组件一起用，不必套专用语法或固定玩法。
-- **写实画面，可编程。** 高质量光照默认值、PBR、混合与路径追踪，搭配程序化网格和受管渲染扩展。
+- **默认路径追踪。** PBR 与时域/空间降噪，混合、光栅作为可选档，支持预热与受管渲染扩展。
 - **开发不止渲染。** 实体、物理、动画、UI、音频与存档，组成完整游戏基础。
 - **AI 有据可查。** 起步指南、精确 API、完整配方和结构化诊断，连接查询、运行与修复。
 - **交付保持简单。** Windows、macOS、Linux 开发，构建后部署到普通静态服务器。
@@ -49,7 +49,7 @@ npx pelican api --symbol StorageService.save
 
 `npm install <package>`，把自己的算法、组件和内容接进游戏。浏览器依赖通过 `runtime.create` 初始化，渲染模块通过 `defineRenderExtension` 组合。内置玩法服务可选，不替你规定规则。[接入指南](docs/npm/INTEGRATIONS.md)。
 
-WebGPU 优先，WebGL2 回退光栅；路径追踪使用软件 BVH。第三方资源的生命周期、存档与后端要求见[能力说明](docs/CAPABILITIES.md)。
+默认高档 path 需要 WebGPU；中档 hybrid、低档 raster 可选，WebGL2 需显式选择低档。路径追踪使用软件 BVH，实际画质与性能需按场景验证。[能力说明](docs/CAPABILITIES.md)。
 
 <!-- contributor-only:start -->
 ## 参与开发

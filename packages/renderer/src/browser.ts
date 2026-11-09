@@ -1,5 +1,6 @@
 import * as THREE from "three/webgpu";
 import { contentIterationCompatibility } from "../../schema/src/content-iteration.ts";
+import { startupRenderSettings } from "./startup-quality.ts";
 import { createManagedGeometry } from "./managed-geometry.ts";
 import { setupPBRMaterial } from "./pbr-material.ts";
 import { resolveViewport } from "./viewport.ts";
@@ -820,6 +821,9 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, i
       throw new Error(
         "TC_SAVE_VERSION: Save does not match this game version and asset set.",
       );
+    // Diagnose unsupported defaults before loading models, textures or physics for the candidate.
+    const selectedRenderSettings = startupRenderSettings(ir.render ?? {}, location.search);
+    validateRenderCapabilities(resolveRenderSettings(selectedRenderSettings), cameraCapabilities(backendKind, ir.scene.camera.projection === "orthographic"));
     // Normal games have SDK services even when their content is only primitives.
     if (
       !probeEnabled ||
@@ -851,7 +855,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, i
       time: () => candidate?.facade.time.elapsed ?? 0,
       executor: nextComputeExecutor,
     });
-    nextRender = createRenderSettingsDriver(ir.render ?? {}, ir.materials,
+    nextRender = createRenderSettingsDriver(selectedRenderSettings, ir.materials,
       () => cameraCapabilities(backendKind, ir.scene.camera.projection === "orthographic"), ir.postProcesses, {
       describe: handle => { const descriptor = nextCompute!.service.describeBuffer(handle); return { id: descriptor.id, type: descriptor.type, count: descriptor.count }; },
       resource: id => nextCompute!.resource(id),
@@ -1274,7 +1278,7 @@ function resizeViewport(): boolean {
   pendingSurface?.abort(); pendingSurface = undefined;
   surfaceTracer?.dispose(); surfaceTracer = undefined;
   postComposer?.dispose(); postComposer = nextComposer;
-  if (backendKind === "webgpu") { tracer?.dispose(); tracer = new GPUTracer(device, traceCanvas, next.width, next.height); }
+  if (backendKind === "webgpu" && probeEnabled) { tracer?.dispose(); tracer = new GPUTracer(device, traceCanvas, next.width, next.height); }
   viewport = next; width = next.width; height = next.height;
   renderer.setSize(width, height, false);
   for (const canvas of [rasterCanvas, traceCanvas]) { canvas.style.width = `${next.cssWidth}px`; canvas.style.height = `${next.cssHeight}px`; }
@@ -1283,6 +1287,7 @@ function resizeViewport(): boolean {
   orthographicCamera.left = -halfHeight * width / height; orthographicCamera.right = halfHeight * width / height;
   orthographicCamera.top = halfHeight; orthographicCamera.bottom = -halfHeight; orthographicCamera.updateProjectionMatrix();
   traceContentDirty = true;
+  renderControl?.preparation.invalidate();
   return true;
 }
 async function drawFrame(accumulate = false, changed = true) {
@@ -1317,6 +1322,14 @@ async function drawFrame(accumulate = false, changed = true) {
   }
   const settings =
     renderControl?.service.state() ?? resolveRenderSettings({ mode });
+  await renderControl?.preparation.flush(async requested => {
+    if (requested === "raster") {
+      await renderer.compileAsync(scene, camera);
+    } else {
+      await prepareTraceResources(true);
+      if (postComposer) await surfaceTracer!.prepareLinearPresentation();
+    }
+  });
   const effects = postComposer && renderControl?.postProcesses.states().some(effect => effect.enabled) ? postComposer : undefined;
   validateRenderCapabilities(settings, renderControl?.service.capabilities() ?? cameraCapabilities(backendKind, camera instanceof THREE.OrthographicCamera));
   if (mode !== settings.mode) setMode(settings.mode);
@@ -1325,6 +1338,53 @@ async function drawFrame(accumulate = false, changed = true) {
   traceCanvas.style.display = mode === "raster" || effects ? "none" : "block";
   if (effects && probeEnabled) throw new Error("TC_POSTPROCESS_PROBE_UNSUPPORTED: Controlled effects require a normal game scene, not the historical M0 tracing sidecar.");
   if (mode !== "raster" && !probeEnabled) {
+    await prepareTraceResources(settings.denoise && settings.debug === "beauty");
+    if (effects) await surfaceTracer!.prepareLinearPresentation();
+    submitMs = surfaceTracer!.render(camera, settings, effects?.traceTargets());
+    if (effects) effects.present(renderControl!.postProcesses, tick / 60, settings);
+    const report = surfaceTracer!.inspect();
+    triangleCount = report.triangleCount;
+    nodeCount = report.nodeCount;
+    bvhMs =
+      (report.acceleration?.metrics.refitMs ?? 0) +
+      (report.acceleration?.metrics.buildMs ?? 0);
+    uploadMs = report.uploadMs;
+    metrics.push({ frame: tick, bvhMs, uploadMs, submitMs, wallMs: performance.now() - start, simulationMs: lastStepCpuMs });
+    if (metrics.length > 2000) metrics.shift();
+    status.hidden = !diagnosticsVisible;
+    status.textContent = runtimeStatus({ backend: backendKind, mode, playing, automation: startup.automation, tick, triangles: triangleCount, faulted: terminalFault });
+    renderedDynamicVisualRevision = ropeRevision;
+    return;
+  }
+  if (changed) {
+    if ((gameplay || legacyTracerDisposed || backendKind === "webgl2") && mode === "raster") {
+      // Raster does not consume a CPU BVH. Count authored triangles without rebuilding/uploading tracing buffers.
+      triangleCount = 0;
+      scene.traverseVisible((object) => {
+        if (object instanceof THREE.Mesh && !object.userData.noTrace)
+          triangleCount += (object.geometry.index?.count ?? object.geometry.getAttribute("position").count) / 3;
+      });
+      nodeCount = 0; bvhMs = 0; uploadMs = 0;
+    } else updateTraceGeometry();
+  }
+  renderer.toneMappingExposure = settings.exposure;
+  if (mode !== "path") {
+    if (effects) {
+      effects.captureRaster(scene, camera);
+      effects.present(renderControl!.postProcesses, tick / 60, settings);
+    } else renderer.render(scene, camera);
+  }
+  if (mode !== "raster") submitMs = tracer.renderFrame(cameraFrame(), mode, accumulate);
+  else submitMs = 0;
+  metrics.push({ frame: tick, bvhMs: changed ? bvhMs : 0, uploadMs: changed ? uploadMs : 0, submitMs, wallMs: performance.now() - start, simulationMs: lastStepCpuMs });
+  if (metrics.length > 2000) metrics.shift();
+  status.hidden = !diagnosticsVisible;
+  status.textContent = runtimeStatus({ backend: backendKind, mode, playing, automation: startup.automation, tick, triangles: triangleCount, faulted: terminalFault });
+  renderedDynamicVisualRevision = ropeRevision;
+}
+/** Pipeline/scene preparation does not submit a visible image, reset the selected mode or advance simulation. */
+async function prepareTraceResources(needsMotion: boolean) {
+    requireCompute(renderCapabilities(backendKind), "Trace preparation");
     if (!surfaceTracer) {
       if (!legacyTracerDisposed) {
         tracer.dispose();
@@ -1356,10 +1416,9 @@ async function drawFrame(accumulate = false, changed = true) {
         controller.abort();
         if (pendingSurface === controller) pendingSurface = undefined;
       }
-      changed = true;
+      traceContentDirty = true;
     }
     const surfaceState = surfaceTracer.inspect();
-    const needsMotion = settings.denoise && settings.debug === "beauty";
     if (
       traceContentDirty ||
       surfaceState.triangleCount === 0 ||
@@ -1377,83 +1436,6 @@ async function drawFrame(accumulate = false, changed = true) {
       );
       traceContentDirty = false;
     }
-    if (effects) await surfaceTracer.prepareLinearPresentation();
-    submitMs = surfaceTracer.render(camera, settings, effects?.traceTargets());
-    if (effects) effects.present(renderControl!.postProcesses, tick / 60, settings);
-    const report = surfaceTracer.inspect();
-    triangleCount = report.triangleCount;
-    nodeCount = report.nodeCount;
-    bvhMs =
-      (report.acceleration?.metrics.refitMs ?? 0) +
-      (report.acceleration?.metrics.buildMs ?? 0);
-    uploadMs = report.uploadMs;
-    metrics.push({
-      frame: tick,
-      bvhMs,
-      uploadMs,
-      submitMs,
-      wallMs: performance.now() - start,
-      simulationMs: lastStepCpuMs,
-    });
-    if (metrics.length > 2000) metrics.shift();
-    status.hidden = !diagnosticsVisible;
-    status.textContent = runtimeStatus({
-      backend: backendKind,
-      mode,
-      playing,
-      automation: startup.automation,
-      tick,
-      triangles: triangleCount,
-      faulted: terminalFault,
-    });
-    renderedDynamicVisualRevision = ropeRevision;
-    return;
-  }
-  if (changed) {
-    if ((gameplay || legacyTracerDisposed || backendKind === "webgl2") && mode === "raster") {
-      // Raster does not consume a CPU BVH. Count authored triangles without rebuilding/uploading tracing buffers.
-      triangleCount = 0;
-      scene.traverseVisible((object) => {
-        if (object instanceof THREE.Mesh && !object.userData.noTrace)
-          triangleCount +=
-            (object.geometry.index?.count ??
-              object.geometry.getAttribute("position").count) / 3;
-      });
-      nodeCount = 0;
-      bvhMs = 0;
-      uploadMs = 0;
-    } else updateTraceGeometry();
-  }
-  renderer.toneMappingExposure = settings.exposure;
-  if (mode !== "path") {
-    if (effects) {
-      effects.captureRaster(scene, camera);
-      effects.present(renderControl!.postProcesses, tick / 60, settings);
-    } else renderer.render(scene, camera);
-  }
-  if (mode !== "raster")
-    submitMs = tracer.renderFrame(cameraFrame(), mode, accumulate);
-  else submitMs = 0;
-  metrics.push({
-    frame: tick,
-    bvhMs: changed ? bvhMs : 0,
-    uploadMs: changed ? uploadMs : 0,
-    submitMs,
-    wallMs: performance.now() - start,
-    simulationMs: lastStepCpuMs,
-  });
-  if (metrics.length > 2000) metrics.shift();
-  status.hidden = !diagnosticsVisible;
-  status.textContent = runtimeStatus({
-    backend: backendKind,
-    mode,
-    playing,
-    automation: startup.automation,
-    tick,
-    triangles: triangleCount,
-    faulted: terminalFault,
-  });
-  renderedDynamicVisualRevision = ropeRevision;
 }
 async function applyInput(key: string) {
   if (!probeEnabled) {
@@ -1632,6 +1614,7 @@ function inspect(options?: InspectPage) {
     viewport: { ...viewport },
     mode,
     rendering: {
+      preparation: renderControl && ["path", "hybrid", "raster"].map(value => renderControl!.service.preparation(value as "path" | "hybrid" | "raster")),
       cameraProjection: camera instanceof THREE.OrthographicCamera ? "orthographic" : "perspective",
       postProcesses: postComposer?.inspect(),
       vertex: vertexBounds?.inspect(),
@@ -1827,7 +1810,7 @@ async function initializeGpu() {
   backendKind = backend.isWebGLBackend ? "webgl2" : "webgpu";
   document.documentElement.dataset.pelicanBackend = backendKind;
   adapterInfo = undefined;
-  legacyTracerDisposed = backendKind !== "webgpu";
+  legacyTracerDisposed = backendKind !== "webgpu" || !probeEnabled;
   if (backendKind === "webgl2") return;
   if (!backend.device) throw new Error("TC_RENDER_BACKEND_UNAVAILABLE: Initialized backend has no compute device.");
   device = backend.device;
@@ -1851,9 +1834,11 @@ async function initializeGpu() {
       reportFailure(error);
     });
   });
-  status.textContent = "GPU tracer";
-  tracer = new GPUTracer(device, traceCanvas, width, height);
-  legacyTracerDisposed = false;
+  if (probeEnabled) {
+    status.textContent = "GPU tracer";
+    tracer = new GPUTracer(device, traceCanvas, width, height);
+    legacyTracerDisposed = false;
+  }
 }
 async function submittedWork(label = "GPU submission") {
   if (backendKind === "webgpu") await boundedOperation(device.queue.onSubmittedWorkDone(), label);
@@ -1891,6 +1876,7 @@ async function recoverGpu(info: Pick<GPUDeviceLostInfo, "reason" | "message">) {
     postComposer = undefined;
     surfaceTracer?.dispose();
     surfaceTracer = undefined;
+    renderControl?.preparation.invalidate();
     tracer?.dispose();
     await renderer?.dispose();
     await initializeGpu();
@@ -1935,10 +1921,17 @@ async function boot() {
   status.textContent = "Loading compiled game";
   await boundedOperation(loadGame(), "compiled content initialization");
   status.textContent = "Drawing compiled game";
-  setMode("raster");
+  setMode(renderControl!.service.state().mode);
   await draw();
   const api = {
     inspect,
+    prepareRendering: async (requested: "raster" | "hybrid" | "path") => {
+      requireRuntime().facade.render.prepare(requested);
+      await draw(false, false);
+      const prepared = requireRuntime().facade.render.preparation(requested);
+      if (prepared.status === "failed") throw new Error(prepared.error);
+      return inspect();
+    },
     reloadContent: async (restart = false) => {
       if (!import.meta.env.DEV) throw new Error("TC_DEV_ONLY: Content iteration is a development operation.");
       if (contentIteration.status === "applying" || loadingContent || restoring)
@@ -2089,7 +2082,7 @@ async function boot() {
       return surfaceTracer.readGuides();
     },
     gpuTimeMs: () =>
-      backendKind !== "webgpu" ? Promise.resolve(null) : surfaceTracer ? surfaceTracer.gpuTimeMs() : tracer.gpuTimeMs(),
+      backendKind !== "webgpu" || (!surfaceTracer && legacyTracerDisposed) ? Promise.resolve(null) : surfaceTracer ? surfaceTracer.gpuTimeMs() : tracer.gpuTimeMs(),
     vertexRay: (origin: [number, number, number], direction: [number, number, number]) => {
       requireRuntime();
       if (!vertexBounds) throw new Error("TC_VERTEX_NOT_ACTIVE: This scene has no controlled vertex graphs.");
@@ -2099,7 +2092,7 @@ async function boot() {
       requireCompute(renderCapabilities(backendKind), "Traced ray query");
       return surfaceTracer
         ? surfaceTracer.queryRay(origin, direction)
-        : tracer.queryRay(origin, direction);
+        : !legacyTracerDisposed ? tracer.queryRay(origin, direction) : (() => { throw new Error("TC_TRACE_NOT_ACTIVE: Prepare a tracing mode before querying captured surfaces."); })();
     },
     compute: async (id: string, time: number) => {
       requireCompute(renderCapabilities(backendKind), "Compute graph");
@@ -2340,6 +2333,9 @@ async function boot() {
             break;
           case "reload":
             data = await api.reloadContent(command.restart);
+            break;
+          case "prepareRender":
+            data = await api.prepareRendering(command.mode);
             break;
           case "snapshot":
             data = api.snapshot();

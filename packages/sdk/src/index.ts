@@ -32,7 +32,7 @@ export interface EngineTask {
 }
 /** Ranked task intents; an empty result means unrecognized, not unsupported. */
 export function engineTasks(goal = ""): EngineTask[] { return discoverTasks(goal); }
-export const SDK_VERSION = "1.7.0";
+export const SDK_VERSION = "1.8.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];
@@ -869,13 +869,24 @@ export interface RenderSettings {
   indirectLighting: boolean;
   debug: "beauty" | "albedo" | "normal" | "depth" | "samples";
 }
-/** Real-time raster by default; preview/capture explicitly require WebGPU. Author overrides remain authoritative. */
-export function renderQuality(preset: "realtime" | "preview" | "capture" = "realtime"): RenderSettings { return qualitySettings(preset); }
+/** High/path by default. medium/preview is hybrid, low is raster, realtime aliases high; capture is unfiltered path. No implicit capability downgrade. */
+export function renderQuality(preset: "high" | "medium" | "low" | "realtime" | "preview" | "capture" = "high"): RenderSettings { return qualitySettings(preset); }
+export interface RenderPreparation {
+  mode: RenderMode;
+  status: "idle" | "queued" | "preparing" | "ready" | "failed";
+  /** CPU wall time includes asynchronous pipeline preparation; not frame time. */
+  durationMs?: number;
+  error?: string;
+}
 /** Runtime values for non-graph material channels; colors are linear RGB. */
 export interface MaterialSurfacePatch {
   color?: Vec3; emissive?: Vec3; roughness?: number; metalness?: number; emissiveIntensity?: number;
 }
 export interface RenderService {
+  /** Queue pipeline/scene preparation for a frame boundary, without switching mode or advancing the game. Cached per content/viewport lifetime. */
+  prepare(mode: RenderMode): void;
+  /** Detached preparation status; readiness does not guarantee future resources/driver caches remain resident. */
+  preparation(mode: RenderMode): Readonly<RenderPreparation>;
   configure(settings: Partial<RenderSettings>): void;
   state(): Readonly<RenderSettings>;
   capabilities(): Readonly<RenderCapabilities>;

@@ -4,7 +4,11 @@ import type {
   SurfaceTriangle,
   SurfaceVec3,
 } from "./surface.ts";
-import { isFrozenCapturedPixels, hasCapturedGeometry, isCapturedTriangle } from "./surface.ts";
+import {
+  isFrozenCapturedPixels,
+  hasCapturedGeometry,
+  isCapturedTriangle,
+} from "./surface.ts";
 
 export interface AccelerationFrame {
   readonly nodes: Float32Array;
@@ -224,9 +228,12 @@ function validate(
   snapshot: SurfaceScene,
   frozenData: WeakSet<object>,
   triangles: WeakSet<object>,
+  previous?: SurfaceScene,
+  previousIndices?: Map<string, number>,
 ): {
   indices: Map<string, number>;
   materials: Map<string, SurfaceMaterial>;
+  stableOrder: boolean;
 } {
   if (
     !snapshot ||
@@ -248,10 +255,16 @@ function validate(
     const visiting = new WeakSet<object>([snapshot]);
     // Wrappers can append arbitrary fields or accessors to trusted geometry.
     // Validate those too, including cycles back to this new wrapper.
-    for (const key of Reflect.ownKeys(snapshot)) if (key !== "triangles") {
-      const descriptor = Object.getOwnPropertyDescriptor(snapshot, key)!;
-      finiteData("value" in descriptor ? descriptor.value : Reflect.get(snapshot, key), String(key), frozenData, visiting);
-    }
+    for (const key of Reflect.ownKeys(snapshot))
+      if (key !== "triangles") {
+        const descriptor = Object.getOwnPropertyDescriptor(snapshot, key)!;
+        finiteData(
+          "value" in descriptor ? descriptor.value : Reflect.get(snapshot, key),
+          String(key),
+          frozenData,
+          visiting,
+        );
+      }
   } else finiteData(snapshot, "snapshot", frozenData);
   const materials = new Map<string, SurfaceMaterial>();
   for (const m of snapshot.materials) {
@@ -267,8 +280,31 @@ function validate(
       );
     materials.set(m.uuid, m);
   }
-  const indices = new Map<string, number>();
+  const stableOrder = !!(
+    captured &&
+    previous &&
+    previousIndices &&
+    hasCapturedGeometry(previous) &&
+    previous.triangles.length === snapshot.triangles.length &&
+    snapshot.triangles.every(
+      (triangle, index) =>
+        triangle === previous.triangles[index] ||
+        identity(triangle) === identity(previous.triangles[index]),
+    )
+  );
+  const indices = stableOrder ? previousIndices! : new Map<string, number>();
   snapshot.triangles.forEach((t, index) => {
+    if (stableOrder && t === previous!.triangles[index]) {
+      if (!materials.has(t.materialUuid))
+        fail(
+          "INVALID_MATERIAL",
+          "triangle " +
+            index +
+            " references missing material " +
+            t.materialUuid,
+        );
+      return;
+    }
     const label = "triangle " + index;
     if (
       !t ||
@@ -324,15 +360,15 @@ function validate(
         label + " references missing material " + t.materialUuid,
       );
     const key = identity(t);
-    if (indices.has(key))
+    if (!stableOrder && indices.has(key))
       fail(
         "DUPLICATE_IDENTITY",
         label +
           " duplicates a triangle identity; re-extract unique groups/elements",
       );
-    indices.set(key, index);
+    if (!stableOrder) indices.set(key, index);
   });
-  return { indices, materials };
+  return { indices, materials, stableOrder };
 }
 
 function leafBounds(
@@ -358,13 +394,29 @@ function leafBounds(
 function refit(
   nodes: Float32Array,
   triangles: readonly SurfaceTriangle[],
+  moved?: Uint8Array,
 ): void {
+  const dirty = new Uint8Array(nodes.length / 8);
   // Build order is preorder: every child has a greater node index than its parent.
   for (let offset = nodes.length - 8; offset >= 0; offset -= 8) {
-    if (nodes[offset + 7] > 0) leafBounds(nodes, offset, triangles);
-    else {
+    if (nodes[offset + 7] > 0) {
+      const start = nodes[offset + 3],
+        end = start + nodes[offset + 7];
+      let changed = !moved;
+      if (moved)
+        for (let i = start; i < end; i++)
+          if (moved[i]) {
+            changed = true;
+            break;
+          }
+      if (!changed) continue;
+      leafBounds(nodes, offset, triangles);
+      dirty[offset / 8] = 1;
+    } else {
       const left = nodes[offset + 3] * 8,
         right = -nodes[offset + 7] * 8;
+      if (!dirty[left / 8] && !dirty[right / 8]) continue;
+      dirty[offset / 8] = 1;
       for (let axis = 0; axis < 3; axis++) {
         nodes[offset + axis] = Math.min(
           nodes[left + axis],
@@ -675,6 +727,7 @@ export function createSurfaceAcceleration(): SurfaceAcceleration {
   let ordered: readonly SurfaceTriangle[] = [],
     keys: readonly string[] = [];
   let materials = new Map<string, SurfaceMaterial>();
+  let acceptedIndices: Map<string, number> | undefined;
   let revision = 0,
     topologyRevision = 0,
     depth = 0,
@@ -698,11 +751,18 @@ export function createSurfaceAcceleration(): SurfaceAcceleration {
       active();
       const started = performance.now();
       // All validation, allocation and calculations precede publication (atomic failure).
-      const validated = validate(next, frozenData, validatedTriangles);
+      const validated = validate(
+        next,
+        frozenData,
+        validatedTriangles,
+        snapshot,
+        acceptedIndices,
+      );
       const topologyChanged =
         !snapshot ||
         keys.length !== next.triangles.length ||
-        keys.some((key) => !validated.indices.has(key));
+        (!validated.stableOrder &&
+          keys.some((key) => !validated.indices.has(key)));
       let kind: AccelerationFrame["changes"]["kind"],
         nextNodes: Float32Array,
         nextSources: Uint32Array,
@@ -716,21 +776,30 @@ export function createSurfaceAcceleration(): SurfaceAcceleration {
         nextOrdered = Array.from(nextSources, (index) => next.triangles[index]);
         kind = "rebuild";
       } else {
-        nextSources = Uint32Array.from(
-          keys,
-          (key) => validated.indices.get(key)!,
-        );
+        nextSources = validated.stableOrder
+          ? sources
+          : Uint32Array.from(keys, (key) => validated.indices.get(key)!);
         nextOrdered = Array.from(nextSources, (index) => next.triangles[index]);
-        const moved = nextOrdered.some((t, i) =>
-          t.vertices.some((v, j) =>
-            v.position.some(
-              (n, axis) => n !== ordered[i].vertices[j].position[axis],
-            ),
-          ),
-        );
+        const movedIndices = new Uint8Array(nextOrdered.length);
+        let moved = false;
+        for (let i = 0; i < nextOrdered.length; i++) {
+          const t = nextOrdered[i],
+            old = ordered[i];
+          if (t === old && isCapturedTriangle(t)) continue;
+          if (
+            t.vertices.some((v, j) =>
+              v.position.some(
+                (n, axis) => n !== old.vertices[j].position[axis],
+              ),
+            )
+          ) {
+            movedIndices[i] = 1;
+            moved = true;
+          }
+        }
         nextNodes = moved ? nodes.slice() : nodes;
         if (moved) {
-          refit(nextNodes, nextOrdered);
+          refit(nextNodes, nextOrdered, movedIndices);
           kind = "refit";
         } else kind = equal(snapshot, next) ? "none" : "materials";
       }
@@ -781,6 +850,7 @@ export function createSurfaceAcceleration(): SurfaceAcceleration {
       ordered = frameOrdered;
       keys = nextKeys;
       materials = validated.materials;
+      acceptedIndices = validated.indices;
       depth = nextDepth;
       revision = nextRevision;
       topologyRevision = nextTopology;
@@ -871,6 +941,7 @@ export function createSurfaceAcceleration(): SurfaceAcceleration {
       if (disposed) return;
       disposed = true;
       snapshot = undefined;
+      acceptedIndices = undefined;
       nodes = new Float32Array();
       sources = new Uint32Array();
       ordered = [];

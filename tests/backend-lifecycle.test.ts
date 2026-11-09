@@ -15,6 +15,7 @@ import { createRenderSettingsDriver as settingsDriver } from "../packages/runtim
 const createRenderSettingsDriver: typeof settingsDriver = (settings = {}, materials = [], capabilities = () => renderCapabilities("webgpu"), ...rest) => settingsDriver(settings, materials, capabilities, ...rest);
 import {
   renderCapabilities,
+  requireCompute,
   validateRenderCapabilities,
 } from "../packages/runtime/src/render-capabilities.ts";
 
@@ -42,6 +43,7 @@ function deferred<T>() {
 }
 
 function browserHarness(names: string[], values: Record<string, unknown> = {}) {
+  if (names.includes("drawFrame") && !names.includes("prepareTraceResources")) names = [...names, "prepareTraceResources"];
   const text = names
     .map((name) => {
       const found = ast.statements.filter(
@@ -62,6 +64,7 @@ function browserHarness(names: string[], values: Record<string, unknown> = {}) {
     inspectTraceCapabilities,
     runtimeStatus,
     renderCapabilities,
+    requireCompute,
     validateRenderCapabilities,
     disposed: false,
     disposal: undefined,
@@ -848,7 +851,7 @@ test("final inspect remains usable after pagehide disposes the render settings s
 
 test("raster applies exposure before rendering and after renderer replacement on both backends", async () => {
   for (const backend of ["webgpu", "webgl2"] as const) {
-    const driver = createRenderSettingsDriver({}, [], () =>
+    const driver = createRenderSettingsDriver({ mode: "raster" }, [], () =>
       renderCapabilities(backend),
     );
     const exposures: number[] = [];

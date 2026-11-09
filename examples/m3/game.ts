@@ -60,9 +60,9 @@ const input = defineSystem({
   reads: ["Gallery"],
   writes: ["Gallery"],
   run(ctx) {
-    if (ctx.input.pressed("raster")) ctx.render.configure({ mode: "raster" });
-    if (ctx.input.pressed("hybrid")) ctx.render.configure({ mode: "hybrid" });
-    if (ctx.input.pressed("path")) ctx.render.configure({ mode: "path" });
+    if (ctx.input.pressed("raster")) ctx.render.configure({ mode: "raster", denoise: false });
+    if (ctx.input.pressed("hybrid")) ctx.render.configure({ mode: "hybrid", denoise: true, samplesPerFrame: 2, maxBounces: 8 });
+    if (ctx.input.pressed("path")) ctx.render.configure({ mode: "path", denoise: true, samplesPerFrame: 2, maxBounces: 8 });
     if (ctx.input.pressed("motion"))
       ctx.setComponent("fox", Gallery, {
         animate: !ctx.getComponent("fox", Gallery).animate,
@@ -203,5 +203,5 @@ export default defineGame({
     direct: ["d"],
     indirect: ["i"],
   },
-  render: { mode: "raster", samplesPerFrame: 1, maxBounces: 5, denoise: false },
+  render: { mode: "path", samplesPerFrame: 2, maxBounces: 8, denoise: true },
 });

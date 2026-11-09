@@ -1,22 +1,32 @@
 import type { RenderSettings } from "./index.ts";
 
 export function qualitySettings(
-  preset: "realtime" | "preview" | "capture" = "realtime",
+  preset:
+    | "high"
+    | "medium"
+    | "low"
+    | "realtime"
+    | "preview"
+    | "capture" = "high",
 ): RenderSettings {
-  if (!["realtime", "preview", "capture"].includes(preset))
+  if (
+    !["high", "medium", "low", "realtime", "preview", "capture"].includes(
+      preset,
+    )
+  )
     throw new Error(
-      "TC_RENDER_QUALITY: Choose realtime, preview or capture; inspect capabilities before selecting WebGPU-only modes.",
+      "TC_RENDER_QUALITY: Choose high (path), medium (hybrid), low (raster), or realtime/preview/capture; path and hybrid require WebGPU.",
     );
   return {
     mode:
-      preset === "realtime"
+      preset === "low"
         ? "raster"
-        : preset === "preview"
+        : ["medium", "preview"].includes(preset)
           ? "hybrid"
           : "path",
-    samplesPerFrame: preset === "capture" ? 4 : 2,
+    samplesPerFrame: preset === "capture" ? 4 : preset === "low" ? 1 : 2,
     maxBounces: preset === "capture" ? 12 : 8,
-    denoise: preset === "preview",
+    denoise: preset !== "capture" && preset !== "low",
     denoiseIterations: 3,
     exposure: 1,
     directLighting: true,

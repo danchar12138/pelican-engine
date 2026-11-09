@@ -5,7 +5,9 @@ import { vec4 } from "three/tsl";
 import { compileGraphDeclaration } from "../packages/compiler/src/graph.ts";
 import type { PostProcessIR } from "../packages/compiler/src/types.ts";
 import type { Graph, PostProcessState } from "../packages/sdk/src/index.ts";
-import { DEFAULT_RENDER_SETTINGS } from "../packages/runtime/src/render-settings.ts";
+import { DEFAULT_RENDER_SETTINGS as ENGINE_RENDER_SETTINGS } from "../packages/runtime/src/render-settings.ts";
+// These presentation fixtures explicitly exercise raster-to-trace transitions.
+const DEFAULT_RENDER_SETTINGS = { ...ENGINE_RENDER_SETTINGS, mode: "raster" as const, denoise: false };
 import { createPostProcessComposer } from "../packages/renderer/src/postprocess.ts";
 
 const source = { file: "fixture.ts", line: 1, column: 1, length: 1 };

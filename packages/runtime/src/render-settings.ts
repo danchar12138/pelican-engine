@@ -10,6 +10,7 @@ import { createRenderTextureOwner } from "./render-textures.ts";
 import type { RenderTextureProvider } from "./render-texture-contract.ts";
 import type { RuntimePluginFactory } from "./plugins.ts";
 import { qualitySettings } from "../../sdk/src/render-quality.ts";
+import { createRenderPreparation } from "./render-preparation.ts";
 export const DEFAULT_RENDER_SETTINGS: Readonly<RenderSettings> = Object.freeze(qualitySettings());
 const fail = (message: string): never => {
   throw new Error("TC_RENDER_SETTINGS: " + message);
@@ -32,6 +33,8 @@ export function resolveRenderSettings(
     if (!Object.hasOwn(DEFAULT_RENDER_SETTINGS, key))
       fail("Unknown setting " + key);
   const result = { ...base, ...patch } as RenderSettings;
+  // A mode-only raster selection must disable tracing-only filtering. Explicit denoise:true still diagnoses unsupported use.
+  if ((patch as Partial<RenderSettings>).mode === "raster" && !Object.hasOwn(patch, "denoise")) result.denoise = false;
   if (!["raster", "hybrid", "path"].includes(result.mode))
     fail("Unknown render mode.");
   if (
@@ -72,6 +75,10 @@ export function createRenderSettingsDriver(
   const postProcessOwner = createPostProcessOwner(postProcesses);
   const defaults = resolveRenderSettings(initial);
   if (capabilities) validateRenderCapabilities(defaults, capabilities());
+  const preparation = createRenderPreparation(mode => {
+    if (!capabilities) throw new Error("TC_RENDER_PREPARATION_UNAVAILABLE: Preparation requires an active browser renderer.");
+    validateRenderCapabilities(resolveRenderSettings({ mode, denoise: false }), capabilities());
+  });
   const pinGroups: Record<string, readonly string[]> = { material: [], effects: [], materialTextures: [], effectTextures: [] };
   let deferPins = false;
   const combinedPins = (groups = pinGroups) => [...new Set(Object.values(groups).flat())].sort();
@@ -113,9 +120,11 @@ export function createRenderSettingsDriver(
       throw new Error("TC_RENDER_DISPOSED: Render settings owner is disposed.");
   };
   const service: RenderService = {
+    prepare: preparation.request,
+    preparation: preparation.state,
     configure(patch) {
       active();
-      const next = resolveRenderSettings(patch, current);
+      const next = resolveRenderSettings(patch.mode === "raster" && patch.denoise === undefined ? { ...patch, denoise: false } : patch, current);
       if (capabilities) validateRenderCapabilities(next, capabilities());
       current = next;
     },
@@ -173,6 +182,7 @@ export function createRenderSettingsDriver(
     try { bufferOwner.dispose(); effectBuffers.dispose(); textureOwner.dispose(); effectTextures.dispose(); }
     finally { deferPins = false; }
     disposed = true;
+    preparation.dispose();
     parameters.dispose();
     surfaces.dispose();
     postProcessOwner.dispose();
@@ -216,6 +226,7 @@ export function createRenderSettingsDriver(
   return {
     factory,
     service,
+    preparation,
     parameters,
     postProcesses: postProcessOwner,
     buffers: bufferOwner,

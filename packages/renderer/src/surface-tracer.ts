@@ -170,6 +170,11 @@ export class SurfaceTracer {
   private motionActive = false;
   private geometryData: Float32Array | undefined;
   private capturedSurface: SurfaceScene | undefined;
+  private renderedRevision = -1;
+  private motionPackedRevision = -2;
+  private motionPackedPreviousRevision = -2;
+  private motionPackRuns = 0;
+  private motionPackHits = 0;
   private previousSurface: SurfaceScene | undefined;
   private previousViewProjection = new THREE.Matrix4();
   private previousCameraOrigin = new THREE.Vector3();
@@ -738,6 +743,9 @@ export class SurfaceTracer {
     this.faultSample = sample;
   }
   clearContent() {
+    this.renderedRevision = -1;
+    this.motionPackedRevision = -2;
+    this.motionPackedPreviousRevision = -2;
     this.mediumFault = undefined;
     this.active();
     this.capture.clear();
@@ -1098,7 +1106,7 @@ export class SurfaceTracer {
       this.put("nodes", traversalNodes);
       this.reset = true;
     }
-    if (motionEnabled) {
+    if (motionEnabled && (this.motionPackedRevision !== frame.revision || this.motionPackedPreviousRevision !== this.renderedRevision || accelerationOutOfSync)) {
       const motion = packPreviousSurfacePositions(
         this.previousSurface,
         captured.surface,
@@ -1110,6 +1118,11 @@ export class SurfaceTracer {
       combined.set(geometry);
       combined.set(motion.data, geometry.length);
       this.put("triangles", combined);
+      this.motionPackedRevision = frame.revision;
+      this.motionPackedPreviousRevision = this.renderedRevision;
+      this.motionPackRuns++;
+    } else if (motionEnabled) {
+      this.motionPackHits++;
     }
     const lighting = this.emitterCache.update(
       graphEmissiveProposal(captured.surface, graphs),
@@ -1156,7 +1169,8 @@ export class SurfaceTracer {
     const materials = new Map(
       surface.materials.map((material) => [material.uuid, material]),
     );
-    const keys = new Set(
+    const hasTransmission = surface.materials.some(material => (material.transmission ?? 0) > 0);
+    const keys = new Set(hasTransmission ?
       surface.triangles
         .filter(
           (triangle) =>
@@ -1164,11 +1178,12 @@ export class SurfaceTracer {
         )
         .map((triangle) =>
           JSON.stringify([triangle.objectUuid, triangle.instanceId]),
-        ),
+        )
+      : [],
     );
-    const faces = surface.triangles.filter((triangle) =>
+    const faces = keys.size ? surface.triangles.filter((triangle) =>
       keys.has(JSON.stringify([triangle.objectUuid, triangle.instanceId])),
-    );
+    ) : [];
     const signature = JSON.stringify(
       [...new Set(faces.map((face) => face.materialUuid))].map((id) => {
         const material = materials.get(id)!;
@@ -1728,6 +1743,7 @@ export class SurfaceTracer {
     this.previousCameraOrigin.copy(cameraOrigin);
     this.previousCameraValid = true;
     this.previousSurface = this.capturedSurface;
+    this.renderedRevision = this.frame.revision;
     this.temporalHistoryReset = false;
     this.temporalResetReasons.clear();
     this.timingStart = settings.mode === "hybrid" ? 0 : 2;
@@ -2157,6 +2173,8 @@ export class SurfaceTracer {
         },
       },
       motion: {
+        packingRuns: this.motionPackRuns,
+        packingCacheHits: this.motionPackHits,
         enabled: this.motionActive,
         lastComputed: this.lastMotionComputed,
         passes: this.motionPasses,

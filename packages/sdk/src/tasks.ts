@@ -208,17 +208,19 @@ const tasks: readonly EngineTask[] = [
     ],
     methods: [
       "RenderService.configure",
+      "RenderService.prepare",
+      "RenderService.preparation",
       "renderQuality",
       "RenderService.capabilities",
       "MaterialInput",
       "LightDefinition",
     ],
-    recipes: ["managed-rendering"],
+    recipes: ["render-quality", "managed-rendering"],
     verify: [
       "Compare the same assets, camera, resolution and time/sample budget; inspect backend and capture unclipped materials and shadows.",
     ],
     limits: [
-      "Default raster remains real-time and WebGL2 compatible; path/hybrid require WebGPU. High settings cannot replace high-quality assets, lighting or a measured frame budget.",
+      "Default high is path with temporal/spatial filtering; medium is hybrid, low is raster. WebGL2 requires explicit low selection (renderQuality('low') or ?quality=low), never silent downgrade. Preparation is cached but not a frame-rate guarantee.",
     ],
   },
   {

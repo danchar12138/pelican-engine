@@ -52,20 +52,12 @@ export function packTraversalData(nodes: Float32Array, geometry: Float32Array) {
   for (let index = 0; index < count; index++) {
     const source = index * 72,
       target = nodes.length + index * 12;
-    output.set(geometry.subarray(source, source + 4), target);
-    output.set(
-      [
-        geometry[source + 4],
-        geometry[source + 5],
-        geometry[source + 6],
-        geometry[source + 63],
-      ],
-      target + 4,
-    );
-    output.set(
-      [geometry[source + 8], geometry[source + 9], geometry[source + 10], 0],
-      target + 8,
-    );
+    for (let component = 0; component < 7; component++)
+      output[target + component] = geometry[source + component];
+    output[target + 7] = geometry[source + 63];
+    output[target + 8] = geometry[source + 8];
+    output[target + 9] = geometry[source + 9];
+    output[target + 10] = geometry[source + 10];
   }
   return output;
 }

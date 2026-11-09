@@ -3,6 +3,7 @@ import path from "node:path";
 
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
+  { id: "render-quality", anchor: "render-quality", title: "High/path default, quality switching and preparation", summary: "Select path/hybrid/raster tiers through public services, prepare tracing before switching and inspect readiness without reloading gameplay." },
   { id: "npm-component", anchor: "npm-component", title: "Instance-local npm dependency context", summary: "Pass browser resources and a real npm compression codec from setup to systems without globals or JSON dependency objects." },
   { id: "dynamic-texture", anchor: "dynamic-texture", title: "Dynamic PNG to managed texture", summary: "Fetch bounded bytes, decode with a game-owned npm codec, validate decoded size and publish a managed texture with save/restore." },
   { id: "third-person", anchor: "third-person", title: "Jump, follow camera and save/load", summary: "A complete physical character game with grounded jumps, follow camera, instance state and local saves." },

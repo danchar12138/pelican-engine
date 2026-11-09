@@ -91,7 +91,11 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 
 优先 WebGPU，WebGL2 只回退光栅。compute、混合和路径追踪不在 WebGL2 上伪装支持。路径追踪使用软件 BVH，不是硬件 RT。材质图、计算图、纹理与缓冲绑定是公开扩展入口；任意 Three.js/TSL 插件没有现成的引擎接入协议。
 
-默认走高质量实时光栅：原生 DPR、抗锯齿、ACES、studio IBL、4096 阴影图和硬件支持的各向异性过滤；未开启投影的灯不会因此自动投影。指定 `lighting: "none"` 可关闭 IBL；自带 lightingTexture 时使用作者环境。`renderQuality()`、`renderQuality("preview")` 和 `renderQuality("capture")` 返回可覆盖设置，后两档需要 WebGPU。采样数和反弹数只影响追踪，不会提高光栅采样。高模、贴图、曝光和帧率仍应按实际场景验证。
+默认高档为 path：2 samples/frame、8 bounces，时域与空间降噪开启，原生 DPR 与 studio IBL。`renderQuality()` / `"high"` 选择 path，`"medium"` 选择 hybrid，`"low"` 选择 raster 并关闭追踪降噪；`"realtime"` 现在别名高档，`"preview"` 别名中档，`"capture"` 保留4采样/12反弹、不滤波的 path。完整切档用 `ctx.render.configure(renderQuality("medium"))`；不是只改模式却忘记滤波预算。
+
+path/hybrid 需要实际 WebGPU，不支持时明确诊断，不自动冒充低档；启动 URL 的 `?quality=low` 是玩家显式选择，也可在游戏声明里配置 low。默认并不保证所有设备帧率，高模、分辨率、动态光照和降噪应实测。`lighting:"none"` 关闭 IBL，环境贴图与曝光仍尊重作者设置。光栅保留4096阴影图与设备各向异性过滤。
+
+需要在低档期间预热高档时，调用 `ctx.render.prepare("path")` 并检查 `ctx.render.preparation("path")`；开发 CLI 可用 `pelican prepare-render --mode path`。准备在帧边界处理，系统不 await，不切换当前模式或推进玩法；失败返回状态，内容/视口/设备改变后需重试。切档保留世界与实例，但重置追踪/后期历史；低档保留追踪缓存，显存不会立即全部回收。完整配方 `render-quality` 展示三档按钮和准备状态。
 
 开发服务器对声明兼容的逻辑修改事务式替换实例并恢复完整检查点，不再整页丢失状态。声明、资产、保存版本或服务契约改变时保留旧游戏，`inspect.iteration` 报告 `TC_DEV_RESTART_REQUIRED`；`pelican reload --restart` 或显式刷新应用新内容。`pelican reload` 手动重试兼容更新。候选初始化或恢复失败保留旧实例，不自动抹掉进度。这不是任意 schema 迁移或全量资产热更新。
 

@@ -577,7 +577,7 @@ try {
         await new Promise(resolve => setTimeout(resolve, 1500));
         assert.equal(await page.evaluate(() => (window as any).__pelicanSmokeDocument), documentGeneration, "Writing unrelated JSON must not reload the game.");
         const image = await page
-          .locator("canvas")
+          .locator("canvas:visible")
           .first()
           .screenshot({ path: artifact("canvas.png") });
         const pixels = await page.evaluate(async (base64) => {
@@ -646,6 +646,9 @@ try {
           await fallbackPage.goto(url + "?automation=1", {
             waitUntil: "domcontentloaded",
           });
+          await assert.rejects(waitForEngine(fallbackPage), /TC_RENDER_MODE_UNAVAILABLE/);
+          // The author explicitly selects the low tier; default path must not silently downgrade on WebGL2.
+          await fallbackPage.goto(url + "?automation=1&quality=low", { waitUntil: "domcontentloaded" });
           await waitForEngine(fallbackPage);
           const fallbackState = await fallbackPage.evaluate(() =>
             (window as any).__pelican.inspect(),

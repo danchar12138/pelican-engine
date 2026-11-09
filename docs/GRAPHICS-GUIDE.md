@@ -4,9 +4,15 @@
 
 ## 高质量默认值
 
-实时默认保留 WebGPU/WebGL2 光栅兼容，原生 DPR、抗锯齿、ACES、默认 studio IBL、4096 投影阴影图及设备支持的各向异性过滤。IBL 可用 `lighting: "none"` 关闭；提供 lightingTexture 时使用作者纹理。现有光强、材质、曝光与显式 shadow 参数不被预设覆盖，未配置投影的灯不会自动投影。
+默认高档为 `path`，启用时域历史与空间降噪，2 samples/frame、8 bounces；原生 DPR、默认 studio IBL 与作者曝光保留。IBL 可用 `lighting: "none"` 关闭，提供 lightingTexture 时使用作者纹理。阴影图 4096 与各向异性过滤服务于光栅路径，不是路径追踪采样参数。
 
-`renderQuality()` 返回实时设置；`renderQuality("preview")` 为 hybrid、2 samples/frame、8 bounces 与空间降噪；`renderQuality("capture")` 为 path、4 samples/frame、12 bounces、关闭降噪以保留采样细节。后两档必须检查 WebGPU。默认追踪参数为 2 samples/frame、8 bounces，但光栅模式并不使用这些追踪预算。离线积累样本仍通过 render 命令显式指定。高参数不等于真实画质证据，也不保证移动端帧率。
+`renderQuality()` / `"high"` / `"realtime"` 选择默认高档 path；`"medium"` / `"preview"` 为 hybrid 与相同追踪预算/降噪；`"low"` 为 raster、关闭追踪降噪；`"capture"` 为 path、4 samples/frame、12 bounces、不做降噪。高/中/低是产品选项，不保证每个场景都按相同顺序耗时或优劣；capture 不等于实时默认。路径与混合必须实际支持 WebGPU，软件 BVH 不调用硬件 RT。
+
+玩家可在启动前显式选择 `?quality=high|medium|low`，仅覆盖质量参数，保留曝光与光照开关。没有该参数时尊重游戏 render 声明，省略 render 才使用默认 path。WebGL2 上默认 path 明确失败并给出低档入口，不静默降级。游戏内通过 `ctx.render.configure(renderQuality("medium"))` 切完整档；单独 `configure({mode:"raster"})` 会在未指定 denoise 时将其关闭。
+
+在加载阶段或游戏系统调用 `ctx.render.prepare("path")`，请求将在帧边界准备共享追踪管线、场景和运动历史资源；`ctx.render.preparation("path")` 返回 idle/queued/preparing/ready/failed、耗时或错误。它不切档、不推进玩法，不是预渲染高采样图，也不保证驱动永不回收缓存。高/中档共用追踪资源，首次准备仍有成本；视口、内容所有者或设备重建会失效，失败可以再次请求。切回低档保留缓存以便切回高档，可能继续占用显存。异步准备放帧边界，系统回调仍同步。
+
+离线积累样本通过 render 命令显式指定。镜头/物体移动会使渐进积累重置，时域滤波使用有效重投影的历史，不承诺无拖影或所有高模场景实时达标；真实预算、分辨率、动态画面和内存都需实测。正常游戏不再初始化历史 M0 GPU 追踪侧车，静态几何的运动数据按当前/上一已渲染版本复用，变形、拓扑和所有权变化保持失效检查。
 
 ## 模型材质槽
 

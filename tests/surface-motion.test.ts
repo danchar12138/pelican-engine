@@ -89,6 +89,18 @@ function expectCode(action: () => unknown, code: string, location?: string) {
   });
 }
 const base = setup().capture();
+test("cached captured geometry preserves unique identity validation when another captured object collides", () => {
+  const s = setup(geometry(1));
+  const other = new THREE.Mesh(s.g, s.mesh.material);
+  other.position.x = 4; s.scene.add(other);
+  const previous = s.capture();
+  packPreviousSurfacePositions(undefined, previous);
+  const cached = s.capture();
+  assert.equal(packPreviousSurfacePositions(previous, cached).matched, 2);
+  other.uuid = s.mesh.uuid;
+  const collided = s.capture();
+  expectCode(() => packPreviousSurfacePositions(cached, collided), "DUPLICATE_IDENTITY");
+});
 
 test("ungrouped single-material extraction retains its valid groupIndex -1 motion identity", () => {
   const g = geometry();

@@ -29,7 +29,9 @@ test("render settings resolve once, isolate returned values and reject unknown o
       /TC_RENDER_SETTINGS/,
     );
   assert.deepEqual(driver.service.state(), before);
-  assert.equal(DEFAULT_RENDER_SETTINGS.mode, "raster");
+  assert.equal(DEFAULT_RENDER_SETTINGS.mode, "path");
+  assert.equal(DEFAULT_RENDER_SETTINGS.denoise, true);
+  assert.equal(resolveRenderSettings({ mode: "raster" }).denoise, false);
   driver.dispose();
   assert.throws(() => driver.service.state(), /TC_RENDER_DISPOSED/);
 });

@@ -59,6 +59,7 @@ export type ControlCommand =
   | { type: "pause" }
   | { type: "resume" }
   | { type: "reload"; restart?: boolean }
+  | { type: "prepareRender"; mode: "raster" | "hybrid" | "path" }
   | { type: "snapshot" }
   | { type: "capture" }
   | { type: "render"; samples: number; mode: "hybrid" | "path"; denoise?: boolean }
@@ -89,6 +90,10 @@ export function parseCommand(value: unknown): ControlCommand {
         throw new Error(`TC_PROTOCOL_FIELD: Unknown command field ${key}.`);
   };
   switch (v.type) {
+    case "prepareRender":
+      requireKeys(["mode"]);
+      if (!["raster", "hybrid", "path"].includes(String(v.mode))) throw new Error("TC_PROTOCOL_MODE: prepareRender requires raster, hybrid or path.");
+      break;
     case "reload":
       requireKeys(["restart"]);
       if (v.restart !== undefined && typeof v.restart !== "boolean")

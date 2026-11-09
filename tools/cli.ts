@@ -109,6 +109,7 @@ async function main() {
           "batch --file <commands.json> [--port <dev-port>] (preflighted; completed operations are not rolled back)",
           "inspect | step --count <n> | pause | resume [--port <dev-port>]",
           "reload [--restart] [--port <dev-port>] (preserve compatible state; restart explicitly discards it)",
+          "prepare-render --mode path|hybrid|raster [--port <dev-port>] (prepare resources without switching mode)",
           "input --key ArrowRight [--pressed true] [--port <dev-port>]",
           "snapshot --output <file> | restore --file <file>",
           "record --action start|stop|cancel | replay --file <trace.json>",
@@ -185,6 +186,7 @@ async function main() {
       "pause",
       "resume",
       "reload",
+      "prepare-render",
       "input",
       "snapshot",
       "restore",
@@ -209,6 +211,7 @@ async function main() {
     else {
       let operation: ControlCommand;
       if (command === "capture") operation = { type: "capture" };
+      else if (command === "prepare-render") operation = { type: "prepareRender", mode: option("mode", "path") as "path" | "hybrid" | "raster" };
       else if (command === "reload") operation = { type: "reload", restart: args.includes("--restart") };
       else if (command === "pointer") operation = { type: "pointer", x: Number(option("x")), y: Number(option("y")), buttons: Number(option("buttons", "0")),
         delta: [Number(option("dx", "0")), Number(option("dy", "0"))], wheel: [Number(option("wheel-x", "0")), Number(option("wheel-y", "0"))] };
@@ -605,7 +608,7 @@ async function main() {
           viewport: { width: 960, height: 540 },
         });
         await withAutomationDeadline(() =>
-          page.goto(automationURL(`http://127.0.0.1:${port}/`), {
+          page.goto(automationURL(`http://127.0.0.1:${port}/${option("mode") === "raster" ? "?quality=low" : ""}`), {
             waitUntil: "domcontentloaded",
             timeout: 30_000,
           }),
@@ -618,7 +621,7 @@ async function main() {
               if (mode !== "raster")
                 await (window as any).__pelican.accumulate(8);
             },
-            option("mode", "raster"),
+            option("mode", "path"),
           ),
         );
         const output = path.resolve(
@@ -631,7 +634,7 @@ async function main() {
         emit(
           envelope(
             "succeeded",
-            { mode: option("mode", "raster") },
+            { mode: option("mode", "path") },
             [],
             [output],
           ),
