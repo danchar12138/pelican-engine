@@ -69,12 +69,14 @@ export function createRenderSettingsDriver(
   postProcesses: readonly PostProcessIR[] = [],
   provider?: RenderBufferProvider,
   textureProvider?: RenderTextureProvider,
+  startup?: Partial<RenderSettings>,
 ) {
   const parameters = createMaterialParameters(materials);
   const surfaces = createMaterialSurfaceOwner(materials);
   const postProcessOwner = createPostProcessOwner(postProcesses);
   const defaults = resolveRenderSettings(initial);
-  if (capabilities) validateRenderCapabilities(defaults, capabilities());
+  const initialState = resolveRenderSettings(startup ?? {}, defaults);
+  if (capabilities) validateRenderCapabilities(initialState, capabilities());
   const preparation = createRenderPreparation(mode => {
     if (!capabilities) throw new Error("TC_RENDER_PREPARATION_UNAVAILABLE: Preparation requires an active browser renderer.");
     validateRenderCapabilities(resolveRenderSettings({ mode, denoise: false }), capabilities());
@@ -113,7 +115,7 @@ export function createRenderSettingsDriver(
       throw Object.assign(new Error("TC_RENDER_BUFFER_PROVIDER: Combined pin publication failed. Repair: Restore the provider and retry with matching live compute buffers.", { cause }), { code: "TC_RENDER_BUFFER_PROVIDER" });
     }
   };
-  let current = { ...defaults },
+  let current = { ...initialState },
     disposed = false;
   const active = () => {
     if (disposed)

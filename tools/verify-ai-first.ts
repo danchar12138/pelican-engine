@@ -121,10 +121,15 @@ export default defineGame({id:'floating-geometry',services:{physics3d:'disabled'
 try {
   await record("quality-tiers-preparation-and-cache-lifetime", () => game("quality-options", "render-quality", async (page, command) => {
     assert.equal((await command({ type: "inspect" })).mode, "path");
+    const highStartup = await command({ type: "snapshot" });
     await page.goto(page.url() + "&quality=low");
     await page.waitForFunction(() => document.documentElement.dataset.pelicanReady === "true", undefined, { timeout: 60000, polling: 100 });
     const low = await command({ type: "snapshot" });
     const initial = await command({ type: "inspect" }); assert.equal(initial.mode, "raster"); assert.equal(initial.rendering.surface, undefined);
+    await command({ type: "restore", snapshot: highStartup });
+    assert.equal((await command({ type: "inspect" })).mode, "path");
+    await command({ type: "restore", snapshot: low });
+    assert.equal((await command({ type: "inspect" })).mode, "raster");
     const prepared = await command({ type: "prepareRender", mode: "path" });
     assert.equal(prepared.mode, "raster"); assert.equal(prepared.tick, initial.tick);
     assert.equal(prepared.rendering.preparation.find((item: any) => item.mode === "path").status, "ready");

@@ -855,7 +855,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, i
       time: () => candidate?.facade.time.elapsed ?? 0,
       executor: nextComputeExecutor,
     });
-    nextRender = createRenderSettingsDriver(selectedRenderSettings, ir.materials,
+    nextRender = createRenderSettingsDriver(ir.render ?? {}, ir.materials,
       () => cameraCapabilities(backendKind, ir.scene.camera.projection === "orthographic"), ir.postProcesses, {
       describe: handle => { const descriptor = nextCompute!.service.describeBuffer(handle); return { id: descriptor.id, type: descriptor.type, count: descriptor.count }; },
       resource: id => nextCompute!.resource(id),
@@ -864,7 +864,7 @@ async function loadGame(sceneId?: string, saved?: GameSave, loadSlot?: string, i
       describe: handle => { const { id, width, height, format } = nextCompute!.service.describeTexture(handle); return { id, width, height, format }; },
       resource: id => nextCompute!.textureResource(id),
       setPins: ids => nextCompute!.setRenderPins(ids),
-    });
+    }, selectedRenderSettings);
     if (usesRenderSlots(ir))
       nextRenderBufferBridge = createRenderBufferBridge(renderer, () => computeExecutor, id => slotResources(nextRender!, id));
     if (usesRenderTextures(ir))

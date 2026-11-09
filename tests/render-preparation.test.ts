@@ -3,6 +3,7 @@ import test from "node:test";
 import { createRenderPreparation } from "../packages/runtime/src/render-preparation.ts";
 import { createRenderSettingsDriver } from "../packages/runtime/src/render-settings.ts";
 import { renderCapabilities } from "../packages/runtime/src/render-capabilities.ts";
+import { renderQuality } from "../packages/sdk/src/index.ts";
 
 test("preparation requests deduplicate and do not alter rendering or saved state", async () => {
   const driver = createRenderSettingsDriver({ mode: "raster" }, [], () =>
@@ -81,4 +82,19 @@ test("unsupported and invalid preparation requests fail before queue mutation", 
     /TC_RENDER_PREPARATION_UNAVAILABLE/,
   );
   driver.dispose();
+});
+test("player startup tier does not change authored save compatibility and restoration still checks backend", () => {
+  const make = (tier: "high" | "low", backend: "webgpu" | "webgl2" = "webgpu") =>
+    createRenderSettingsDriver({}, [], () => renderCapabilities(backend), [], undefined, undefined, renderQuality(tier));
+  const high = make("high"), low = make("low"), fallback = make("low", "webgl2");
+  const highPlugin = high.factory({} as never), lowPlugin = low.factory({} as never), fallbackPlugin = fallback.factory({} as never);
+  try {
+    const saved = highPlugin.snapshot();
+    assert.equal(low.service.state().mode, "raster");
+    assert.deepEqual((saved as any).defaults, (lowPlugin.snapshot() as any).defaults);
+    lowPlugin.restore(saved);
+    assert.equal(low.service.state().mode, "path", "A supported saved mode restores across startup tiers.");
+    assert.throws(() => fallbackPlugin.restore(saved), /TC_RENDER_MODE_UNAVAILABLE/);
+    assert.equal(fallback.service.state().mode, "raster", "Unsupported saved modes reject before mutation.");
+  } finally { highPlugin.dispose(); lowPlugin.dispose(); fallbackPlugin.dispose(); }
 });
