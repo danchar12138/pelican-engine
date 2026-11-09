@@ -38,7 +38,7 @@ npx pelican dev
 ## 给第一次使用的 AI
 
 ```sh
-npx pelican guide
+npx pelican guide --compact
 npx pelican guide --goal "让角色跳跃并保存游戏"
 npx pelican api --symbol StorageService.save
 npx pelican diagnose --port 4173

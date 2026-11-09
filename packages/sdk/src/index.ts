@@ -69,7 +69,7 @@ export interface EngineTask {
 }
 /** Ranked task intents; an empty result means unrecognized, not unsupported. */
 export function engineTasks(goal = ""): EngineTask[] { return discoverTasks(goal); }
-export const SDK_VERSION = "1.9.0";
+export const SDK_VERSION = "2.0.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];

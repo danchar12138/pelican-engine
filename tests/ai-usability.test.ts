@@ -14,6 +14,7 @@ import path from "node:path";
 import { encode } from "fast-png";
 import { compactAuthorGuide } from "../tools/author-guide.ts";
 import {
+  SDK_VERSION,
   engineTasks,
   diagnoseRendering,
   renderQuality,
@@ -36,7 +37,7 @@ test("compact complete envelopes fit 2 KiB across task catalog, preserve continu
   const root = await mkdtemp(path.join(tmpdir(), "pelican-compact-"));
   await writeFile(
     path.join(root, "package.json"),
-    JSON.stringify({ dependencies: { "pelican-engine": "1.9.0" } }),
+    JSON.stringify({ dependencies: { "pelican-engine": SDK_VERSION } }),
   );
   await writeFile(
     path.join(root, "pelican.project.json"),

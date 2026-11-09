@@ -163,4 +163,4 @@ CLI 默认 JSON，--json 为兼容参数；用法错误退出 1，检查/断言�
 
 受控截图用 `pelican verify --baseline .pelican/baseline.png --write-baseline` 创建，再以同命令去掉 --write-baseline 比较。固定独立新会话、三 tick、960×540、DPR=1，校验相机、档位、实际采样序列/历史初态，记录浏览器/后端/设备，使用明示像素容差；不保证跨设备逐像素一致。与 recipe 验收互斥，普通 verify 不强加画面阈值。采样已由像素与帧序列确定，本次不新增 seed。
 
-兼容说明：显式 high/path、medium/hybrid 仍可使用；省略画质和 realtime 现为 raster。切换默认值会改变初始渲染契约，旧的默认 path 存档不会被悄悄改成光栅存档。其他设置完全匹配且仅缺新增 AO 字段的 1.x 快照可以恢复；不兼容时保留当前世界并报告诊断。
+2.0 兼容说明：显式 high/path、medium/hybrid 仍可使用；省略画质和 realtime 现为 raster。先安装精确版本，再运行 migrate 查看计划，确认后显式执行 migrate --apply --from 1.9.0（其他旧版本使用实际来源版本）。迁移命令仅更新项目锁，不转换存档或证明玩法兼容。完整存档仍检查引擎版本与作者契约，旧默认 path 存档不会被悄悄改为光栅存档；不兼容时保留当前世界并报告诊断。渲染子快照仅对缺少新增 AO 字段提供兼容填充，不代表完整 1.x 存档可跨主版本直接恢复。
