@@ -24,8 +24,8 @@ export function qualitySettings(
         : ["medium", "preview"].includes(preset)
           ? "hybrid"
           : "path",
-    samplesPerFrame: preset === "capture" ? 4 : preset === "low" ? 1 : 2,
-    maxBounces: preset === "capture" ? 12 : 8,
+    samplesPerFrame: preset === "low" ? 1 : ["medium", "preview"].includes(preset) ? 2 : 4,
+    maxBounces: preset === "capture" ? 12 : ["medium", "preview"].includes(preset) ? 4 : 8,
     denoise: preset !== "capture" && preset !== "low",
     denoiseIterations: 3,
     exposure: 1,

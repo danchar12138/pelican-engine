@@ -29,6 +29,7 @@ import { uniform } from "three/tsl";
 import { typedGraphToTSL, materialGraphNormalToTSL } from "./graph-tsl.ts";
 import type { MaterialGraphBinding } from "./material-graphs.ts";
 import { startupPolicy, boundedOperation, runtimeStatus, inspectTraceCapabilities } from "./startup.ts";
+import { fetchLoadingAsset, loadingStage } from "./loading.ts";
 import { renderCapabilities, requireCompute, validateRenderCapabilities } from "../../runtime/src/render-capabilities.ts";
 import { createComputeDriver } from "../../runtime/src/compute-service.ts";
 import { createComputeExecutor } from "./compute-executor.ts";
@@ -216,6 +217,8 @@ let pendingSurface: AbortController | undefined;
 const lostDevices = new WeakSet<GPUDevice>();
 const lostRenderers = new WeakSet<THREE.Renderer>();
 let surfaceTracer: SurfaceTracer | undefined;
+let presentedTraceOwner: SurfaceTracer | undefined;
+let presentedTraceKey = "";
 let renderControl: ReturnType<typeof createRenderSettingsDriver> | undefined;
 let computeControl: ReturnType<typeof createComputeDriver> | undefined;
 let computeExecutor: ReturnType<typeof createComputeExecutor> | undefined;
@@ -284,7 +287,7 @@ const resourceManager = new ResourceManager<{
 }>();
 resourceManager.registerLoader("json", {
   async load(descriptor, signal) {
-    const response = await fetch(descriptor.url, { signal });
+    const response = await fetchLoadingAsset(descriptor.url, { signal });
     if (!response.ok) throw new Error(`TC_RESOURCE_HTTP: ${response.status}`);
     return response.json();
   },
@@ -292,7 +295,7 @@ resourceManager.registerLoader("json", {
 });
 resourceManager.registerLoader("module", {
   async load(descriptor, signal) {
-    const module = await import(/* @vite-ignore */ descriptor.url);
+    const module = await boundedOperation(import(/* @vite-ignore */ descriptor.url), "compiled game module (download and module evaluation)", 120000, "TC_MODULE_TIMEOUT");
     if (signal.aborted) throw new Error("TC_RESOURCE_CANCELLED");
     if (typeof module.createGame !== "function")
       throw new Error("TC_GAME_EXPORT");
@@ -1195,6 +1198,8 @@ function animate(): boolean {
   camera.updateMatrixWorld();
   vertexBounds?.update(scene, new Map(materialGraphs.map(item => [item.material, item.binding])));
   gameplay?.present(camera, gameObjects, playing ? 1 / 60 : 0, tick);
+  // Animation mixers can deform meshes without changing ECS transforms.
+  surfaceChanged ||= !!gameplay?.models.inspect().playing || !!vertexBounds || probeEnabled;
   if (surfaceChanged) dynamicVisualRevision++;
   return surfaceChanged;
 }
@@ -1277,6 +1282,7 @@ function resizeViewport(): boolean {
     ? createPostProcessComposer(renderer, next.width, next.height, compiledIR.postProcesses, gameplay?.textures ?? new Map(), renderBufferBridge, renderTextureBridge) : undefined;
   pendingSurface?.abort(); pendingSurface = undefined;
   surfaceTracer?.dispose(); surfaceTracer = undefined;
+  presentedTraceOwner = undefined; presentedTraceKey = "";
   postComposer?.dispose(); postComposer = nextComposer;
   if (backendKind === "webgpu" && probeEnabled) { tracer?.dispose(); tracer = new GPUTracer(device, traceCanvas, next.width, next.height); }
   viewport = next; width = next.width; height = next.height;
@@ -1334,13 +1340,33 @@ async function drawFrame(accumulate = false, changed = true) {
   validateRenderCapabilities(settings, renderControl?.service.capabilities() ?? cameraCapabilities(backendKind, camera instanceof THREE.OrthographicCamera));
   if (mode !== settings.mode) setMode(settings.mode);
   if (probeEnabled && vertexBounds) throw new Error("TC_VERTEX_PROBE_UNSUPPORTED: Vertex graphs require a normal game scene, not the historical tracing sidecar.");
-  rasterCanvas.style.display = mode === "raster" || effects ? "block" : "none";
-  traceCanvas.style.display = mode === "raster" || effects ? "none" : "block";
+  if (mode === "raster" || probeEnabled) {
+    rasterCanvas.style.display = mode === "raster" || effects ? "block" : "none";
+    traceCanvas.style.display = mode === "raster" || effects ? "none" : "block";
+    if (mode === "raster") presentedTraceKey = "";
+  }
   if (effects && probeEnabled) throw new Error("TC_POSTPROCESS_PROBE_UNSUPPORTED: Controlled effects require a normal game scene, not the historical M0 tracing sidecar.");
   if (mode !== "raster" && !probeEnabled) {
     await prepareTraceResources(settings.denoise && settings.debug === "beauty");
     if (effects) await surfaceTracer!.prepareLinearPresentation();
     submitMs = surfaceTracer!.render(camera, settings, effects?.traceTargets());
+    const presentationKey = `${contentGeneration}:${mode}`;
+    if (!startup.automation && (presentedTraceOwner !== surfaceTracer || presentedTraceKey !== presentationKey)) {
+      // Converge the first selected image at the authored resolution before
+      // replacing the current image. This does not advance game simulation.
+      while (surfaceTracer!.inspect().samples < 64) {
+        loadingStage("first-frame", `Refining ${mode.toUpperCase()} · ${surfaceTracer!.inspect().samples}/64 samples`);
+        await boundedOperation(device.queue.onSubmittedWorkDone(), "first traced image convergence");
+        if (disposed || terminalFault || recoveringGpu) throw Error("TC_RENDER_INTERRUPTED: Trace preparation owner changed.");
+        await new Promise(resolve => setTimeout(resolve, 0));
+        surfaceTracer!.render(camera, settings, effects?.traceTargets());
+      }
+      presentedTraceOwner = surfaceTracer;
+      presentedTraceKey = presentationKey;
+      if (document.documentElement.dataset.pelicanReady === "true") loadingStage("ready", "Ready");
+    }
+    rasterCanvas.style.display = effects ? "block" : "none";
+    traceCanvas.style.display = effects ? "none" : "block";
     if (effects) effects.present(renderControl!.postProcesses, tick / 60, settings);
     const report = surfaceTracer!.inspect();
     triangleCount = report.triangleCount;
@@ -1386,6 +1412,7 @@ async function drawFrame(accumulate = false, changed = true) {
 async function prepareTraceResources(needsMotion: boolean) {
     requireCompute(renderCapabilities(backendKind), "Trace preparation");
     if (!surfaceTracer) {
+      loadingStage("pipeline", "Preparing native-resolution light transport pipelines");
       if (!legacyTracerDisposed) {
         tracer.dispose();
         legacyTracerDisposed = true;
@@ -1730,6 +1757,7 @@ async function disposeBrowser() {
   clean(() => pendingSurface?.abort());
   clean(() => tracer?.dispose());
   clean(() => surfaceTracer?.dispose());
+  presentedTraceOwner = undefined; presentedTraceKey = "";
   clean(async () => {
     const gl = backendKind === "webgl2" ? rasterCanvas.getContext("webgl2") : null;
     try {
@@ -1876,6 +1904,7 @@ async function recoverGpu(info: Pick<GPUDeviceLostInfo, "reason" | "message">) {
     postComposer = undefined;
     surfaceTracer?.dispose();
     surfaceTracer = undefined;
+    presentedTraceOwner = undefined; presentedTraceKey = "";
     renderControl?.preparation.invalidate();
     tracer?.dispose();
     await renderer?.dispose();
@@ -1917,10 +1946,13 @@ async function recoverGpu(info: Pick<GPUDeviceLostInfo, "reason" | "message">) {
   }
 }
 async function boot() {
+  loadingStage("graphics", "Preparing graphics backend");
   await initializeGpu();
   status.textContent = "Loading compiled game";
-  await boundedOperation(loadGame(), "compiled content initialization");
+  loadingStage("content", "Loading game resources");
+  await loadGame();
   status.textContent = "Drawing compiled game";
+  loadingStage("first-frame", "Preparing the first frame");
   setMode(renderControl!.service.state().mode);
   await draw();
   const api = {
@@ -2478,7 +2510,9 @@ async function boot() {
           steps++;
         }
         if (steps) syncSimulation();
-        await draw(false, steps > 0);
+        // A simulation tick is not a visual mutation. syncRuntime/animate track
+        // actual transforms, lights, materials, animation and managed resources.
+        await draw(false, false);
       } else {
         lastFrameTime = undefined;
       }
@@ -2490,6 +2524,7 @@ async function boot() {
   frameRequest = requestAnimationFrame(now => { frameTail = loop(now); });
   playing = startup.playing;
   document.documentElement.dataset.pelicanReady = "true";
+  loadingStage("ready", "Ready");
   status.textContent = runtimeStatus({
     backend: backendKind,
     mode,
@@ -2500,6 +2535,7 @@ async function boot() {
   });
 }
 boot().catch((error) => {
+  loadingStage("failed", String(error), { code: String(error).match(/TC_[A-Z0-9_]+/)?.[0] ?? "TC_STARTUP_FAILED" });
   reportFailure(error);
   if (import.meta.env.DEV)
     (window as unknown as { __pelicanFailure: string }).__pelicanFailure =

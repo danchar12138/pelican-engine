@@ -33,6 +33,7 @@ export async function boundedOperation<T>(
   promise: PromiseLike<T>,
   label: string,
   timeoutMs = 30000,
+  code: "TC_GPU_TIMEOUT" | "TC_MODULE_TIMEOUT" | "TC_ASSET_DECODE_TIMEOUT" = "TC_GPU_TIMEOUT",
 ): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
     throw new Error("TC_GPU_TIMEOUT_CONFIG: Invalid timeout.");
@@ -45,7 +46,7 @@ export async function boundedOperation<T>(
           () =>
             reject(
               new Error(
-                `TC_GPU_TIMEOUT: ${label} did not complete within ${timeoutMs} ms; no click or key is required to continue.`,
+                `${code}: ${label} did not complete within ${timeoutMs} ms; no click or key is required to continue.`,
               ),
             ),
           timeoutMs,

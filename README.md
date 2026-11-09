@@ -17,7 +17,7 @@ Pelican Engine 是面向 AI 编码工具的开源游戏引擎。**一个 npm 包
 ## 为什么选择 Pelican
 
 - **玩法自由组合。** 普通 TypeScript、自定义模块与 npm 组件一起用，不必套专用语法或固定玩法。
-- **默认路径追踪。** PBR 与时域/空间降噪，混合、光栅作为可选档，支持预热与受管渲染扩展。
+- **画质优先的路径追踪。** 原生分辨率、PBR 与时域/空间降噪；混合模式平衡光照与性能，光栅提供广泛兼容。
 - **开发不止渲染。** 实体、物理、动画、UI、音频与存档，组成完整游戏基础。
 - **AI 有据可查。** 起步指南、精确 API、完整配方和结构化诊断，连接查询、运行与修复。
 - **交付保持简单。** Windows、macOS、Linux 开发，构建后部署到普通静态服务器。
@@ -41,6 +41,7 @@ npx pelican dev
 npx pelican guide
 npx pelican guide --goal "让角色跳跃并保存游戏"
 npx pelican api --symbol StorageService.save
+npx pelican diagnose --port 4173
 ```
 
 按任务找到能力、精确方法与完整配方，查询失败也有下一步候选。新项目自带 `AGENTS.md`；不必猜接口或通读引擎源码。
@@ -50,6 +51,12 @@ npx pelican api --symbol StorageService.save
 `npm install <package>`，把自己的算法、组件和内容接进游戏。浏览器依赖通过 `runtime.create` 初始化，渲染模块通过 `defineRenderExtension` 组合。内置玩法服务可选，不替你规定规则。[接入指南](docs/npm/INTEGRATIONS.md)。
 
 默认高档 path 需要 WebGPU；中档 hybrid、低档 raster 可选，WebGL2 需显式选择低档。路径追踪使用软件 BVH，实际画质与性能需按场景验证。[能力说明](docs/CAPABILITIES.md)。
+
+## 接下来
+
+优先推进动态光照降噪、增量渲染、加载体验与 AI 任务诊断，让第三方 npm 内容更容易接入。PATH 以画质为先，不靠自动降低分辨率换帧率；HYBRID 使用独立传输预算，兼顾细节与响应。
+
+**硬件光追是未来计划，尚未实现。** 将评估复用同一 SDK、资产与运行时协议的原生 DXR / Vulkan / Metal 后端。当前浏览器版仍是 WebGPU 软件 BVH，不因显卡带有 RT Core 就宣称启用硬件光追。
 
 <!-- contributor-only:start -->
 ## 参与开发

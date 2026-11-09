@@ -15,8 +15,20 @@ type GeometryCache = WeakMap<SurfaceTriangle, { key: string; data: Float32Array 
 /** Cached only for deeply frozen extractor-owned triangles; raw inputs are still checked. */
 export function createSurfaceGeometryPacker() {
   const cache: GeometryCache = new WeakMap();
-  return (snapshot: SurfaceScene, ordered: readonly SurfaceTriangle[], ids: ReadonlyMap<string, number>, windings: ReadonlyMap<string, 1 | -1>) =>
-    packSurfaceGeometry(snapshot, ordered, ids, windings, cache);
+  let previous: readonly SurfaceTriangle[] = [], signature = "", data = new Float32Array();
+  return (snapshot: SurfaceScene, ordered: readonly SurfaceTriangle[], ids: ReadonlyMap<string, number>, windings: ReadonlyMap<string, 1 | -1>) => {
+    if (!hasCapturedGeometry(snapshot)) return packSurfaceGeometry(snapshot, ordered, ids, windings, cache);
+    const key = JSON.stringify([snapshot.materials.map(m => [m.uuid, m.vertexColors, m.maps]), snapshot.textures.map(t => [t.uuid, t.channel]), [...ids], [...windings]]);
+    const full = signature !== key || previous.length !== ordered.length;
+    const slots: number[] = [], changed: SurfaceTriangle[] = [];
+    ordered.forEach((triangle, i) => { if (full || triangle !== previous[i]) { slots.push(i); changed.push(triangle); } });
+    // Validate/pack every changed primitive before mutating the owned output.
+    const packed = packSurfaceGeometry(snapshot, changed, ids, windings, cache);
+    if (full) data = new Float32Array(ordered.length * SURFACE_TRIANGLE_FLOATS);
+    slots.forEach((slot, i) => data.set(packed.subarray(i * SURFACE_TRIANGLE_FLOATS, (i + 1) * SURFACE_TRIANGLE_FLOATS), slot * SURFACE_TRIANGLE_FLOATS));
+    previous = ordered; signature = key;
+    return data;
+  };
 }
 const fail = (code: string, message: string): never => {
   throw new Error(code + ": " + message);

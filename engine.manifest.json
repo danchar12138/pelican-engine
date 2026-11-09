@@ -1,6 +1,6 @@
 {
   "name": "pelican-engine",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "stage": "stable",
   "license": "MIT",
   "protocolVersion": "0.1.0",

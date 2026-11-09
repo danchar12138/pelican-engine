@@ -7,6 +7,41 @@ import { composeGameRuntime } from "./runtime-composition.ts";
 import { discoverTasks } from "./tasks.ts";
 import { bridgeWorker, bridgeWebSocket, fetchRuntimeJSON, fetchRuntimeBytes } from "./runtime-integrations.ts";
 import { qualitySettings } from "./render-quality.ts";
+import { observeStartup, readStartup } from "./startup-observer.ts";
+import { inspectRenderHealth } from "./render-diagnostics.ts";
+/** Feed a detached development inspect observation or a compatible application-owned measurement. */
+export interface RenderDiagnosticInput {
+  mode?: RenderMode;
+  viewport?: { width: number; height: number };
+  metrics?: readonly { wallMs: number }[];
+  compiledIR?: { assets: readonly { id: string; hash?: string }[] };
+  rendering?: { surface?: { samples?: number; captureMs?: number; uploadMs?: number; uploadBytes?: number; temporal?: { lastReset?: boolean; resetReasons?: readonly string[] } } };
+}
+export interface RenderDiagnosticReport {
+  format: "pelican.render-diagnostics";
+  mode: RenderMode | null;
+  frameProcessingMs: { samples: number; p50: number | null; p95: number | null };
+  findings: { code: string; message: string; repair: string }[];
+  queries: string[];
+  scope: string;
+}
+/** Explain likely rendering bottlenecks without changing authored quality or exposing GPU objects. */
+export function diagnoseRendering(input: RenderDiagnosticInput): RenderDiagnosticReport { return inspectRenderHealth(input); }
+export interface EngineStartupSnapshot {
+  stage: "idle" | "graphics" | "content" | "download" | "decode" | "pipeline" | "first-frame" | "ready" | "failed";
+  message: string;
+  sequence: number;
+  asset?: string;
+  loadedBytes?: number;
+  totalBytes?: number;
+  code?: string;
+}
+/** Detached latest startup state. Safe in Node and before a game runtime exists. */
+export function engineStartup(): EngineStartupSnapshot { return readStartup(); }
+/** Connect any DOM/npm UI before runtime setup. Unsubscribe explicitly or use an instance signal. */
+export function onEngineStartup(listener: (value: EngineStartupSnapshot) => void, signal?: AbortSignal): () => void {
+  return observeStartup(listener, signal);
+}
 export interface EngineFeature {
   id: string;
   /** Discovery text and vocabulary; implementation/backend limits still apply. */
@@ -32,7 +67,7 @@ export interface EngineTask {
 }
 /** Ranked task intents; an empty result means unrecognized, not unsupported. */
 export function engineTasks(goal = ""): EngineTask[] { return discoverTasks(goal); }
-export const SDK_VERSION = "1.8.0";
+export const SDK_VERSION = "1.9.0";
 export type Vec2 = readonly [number, number];
 export type Vec3 = readonly [number, number, number];
 export type Vec4 = readonly [number, number, number, number];

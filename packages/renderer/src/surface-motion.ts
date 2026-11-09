@@ -13,6 +13,42 @@ const validPositions = new WeakSet<SurfaceTriangle>();
 
 const MAX_FLOAT = 3.4028234663852886e38;
 
+/** Acceleration validates source indices. Reuse aligned, extractor-owned data
+ * without rebuilding string-key maps for every unchanged static primitive. */
+export function createSurfaceMotionPacker() {
+  let data: Float32Array = new Float32Array(), oldTriangles: readonly SurfaceTriangle[] = [];
+  return (previous: SurfaceScene | undefined, current: SurfaceScene, ordered: readonly SurfaceTriangle[], sources: Uint32Array) => {
+    const aligned = previous && hasCapturedGeometry(previous) && hasCapturedGeometry(current) &&
+      previous.triangles.length === current.triangles.length && sources.length === ordered.length &&
+      current.triangles.every((t, i) => {
+        const old = previous.triangles[i];
+        return t === old || (t.objectUuid === old.objectUuid && t.geometryUuid === old.geometryUuid &&
+          t.instanceId === old.instanceId && t.groupIndex === old.groupIndex && t.elementOffset === old.elementOffset &&
+          t.vertexIndices.every((n, j) => n === old.vertexIndices[j]));
+      }) && ordered.every((t, i) => t === current.triangles[sources[i]]);
+    if (!aligned) {
+      oldTriangles = [];
+      const result = packPreviousSurfacePositions(previous, current, ordered);
+      data = result.data;
+      return result;
+    }
+    if (data.length !== ordered.length * 12) { data = new Float32Array(ordered.length * 12); oldTriangles = []; }
+    const next: SurfaceTriangle[] = new Array(ordered.length);
+    for (let i = 0; i < ordered.length; i++) {
+      const old = previous.triangles[sources[i]];
+      next[i] = old;
+      if (old === oldTriangles[i]) continue;
+      for (let vertex = 0; vertex < 3; vertex++) {
+        const p = old.vertices[vertex].position, offset = i * 12 + vertex * 4;
+        data[offset] = p[0]; data[offset + 1] = p[1]; data[offset + 2] = p[2]; data[offset + 3] = 0;
+      }
+      data[i * 12 + 3] = 1;
+    }
+    oldTriangles = next;
+    return { data, matched: ordered.length, missing: 0 };
+  };
+}
+
 function fail(code: string, label: string): never {
   throw new Error(
     "TC_SURFACE_MOTION_" +

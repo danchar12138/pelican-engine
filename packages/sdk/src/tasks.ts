@@ -4,6 +4,34 @@ import { describeFeatures } from "./capabilities.ts";
 // Task discovery only; exact signatures and feature boundaries remain source-derived.
 const tasks: readonly EngineTask[] = [
   {
+    id: "asset-inspection", title: "Inspect assets and bind real model slots / 资产查询与模型材质绑定",
+    aliases: ["asset inspection", "asset query", "GLB", "material slots", "资产", "材质槽", "模型绑定", "资产减重"],
+    features: ["content.assets"], methods: ["AssetDefinition", "ModelDefinition.materialSlots"], recipes: ["npm-geometry"],
+    verify: ["Run pelican assets, then pelican assets --id <asset> --limit 20. Follow nextOffset for remaining slots. Bind exact material names and verify raster/path output; a declaration is not an automatic binding."],
+    limits: ["Runs current trusted compilation. Metadata describes costs and slots, not live resource residency or frame rate."],
+  },
+  {
+    id: "npm-geometry", title: "Reuse third-party mesh generators / 第三方几何与生态接入",
+    aliases: ["npm geometry", "mesh generator", "three geometry", "第三方几何", "几何生成器", "生态", "自定义网格"],
+    features: ["content.libraries", "render.runtime"], methods: ["BufferGeometryInput", "defineRenderExtension", "ModelDefinition.materialSlots"], recipes: ["npm-geometry", "managed-rendering"],
+    verify: ["Install the recipe dependencies in the game project, check/build and compare indexed geometry in raster/path. Dispose the generator's temporary objects and keep GPU ownership in the engine."],
+    limits: ["Plain arrays/indices and managed plugins interoperate; arbitrary third-party renderers and raw GPU plugins do not automatically share the engine device or save/restore protocol."],
+  },
+  {
+    id: "startup-feedback", title: "Visible loading and external UI / 加载进度与外部界面",
+    aliases: ["loading", "loading progress", "startup", "加载", "加载进度", "启动", "遮罩", "超时", "蓝屏"],
+    features: ["runtime.startup"], methods: ["engineStartup", "onEngineStartup"], recipes: ["startup-feedback"],
+    verify: ["Delay an asset response. Confirm a visible loader, progress events, correct network error, retry UI and teardown; no desktop click is required."],
+    limits: ["Observers report per-asset progress and stages, not a fabricated whole-game percentage. Node has idle state. Engine-owned loading UI is replaceable; private GPU objects remain private."],
+  },
+  {
+    id: "render-diagnostics", title: "Diagnose dynamic lighting and performance / 动态室内画质与性能诊断",
+    aliases: ["noise", "low noise", "performance", "mobile", "frame budget", "动态", "室内", "低噪", "光追", "噪点", "性能", "卡顿", "移动端", "优化"],
+    features: ["render.quality", "render.path", "render.diagnostics"], methods: ["diagnoseRendering", "RenderService.prepare", "RenderService.capabilities", "ModelDefinition.materialSlots"], recipes: ["render-quality"],
+    verify: ["Run pelican diagnose --port <dev-port>. Capture the same native-resolution animated sequence in raster/hybrid/path; measure CPU wall and GPU timestamp separately, inspect history resets and check ghosting."],
+    limits: ["Diagnostic heuristics are observations, not FPS or physical correctness. Preserve resolution and detail; path is quality-first, hybrid has an independent four-bounce default and complete primary direct-light evaluation."],
+  },
+  {
     id: "character-jump",
     title: "Move and jump a 3D character / 角色移动跳跃",
     aliases: [
@@ -261,7 +289,9 @@ export function discoverTasks(goal = ""): EngineTask[] {
     limits: [...feature.limits],
   }));
   const score = (task: EngineTask) =>
-    Math.max(
+    task.id.toLowerCase() === goal.normalize("NFKC").trim().toLowerCase()
+    ? 2000 + task.id.length
+    : Math.max(
       0,
       ...[task.id, ...task.aliases].map((alias) => {
         const word = normalize(alias);

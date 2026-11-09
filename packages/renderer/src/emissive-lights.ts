@@ -1,7 +1,30 @@
 import type { SurfaceScene, SurfaceTriangle } from "./surface.ts";
 import { hasCapturedGeometry } from "./surface.ts";
+const bits = new DataView(new ArrayBuffer(8));
+/** Compact diagnostic/history fingerprint, not an asset integrity hash. */
+function geometrySignature(triangle: SurfaceTriangle): string {
+  let first = 2166136261, second = 5381;
+  const identity = `${triangle.objectUuid}:${triangle.geometryUuid}:${triangle.instanceId}:${triangle.groupIndex}:${triangle.elementOffset}:${triangle.vertexIndices.join(",")}`;
+  for (let i = 0; i < identity.length; i++) { first = Math.imul(first ^ identity.charCodeAt(i), 16777619); second = Math.imul(second, 33) ^ identity.charCodeAt(i); }
+  const add = (values: readonly number[] | undefined) => {
+    if (!values) return;
+    for (const value of values) {
+      bits.setFloat64(0, value, true);
+      for (let word = 0; word < 2; word++) {
+        const n = bits.getUint32(word * 4, true);
+        first = Math.imul(first ^ n, 16777619);
+        second = Math.imul(second, 33) ^ n;
+      }
+    }
+  };
+  add(triangle.normalMatrix);
+  for (const vertex of triangle.vertices) { add(vertex.position); add(vertex.uv0); add(vertex.uv1); add(vertex.color); }
+  return `${first >>> 0}:${second >>> 0}`;
+}
+const emissionKey = (material: SurfaceScene["materials"][number]) =>
+  JSON.stringify([material.uuid, material.emissive, material.emissiveIntensity, material.maps.emissiveMap, material.maps.map, material.maps.alphaMap, material.baseColor[3], material.alphaMode, material.alphaTest, material.side, material.vertexColors]);
 /** Owned by one tracer. Frozen triangles can safely retain their emitter metadata. */
-export function createEmissiveLightCache() {
+export function createEmissiveLightCache(compact = false) {
   const entries = new WeakMap<
     SurfaceTriangle,
     { material: string; value: string; area: number; key: string }
@@ -11,7 +34,7 @@ export function createEmissiveLightCache() {
   let previousMaterials = "",
     previousExplicit = new Float32Array();
   let hits = 0,
-    builds = 0;
+    builds = 0, explicitUpdates = 0;
   return {
     update(
       snapshot: SurfaceScene,
@@ -19,7 +42,7 @@ export function createEmissiveLightCache() {
       explicit: Float32Array,
     ) {
       const materials = snapshot.materials
-        .map((material) => JSON.stringify(material))
+        .map(emissionKey)
         .join("\n");
       const emitting = new Set(
         snapshot.materials
@@ -40,22 +63,32 @@ export function createEmissiveLightCache() {
             triangle === previousTriangles[index] ||
             (!emitting.has(triangle.materialUuid) &&
               !emitting.has(previousTriangles[index]!.materialUuid)),
-        ) &&
-        explicit.length === previousExplicit.length &&
-        explicit.every((value, index) => value === previousExplicit[index])
+        )
       ) {
         hits++;
+        if (explicit.length === previousExplicit.length && explicit.every((value, index) => value === previousExplicit[index])) return previous;
+        // Changing an explicit point light does not change emitter area, alias
+        // probabilities or the triangle PDF table. Rebase only the record prefix.
+        const emitters = previous.data.subarray(previous.explicitRecords * 12);
+        const data = new Float32Array(explicit.length + emitters.length);
+        data.set(explicit); data.set(emitters, explicit.length);
+        const lookup = previous.gpuData.subarray(previous.data.length);
+        const gpuData = compact ? data : new Float32Array(data.length + lookup.length);
+        if (!compact) { gpuData.set(data); gpuData.set(lookup, data.length); }
+        previous = { ...previous, data, gpuData, explicitRecords: explicit.length / 12, signature: JSON.stringify([Array.from(explicit), ...JSON.parse(previous.signature).slice(1)]) };
+        previousExplicit = explicit.slice();
+        explicitUpdates++;
         return previous;
       }
       builds++;
-      const result = appendEmissiveLights(snapshot, ordered, explicit, entries);
+      const result = appendEmissiveLights(snapshot, ordered, explicit, entries, !compact);
       previous = result;
       previousTriangles = [...ordered];
       previousMaterials = materials;
       previousExplicit = explicit.slice();
       return result;
     },
-    inspect: () => ({ hits, builds }),
+    inspect: () => ({ hits, builds, explicitUpdates }),
     clear() {
       previous = undefined;
       previousTriangles = [];
@@ -73,6 +106,7 @@ export function appendEmissiveLights(
     SurfaceTriangle,
     { material: string; value: string; area: number; key: string }
   >,
+  includeLegacyLookup = true,
 ) {
   const materials = new Map(
     snapshot.materials.map((material) => [material.uuid, material]),
@@ -83,11 +117,23 @@ export function appendEmissiveLights(
     weight: number;
     color: readonly number[];
   }[] = [];
-  const semantic: { key: string; value: string }[] = [];
+  let semanticFirst = 0, semanticSecond = 0;
+  const signatureHashes = new Map<string, number>();
+  const include = (geometry: string, material: string) => {
+    let hash = signatureHashes.get(material);
+    if (hash === undefined) {
+      hash = 2166136261;
+      for (let i = 0; i < material.length; i++) hash = Math.imul(hash ^ material.charCodeAt(i), 16777619);
+      signatureHashes.set(material, hash);
+    }
+    const [a, b] = geometry.split(":").map(Number);
+    semanticFirst = (semanticFirst + Math.imul(a ^ hash, 16777619)) >>> 0;
+    semanticSecond = (semanticSecond + Math.imul(b ^ hash, 2246822519)) >>> 0;
+  };
   const materialKeys = new Map(
     snapshot.materials.map((material) => [
       material.uuid,
-      JSON.stringify(material),
+      emissionKey(material),
     ]),
   );
   ordered.forEach((triangle, index) => {
@@ -99,14 +145,14 @@ export function appendEmissiveLights(
     if (luminance <= 0) return;
     const cached = cache?.get(triangle),
       materialKey = materialKeys.get(material.uuid)!;
-    if (cached?.material === materialKey) {
+    if (cached) {
       emitters.push({
         index,
         area: cached.area,
         weight: cached.area * luminance,
         color,
       });
-      semantic.push({ key: cached.key, value: cached.value });
+      include(cached.value, materialKey);
       return;
     }
     const [a, b, c] = triangle.vertices.map((vertex) => vertex.position),
@@ -129,18 +175,10 @@ export function appendEmissiveLights(
       triangle.elementOffset,
       triangle.vertexIndices,
     ]);
-    const value = JSON.stringify([
-      key,
-      triangle.vertices,
-      triangle.normalMatrix,
-      material,
-    ]);
+    const value = geometrySignature(triangle);
     if (hasCapturedGeometry(snapshot))
       cache?.set(triangle, { material: materialKey, value, area, key });
-    semantic.push({
-      key,
-      value,
-    });
+    include(value, materialKey);
   });
   const total = emitters.reduce((sum, emitter) => sum + emitter.weight, 0),
     output = new Float32Array(explicit.length + emitters.length * 12);
@@ -190,25 +228,21 @@ export function appendEmissiveLights(
   // GPU-only triangle -> emitter PDF lookup follows the emitting records.
   // An opaque triangle has probability zero. Volumes are appended after this
   // table by the tracer, so the light-buffer ownership and bindings stay shared.
-  const gpuData = new Float32Array(
-    output.length + (emitters.length ? ordered.length * 12 : 0),
-  );
-  gpuData.set(output);
-  emitters.forEach((emitter) =>
-    gpuData.set(
-      [emitter.area, emitter.weight / total],
-      output.length + emitter.index * 12,
-    ),
-  );
+  const probabilities = new Float32Array(emitters.length ? ordered.length : 0);
+  const gpuData = includeLegacyLookup ? new Float32Array(output.length + (emitters.length ? ordered.length * 12 : 0)) : output;
+  if (includeLegacyLookup) gpuData.set(output);
+  emitters.forEach(emitter => {
+    probabilities[emitter.index] = emitter.weight / total;
+    if (includeLegacyLookup) gpuData.set([emitter.area, emitter.weight / total], output.length + emitter.index * 12);
+  });
   return {
     signature: JSON.stringify([
       Array.from(explicit),
-      semantic
-        .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
-        .map((entry) => entry.value),
+      emitters.length, semanticFirst, semanticSecond,
     ]),
     data: output,
     gpuData,
+    probabilities,
     explicitRecords: explicit.length / 12,
     emitters: emitters.length,
     totalArea: emitters.reduce((sum, emitter) => sum + emitter.area, 0),

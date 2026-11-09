@@ -8,6 +8,12 @@
 
 ## 先选择合适的接入方式
 
+普通第三方网格生成器可直接使用 `pelican recipe --id npm-geometry`：安装配方声明的 npm 依赖，保留 positions/normals/UV/indices，把普通数据交给受管几何。无需替换渲染器，也不必修改 node_modules。GLB 先用 `pelican assets` 查询声明 ID，再用 `pelican assets --id <id> --limit 20` 查询真实材质槽和来源，按 nextOffset 翻页；绑定契约用 `pelican api --symbol ModelDefinition.materialSlots`。同名的声明材质不会自动覆盖模型内部材质。资产命令编译当前可信内容，不用过期缓存猜名称。
+
+加载界面可用 `engineStartup()` 和 `onEngineStartup(listener, signal)` 接自己的 DOM 或浏览器 npm UI。观察者返回分离快照，异常不打断引擎；取消 signal 或调用返回的注销函数释放监听。状态覆盖 download/decode/pipeline/first-frame/ready/failed，字节进度属于当前资源，不伪造总百分比。`startup-feedback` 配方演示普通模块中的接入；需要观察所有初次下载时，在自己的 HTML/打包入口先订阅，再启动引擎，不能等 runtime.setup 完成后才创建加载界面。
+
+开发态用 `pelican diagnose --port 4173` 获取帧处理、历史失效、最近上传与重复资产的诊断及修复查询。也可把兼容的分离观测交给 `diagnoseRendering`。诊断是有明确范围的启发式，不把 CPU wall time 当成 GPU 时间或实际 FPS，不会修改作者的分辨率与画质。
+
 | 需求 | 接入方式 | 谁管理状态和资源 |
 | --- | --- | --- |
 | 数学、压缩、数据结构、规则算法 | 在游戏 package.json 安装普通浏览器兼容 npm 包，正常 import | 游戏作者；要存档的数据放组件或 runtime hooks |

@@ -539,7 +539,7 @@ test("host binds exact ranges, pingpongs history, copies guides after dispatch, 
     state.groups.map((g) => resource(g, 8).offset),
     [0, 256, 0, 256, 0, 256, 0],
   );
-  assert.equal(filter.inspect().bytes, 4 * 17 * 9 * 16 + 512);
+  assert.equal(filter.inspect().bytes, 4 * 17 * 9 * 16 + 768);
   assert.equal(filter.inspect().passes, 7);
   assert.equal(filter.inspect().historyValid, true);
   assert.equal(

@@ -14,6 +14,8 @@ import { SDK_VERSION } from "../packages/sdk/src/index.ts";
 import { readRecipe, readRecipeFiles, recipeDependencies, recipeIds } from "./npm/recipes.ts";
 import { generateApiIndex, queryApi } from "./api-index.ts";
 import { authorGuide, queryCapabilities } from "./author-guide.ts";
+import { diagnoseRendering, type RenderDiagnosticInput } from "../packages/sdk/src/index.ts";
+import { queryAssets } from "./asset-query.ts";
 import { optimizeModel } from "../packages/assets/src/optimize.ts";
 import { compressDist } from "./compress-dist.ts";
 import { createBuildOutput } from "./build-output.ts";
@@ -91,6 +93,8 @@ async function main() {
           "doctor",
           "guide [--goal <English/中文-query>] (compact npm game-author starting context)",
           "capabilities [--feature <id-or-English/中文-query>] [--summary] [--limit 20 --offset 0]",
+          "diagnose [--port 4173] (bounded live render observations with causes and repair queries; not FPS)",
+          "assets [--id <declared-id>] [--limit 20 --offset 0] (validated asset costs and real model material slots)",
           "recipe --id <recipe-id>",
           "api [--symbol <Type-or-Type.member> | --search <query> [--member] [--limit 20]]",
           "setup [--install-browser] [--offline]",
@@ -166,6 +170,12 @@ async function main() {
     emit(envelope("succeeded", authorGuide(args.slice(1))));
     return;
   }
+  if (command === "assets") {
+    const result = await compile();
+    if (!result.success || !result.ir) { emit(envelope("failed", null, result.diagnostics)); process.exitCode = 1; return; }
+    emit(envelope("succeeded", queryAssets(result.ir, option("id"), Number(option("limit", "20")), Number(option("offset", "0"))), result.diagnostics));
+    return;
+  }
   if (command === "capabilities") {
     emit(envelope("succeeded", queryCapabilities(args.slice(1))));
     return;
@@ -179,6 +189,7 @@ async function main() {
   if (
     [
       "inspect",
+      "diagnose",
       "render",
       "pointer",
       "batch",
@@ -224,9 +235,10 @@ async function main() {
         if (denoise !== undefined && !["true", "false"].includes(denoise)) throw new Error("TC_CLI_RENDER: --denoise must be true or false.");
         operation = { type: "render", samples: Number(option("samples", "64")), mode: option("mode", "path") as "path" | "hybrid", ...(denoise === undefined ? {} : { denoise: denoise === "true" }) };
       }
-      else if (command === "inspect")
+      else if (command === "inspect" || command === "diagnose")
         operation = {
           type: "inspect",
+          ...(command === "diagnose" ? { limit: 1 } : {}),
           ...(option("entity") ? { entity: option("entity") } : {}),
           ...(option("offset") ? { offset: Number(option("offset")) } : {}),
           ...(option("limit") ? { limit: Number(option("limit")) } : {}),
@@ -273,6 +285,7 @@ async function main() {
         option("task") ? { taskId: option("task") } : {},
       );
     }
+    if (command === "diagnose" && response.status === "succeeded") response.data = diagnoseRendering(response.data as RenderDiagnosticInput);
     if (command === "capture" && response.status === "succeeded") {
       const data = response.data as {
         format: string;

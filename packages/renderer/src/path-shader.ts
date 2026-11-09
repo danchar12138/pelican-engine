@@ -139,43 +139,57 @@ fn traceEnvironmentAmbient(direction:vec3f)->vec3f{
  }return result;
 }
 fn tracePower(a:f32,b:f32)->f32{return a*a/max(a*a+b*b,1e-30);}
-fn traceEnvironmentPdf(direction:vec3f)->f32{
- if(traceParams.environment.x<0.0){return 0.0;}let local=normalize(mat3x3f(traceParams.environment0.xyz,traceParams.environment1.xyz,traceParams.environment2.xyz)*direction);let uv=vec2f((atan2(local.z,local.x)+3.141592653589793)/6.283185307179586,acos(clamp(local.y,-1.0,1.0))/3.141592653589793);let column=min(u32(uv.x*traceParams.environment.z),u32(traceParams.environment.z)-1u);let row=min(u32(uv.y*traceParams.environment.w),u32(traceParams.environment.w)-1u);let cell=environmentImportance[row*u32(traceParams.environment.z)+column];return cell.x/(cell.w*max(traceParams.origin.w,1.0));
+fn traceEnvironmentPdf(direction:vec3f,techniques:f32)->f32{
+ if(traceParams.environment.x<0.0){return 0.0;}let local=normalize(mat3x3f(traceParams.environment0.xyz,traceParams.environment1.xyz,traceParams.environment2.xyz)*direction);let uv=vec2f((atan2(local.z,local.x)+3.141592653589793)/6.283185307179586,acos(clamp(local.y,-1.0,1.0))/3.141592653589793);let column=min(u32(uv.x*traceParams.environment.z),u32(traceParams.environment.z)-1u);let row=min(u32(uv.y*traceParams.environment.w),u32(traceParams.environment.w)-1u);let cell=environmentImportance[row*u32(traceParams.environment.z)+column];return cell.x/(cell.w*max(techniques,1.0));
 }
-fn traceEnvironmentDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,continuation:bool,seed:ptr<function,u32>)->vec3f{
+fn traceEnvironmentDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,continuation:bool,seed:ptr<function,u32>,techniques:f32)->vec3f{
  let position=point.position;
- if(traceParams.environment.x<0.0){return vec3f(0);}let count=u32(traceParams.environment.z*traceParams.environment.w);let selection=traceRandom(seed)*f32(count);var selected=u32(selection);let proposal=environmentImportance[selected];if(fract(selection)>=proposal.z){selected=u32(proposal.y);}let cell=environmentImportance[selected];let row=selected/u32(traceParams.environment.z);let column=selected%u32(traceParams.environment.z);let phi=((f32(column)+traceRandom(seed))/traceParams.environment.z)*6.283185307179586-3.141592653589793;let cosine=mix(cos(f32(row)*3.141592653589793/traceParams.environment.w),cos(f32(row+1u)*3.141592653589793/traceParams.environment.w),traceRandom(seed));let sine=sqrt(max(0.0,1.0-cosine*cosine));let local=vec3f(sine*cos(phi),cosine,sine*sin(phi));let direction=transpose(mat3x3f(traceParams.environment0.xyz,traceParams.environment1.xyz,traceParams.environment2.xyz))*local;let noL=traceCosine(surface,direction);if(noL<=0.0||!traceValidDirection(geometric,surface,direction)){return vec3f(0);}let hit=point.receiveShadow&&occludedSurface(traceOffset(point,geometric,direction),direction,1e20,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed));if(hit){return vec3f(0);}let pdf=cell.x/(cell.w*max(traceParams.origin.w,1.0));if(pdf<=0.0){return vec3f(0);}let bsdf=traceEvaluate(surface,view,direction);let brdfPdf=tracePdf(surface,view,direction);return traceShadowBeer(shadowMedia,geometric,direction,1e20)*bsdf*traceEnvironmentBase(direction)*(noL*select(1.0,tracePower(pdf,brdfPdf),continuation)/pdf);
+ if(traceParams.environment.x<0.0){return vec3f(0);}let count=u32(traceParams.environment.z*traceParams.environment.w);let selection=traceRandom(seed)*f32(count);var selected=u32(selection);let proposal=environmentImportance[selected];if(fract(selection)>=proposal.z){selected=u32(proposal.y);}let cell=environmentImportance[selected];let row=selected/u32(traceParams.environment.z);let column=selected%u32(traceParams.environment.z);let phi=((f32(column)+traceRandom(seed))/traceParams.environment.z)*6.283185307179586-3.141592653589793;let cosine=mix(cos(f32(row)*3.141592653589793/traceParams.environment.w),cos(f32(row+1u)*3.141592653589793/traceParams.environment.w),traceRandom(seed));let sine=sqrt(max(0.0,1.0-cosine*cosine));let local=vec3f(sine*cos(phi),cosine,sine*sin(phi));let direction=transpose(mat3x3f(traceParams.environment0.xyz,traceParams.environment1.xyz,traceParams.environment2.xyz))*local;let noL=traceCosine(surface,direction);if(noL<=0.0||!traceValidDirection(geometric,surface,direction)){return vec3f(0);}let hit=point.receiveShadow&&occludedSurface(traceOffset(point,geometric,direction),direction,1e20,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed));if(hit){return vec3f(0);}let pdf=cell.x/(cell.w*max(techniques,1.0));if(pdf<=0.0){return vec3f(0);}let bsdf=traceEvaluate(surface,view,direction);let brdfPdf=tracePdf(surface,view,direction);return traceShadowBeer(shadowMedia,geometric,direction,1e20)*bsdf*traceEnvironmentBase(direction)*(noL*select(1.0,tracePower(pdf,brdfPdf),continuation)/pdf);
 }
-fn traceEmitterPdf(index:u32,origin:vec3f,position:vec3f)->f32{
+fn traceEmitterFrame(triangle:SurfaceTriangle)->vec4f{
+ let face=cross(triangle.b.xyz-triangle.a.xyz,triangle.c.xyz-triangle.a.xyz);let scale=max(abs(face.x),max(abs(face.y),abs(face.z)));
+ if(!(scale>0.0&&scale<=3.402823e38)){return vec4f(0);}
+ let scaled=face/scale;let size=length(scaled);return vec4f(scaled/size,scale*(0.5*size));
+}
+fn traceEmitterPdf(index:u32,origin:vec3f,position:vec3f,techniques:f32)->f32{
  if(traceParams.up.w<0.5){return 0.0;}
- let lookup=traceLights[u32(traceParams.counts.z)+u32(traceParams.up.w)+index].position;
- if(lookup.y<=0.0){return 0.0;}
- let triangle=surfaceTriangle(index);let normal=normalize(cross(triangle.b.xyz-triangle.a.xyz,triangle.c.xyz-triangle.a.xyz));let delta=position-origin;let distance2=dot(delta,delta);let cosine=abs(dot(normal,-normalize(delta)));return lookup.y*distance2/max(lookup.x*cosine*max(traceParams.origin.w,1.0),1e-20);
+ let probability=surfaceAccelerationData[u32(traceParams.counts.x)*2u+index*3u+2u].w;
+ if(probability<=0.0){return 0.0;}
+ let frame=traceEmitterFrame(surfaceTriangle(index));if(frame.w<=0.0){return 0.0;}
+ let delta=position-origin;let distance2=dot(delta,delta);let cosine=abs(dot(frame.xyz,-normalize(delta)));return probability*distance2/max(frame.w*cosine*max(techniques,1.0),1e-20);
 }
-fn traceEmitterDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,continuation:bool,seed:ptr<function,u32>)->vec3f{
+fn traceEmitterDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,continuation:bool,seed:ptr<function,u32>,techniques:f32)->vec3f{
  let position=point.position;
  let count=u32(traceParams.up.w);if(count==0u){return vec3f(0);}
  let selection=traceRandom(seed)*f32(count);let slot=min(u32(selection),count-1u);let base=u32(traceParams.counts.z);let proposal=traceLights[base+slot];let selected=select(u32(proposal.extra.z),slot,fract(selection)<proposal.extra.y);
  let light=traceLights[base+selected];let index=u32(light.position.x);let triangle=surfaceTriangle(index);let root=sqrt(traceRandom(seed));let bary=vec3f(1.0-root,root*(1.0-traceRandom(seed)),0);let weights=vec3f(bary.xy,1.0-bary.x-bary.y);let emitterPoint=triangle.a.xyz*weights.x+triangle.b.xyz*weights.y+triangle.c.xyz*weights.z;
  let delta=emitterPoint-position;let distance=length(delta);if(distance<=0.002){return vec3f(0);}let direction=delta/distance;let geometricCosine=dot(geometric,direction);let cosine=traceCosine(surface,direction);if(cosine<=0.0||!traceValidDirection(geometric,surface,direction)){return vec3f(0);}
- let emitNormal=normalize(cross(triangle.b.xyz-triangle.a.xyz,triangle.c.xyz-triangle.a.xyz));let emitCosine=abs(dot(emitNormal,-direction));if(emitCosine<1e-6){return vec3f(0);}let front=surfaceOriginalFront(triangle,dot(emitNormal,-direction)>0.0);let emission=evaluateSurfaceView(index,weights,front,-direction);if(emission.discarded!=0u){return vec3f(0);}
+ let emitFrame=traceEmitterFrame(triangle);if(emitFrame.w<=0.0){return vec3f(0);}let emitNormal=emitFrame.xyz;let emitCosine=abs(dot(emitNormal,-direction));if(emitCosine<1e-6){return vec3f(0);}let front=surfaceOriginalFront(triangle,dot(emitNormal,-direction)>0.0);let emission=evaluateSurfaceView(index,weights,front,-direction);if(emission.discarded!=0u){return vec3f(0);}
  let visibility=point.receiveShadow&&occludedSurface(traceOffset(point,geometric,direction),direction,distance-.002,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed));if(visibility){return vec3f(0);}
- let pdf=light.position.z*distance*distance/max(light.position.y*emitCosine*max(traceParams.origin.w,1.0),1e-20);let brdfPdf=tracePdf(surface,view,direction);let weight=select(1.0,tracePower(pdf,brdfPdf),continuation);
+ let pdf=light.position.z*distance*distance/max(emitFrame.w*emitCosine*max(techniques,1.0),1e-20);let brdfPdf=tracePdf(surface,view,direction);let weight=select(1.0,tracePower(pdf,brdfPdf),continuation);
  return traceShadowBeer(shadowMedia,geometric,direction,distance)*traceEvaluate(surface,view,direction)*emission.emissive*(cosine*weight*select(1.0,emission.alpha,surfaceMaterials[u32(triangle.a.w)].normal.w==2.0)/pdf);
 }
-fn traceDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,continuation:bool,seed:ptr<function,u32>)->vec3f{
- let position=point.position;
- let count=u32(traceParams.origin.w);if(count==0u){return vec3f(0);}let selected=min(u32(traceRandom(seed)*f32(count)),count-1u);var current=0u;
+fn traceExplicit(index:u32,point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,seed:ptr<function,u32>)->vec3f{
+ let position=point.position;let light=traceLights[index];
+ var delta=light.position.xyz;var distance=1e20;var attenuation=1.0;var castsShadow=light.extra.x>0.5;
+ if(light.position.w==0.0||light.position.w==5.0){delta-=position;distance=length(delta);if(distance<=0.0001){return vec3f(0);}var limit=light.color.w;var decay=light.extra.w;var edge=1.0;if(light.position.w==5.0){let params=traceLights[index+1u];limit=params.position.x;decay=params.position.y;castsShadow=params.position.z>0.5;let cone=dot(light.extra.xyz,-delta/distance);if(cone<light.color.w){return vec3f(0);}if(light.extra.w>light.color.w){edge=smoothstep(light.color.w,light.extra.w,cone);}}attenuation=edge/max(pow(distance,decay),0.01);if(limit>0.0){let cutoff=clamp(1.0-pow(distance/limit,4.0),0.0,1.0);attenuation*=cutoff*cutoff;}}
+ let direction=normalize(delta);let cosine=traceCosine(surface,direction);if(cosine==0.0||!traceValidDirection(geometric,surface,direction)){return vec3f(0);}
+ if(castsShadow&&point.receiveShadow&&occludedSurface(traceOffset(point,geometric,direction),direction,distance-.002,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed))){return vec3f(0);}
+ return traceShadowBeer(shadowMedia,geometric,direction,distance)*traceEvaluate(surface,view,direction)*light.color.rgb*(cosine*attenuation);
+}
+fn traceDirect(point:TracePoint,geometric:vec3f,surface:SurfaceValue,view:vec3f,shadowMedia:TraceShadowMedia,continuation:bool,seed:ptr<function,u32>,allTechniques:bool)->vec3f{
+ let count=u32(traceParams.origin.w);if(count==0u){return vec3f(0);}
+ let selected=min(u32(traceRandom(seed)*f32(count)),count-1u);var current=0u;var result=vec3f(0);
+ let techniques=select(f32(count),1.0,allTechniques);
  for(var index=0u;index<u32(traceParams.counts.z);index++){
-  let light=traceLights[index];if(light.position.w>=2.0&&light.position.w!=5.0){continue;}if(current!=selected){current++;continue;}
-  var delta=light.position.xyz;var distance=1e20;var attenuation=1.0;var castsShadow=light.extra.x>0.5;
-  if(light.position.w==0.0||light.position.w==5.0){delta-=position;distance=length(delta);if(distance<=0.0001){return vec3f(0);}var limit=light.color.w;var decay=light.extra.w;var edge=1.0;if(light.position.w==5.0){let params=traceLights[index+1u];limit=params.position.x;decay=params.position.y;castsShadow=params.position.z>0.5;let cone=dot(light.extra.xyz,-delta/distance);if(cone<light.color.w){return vec3f(0);}if(light.extra.w>light.color.w){edge=smoothstep(light.color.w,light.extra.w,cone);}}attenuation=edge/max(pow(distance,decay),0.01);if(limit>0.0){let cutoff=clamp(1.0-pow(distance/limit,4.0),0.0,1.0);attenuation*=cutoff*cutoff;}}
-  let direction=normalize(delta);let cosine=traceCosine(surface,direction);if(cosine==0.0||!traceValidDirection(geometric,surface,direction)){return vec3f(0);}
-  if(castsShadow&&point.receiveShadow&&occludedSurface(traceOffset(point,geometric,direction),direction,distance-.002,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(seed))){return vec3f(0);}
-  return traceShadowBeer(shadowMedia,geometric,direction,distance)*traceEvaluate(surface,view,direction)*light.color.rgb*(cosine*attenuation*f32(count));
+  let light=traceLights[index];if(light.position.w>=2.0&&light.position.w!=5.0){continue;}
+  if(allTechniques){result+=traceExplicit(index,point,geometric,surface,view,shadowMedia,seed);}
+  else if(current==selected){return traceExplicit(index,point,geometric,surface,view,shadowMedia,seed)*f32(count);}
+  current++;
  }
- if(traceParams.up.w>0.5){if(selected==current){return traceEmitterDirect(point,geometric,surface,view,shadowMedia,continuation,seed);}current++;}
- if(traceParams.environment.x>=0.0&&selected==current){return traceEnvironmentDirect(point,geometric,surface,view,shadowMedia,continuation,seed);}return vec3f(0);
+ if(traceParams.up.w>0.5){if(allTechniques||selected==current){result+=traceEmitterDirect(point,geometric,surface,view,shadowMedia,continuation,seed,techniques);}current++;}
+ if(traceParams.environment.x>=0.0&&(allTechniques||selected==current)){result+=traceEnvironmentDirect(point,geometric,surface,view,shadowMedia,continuation,seed,techniques);}
+ return result;
 }
 @compute @workgroup_size(8,8)
 fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
@@ -193,7 +207,7 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
   let cameraOrigin=traceCameraOrigin(traceParams.origin.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
   var direction=traceCameraDirection(traceParams.forward.xyz,traceParams.right.xyz,traceParams.up.xyz,pixel,orthographic);
   var origin=cameraOrigin+direction*(traceParams.screen.w/max(dot(direction,traceParams.forward.xyz),1e-5));
-  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousDelta=false;var etaScale=1.0;var previousPosition=select(cameraOrigin,origin,perRayMedia);var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
+  var throughput=vec3f(1);var radiance=vec3f(0);var previousPdf=0.0;var previousTechniques=traceParams.origin.w;var previousDelta=false;var etaScale=1.0;var previousPosition=select(cameraOrigin,origin,perRayMedia);var media:array<u32,65>;var mediumDepth=1u;media[0]=0u;
   var previousHit=-1;var previousGeometric=vec3f(0);var previousBary=vec3f(0);var previousEvent=0u;var previousFront=false;
   if(traceVolumeEnabled){
    var initialFault=0u;
@@ -207,7 +221,7 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
    else{var rayLimit=traceParams.settings.w;if(bounce==0u){rayLimit=(traceParams.settings.w-traceParams.screen.w)/max(dot(direction,traceParams.forward.xyz),1e-5);}hit=traceSurface(origin,direction,rayLimit,u32(traceParams.counts.x),u32(traceParams.counts.y),traceRandom(&seed));}
    let debugSlot=pixelCount*4u+13u+bounce*8u;
    if(targeted&&bounce<8u){for(var debugRow=0u;debugRow<8u;debugRow++){traceOutput.pixels[debugSlot+debugRow]=vec4f(0);}traceOutput.pixels[pixelCount*4u+12u].z=f32(bounce+1u);traceOutput.pixels[debugSlot]=vec4f(origin,f32(hit.index));traceOutput.pixels[debugSlot+1u]=vec4f(direction,hit.distance);traceOutput.pixels[debugSlot+2u]=vec4f(f32(mediumDepth),f32(media[mediumDepth-1u]),select(0.0,1.0,hit.front),0);}
-   if(hit.index<0){if(traceVolumeEnabled&&media[mediumDepth-1u]!=0u){let fault=atomicAdd(&traceOutput.faults,1u);if(traceCaptureFault&&((traceParams.environment0.w<0.0&&fault==0u)||targeted)){let tail=pixelCount*4u;traceOutput.pixels[tail]=vec4f(origin,f32(bounce));traceOutput.pixels[tail+1u]=vec4f(direction,f32(media[mediumDepth-1u]));traceOutput.pixels[tail+2u]=vec4f(previousPosition,f32(previousHit));traceOutput.pixels[tail+3u]=vec4f(previousGeometric,f32(previousEvent));traceOutput.pixels[tail+4u]=vec4f(previousBary,f32(index));traceOutput.pixels[tail+5u]=vec4f(select(0.0,1.0,previousFront),traceParams.screen.z,f32(sample),1);if(previousHit>=0){let oldTriangle=surfaceTriangle(u32(previousHit));traceOutput.pixels[tail+6u]=oldTriangle.a;traceOutput.pixels[tail+7u]=oldTriangle.b;traceOutput.pixels[tail+8u]=oldTriangle.c;traceOutput.pixels[tail+9u]=surfaceMaterials[u32(oldTriangle.a.w)].physical;traceOutput.pixels[tail+10u]=oldTriangle.nma;traceOutput.pixels[tail+11u]=oldTriangle.nmb;}}atomicOr(&traceOutput.faultMask,4u);atomicStore(&traceOutput.faultDetail,(mediumDepth<<24u)|media[mediumDepth-1u]);atomicStore(&traceOutput.faultPixel,index);break;}if(bounce==0u){radiance+=throughput*traceBackground(direction);}else{let weight=select(1.0,tracePower(previousPdf,traceEnvironmentPdf(direction)),traceParams.flags.z>0.5&&traceParams.environment.x>=0.0&&!previousDelta);radiance+=throughput*(traceEnvironmentBase(direction)*weight+traceEnvironmentAmbient(direction));}break;}
+   if(hit.index<0){if(traceVolumeEnabled&&media[mediumDepth-1u]!=0u){let fault=atomicAdd(&traceOutput.faults,1u);if(traceCaptureFault&&((traceParams.environment0.w<0.0&&fault==0u)||targeted)){let tail=pixelCount*4u;traceOutput.pixels[tail]=vec4f(origin,f32(bounce));traceOutput.pixels[tail+1u]=vec4f(direction,f32(media[mediumDepth-1u]));traceOutput.pixels[tail+2u]=vec4f(previousPosition,f32(previousHit));traceOutput.pixels[tail+3u]=vec4f(previousGeometric,f32(previousEvent));traceOutput.pixels[tail+4u]=vec4f(previousBary,f32(index));traceOutput.pixels[tail+5u]=vec4f(select(0.0,1.0,previousFront),traceParams.screen.z,f32(sample),1);if(previousHit>=0){let oldTriangle=surfaceTriangle(u32(previousHit));traceOutput.pixels[tail+6u]=oldTriangle.a;traceOutput.pixels[tail+7u]=oldTriangle.b;traceOutput.pixels[tail+8u]=oldTriangle.c;traceOutput.pixels[tail+9u]=surfaceMaterials[u32(oldTriangle.a.w)].physical;traceOutput.pixels[tail+10u]=oldTriangle.nma;traceOutput.pixels[tail+11u]=oldTriangle.nmb;}}atomicOr(&traceOutput.faultMask,4u);atomicStore(&traceOutput.faultDetail,(mediumDepth<<24u)|media[mediumDepth-1u]);atomicStore(&traceOutput.faultPixel,index);break;}if(bounce==0u){radiance+=throughput*traceBackground(direction);}else{let weight=select(1.0,tracePower(previousPdf,traceEnvironmentPdf(direction,previousTechniques)),traceParams.flags.z>0.5&&traceParams.environment.x>=0.0&&!previousDelta);radiance+=throughput*(traceEnvironmentBase(direction)*weight+traceEnvironmentAmbient(direction));}break;}
    let triangle=surfaceTriangle(u32(hit.index));var surface=evaluateSurfaceView(u32(hit.index),hit.bary,hit.front,-direction);let point=tracePoint(triangle,hit.bary);let position=point.position;var shadowMedia=TraceShadowMedia(vec3f(0),vec3f(0));
    if(traceVolumeEnabled){shadowMedia.incident=traceMediumSigma(media[mediumDepth-1u]);shadowMedia.transmitted=shadowMedia.incident;throughput*=exp(-traceMediumSigma(media[mediumDepth-1u])*length(position-previousPosition));if(surface.medium.x>0.0){let id=u32(triangle.nmb.w);if(id==0u||id>u32(traceParams.medium.w)){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,1u);break;}
      if(hit.front){var duplicate=false;for(var layer=1u;layer<mediumDepth;layer++){if(media[layer]==id){duplicate=true;}}if(duplicate){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,2u);atomicStore(&traceOutput.faultDetail,(mediumDepth<<24u)|(id<<12u)|media[mediumDepth-1u]);atomicStore(&traceOutput.faultPixel,index);break;}shadowMedia.transmitted=traceMediumSigma(id);surface.medium=vec4f(surface.medium.x,traceMediumIor(media[mediumDepth-1u]),traceMediumIor(id),1.0);}
@@ -223,15 +237,15 @@ fn pathMain(@builtin(global_invocation_id) invocation:vec3u){
     break;
    }
    if(surface.medium.x<0.0){radiance+=throughput*surface.base;break;}
-   var emissionWeight=1.0;if(bounce>0u&&traceParams.flags.z>0.5&&!previousDelta){emissionWeight=tracePower(previousPdf,traceEmitterPdf(u32(hit.index),previousPosition,position));}
+   var emissionWeight=1.0;if(bounce>0u&&traceParams.flags.z>0.5&&!previousDelta){emissionWeight=tracePower(previousPdf,traceEmitterPdf(u32(hit.index),previousPosition,position,previousTechniques));}
    radiance+=throughput*surface.emissive*emissionWeight;
-   if(traceParams.flags.z>0.5){radiance+=throughput*traceDirect(point,geometric,surface,-direction,shadowMedia,traceParams.flags.w>0.5&&bounce+1u<u32(traceParams.settings.z),&seed);}
+   if(traceParams.flags.z>0.5){radiance+=throughput*traceDirect(point,geometric,surface,-direction,shadowMedia,traceParams.flags.w>0.5&&bounce+1u<u32(traceParams.settings.z),&seed,bounce==0u);}
    if(traceParams.flags.w<0.5){break;}
    let branch=traceRandom(&seed);let random=vec3f(traceRandom(&seed),traceRandom(&seed),traceRandom(&seed));let next=traceScatter(surface,-direction,branch,random);
    if(targeted&&bounce<8u){traceOutput.pixels[debugSlot+4u]=vec4f(next.direction,f32(next.event));traceOutput.pixels[debugSlot+5u]=vec4f(geometric,next.pdf);}
    if(next.pdf<=0.0||!traceValidDirection(geometric,surface,next.direction)||(next.event==2u)!=(dot(geometric,next.direction)<0.0)){break;}
    if(traceVolumeEnabled&&next.event==2u){let id=u32(triangle.nmb.w);if(hit.front){if(mediumDepth>=65u){atomicAdd(&traceOutput.faults,1u);atomicOr(&traceOutput.faultMask,8u);break;}media[mediumDepth]=id;mediumDepth++;}else{mediumDepth--;}etaScale*=next.eta*next.eta;}
-   throughput*=next.weight;previousPdf=next.pdf;previousDelta=next.delta!=0u;
+   throughput*=next.weight;previousTechniques=select(traceParams.origin.w,1.0,bounce==0u);previousPdf=next.pdf;previousDelta=next.delta!=0u;
    if(bounce>=2u&&!previousDelta){let survival=clamp(max(throughput.r,max(throughput.g,throughput.b))*etaScale,0.05,0.95);if(traceRandom(&seed)>survival){break;}throughput/=survival;}
    if(traceCaptureFault&&traceVolumeEnabled){previousHit=hit.index;previousGeometric=geometric;previousBary=hit.bary;previousEvent=next.event;previousFront=hit.front;}
    previousPosition=position;origin=traceOffset(point,geometric,next.direction);direction=next.direction;

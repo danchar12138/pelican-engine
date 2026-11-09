@@ -61,3 +61,24 @@ export function packTraversalData(nodes: Float32Array, geometry: Float32Array) {
   }
   return output;
 }
+
+/** Private persistent packing: escape pointers change only with topology. */
+export function createTraversalDataPacker() {
+  let revision = -1, data = new Float32Array();
+  return (nodes: Float32Array, geometry: Float32Array, topologyRevision: number) => {
+    if (revision !== topologyRevision || data.length !== nodes.length + geometry.length / 6) {
+      data = packTraversalData(nodes, geometry); revision = topologyRevision; return data;
+    }
+    for (let offset = 0; offset < nodes.length; offset += 8)
+      for (const component of [0, 1, 2, 4, 5, 6]) data[offset + component] = nodes[offset + component];
+    for (let index = 0; index < geometry.length / 72; index++) {
+      const source = index * 72, target = nodes.length + index * 12;
+      for (let component = 0; component < 7; component++) data[target + component] = geometry[source + component];
+      data[target + 7] = geometry[source + 63];
+      data[target + 8] = geometry[source + 8];
+      data[target + 9] = geometry[source + 9];
+      data[target + 10] = geometry[source + 10];
+    }
+    return data;
+  };
+}

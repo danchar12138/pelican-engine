@@ -1950,6 +1950,7 @@ export function extractSurfaceScene(
             direction = new THREE.Matrix3().setFromMatrix4(combined);
           for (const n of normalMatrix.elements)
             finite(n, mesh.uuid, "inverse-transpose normal matrix");
+          const normalMatrixValues = normalMatrix.elements.slice();
           for (const segment of segments) {
             const material = options.meshCache
               ? resolved.get(segment)
@@ -2021,7 +2022,7 @@ export function extractSurfaceScene(
                 elementOffset: offset,
                 vertexIndices: indices,
                 vertices,
-                normalMatrix: normalMatrix.elements.slice(),
+                normalMatrix: normalMatrixValues,
               });
             }
           }

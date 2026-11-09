@@ -25,6 +25,8 @@ import { createClothPlugin } from "../../simulation/src/cloth-plugin.ts";
 import { createFluidPlugin } from "../../simulation/src/fluid-plugin.ts";
 import { createSoftBodyPlugin } from "../../simulation/src/softbody-plugin.ts";
 import { createModelLibrary } from "./models.ts";
+import { fetchLoadingAsset, loadingStage } from "./loading.ts";
+import { boundedOperation } from "./startup.ts";
 import { resolveEntityDefinition } from "../../runtime/src/prefabs.ts";
 import type { EntityRecord } from "../../runtime/src/contracts.ts";
 
@@ -40,11 +42,12 @@ export async function prepareGameplay(
     if (!asset) throw new Error("TC_ASSET_MISSING: " + id);
     return new URL(asset.path, baseURL).href;
   };
+  const loading = new AbortController();
   const models = createModelLibrary(
     ir.assets
       .filter((a) => a.type === "model")
       .map((a) => ({ id: a.id, url: assetURL(a.id) })),
-    { material: id => materials.get(id) },
+    { material: id => materials.get(id), fetch: (input, init) => fetchLoadingAsset(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, loading.signal]) : loading.signal }) },
   );
   const textures = new Map<string, THREE.Texture>();
   const renderedTextures = new Set<string>();
@@ -57,7 +60,8 @@ export async function prepareGameplay(
   if (environment.backgroundTexture) renderedTextures.add(environment.backgroundTexture);
   if (environment.lightingTexture) renderedTextures.add(environment.lightingTexture);
   for (const material of ir.materials) {
-    if (material.texture) renderedTextures.add(material.texture);
+    for (const slot of ["texture", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"] as const)
+      if (material[slot]) renderedTextures.add(material[slot]!);
     addGraphTextures(material.graph);
     for (const graph of Object.values(material.graphs ?? {})) addGraphTextures(graph);
     for (const graph of Object.values(material.vertex ?? {})) addGraphTextures(graph);
@@ -127,6 +131,7 @@ export async function prepareGameplay(
   const dispose = (): Promise<void> => {
     if (disposePromise) return disposePromise;
     closed = true;
+    loading.abort(Error("TC_ASSET_CANCELLED: Content owner disposed."));
     uiInput = undefined;
     uiEmit = undefined;
     // Assign first: concurrent or reentrant disposal callers must await the same cleanup.
@@ -161,7 +166,36 @@ export async function prepareGameplay(
   };
   try {
     requireHDRFiltering(renderer);
-    await models.prepare();
+    const texturesToLoad = ir.assets.filter((a) => a.type === "texture");
+    const manager = new THREE.LoadingManager();
+    // Model and texture work share a bounded, failure-joined lifetime. No abandoned
+    // successful texture can appear after disposal of a rejected candidate.
+    let nextTexture = 0;
+    const prepareTextures = async () => {
+      while (nextTexture < texturesToLoad.length) {
+        const asset = texturesToLoad[nextTexture++];
+        const response = await fetchLoadingAsset(assetURL(asset.id), { signal: loading.signal });
+        const data = await response.arrayBuffer();
+        loadingStage("decode", `Decoding ${asset.id}`, { asset: asset.id });
+        let texture: THREE.Texture;
+        if (asset.metadata?.format === "hdr") {
+          texture = new HDRLoader(manager).setDataType(THREE.FloatType).createDataTexture(data);
+        } else {
+          const blob = URL.createObjectURL(new Blob([data]));
+          try { texture = await boundedOperation(new THREE.TextureLoader(manager).loadAsync(blob), `image decode: ${asset.id}`, 30000, "TC_ASSET_DECODE_TIMEOUT"); }
+          finally { URL.revokeObjectURL(blob); }
+        }
+        texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
+        if (loading.signal.aborted) { texture.dispose(); throw loading.signal.reason; }
+        texture.anisotropy = renderer.getMaxAnisotropy();
+        texture.needsUpdate = true;
+        textures.set(asset.id, texture);
+      }
+    };
+    let firstFailure: { error: unknown } | undefined;
+    const join = (promise: Promise<unknown>) => promise.catch(error => { firstFailure ??= { error }; loading.abort(error); throw error; });
+    await Promise.allSettled([join(models.prepare()), ...Array.from({ length: Math.min(4, texturesToLoad.length) }, () => join(prepareTextures()))]);
+    if (firstFailure) throw firstFailure.error;
     if (ir.scene.environment.lighting === "studio") {
       const room = new RoomEnvironment(),
         pmrem = new THREE.PMREMGenerator(renderer);
@@ -171,14 +205,6 @@ export async function prepareGameplay(
         pmrem.dispose();
         room.dispose();
       }
-    }
-    for (const asset of ir.assets.filter((a) => a.type === "texture")) {
-      const texture = asset.metadata?.format === "hdr"
-        ? await new HDRLoader().setDataType(THREE.FloatType).loadAsync(assetURL(asset.id))
-        : await new THREE.TextureLoader().loadAsync(assetURL(asset.id));
-      texture.colorSpace = asset.colorSpace === "linear" ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
-      texture.anisotropy = renderer.getMaxAnisotropy();
-      textures.set(asset.id, texture);
     }
     if (ir.scene.environment.lightingTexture) {
       const source = textures.get(ir.scene.environment.lightingTexture);

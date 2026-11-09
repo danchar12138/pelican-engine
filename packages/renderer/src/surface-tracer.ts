@@ -35,10 +35,11 @@ import { createMediumCatalog, type MediumCatalog } from "./medium.ts";
 import { createEnvironmentCapture, describeEnvironment, sameEnvironmentRevision, type EnvironmentRevision } from "./environment.ts";
 import { createEmissiveLightCache } from "./emissive-lights.ts";
 import { buildEnvironmentImportance } from "./environment-importance.ts";
-import { packTraversalData } from "./traversal-nodes.ts";
+import { createTraversalDataPacker } from "./traversal-nodes.ts";
 import { changedBufferRanges } from "./dirty-upload.ts";
 import { createSurfaceGeometryPacker } from "./surface-gpu.ts";
-import { packPreviousSurfacePositions } from "./surface-motion.ts";
+import { createSurfaceMotionPacker } from "./surface-motion.ts";
+import { emissionOnlyChange } from "./history-policy.ts";
 import { MOTION_SHADER } from "./motion-shader.ts";
 import {
   compileSurfaceGraphs,
@@ -139,6 +140,8 @@ export class SurfaceTracer {
   private buffers = new Map<BufferKey, Entry>();
   private uploaded = new Map<BufferKey, Uint8Array>();
   private packGeometry = createSurfaceGeometryPacker();
+  private packTraversal = createTraversalDataPacker();
+  private packMotion = createSurfaceMotionPacker();
   private frame?: AccelerationFrame;
   private textures: readonly SurfaceTexture[] = [];
   private materialData?: Float32Array;
@@ -154,7 +157,7 @@ export class SurfaceTracer {
   private materialGeneration = 0;
   private lightData?: Float32Array;
   private explicitLightRecords = 0;
-  private emitterCache = createEmissiveLightCache();
+  private emitterCache = createEmissiveLightCache(true);
   private lightingSignature = "";
   private uniform: GPUBuffer;
   private presentUniform: GPUBuffer;
@@ -169,6 +172,7 @@ export class SurfaceTracer {
   private motionGroup: GPUBindGroup | undefined;
   private motionActive = false;
   private geometryData: Float32Array | undefined;
+  private traversalData: Float32Array | undefined;
   private capturedSurface: SurfaceScene | undefined;
   private renderedRevision = -1;
   private motionPackedRevision = -2;
@@ -185,6 +189,7 @@ export class SurfaceTracer {
   private temporal: TemporalFilter | undefined;
   private temporalOutput: GPUBuffer | undefined;
   private temporalHistoryReset = true;
+  private temporalReactive = false;
   private temporalResetReasons = new Set<string>(["initial"]);
   private lastTemporalReset = true;
   private lastTemporalProgressive = false;
@@ -751,6 +756,9 @@ export class SurfaceTracer {
     this.capture.clear();
     this.acceleration.dispose();
     this.acceleration = createSurfaceAcceleration();
+    this.packGeometry = createSurfaceGeometryPacker();
+    this.packTraversal = createTraversalDataPacker();
+    this.packMotion = createSurfaceMotionPacker();
     this.frame = undefined;
     this.samples = 0;
     this.mediumFault = undefined;
@@ -770,6 +778,8 @@ export class SurfaceTracer {
     this.temporal?.reset();
     this.temporalOutput = undefined;
     this.geometryData = undefined;
+    this.traversalData = undefined;
+    this.temporalReactive = false;
     this.capturedSurface = undefined;
     this.previousSurface = undefined;
     this.previousCameraValid = false;
@@ -1055,6 +1065,8 @@ export class SurfaceTracer {
         this.textures.some(
           (texture, index) => texture !== captured.surface.textures[index],
         );
+    if (this.frame && frame.changes.kind === "rebuild") this.invalidateHistory("topology");
+    else if (frame.changes.kind === "refit") this.temporalReactive = true;
     // A failed upload can advance the acceleration without committing this.frame.
     const accelerationOutOfSync = !!this.frame &&
       frame.revision !== this.frame.revision + (frame.changes.kind === "none" ? 0 : 1);
@@ -1085,8 +1097,9 @@ export class SurfaceTracer {
         if (this.frame && frame.changes.kind === "none")
           validateSurfaceTextureCoordinates(captured.surface, frame.orderedTriangles);
         this.put("materials", materials);
+        if (this.graphRows.length === 0 && emissionOnlyChange(this.materialData, materials)) this.temporalReactive = true;
+        else this.invalidateHistory("materials");
         this.materialData = materials;
-        this.invalidateHistory("materials");
         this.reset = true;
       }
     }
@@ -1100,17 +1113,18 @@ export class SurfaceTracer {
           this.mediumIds,
           this.mediumWindings,
         ),
-        traversalNodes = packTraversalData(frame.nodes, geometry);
+        traversalNodes = this.packTraversal(frame.nodes, geometry, frame.topologyRevision);
       this.geometryData = geometry;
       if (!motionEnabled) this.put("triangles", geometry);
-      this.put("nodes", traversalNodes);
+      this.traversalData = traversalNodes;
       this.reset = true;
     }
     if (motionEnabled && (this.motionPackedRevision !== frame.revision || this.motionPackedPreviousRevision !== this.renderedRevision || accelerationOutOfSync)) {
-      const motion = packPreviousSurfacePositions(
+      const motion = this.packMotion(
         this.previousSurface,
         captured.surface,
         frame.orderedTriangles,
+        frame.sourceIndices,
       );
       this.motionMatches = { matched: motion.matched, missing: motion.missing };
       const geometry = this.geometryData!;
@@ -1131,6 +1145,14 @@ export class SurfaceTracer {
     );
     this.emissiveCount = lighting.emitters;
     this.explicitLightRecords = lighting.explicitRecords;
+    // Triangle PDF lives in the unused compact-intersection c.w slot. Derive
+    // world-space area from the triangle in WGSL instead of uploading a 48-byte
+    // light record for every opaque triangle whenever emitter power changes.
+    if (this.traversalData) {
+      for (let i = 0; i < frame.metrics.triangles; i++)
+        this.traversalData[frame.nodes.length + i * 12 + 11] = lighting.probabilities[i] ?? 0;
+      this.put("nodes", this.traversalData);
+    }
     let explicit = 0;
     for (let index = 3; index < captured.lights.length; index += 12)
       if (captured.lights[index] < 2 || captured.lights[index] === 5) explicit++;
@@ -1145,7 +1167,10 @@ export class SurfaceTracer {
     }
     if (lighting.signature !== this.lightingSignature) {
       this.lightingSignature = lighting.signature;
-      this.invalidateHistory("lights");
+      // Reproject and clip radiometric changes; do not discard every pixel's
+      // history for a flickering candle. Geometry/material guides still reject
+      // disocclusion and changed surfaces, and reactive history is bounded.
+      this.temporalReactive = true;
     }
     if (
       this.environment.some(
@@ -1476,7 +1501,8 @@ export class SurfaceTracer {
         ...camera.matrixWorld.elements,
         ...camera.projectionMatrix.elements,
       ]),
-      settingsKey = JSON.stringify(settings);
+      // Exposure is presentation-only; changing it must not destroy linear history.
+      settingsKey = JSON.stringify({ ...settings, exposure: 1 });
     if (cameraKey !== this.cameraKey) this.reset = true;
     if (settingsKey !== this.settingsKey) {
       this.reset = true;
@@ -1665,9 +1691,11 @@ export class SurfaceTracer {
           enabled: this.motionActive,
           reset: this.temporalHistoryReset,
           progressive: !this.reset,
+          reactive: this.temporalReactive,
         },
       ) ?? this.get("average");
     this.temporalOutput = this.motionActive ? temporalOutput : undefined;
+    this.temporalReactive = false;
     if (this.motionActive && this.temporalHistoryReset) this.temporalResets++;
     const output = this.denoiser.encode(
       encoder,

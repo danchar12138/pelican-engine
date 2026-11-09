@@ -171,6 +171,7 @@ function equal(a: unknown, b: unknown): boolean {
 }
 
 const identities = new WeakMap<SurfaceTriangle, string>();
+const orientations = new WeakMap<readonly number[], number>();
 function identity(t: SurfaceTriangle): string {
   const cached = identities.get(t);
   if (cached) return cached;
@@ -188,6 +189,8 @@ function identity(t: SurfaceTriangle): string {
 
 function orientation(t: SurfaceTriangle): number {
   const m = t.normalMatrix;
+  const captured = isCapturedTriangle(t), cached = captured ? orientations.get(m) : undefined;
+  if (cached !== undefined) return cached;
   // Column-major inverse transpose: determinant has the world transform's sign.
   // Scale columns independently so finite anisotropic matrices do not acquire
   // an artificial zero determinant from multiplying tiny common-scale ratios.
@@ -196,11 +199,13 @@ function orientation(t: SurfaceTriangle): number {
   );
   if (scales.some((scale) => scale === 0)) return 0;
   const a = m.map((x, i) => x / scales[Math.floor(i / 3)]);
-  return Math.sign(
+  const result = Math.sign(
     a[0] * (a[4] * a[8] - a[7] * a[5]) -
       a[3] * (a[1] * a[8] - a[7] * a[2]) +
       a[6] * (a[1] * a[5] - a[4] * a[2]),
   );
+  if (captured) orientations.set(m, result);
+  return result;
 }
 
 function cross(a: SurfaceVec3, b: SurfaceVec3): SurfaceVec3 {
@@ -319,6 +324,7 @@ function validate(
         label + " has invalid identity; re-extract the surface",
       );
     if (!triangles.has(t)) {
+      if (!(captured && isCapturedTriangle(t))) {
       vector(t.vertexIndices, 3, label + " indices");
       if (
         !t.vertexIndices.every((n: number) => Number.isSafeInteger(n) && n >= 0)
@@ -341,6 +347,14 @@ function validate(
         if (v.uv1) vector(v.uv1, 2, label + " uv1");
         if (v.tangent) vector(v.tangent, 4, label + " tangent");
         if (v.color) vector(v.color, 4, label + " color");
+      }
+      } else {
+        // Private provenance comes only from validated, deeply frozen extraction,
+        // not Object.freeze supplied by a caller. Keep renderer float32 bounds
+        // and area checks; do not reflectively revalidate owned vertex channels.
+        if (!orientation(t)) fail("INVALID_SNAPSHOT", label + " has a singular normalMatrix");
+        for (const v of t.vertices)
+          if (v.position.some((n: number) => Math.abs(n) > MAX_FLOAT)) fail("INVALID_SNAPSHOT", label + " position exceeds finite Float32 bounds");
       }
       const face = cross(
         sub(t.vertices[1].position, t.vertices[0].position),

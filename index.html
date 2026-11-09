@@ -25,9 +25,18 @@
         pointer-events: none;
         white-space: pre;
       }
+      #loading { position:fixed;inset:0;z-index:100;background:#101215;color:#edf1f0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:14px system-ui;text-align:center;padding:24px; }
+      #loading[hidden], #loading-retry[hidden] { display:none; }
+      #loading strong { font-size:22px; }
+      #loading-message { overflow-wrap:anywhere;max-width:640px; }
+      #loading progress { width:220px;height:4px;accent-color:#72bca9; }
+      #loading-retry { color:inherit;background:#252b2c;border:1px solid #75817d;border-radius:4px;padding:10px 24px;cursor:pointer; }
+      #render-progress { position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:99;max-width:calc(100% - 48px);padding:8px 12px;border-radius:4px;background:#101215;color:#edf1f0;font:13px system-ui;overflow-wrap:anywhere; }
     </style>
   </head>
   <body>
+    <div id="loading" role="status" aria-live="polite"><strong>Pelican Engine</strong><progress aria-label="Loading"></progress><span id="loading-message">Initializing graphics...</span><button id="loading-retry" hidden onclick="location.reload()">Retry</button></div>
+    <output id="render-progress" aria-live="polite" hidden></output>
     <div id="status" hidden>Initializing graphics...</div>
     <script type="module" src="/packages/renderer/src/browser.ts"></script>
   </body>

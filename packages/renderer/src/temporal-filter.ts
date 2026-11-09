@@ -3,6 +3,8 @@ export interface TemporalFilterOptions {
   enabled?: boolean;
   reset?: boolean;
   progressive?: boolean;
+  /** Bound old lighting influence while retaining clipped, reprojected detail. */
+  reactive?: boolean;
 }
 
 export interface TemporalFilterInspection {
@@ -107,7 +109,7 @@ fn main(@builtin(global_invocation_id) id:vec3u) {
       if (!validSample(r) || !compatible(n,a,previousNormals[qi],previousAlbedo[qi],m.z)) { continue; }
       let w=select(1.0-f.x,f.x,x==1)*select(1.0-f.y,f.y,y==1);
       history+=r.rgb*w;
-      count+=min(r.w,32.0)*w;
+      count+=min(r.w,select(32.0,8.0,parameters.history==2u))*w;
       support+=w;
     }
   }
@@ -144,7 +146,7 @@ function fail(code: string, message: string): never {
 function validateOptions(options: TemporalFilterOptions): void {
   if (!options || typeof options !== "object" || Array.isArray(options))
     fail("OPTIONS", "Expected an options object.");
-  for (const key of ["enabled", "reset", "progressive"] as const)
+  for (const key of ["enabled", "reset", "progressive", "reactive"] as const)
     if (options[key] !== undefined && typeof options[key] !== "boolean")
       fail("OPTIONS", `${key} must be boolean.`);
 }
@@ -225,7 +227,7 @@ class GpuTemporalFilter implements TemporalFilter {
       for (let index = 0; index < 5; index++) {
         const buffer = this.device.createBuffer({
           label: `pelican temporal filter ${index}`,
-          size: index === 4 ? stride * 2 : size,
+          size: index === 4 ? stride * 3 : size,
           usage:
             index === 4
               ? GPUBufferUsage.UNIFORM
@@ -236,7 +238,7 @@ class GpuTemporalFilter implements TemporalFilter {
         buffers.push(buffer);
         const mapped = buffer.getMappedRange();
         if (index === 4) {
-          for (let history = 0; history < 2; history++)
+          for (let history = 0; history < 3; history++)
             new Uint32Array(mapped, history * stride, 4).set([
               width,
               height,
@@ -300,8 +302,8 @@ class GpuTemporalFilter implements TemporalFilter {
     if (
       !Number.isSafeInteger(stride) ||
       stride < 16 ||
-      stride * 2 > limits.maxBufferSize ||
-      size * 4 + stride * 2 > OWNED_BUDGET
+      stride * 3 > limits.maxBufferSize ||
+      size * 4 + stride * 3 > OWNED_BUDGET
     )
       fail(
         "BUDGET",
@@ -387,7 +389,7 @@ class GpuTemporalFilter implements TemporalFilter {
             binding: 8,
             resource: {
               buffer: next.buffers[4],
-              offset: useHistory ? stride : 0,
+              offset: useHistory ? stride * (options.reactive ? 2 : 1) : 0,
               size: 16,
             },
           },
@@ -426,7 +428,7 @@ class GpuTemporalFilter implements TemporalFilter {
     const a = this.allocation;
     return {
       entries: a ? 5 : 0,
-      bytes: a ? a.size * 4 + a.stride * 2 : 0,
+      bytes: a ? a.size * 4 + a.stride * 3 : 0,
       passes: this.passes,
       lastPasses: this.lastPasses,
       dimension: { width: a?.width ?? 0, height: a?.height ?? 0 },
@@ -642,7 +644,7 @@ export function temporalFilterReference(
           continue;
         const w = (x === 1 ? fx : 1 - fx) * (y === 1 ? fy : 1 - fy);
         for (let k = 0; k < 3; k++) history[k] += pr[k] * w;
-        count += Math.min(pr[3], 32) * w;
+        count += Math.min(pr[3], input.reactive ? 8 : 32) * w;
         support += w;
       }
     if (support < 0.01) continue;

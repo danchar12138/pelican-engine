@@ -3,6 +3,8 @@ import path from "node:path";
 
 /** Curated, asset-free source games; documentation and installed copies derive from these files. */
 const recipes = [
+  { id: "npm-geometry", anchor: "npm-geometry", title: "Third-party geometry without replacing the renderer", summary: "Use an ordinary npm mesh generator, keep indexed positions/normals/UVs and transfer plain data into managed geometry." },
+  { id: "startup-feedback", anchor: "startup-feedback", title: "Loading events and custom npm UI", summary: "Observe startup outside runtime setup, keep engine ownership intact and clean up external UI with an AbortSignal." },
   { id: "render-quality", anchor: "render-quality", title: "High/path default, quality switching and preparation", summary: "Select path/hybrid/raster tiers through public services, prepare tracing before switching and inspect readiness without reloading gameplay." },
   { id: "npm-component", anchor: "npm-component", title: "Instance-local npm dependency context", summary: "Pass browser resources and a real npm compression codec from setup to systems without globals or JSON dependency objects." },
   { id: "dynamic-texture", anchor: "dynamic-texture", title: "Dynamic PNG to managed texture", summary: "Fetch bounded bytes, decode with a game-owned npm codec, validate decoded size and publish a managed texture with save/restore." },
@@ -36,6 +38,7 @@ export async function readRecipeFiles(root: string, id: string, installed = fals
   return Object.fromEntries(await Promise.all((extraFiles[id] ?? []).map(async file => [file, await readFile(path.join(root, "examples", id, file), "utf8")])));
 }
 export function recipeDependencies(id: string): Record<string, string> {
+  if (id === "npm-geometry") return { three: "0.187.0", "@types/three": "0.187.0" };
   if (["runtime-lifecycle", "npm-component"].includes(id)) return { fflate: "0.8.3" };
   if (id === "dynamic-texture") return { "fast-png": "8.0.0" };
   return {};

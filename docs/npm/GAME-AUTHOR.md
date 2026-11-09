@@ -4,6 +4,8 @@
 
 ## 创建和查询
 
+画质、加载或卡顿任务先运行 `pelican guide --goal "动态室内低噪光追、加载进度和移动端性能优化"`。开发服务启动后运行 `pelican diagnose --port 4173`，按原因和精确查询修复，不因一张噪声截图直接换渲染器，也不靠降分辨率或隐藏失败实现要求。外部 npm 网格生成器用 `npm-geometry` 配方；自己的加载 UI 用 `startup-feedback` 配方及 `onEngineStartup`。
+
 第一次使用先运行 `npx --no-install pelican guide`，再用 `guide --goal "让角色跳跃并保存游戏"` 查询完整任务。精选任务与所有能力的派生入口提供方法、配方和限制；多个意图可以组合，但命中不代表整句话的所有要求都已支持，无配方的能力也不伪造完整例子。不要先通读源码或整份 API。
 
 需要 Node.js 24.x 和 npm。工具支持 Windows、macOS、Linux；玩家按浏览器实际图形能力检测，不按系统品牌白名单限制。
@@ -91,7 +93,7 @@ Use `ctx.audio.fadeBus` for mixer fades. 音频开始也受浏览器真实交互
 
 优先 WebGPU，WebGL2 只回退光栅。compute、混合和路径追踪不在 WebGL2 上伪装支持。路径追踪使用软件 BVH，不是硬件 RT。材质图、计算图、纹理与缓冲绑定是公开扩展入口；任意 Three.js/TSL 插件没有现成的引擎接入协议。
 
-默认高档为 path：2 samples/frame、8 bounces，时域与空间降噪开启，原生 DPR 与 studio IBL。`renderQuality()` / `"high"` 选择 path，`"medium"` 选择 hybrid，`"low"` 选择 raster 并关闭追踪降噪；`"realtime"` 现在别名高档，`"preview"` 别名中档，`"capture"` 保留4采样/12反弹、不滤波的 path。完整切档用 `ctx.render.configure(renderQuality("medium"))`；不是只改模式却忘记滤波预算。
+默认高档为 path：4 samples/frame、8 bounces，时域与空间降噪开启，原生 DPR 与 studio IBL。`renderQuality()` / `"high"` 选择 path，`"medium"` 选择 hybrid、2 samples/frame、4 bounces，`"low"` 选择 raster 并关闭追踪降噪；`"realtime"` 别名高档，`"preview"` 别名中档，`"capture"` 为4采样/12反弹、不滤波的 path。完整切档用 `ctx.render.configure(renderQuality("medium"))`；不是只改模式却忘记滤波预算。
 
 path/hybrid 需要实际 WebGPU，不支持时明确诊断，不自动冒充低档；启动 URL 的 `?quality=low` 是玩家显式选择，也可在游戏声明里配置 low。默认并不保证所有设备帧率，高模、分辨率、动态光照和降噪应实测。`lighting:"none"` 关闭 IBL，环境贴图与曝光仍尊重作者设置。光栅保留4096阴影图与设备各向异性过滤。
 

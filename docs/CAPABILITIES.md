@@ -7,6 +7,8 @@
 | 能力 | 使用入口 | 主要边界 |
 | --- | --- | --- |
 | npm 独立开发 | `pelican create/dev/check/build` | Node.js 24，Windows/macOS/Linux；平台检查结果以实际 CI 为准 |
+| 资产与材质槽发现 | `pelican assets [--id <id>]`、ModelDefinition.materialSlots | 从当前编译元数据分页查询，不自动按同名绑定材质，不等于异步模型流送 |
+| 启动与性能诊断 | engineStartup/onEngineStartup、`pelican diagnose` | 第三方 UI 可订阅启动；诊断为有范围的观测建议，不把 wall time 当作 GPU 时间或 FPS |
 | 普通 TypeScript 内容 | 项目 `content: "typescript"` | 可信的跨 Node/浏览器模块初始化、有限数据、同步系统、构建截止时间 |
 | 旧静态内容 | `content: "static"` 或省略 | 非执行式语法子集与 runtime libraries 配置，仅作兼容/可选入口 |
 | 通用玩法与作者实例 | 组件、系统、runtime.create、scope.own/defer、版本化保存 hooks | 同步系统；异步初始化等待 ready；闭包和第三方对象需要显式 JSON 状态协议 |

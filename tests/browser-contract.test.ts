@@ -97,6 +97,8 @@ function harness(names: string[], context: Record<string, unknown>) {
     postComposer: undefined,
     vertexBounds: undefined,
     surfaceTracer: undefined,
+    presentedTraceOwner: undefined,
+    presentedTraceKey: "",
     pendingSurface: undefined,
     recoveringGpu: false,
     recoveryCount: 0,

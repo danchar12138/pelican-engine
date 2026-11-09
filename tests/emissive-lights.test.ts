@@ -134,3 +134,20 @@ test("emitter history signature ignores traversal indices but detects actual lig
   opaque.geometry.dispose();
   (opaque.material as THREE.Material).dispose();
 });
+
+test("explicit-only changes reuse emitter distributions and compact PDF equals legacy lookup", () => {
+  const scene = new THREE.Scene(), material = new THREE.MeshStandardMaterial({ emissive: 0xffffff, emissiveIntensity: 2 });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(), material); scene.add(mesh);
+  const surface = extractSurfaceScene(scene), cache = createEmissiveLightCache(true);
+  const explicit = new Float32Array([0, 2, 0, 0, 1, 1, 1, 0, 1, 0, 0, 2]);
+  const first = cache.update(surface, surface.triangles, explicit);
+  const changed = explicit.slice(); changed[4] = 2;
+  const next = cache.update(surface, surface.triangles, changed);
+  const full = appendEmissiveLights(surface, surface.triangles, changed);
+  assert.deepEqual(next.data, full.data); assert.equal(next.signature, full.signature);
+  assert.equal(next.probabilities, first.probabilities);
+  assert.equal(next.gpuData.length, next.data.length);
+  next.probabilities.forEach((probability, i) => assert.equal(probability, full.gpuData[full.data.length + i * 12 + 1]));
+  assert.equal(cache.inspect().builds, 1); assert.equal(cache.inspect().explicitUpdates, 1);
+  mesh.geometry.dispose(); material.dispose();
+});
